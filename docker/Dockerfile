@@ -19,8 +19,13 @@ ENV RAILS_SERVE_STATIC_FILES ${RAILS_SERVE_STATIC_FILES}
 ARG RAILS_ENV=production
 ENV RAILS_ENV ${RAILS_ENV}
 
-ARG NODE_OPTIONS="--max-old-space-size=4096 --openssl-legacy-provider"
+ARG NODE_OPTIONS="--max-old-space-size=1536 --openssl-legacy-provider"
 ENV NODE_OPTIONS ${NODE_OPTIONS}
+
+# Memory optimization for Ruby/Bundler during build
+ENV RUBY_GC_HEAP_GROWTH_FACTOR=1.1
+ENV RUBY_GC_MALLOC_LIMIT=16000000
+ENV MALLOC_ARENA_MAX=2
 
 ENV BUNDLE_PATH="/gems"
 
@@ -66,13 +71,18 @@ RUN apk update && apk add --no-cache build-base musl ruby-full ruby-dev gcc make
 RUN bundle config set --local force_ruby_platform true
 
 # Do not install development or test gems in production
+# Using -j 2 to reduce memory usage during parallel gem compilation
 RUN if [ "$RAILS_ENV" = "production" ]; then \
-  bundle config set without 'development test'; bundle install -j 4 -r 3; \
-  else bundle install -j 4 -r 3; \
+  bundle config set without 'development test'; bundle install -j 2 -r 3; \
+  else bundle install -j 2 -r 3; \
   fi
 
+# Clean gem cache and build artifacts immediately to free memory before pnpm
+RUN rm -rf /gems/ruby/*/cache/*.gem \
+  && find /gems \( -name "*.c" -o -name "*.o" \) -delete 2>/dev/null || true
+
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm i
+RUN pnpm i --frozen-lockfile
 
 COPY . /app
 
@@ -81,19 +91,24 @@ COPY . /app
 RUN mkdir -p /app/log
 
 # generate production assets if production environment
+# Memory optimizations: Disable Spring, reduce GC pressure, constrain memory
 RUN if [ "$RAILS_ENV" = "production" ]; then \
-  SECRET_KEY_BASE=precompile_placeholder RAILS_LOG_TO_STDOUT=enabled bundle exec rake assets:precompile \
-  && rm -rf spec node_modules tmp/cache; \
+  DISABLE_SPRING=1 \
+  MALLOC_ARENA_MAX=2 \
+  RUBY_GC_HEAP_GROWTH_FACTOR=1.1 \
+  SECRET_KEY_BASE=precompile_placeholder \
+  RAILS_LOG_TO_STDOUT=enabled \
+  bundle exec rake assets:precompile \
+  && rm -rf spec node_modules tmp/cache .pnpm-store; \
   fi
 
 # Generate .git_sha file with current commit hash
 RUN git rev-parse HEAD > /app/.git_sha
 
-# Remove unnecessary files
-RUN rm -rf /gems/ruby/3.4.0/cache/*.gem \
-  && find /gems/ruby/3.4.0/gems/ \( -name "*.c" -o -name "*.o" \) -delete \
-  && rm -rf .git \
-  && rm .gitignore
+# Remove unnecessary files and clean up
+RUN rm -rf /gems/ruby/*/cache/*.gem \
+  && find /gems \( -name "*.c" -o -name "*.o" \) -delete 2>/dev/null || true \
+  && rm -rf .git .gitignore tmp/cache
 
 # final build stage
 FROM ruby:3.4.4-alpine3.21

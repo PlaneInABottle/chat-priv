@@ -1,0 +1,63 @@
+# Render Blueprint for Chatwoot
+# See: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: chatwoot-web
+    runtime: docker
+    # Use the memory-optimized Dockerfile for Render
+    dockerfilePath: docker/Dockerfile.render
+    dockerContext: .
+    # Recommend Pro instance (8GB RAM) for builds with heavy gems
+    # Standard (4GB) may work with the optimized Dockerfile
+    plan: pro
+    healthCheckPath: /
+    envVars:
+      - key: RAILS_ENV
+        value: production
+      - key: RAILS_SERVE_STATIC_FILES
+        value: "true"
+      - key: SECRET_KEY_BASE
+        generateValue: true
+      - key: FRONTEND_URL
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: chatwoot-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: chatwoot-redis
+          type: redis
+          property: connectionString
+
+  - type: worker
+    name: chatwoot-worker
+    runtime: docker
+    dockerfilePath: docker/Dockerfile.render
+    dockerContext: .
+    plan: standard
+    dockerCommand: bundle exec sidekiq -C config/sidekiq.yml
+    envVars:
+      - key: RAILS_ENV
+        value: production
+      - key: SECRET_KEY_BASE
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: chatwoot-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: chatwoot-redis
+          type: redis
+          property: connectionString
+
+databases:
+  - name: chatwoot-db
+    plan: standard
+    databaseName: chatwoot
+    user: chatwoot
+
+# Redis managed service
+  # Note: Use Render's managed Redis or external Redis service
