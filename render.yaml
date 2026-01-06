@@ -11,7 +11,7 @@ services:
     # Recommend Pro instance (8GB RAM) for builds with heavy gems
     # Standard (4GB) may work with the optimized Dockerfile
     plan: pro
-    healthCheckPath: /
+    healthCheckPath: /api
     # Enable Docker layer caching for faster subsequent builds
     buildCache: enabled
     preDeployCommand: bundle exec rails db:prepare
@@ -40,7 +40,6 @@ services:
     dockerfilePath: docker/Dockerfile.render
     dockerContext: .
     plan: standard
-    preDeployCommand: bundle exec rails db:prepare
     dockerCommand: bundle exec sidekiq -C config/sidekiq.yml
     envVars:
       - key: RAILS_ENV
@@ -63,5 +62,7 @@ databases:
     databaseName: chatwoot
     user: chatwoot
 
-# Redis managed service
-  # Note: Use Render's managed Redis or external Redis service
+redis:
+  - name: chatwoot-redis
+    plan: standard
+    maxmemoryPolicy: allkeys-lru
