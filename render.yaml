@@ -14,6 +14,7 @@ services:
     healthCheckPath: /
     # Enable Docker layer caching for faster subsequent builds
     buildCache: enabled
+    preDeployCommand: bundle exec rails db:prepare
     envVars:
       - key: RAILS_ENV
         value: production
@@ -39,6 +40,7 @@ services:
     dockerfilePath: docker/Dockerfile.render
     dockerContext: .
     plan: standard
+    preDeployCommand: bundle exec rails db:prepare
     dockerCommand: bundle exec sidekiq -C config/sidekiq.yml
     envVars:
       - key: RAILS_ENV

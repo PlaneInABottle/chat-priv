@@ -18,7 +18,17 @@ module ChatwootApp
   end
 
   def self.chatwoot_cloud?
-    enterprise? && GlobalConfig.get_value('DEPLOYMENT_ENV') == 'cloud'
+    return false unless enterprise?
+    
+    deployment_env = ENV.fetch('DEPLOYMENT_ENV', nil)
+    return deployment_env == 'cloud' if deployment_env.present?
+    
+    begin
+      GlobalConfig.get_value('DEPLOYMENT_ENV') == 'cloud'
+    rescue StandardError => e
+      Rails.logger.debug("Error checking chatwoot_cloud: #{e.message}")
+      false
+    end
   end
 
   def self.custom?
@@ -44,9 +54,24 @@ module ChatwootApp
   end
 
   def self.otel_enabled?
-    otel_provider = InstallationConfig.find_by(name: 'OTEL_PROVIDER')&.value
-    secret_key = InstallationConfig.find_by(name: 'LANGFUSE_SECRET_KEY')&.value
+    return false unless database_ready?
+    
+    begin
+      otel_provider = InstallationConfig.find_by(name: 'OTEL_PROVIDER')&.value
+      secret_key = InstallationConfig.find_by(name: 'LANGFUSE_SECRET_KEY')&.value
 
-    otel_provider.present? && secret_key.present? && otel_provider == 'langfuse'
+      otel_provider.present? && secret_key.present? && otel_provider == 'langfuse'
+    rescue StandardError => e
+      Rails.logger.debug("Error checking otel_enabled: #{e.message}")
+      false
+    end
+  end
+
+  private
+
+  def self.database_ready?
+    ActiveRecord::Base.connected? && InstallationConfig.table_exists?
+  rescue StandardError
+    false
   end
 end
