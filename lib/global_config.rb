@@ -52,18 +52,18 @@ class GlobalConfig
 
     def db_fallback(config_key)
       return nil unless database_ready?
-      
+
       InstallationConfig.find_by(name: config_key)&.value
-    rescue ActiveRecord::NoDatabaseError, ActiveRecord::ConnectionNotEstablished, PG::ConnectionBad, 
+    rescue ActiveRecord::NoDatabaseError, ActiveRecord::ConnectionNotEstablished, PG::ConnectionBad,
            ActiveRecord::StatementInvalid => e
-      Rails.logger.warn("Database unavailable during config load: #{e.message}")
+      Rails.logger.warn { "Database unavailable during config load: #{e.message}" }
       nil
     end
 
     def database_ready?
       ActiveRecord::Base.connected? && InstallationConfig.table_exists?
     rescue StandardError => e
-      Rails.logger.debug("Database readiness check failed: #{e.message}")
+      Rails.logger.debug { "Database readiness check failed: #{e.message}" }
       false
     end
   end
