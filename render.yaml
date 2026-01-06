@@ -56,13 +56,10 @@ services:
           type: redis
           property: connectionString
 
-databases:
-  - name: chatwoot-db
-    plan: standard
-    databaseName: chatwoot
-    user: chatwoot
-
-redis:
-  - name: chatwoot-redis
+  - type: keyvalue
+    name: chatwoot-redis
     plan: standard
     maxmemoryPolicy: allkeys-lru
+    ipAllowList: []
+
+databases:
