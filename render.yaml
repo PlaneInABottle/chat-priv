@@ -23,7 +23,7 @@ services:
       - key: SECRET_KEY_BASE
         generateValue: true
       - key: FRONTEND_URL
-        sync: false
+        value: https://chatwoot-web.onrender.com  # Change to your actual Render web service URL
       - key: DATABASE_URL
         fromDatabase:
           name: chatwoot-db
@@ -45,7 +45,7 @@ services:
       - key: RAILS_ENV
         value: production
       - key: SECRET_KEY_BASE
-        sync: false
+        generateValue: true
       - key: DATABASE_URL
         fromDatabase:
           name: chatwoot-db
