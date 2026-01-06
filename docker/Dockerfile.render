@@ -1,5 +1,5 @@
-# Render-optimized Dockerfile for memory-constrained builds (~4GB)
-# Optimized for build speed while staying under 4GB peak memory
+# Render-optimized Dockerfile for Performance pipeline (64GB RAM, 16 CPU)
+# Optimized for maximum build speed with high parallelization
 
 # pre-build stage
 FROM node:23.7.0-alpine AS node
@@ -21,14 +21,15 @@ ENV RAILS_SERVE_STATIC_FILES ${RAILS_SERVE_STATIC_FILES}
 ARG RAILS_ENV=production
 ENV RAILS_ENV ${RAILS_ENV}
 
-# Node memory sized to avoid GC thrashing while staying under 4GB total
-ARG NODE_OPTIONS="--max-old-space-size=1536 --openssl-legacy-provider"
+# Node memory optimized for Performance pipeline (64GB RAM available)
+# Increased from 1536MB to take advantage of available memory
+ARG NODE_OPTIONS="--max-old-space-size=8192 --openssl-legacy-provider"
 ENV NODE_OPTIONS ${NODE_OPTIONS}
 
-# Balanced memory settings for faster builds under 4GB constraint
-ENV RUBY_GC_HEAP_GROWTH_FACTOR=1.2
-ENV RUBY_GC_MALLOC_LIMIT=16000000
-ENV MALLOC_ARENA_MAX=4
+# Aggressive memory settings for fastest builds with 64GB RAM available
+ENV RUBY_GC_HEAP_GROWTH_FACTOR=1.5
+ENV RUBY_GC_MALLOC_LIMIT=32000000
+ENV MALLOC_ARENA_MAX=8
 ENV BUNDLE_PATH="/gems"
 
 RUN apk add --no-cache \
@@ -66,11 +67,11 @@ COPY Gemfile Gemfile.lock ./
 RUN bundle config set --local force_ruby_platform true \
   && bundle config set --local clean 'true'
 
-# Serial gem installation (j=1) to avoid OOM on Render's 8GB build limit
-# Native compilation on Alpine can spike memory; single-threaded avoids peak RAM issues
+# Parallel gem installation with max jobs for Performance pipeline (64GB RAM, 16 CPU)
+# Using higher parallelism now that we have plenty of memory headroom
 RUN if [ "$RAILS_ENV" = "production" ]; then \
-  bundle config set without 'development test'; bundle install -j 1 -r 3 --no-cache; \
-  else bundle install -j 1 -r 3 --no-cache; \
+  bundle config set without 'development test'; bundle install -j 8 -r 3; \
+  else bundle install -j 8 -r 3; \
   fi
 
 # Aggressive cleanup after bundle install
@@ -86,12 +87,12 @@ COPY . /app
 
 RUN mkdir -p /app/log
 
-# Asset precompile with balanced settings for speed
+# Asset precompile with aggressive settings for Performance pipeline
 RUN if [ "$RAILS_ENV" = "production" ]; then \
   DISABLE_SPRING=1 \
-  MALLOC_ARENA_MAX=4 \
-  RUBY_GC_HEAP_GROWTH_FACTOR=1.2 \
-  RUBY_GC_MALLOC_LIMIT=16000000 \
+  MALLOC_ARENA_MAX=8 \
+  RUBY_GC_HEAP_GROWTH_FACTOR=1.5 \
+  RUBY_GC_MALLOC_LIMIT=32000000 \
   SECRET_KEY_BASE=precompile_placeholder \
   RAILS_LOG_TO_STDOUT=enabled \
   bundle exec rake assets:precompile \
