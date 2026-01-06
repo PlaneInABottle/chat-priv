@@ -63,3 +63,7 @@ services:
     ipAllowList: []
 
 databases:
+  - name: chatwoot-db
+    plan: standard
+    databaseName: chatwoot
+    user: chatwoot
