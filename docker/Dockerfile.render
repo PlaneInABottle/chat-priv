@@ -94,7 +94,7 @@ RUN if [ "$RAILS_ENV" = "production" ]; then \
   fi
 
 # Generate .git_sha file
-RUN git rev-parse HEAD > /app/.git_sha
+RUN if [ -d .git ]; then git rev-parse HEAD > /app/.git_sha; else echo "unknown" > /app/.git_sha; fi
 
 # Final cleanup
 RUN rm -rf /gems/ruby/*/cache/*.gem \
