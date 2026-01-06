@@ -1,5 +1,5 @@
 # pre-build stage
-FROM node:23-alpine as node
+FROM node:23.7.0-alpine AS node
 FROM ruby:3.4.4-alpine3.21 AS pre-builder
 
 ARG NODE_VERSION="23.7.0"
@@ -110,6 +110,8 @@ RUN rm -rf /gems/ruby/*/cache/*.gem \
   && find /gems \( -name "*.c" -o -name "*.o" \) -delete 2>/dev/null || true \
   && rm -rf .git .gitignore tmp/cache
 
+RUN mkdir -p /app/tmp/cache /app/tmp/pids /app/tmp/sockets
+
 # final build stage
 FROM ruby:3.4.4-alpine3.21
 
@@ -136,13 +138,12 @@ ENV RAILS_ENV ${RAILS_ENV}
 ENV BUNDLE_PATH="/gems"
 
 RUN apk update && apk add --no-cache \
-  build-base \
   openssl \
   tzdata \
   postgresql-client \
   imagemagick \
-  git \
   vips \
+  libstdc++ \
   && gem install bundler
 
 COPY --from=node /usr/local/bin/node /usr/local/bin/
@@ -159,9 +160,11 @@ RUN if [ "$RAILS_ENV" != "production" ]; then \
 COPY --from=pre-builder /gems/ /gems/
 COPY --from=pre-builder /app /app
 
-# Copy .git_sha file from pre-builder stage
-COPY --from=pre-builder /app/.git_sha /app/.git_sha
-
 WORKDIR /app
+
+RUN adduser -D -u 1000 chatwoot
+USER chatwoot
+
+CMD ["bundle", "exec", "rails", "server", "-b", "0.0.0.0"]
 
 EXPOSE 3000
