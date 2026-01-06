@@ -12,6 +12,8 @@ services:
     # Standard (4GB) may work with the optimized Dockerfile
     plan: pro
     healthCheckPath: /
+    # Enable Docker layer caching for faster subsequent builds
+    buildCache: enabled
     envVars:
       - key: RAILS_ENV
         value: production
