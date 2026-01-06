@@ -60,6 +60,5 @@ jobs:
             planeinabottle/simwoot:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          # Build arguments can be added here if needed
-          # build-args: |
-          #   RAILS_ENV=production
+          build-args: |
+            GIT_SHA=${{ github.sha }}

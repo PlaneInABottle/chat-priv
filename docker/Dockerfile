@@ -29,8 +29,9 @@ ENV MALLOC_ARENA_MAX=2
 
 ENV BUNDLE_PATH="/gems"
 
-RUN apk update && apk add --no-cache \
+RUN apk add --no-cache \
   openssl \
+  openssl-dev \
   tar \
   build-base \
   tzdata \
@@ -39,6 +40,11 @@ RUN apk update && apk add --no-cache \
   git \
   curl \
   xz \
+  musl-dev \
+  linux-headers \
+  ruby-full \
+  ruby-dev \
+  vips \
   && mkdir -p /var/app \
   && gem install bundler
 
@@ -62,12 +68,6 @@ ENV PATH="$PNPM_HOME:$PATH"
 WORKDIR /app
 
 COPY Gemfile Gemfile.lock ./
-
-# natively compile grpc and protobuf to support alpine musl (dialogflow-docker workflow)
-# https://github.com/googleapis/google-cloud-ruby/issues/13306
-# adding xz as nokogiri was failing to build libxml
-# https://github.com/chatwoot/chatwoot/issues/4045
-RUN apk update && apk add --no-cache build-base musl ruby-full ruby-dev gcc make musl-dev openssl openssl-dev g++ linux-headers xz vips
 RUN bundle config set --local force_ruby_platform true
 
 # Do not install development or test gems in production
@@ -102,9 +102,6 @@ RUN if [ "$RAILS_ENV" = "production" ]; then \
   && rm -rf spec node_modules tmp/cache .pnpm-store; \
   fi
 
-# Generate .git_sha file with current commit hash
-RUN if [ -d .git ]; then git rev-parse HEAD > /app/.git_sha; else echo "unknown" > /app/.git_sha; fi
-
 # Remove unnecessary files and clean up
 RUN rm -rf /gems/ruby/*/cache/*.gem \
   && find /gems \( -name "*.c" -o -name "*.o" \) -delete 2>/dev/null || true \
@@ -117,6 +114,7 @@ FROM ruby:3.4.4-alpine3.21
 
 ARG NODE_VERSION="23.7.0"
 ARG PNPM_VERSION="10.2.0"
+ARG GIT_SHA="unknown"
 ENV NODE_VERSION=${NODE_VERSION}
 ENV PNPM_VERSION=${PNPM_VERSION}
 
@@ -137,7 +135,7 @@ ARG RAILS_ENV=production
 ENV RAILS_ENV ${RAILS_ENV}
 ENV BUNDLE_PATH="/gems"
 
-RUN apk update && apk add --no-cache \
+RUN apk add --no-cache \
   openssl \
   tzdata \
   postgresql-client \
@@ -162,7 +160,10 @@ COPY --from=pre-builder /app /app
 
 WORKDIR /app
 
-RUN adduser -D -u 1000 chatwoot
+RUN adduser -D -u 1000 chatwoot \
+  && echo "${GIT_SHA}" > /app/.git_sha \
+  && chown -R chatwoot:chatwoot /app /gems
+
 USER chatwoot
 
 CMD ["bundle", "exec", "rails", "server", "-b", "0.0.0.0"]

@@ -38,3 +38,5 @@ jobs:
           load: false
           cache-from: type=gha,scope=${{ matrix.platform }}
           cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+          build-args: |
+            GIT_SHA=${{ github.sha }}
