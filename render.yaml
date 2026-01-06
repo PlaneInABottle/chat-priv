@@ -12,7 +12,6 @@ services:
     # Recommend Pro instance (8GB RAM) for builds with heavy gems
     # Standard (4GB) may work with the optimized Dockerfile
     plan: starter
-    autoDeployTrigger: 'off'
     healthCheckPath: /api
     preDeployCommand: bundle exec rails db:prepare
     envVars:
@@ -41,7 +40,6 @@ services:
     dockerfilePath: docker/Dockerfile.render
     dockerContext: .
     plan: starter
-    autoDeployTrigger: 'off'
     dockerCommand: bundle exec sidekiq -C config/sidekiq.yml
     envVars:
       - key: RAILS_ENV
