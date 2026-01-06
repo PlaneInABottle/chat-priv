@@ -81,6 +81,8 @@ RUN rm -rf /gems/ruby/*/cache/*.gem \
   && find /gems -name "*.a" -delete 2>/dev/null || true
 
 COPY package.json pnpm-lock.yaml ./
+# Disable Husky git hooks in Docker builds (no .git directory)
+ENV HUSKY=0
 RUN pnpm i --frozen-lockfile
 
 COPY . /app
