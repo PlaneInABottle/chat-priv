@@ -11,7 +11,7 @@ ENV PNPM_VERSION=${PNPM_VERSION}
 # For development docker-compose file overrides ARGS
 ARG BUNDLE_WITHOUT="development:test"
 ENV BUNDLE_WITHOUT ${BUNDLE_WITHOUT}
-ENV BUNDLER_VERSION=2.5.11
+ENV BUNDLER_VERSION=4.0.3
 
 ARG RAILS_SERVE_STATIC_FILES=true
 ENV RAILS_SERVE_STATIC_FILES ${RAILS_SERVE_STATIC_FILES}
@@ -46,7 +46,7 @@ RUN apk add --no-cache \
   ruby-dev \
   vips \
   && mkdir -p /var/app \
-  && gem install bundler
+  && gem install bundler -v 4.0.3 --no-document
 
 COPY --from=node /usr/local/bin/node /usr/local/bin/
 COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
@@ -120,7 +120,7 @@ ENV PNPM_VERSION=${PNPM_VERSION}
 
 ARG BUNDLE_WITHOUT="development:test"
 ENV BUNDLE_WITHOUT ${BUNDLE_WITHOUT}
-ENV BUNDLER_VERSION=2.5.11
+ENV BUNDLER_VERSION=4.0.3
 
 ARG EXECJS_RUNTIME="Disabled"
 ENV EXECJS_RUNTIME ${EXECJS_RUNTIME}
@@ -142,7 +142,7 @@ RUN apk add --no-cache \
   imagemagick \
   vips \
   libstdc++ \
-  && gem install bundler
+  && gem install bundler -v 4.0.3 --no-document
 
 COPY --from=node /usr/local/bin/node /usr/local/bin/
 COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
