@@ -9,9 +9,8 @@ services:
     # Use the memory-optimized Dockerfile for Render
     dockerfilePath: docker/Dockerfile.render
     dockerContext: .
-    # Recommend Pro instance (8GB RAM) for builds with heavy gems
-    # Standard (4GB) may work with the optimized Dockerfile
-    plan: starter
+    # Standard instance (4GB RAM) - sufficient with optimized Dockerfile
+    plan: standard
     healthCheckPath: /api
     preDeployCommand: bundle exec rails db:prepare
     envVars:
