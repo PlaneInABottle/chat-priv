@@ -100,8 +100,9 @@ export function usePolicy() {
       );
     }
 
-    // default to true
-    return true;
+    // For community editions (self-hosted with default 'Chatwoot' name),
+    // respect the feature flag setting
+    return isFeatureFlagEnabled(flag);
   };
 
   const shouldShowPaywall = featureFlag => {
