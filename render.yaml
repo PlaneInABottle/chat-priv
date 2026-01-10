@@ -20,7 +20,7 @@ services:
       - key: RAILS_SERVE_STATIC_FILES
         value: "true"
       - key: SECRET_KEY_BASE
-        generateValue: true
+        sync: false # Must be the SAME value for web + worker (do not auto-generate per service)
       - key: DISABLE_ENTERPRISE
         value: "true"
       - key: FRONTEND_URL
@@ -70,7 +70,7 @@ services:
       - key: RAILS_ENV
         value: production
       - key: SECRET_KEY_BASE
-        generateValue: true
+        sync: false # Must be the SAME value for web + worker (do not auto-generate per service)
       - key: DISABLE_ENTERPRISE
         value: "true"
       - key: FRONTEND_URL

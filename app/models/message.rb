@@ -150,7 +150,10 @@ class Message < ApplicationRecord
       conversation: conversation.present? ? conversation_push_event_data : nil
     )
     data[:echo_id] = echo_id if echo_id.present?
-    data[:attachments] = attachments.map(&:push_event_data) if attachments.present?
+
+    attachments_payload = attachments.map(&:push_event_data).compact
+    data[:attachments] = attachments_payload if attachments_payload.present?
+
     merge_sender_attributes(data)
   end
 
@@ -185,7 +188,8 @@ class Message < ApplicationRecord
       sender: sender.try(:webhook_data),
       source_id: source_id
     }
-    data[:attachments] = attachments.map(&:push_event_data) if attachments.present?
+    attachments_payload = attachments.map(&:push_event_data).compact
+    data[:attachments] = attachments_payload if attachments_payload.present?
     data
   end
 
