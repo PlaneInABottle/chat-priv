@@ -215,7 +215,20 @@ export const mutations = {
 
     const pendingMessageIndex = findPendingMessageIndex(chat, message);
     if (pendingMessageIndex !== -1) {
-      chat.messages[pendingMessageIndex] = message;
+      const existingMessage = chat.messages[pendingMessageIndex];
+      const hasAttachmentsField = Object.prototype.hasOwnProperty.call(
+        message,
+        'attachments'
+      );
+      const isDeleted = !!message.content_attributes?.deleted;
+      const shouldPreserveAttachments =
+        !isDeleted &&
+        !hasAttachmentsField &&
+        existingMessage?.attachments?.length;
+
+      chat.messages[pendingMessageIndex] = shouldPreserveAttachments
+        ? { ...message, attachments: existingMessage.attachments }
+        : message;
     } else {
       chat.messages.push(message);
       chat.timestamp = message.created_at;
