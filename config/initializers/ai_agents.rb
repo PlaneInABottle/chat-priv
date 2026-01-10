@@ -3,6 +3,9 @@
 require 'agents'
 
 Rails.application.config.after_initialize do
+  # Skip AI Agents configuration if database isn't ready (during asset precompile, etc.)
+  next unless ActiveRecord::Base.connection.present? && InstallationConfig.table_exists?
+
   api_key = InstallationConfig.find_by(name: 'CAPTAIN_OPEN_AI_API_KEY')&.value
   model = InstallationConfig.find_by(name: 'CAPTAIN_OPEN_AI_MODEL')&.value.presence || LlmConstants::DEFAULT_MODEL
   api_endpoint = InstallationConfig.find_by(name: 'CAPTAIN_OPEN_AI_ENDPOINT')&.value || LlmConstants::OPENAI_API_ENDPOINT
@@ -19,5 +22,5 @@ Rails.application.config.after_initialize do
     end
   end
 rescue StandardError => e
-  Rails.logger.error "Failed to configure AI Agents SDK: #{e.message}"
+  Rails.logger.error { "Failed to configure AI Agents SDK: #{e.message}" }
 end
