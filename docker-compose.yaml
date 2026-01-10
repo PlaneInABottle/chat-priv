@@ -1,15 +1,13 @@
-version: '3'
-
 services:
   base: &base
     build:
       context: .
       dockerfile: ./docker/Dockerfile
       args:
-        BUNDLE_WITHOUT: ''
-        EXECJS_RUNTIME: 'Node'
-        RAILS_ENV: 'development'
-        RAILS_SERVE_STATIC_FILES: 'false'
+        BUNDLE_WITHOUT: ""
+        EXECJS_RUNTIME: "Node"
+        RAILS_ENV: "development"
+        RAILS_SERVE_STATIC_FILES: "false"
     tty: true
     stdin_open: true
     image: chatwoot:development
@@ -26,13 +24,16 @@ services:
       - node_modules:/app/node_modules
       - packs:/app/public/packs
       - cache:/app/tmp/cache
-      - bundle:/usr/local/bundle
+      - bundle:/gems
     depends_on:
-      - postgres
-      - redis
-      - vite
-      - mailhog
-      - sidekiq
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      vite:
+        condition: service_started
+      mailhog:
+        condition: service_started
     ports:
       - 3000:3000
     env_file: .env
@@ -51,14 +52,20 @@ services:
       - node_modules:/app/node_modules
       - packs:/app/public/packs
       - cache:/app/tmp/cache
-      - bundle:/usr/local/bundle
+      - bundle:/gems
     depends_on:
-      - postgres
-      - redis
-      - mailhog
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
+      rails:
+        condition: service_started
     environment:
       - NODE_ENV=development
       - RAILS_ENV=development
+    entrypoint: docker/entrypoints/sidekiq.sh
     command: ["bundle", "exec", "sidekiq", "-C", "config/sidekiq.yml"]
 
   vite:
@@ -72,9 +79,9 @@ services:
       - node_modules:/app/node_modules
       - packs:/app/public/packs
       - cache:/app/tmp/cache
-      - bundle:/usr/local/bundle
+      - bundle:/gems
     ports:
-      - "3036:3036" # Vite dev server
+      - "3036:3036"
     environment:
       - VITE_DEV_SERVER_HOST=0.0.0.0
       - NODE_ENV=development
@@ -86,23 +93,34 @@ services:
     image: pgvector/pgvector:pg16
     restart: always
     ports:
-      - '5432:5432'
+      - "5432:5432"
     volumes:
-      - postgres:/data/postgres
+      - postgres:/var/lib/postgresql/data
+    env_file: .env
     environment:
       - POSTGRES_DB=chatwoot
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d chatwoot"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:alpine
     restart: always
-    command: ["sh", "-c", "redis-server --requirepass \"$REDIS_PASSWORD\""]
+    command: ["sh", "-c", "redis-server --requirepass \"${REDIS_PASSWORD:-}\""]
     env_file: .env
     volumes:
-      - redis:/data/redis
+      - redis:/data
     ports:
-      - '6379:6379'
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   mailhog:
     image: mailhog/mailhog
