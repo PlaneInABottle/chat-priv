@@ -220,15 +220,29 @@ export const mutations = {
         message,
         'attachments'
       );
+      const incomingAttachments = hasAttachmentsField
+        ? (Array.isArray(message.attachments)
+            ? message.attachments.filter(Boolean)
+            : message.attachments)
+        : undefined;
+
       const isDeleted = !!message.content_attributes?.deleted;
+      const isReplacingPendingMessage =
+        existingMessage?.status === MESSAGE_STATUS.PROGRESS;
+
       const shouldPreserveAttachments =
         !isDeleted &&
-        !hasAttachmentsField &&
-        existingMessage?.attachments?.length;
+        existingMessage?.attachments?.length &&
+        (!hasAttachmentsField ||
+          (isReplacingPendingMessage &&
+            Array.isArray(incomingAttachments) &&
+            incomingAttachments.length === 0));
 
       chat.messages[pendingMessageIndex] = shouldPreserveAttachments
         ? { ...message, attachments: existingMessage.attachments }
-        : message;
+        : hasAttachmentsField
+          ? { ...message, attachments: incomingAttachments }
+          : message;
     } else {
       chat.messages.push(message);
       chat.timestamp = message.created_at;
