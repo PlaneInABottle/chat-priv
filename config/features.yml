@@ -33,7 +33,7 @@
   enabled: false
 - name: help_center
   display_name: Help Center
-  enabled: true
+  enabled: false
   help_url: https://chwt.app/hc/help-center
 - name: agent_bots
   display_name: Agent Bots
@@ -62,7 +62,7 @@
   help_url: https://chwt.app/hc/custom-attributes
 - name: automations
   display_name: Automations
-  enabled: true
+  enabled: false
 - name: canned_responses
   display_name: Canned Responses
   enabled: true
@@ -83,7 +83,7 @@
   enabled: true
 - name: campaigns
   display_name: Campaigns
-  enabled: true
+  enabled: false
   help_url: https://chwt.app/hc/campaigns
 - name: reports
   display_name: Reports
