@@ -240,5 +240,76 @@ RSpec.describe Telegram::SendAttachmentsService do
       expect(wrapper.read).to eq('payload')
       expect(wrapper.path).to eq(tempfile.path)
     end
+
+    context 'when reading binary data' do
+      it 'force encodes binary data with UTF-8 encoding tag' do
+        # Simulate binary PDF/PNG content that would typically have BINARY encoding
+        binary_content = "\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR".b
+        tempfile.binmode
+        tempfile.write(binary_content)
+        tempfile.rewind
+
+        wrapper = described_class.new(tempfile, filename: 'image.png', content_type: 'image/png')
+        result = wrapper.read
+
+        # Verify bytes are preserved
+        expect(result.bytes).to eq(binary_content.bytes)
+        # Verify encoding is UTF-8 (matching HTTParty's multipart buffer encoding)
+        expect(result.encoding).to eq(Encoding::UTF_8)
+      end
+
+      it 'handles non-ASCII filename with binary content without encoding error' do
+        # Simulate the exact error scenario: Turkish/non-ASCII filename + binary PDF
+        turkish_filename = 'Sineklik_Montaj_Talimatı.pdf'
+        pdf_path = Rails.root.join('spec/assets/sample.pdf')
+        binary_content = File.binread(pdf_path)
+
+        tempfile.binmode
+        tempfile.write(binary_content)
+        tempfile.rewind
+
+        wrapper = described_class.new(tempfile, filename: turkish_filename, content_type: 'application/pdf')
+
+        # Verify no encoding error is raised when reading
+        expect { wrapper.read }.not_to raise_error
+
+        wrapper.rewind
+        result = wrapper.read
+
+        # Verify bytes are intact
+        expect(result.bytes).to eq(binary_content.bytes)
+        # Verify encoding is UTF-8
+        expect(result.encoding).to eq(Encoding::UTF_8)
+      end
+
+      it 'handles empty file returning empty string' do
+        # Empty tempfile - do not write anything
+        tempfile.rewind
+
+        wrapper = described_class.new(tempfile, filename: 'empty.txt', content_type: 'text/plain')
+        result = wrapper.read
+
+        # Assert returns empty string, not nil
+        expect(result).to eq('')
+        expect(result).not_to be_nil
+      end
+
+      it 'applies UTF-8 encoding to partial reads with read(n)' do
+        binary_content = "\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x10".b
+        tempfile.binmode
+        tempfile.write(binary_content)
+        tempfile.rewind
+
+        wrapper = described_class.new(tempfile, filename: 'image.png', content_type: 'image/png')
+
+        # Partial read
+        result = wrapper.read(10)
+
+        # Verify encoding is UTF-8
+        expect(result.encoding).to eq(Encoding::UTF_8)
+        # Verify bytes match the first 10 bytes
+        expect(result.bytes).to eq(binary_content.bytes[0, 10])
+      end
+    end
   end
 end
