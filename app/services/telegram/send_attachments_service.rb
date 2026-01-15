@@ -81,42 +81,33 @@ class Telegram::SendAttachmentsService
 
   def send_individual_attachments(attachments)
     response = nil
-    attachments.map do |attachment|
-      response = document_request(channel.chat_id(message), attachment, channel.reply_to_message_id(message))
+    attachments.each do |attachment|
+      response = document_request(attachment, channel.reply_to_message_id(message))
       break unless handle_response(response)
     end
     response
   end
 
-  def document_request(chat_id, attachment, reply_to_message_id)
-    temp_file_path = save_attachment_to_tempfile(attachment[:attachment])
-    response = send_file(chat_id, temp_file_path, reply_to_message_id)
-    File.delete(temp_file_path)
-    response
+  def document_request(attachment, reply_to_message_id)
+    send_file(channel.chat_id(message), attachment[:attachment], reply_to_message_id)
+  rescue StandardError => e
+    Rails.logger.error "Failed to send document attachment (message_id: #{message.id}): #{e.message}"
+    Rails.logger.error e.backtrace&.first(5)&.join("\n")
+    nil
   end
 
-  # Telegram picks up the file name from original field name, so we need to save the file with the original name.
-  # Hence not using Tempfile here.
-  def save_attachment_to_tempfile(attachment)
-    temp_dir = Rails.root.join('tmp/uploads', "telegram-#{attachment.message_id}")
-    FileUtils.mkdir_p(temp_dir)
-    temp_file_path = File.join(temp_dir, attachment.file.filename.to_s)
-
-    File.open(temp_file_path, 'wb') do |file|
-      attachment.file.blob.open do |blob_file|
-        IO.copy_stream(blob_file, file)
-      end
+  def send_file(chat_id, attachment, reply_to_message_id)
+    unless attachment&.file&.attached?
+      Rails.logger.error { "Attachment blob missing (message_id: #{message.id}, attachment_id: #{attachment&.id})" }
+      return nil
     end
 
-    temp_file_path
-  end
+    blob = attachment.file.blob
+    filename = blob.filename.to_s.encode('UTF-8', invalid: :replace, undef: :replace, replace: '_')
+    content_type = blob.content_type || 'application/octet-stream'
 
-  def send_file(chat_id, file_path, reply_to_message_id)
-    File.open(file_path, 'rb') do |file|
-      file_name = File.basename(file_path)
-      mime_type = Marcel::MimeType.for(name: file_name) || 'application/octet-stream'
-
-      payload = { chat_id: chat_id, document: Faraday::Multipart::FilePart.new(file, mime_type, file_name) }
+    blob.open do |file|
+      payload = { chat_id: chat_id, document: Faraday::Multipart::FilePart.new(file, content_type, filename) }
       payload[:reply_to_message_id] = reply_to_message_id if reply_to_message_id
       payload.merge!(business_connection_body)
 
@@ -141,6 +132,7 @@ class Telegram::SendAttachmentsService
   end
 
   def handle_response(response)
+    return false if response.nil?
     return true if response.success?
 
     Rails.logger.error "Message Id: #{message.id}  - Error sending attachment to telegram:  #{response.parsed_response}"
@@ -149,7 +141,7 @@ class Telegram::SendAttachmentsService
   end
 
   def extract_attachment_message_id(response)
-    return unless response.success?
+    return unless response&.success?
 
     result = response.parsed_response['result']
     # response will be an array if the request for media group
