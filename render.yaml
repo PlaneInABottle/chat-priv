@@ -56,6 +56,15 @@ services:
         value: fra1  # Replace with your region (fra1, nyc3, sgp1, etc)
       - key: STORAGE_ENDPOINT
         value: https://fra1.digitaloceanspaces.com  # Replace with your region endpoint
+      # Google OAuth Configuration
+      - key: GOOGLE_OAUTH_CLIENT_ID
+        sync: false  # Set this manually in Render dashboard
+      - key: GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false  # Set this manually in Render dashboard
+      - key: GOOGLE_OAUTH_REDIRECT_URI
+        sync: false  # Set this manually in Render dashboard
+      - key: ENABLE_GOOGLE_OAUTH_LOGIN
+        value: "true"
 
   - type: worker
     name: crm-worker
@@ -106,6 +115,15 @@ services:
         value: fra1  # Replace with your region (fra1, nyc3, sgp1, etc)
       - key: STORAGE_ENDPOINT
         value: https://fra1.digitaloceanspaces.com  # Replace with your region endpoint
+      # Google OAuth Configuration
+      - key: GOOGLE_OAUTH_CLIENT_ID
+        sync: false  # Set this manually in Render dashboard
+      - key: GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false  # Set this manually in Render dashboard
+      - key: GOOGLE_OAUTH_REDIRECT_URI
+        sync: false  # Set this manually in Render dashboard
+      - key: ENABLE_GOOGLE_OAUTH_LOGIN
+        value: "true"
 
   - type: keyvalue
     name: crm-redis
