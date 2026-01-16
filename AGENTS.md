@@ -4,7 +4,6 @@
 - **[Both] Setup**: `bundle install && pnpm install` because dependencies span Ruby gems and pnpm packages.
 - **[Frontend] Run Dev**: `pnpm dev` or `overmind start -f ./Procfile.dev` because the frontend relies on the Procfile.dev stack.
 - **[Both] Run Project (foreman)**: `pnpm start:dev` or `pnpm start:test` because these scripts map to the current `package.json` Procfile runners.
-- **[Frontend] Browser verification**: when using `agent-browser` for Chatwoot UI checks, prefer the reusable Chatwoot browser profile instead of `agent-browser` named sessions because the profile is the repo-standard persistent browser context.
 - **[Backend] Seed Local Test Data**: `bundle exec rails db:seed` (quickly populates minimal data for standard feature verification).
 - **[Backend] Seed Search Test Data**: `bundle exec rails search:setup_test_data` (bulk fixture generation for search/performance/manual load scenarios).
 - **[Backend] Seed Account Sample Data (richer test data)**: `Seeders::AccountSeeder` is available as an internal utility and is exposed through Super Admin `Accounts#seed`, but can be used directly in dev workflows too:
@@ -65,6 +64,15 @@
 - **[Both] Use Conventional Commits** (`type(scope): subject`) because release tooling expects that format.
 - **[Both] Example**: `feat(auth): add user authentication` because scopes improve changelog clarity.
 - **[Both] Do not reference AI tools** in commit messages because it adds noise to history.
+
+## PR Description Format
+
+- Start with a short, user-facing paragraph describing the product change.
+- Add a `Closes` section with relevant issue links (GitHub, Linear, etc.).
+- For feature PRs, add `How to test` from a product/UX standpoint.
+- For bugfix PRs, use `How to reproduce` when helpful.
+- Optionally add a `What changed` section for implementation highlights.
+- Do not add a `How this was tested` section listing specs/commands.
 
 ## Project-Specific
 - **[Both] Translations**: only update English source files because Crowdin/community handles other locales.
