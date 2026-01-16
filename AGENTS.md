@@ -1,59 +1,57 @@
 # Chatwoot Development Guidelines
 
 ## Build / Test / Lint
-
-- **Setup**: `bundle install && pnpm install`
-- **Run Dev**: `pnpm dev` or `overmind start -f ./Procfile.dev`
-- **Seed Local Test Data**: `bundle exec rails db:seed` (quickly populates minimal data for standard feature verification)
-- **Seed Search Test Data**: `bundle exec rails search:setup_test_data` (bulk fixture generation for search/performance/manual load scenarios)
-- **Seed Account Sample Data (richer test data)**: `Seeders::AccountSeeder` is available as an internal utility and is exposed through Super Admin `Accounts#seed`, but can be used directly in dev workflows too:
+- **[Both] Setup**: `bundle install && pnpm install` because dependencies span Ruby gems and pnpm packages.
+- **[Frontend] Run Dev**: `pnpm dev` or `overmind start -f ./Procfile.dev` because the frontend relies on the Procfile.dev stack.
+- **[Both] Run Project (foreman)**: `pnpm start:dev` or `pnpm start:test` because these scripts map to the current `package.json` Procfile runners.
+- **[Backend] Seed Local Test Data**: `bundle exec rails db:seed` (quickly populates minimal data for standard feature verification).
+- **[Backend] Seed Search Test Data**: `bundle exec rails search:setup_test_data` (bulk fixture generation for search/performance/manual load scenarios).
+- **[Backend] Seed Account Sample Data (richer test data)**: `Seeders::AccountSeeder` is available as an internal utility and is exposed through Super Admin `Accounts#seed`, but can be used directly in dev workflows too:
   - UI path: Super Admin → Accounts → Seed (enqueues `Internal::SeedAccountJob`).
   - CLI path: `bundle exec rails runner "Internal::SeedAccountJob.perform_now(Account.find(<id>))"` (or call `Seeders::AccountSeeder.new(account: Account.find(<id>)).perform!` directly).
-- **Lint JS/Vue**: `pnpm eslint` / `pnpm eslint:fix`
-- **Lint Ruby**: `bundle exec rubocop -a`
-- **Test JS**: `pnpm test` or `pnpm test:watch`
-- **Test Ruby**: `bundle exec rspec spec/path/to/file_spec.rb`
-- **Single Test**: `bundle exec rspec spec/path/to/file_spec.rb:LINE_NUMBER`
-- **Run Project**: `overmind start -f Procfile.dev`
-- **Ruby Version**: Manage Ruby via `rbenv` and install the version listed in `.ruby-version` (e.g., `rbenv install $(cat .ruby-version)`)
-- **rbenv setup**: Before running any `bundle` or `rspec` commands, init rbenv in your shell (`eval "$(rbenv init -)"`) so the correct Ruby/Bundler versions are used
-- Always prefer `bundle exec` for Ruby CLI tasks (rspec, rake, rubocop, etc.)
+- **[Frontend] Lint JS/Vue**: `pnpm eslint` / `pnpm eslint:fix` because the script targets `app/**/*.{js,vue}`.
+- **[Backend] Lint Ruby**: `pnpm ruby:prettier` or `bundle exec rubocop -a` because RuboCop is the configured formatter.
+- **[Frontend] Test JS**: `pnpm test`, `pnpm test:watch`, or `pnpm test:coverage` because these are the Vitest scripts in `package.json`.
+- **[Backend] Test Ruby**: `bundle exec rspec spec/path/to/file_spec.rb` because there is no npm wrapper for RSpec.
+- **[Backend] Single Test**: `bundle exec rspec spec/path/to/file_spec.rb:LINE_NUMBER` because RSpec supports line targeting.
+- **[Frontend] Build**: `pnpm build:sdk` and `pnpm story:build` because those are the only build scripts defined.
+- **[Frontend] Histoire**: `pnpm story:dev` / `pnpm story:preview` because Histoire is the component explorer.
+- **[Both] Ruby Version**: manage Ruby via `rbenv` and `.ruby-version` because Bundler must match the project Ruby.
+- **[Both] rbenv setup**: run `eval "$(rbenv init -)"` before `bundle` or `rspec` because shell init selects the correct Ruby/Bundler.
+- **[Both] Bundle exec**: always prefer `bundle exec` for Ruby CLI tasks because the gemset is locked in `Gemfile.lock`.
 
 ## Code Style
+- **[Backend] Ruby**: follow RuboCop rules (150 character max line length) because `.rubocop.yml` enforces the style.
+- **[Frontend] Vue/JS**: follow ESLint (Airbnb base + Vue 3 recommended) because `.eslintrc.js` is the single source of truth.
+- **[Frontend] Vue Components**: use PascalCase because Vue tooling and imports assume that casing.
+- **[Frontend] Events**: use camelCase because event listeners are case-sensitive in templates.
+- **[Both] I18n**: avoid bare strings in templates because UI text must remain localized.
+- **[Backend] Error Handling**: use custom exceptions (`lib/custom_exceptions/`) because shared rescue logic expects them.
+- **[Backend] Models**: validate presence/uniqueness and add DB indexes because data integrity must be enforced at the database level.
+- **[Frontend] Type Safety**: define prop types (`defineProps` or typed `props`) because PropTypes are not used and contracts still need validation.
+- **[Backend] Params**: keep strong params strict because controller security depends on it.
+- **[Both] Naming**: use clear, descriptive names with consistent casing because reviews prioritize readability.
+- **[Frontend] Vue API**: prefer Composition API with `<script setup>` for new or migrated components because Vue 3 is the standard API.
 
-- **Ruby**: Follow RuboCop rules (150 character max line length)
-- **Vue/JS**: Use ESLint (Airbnb base + Vue 3 recommended)
-- **Vue Components**: Use PascalCase
-- **Events**: Use camelCase
-- **I18n**: No bare strings in templates; use i18n
-- **Error Handling**: Use custom exceptions (`lib/custom_exceptions/`)
-- **Models**: Validate presence/uniqueness, add proper indexes
-- **Type Safety**: Use PropTypes in Vue, strong params in Rails
-- **Naming**: Use clear, descriptive names with consistent casing
-- **Vue API**: Always use Composition API with `<script setup>` at the top
-
-## Styling
-
-- **Tailwind Only**:  
-  - Do not write custom CSS  
-  - Do not use scoped CSS  
-  - Do not use inline styles  
-  - Always use Tailwind utility classes  
-- **Colors**: Refer to `tailwind.config.js` for color definitions
+## Styling (Frontend only)
+- **[Frontend] Tailwind first**: use Tailwind utility classes in templates because the design system is Tailwind-first.
+- **[Frontend] SCSS entrypoints**: place shared styles in existing SCSS entrypoints (`app/javascript/dashboard/assets/scss/`, `app/javascript/widget/assets/scss/`, `app/javascript/survey/assets/scss/`, `app/javascript/portal/application.scss`) because Tailwind is wired through those files.
+- **[Frontend] `@apply` usage**: use `@apply` in SCSS when utilities are reused because it matches current styling patterns.
+- **[Frontend] Scoped styles**: add scoped CSS only when utilities cannot express the UI because scoped CSS is harder to maintain.
+- **[Frontend] Colors**: pull tokens from `tailwind.config.js` because it is the canonical palette.
 
 ## General Guidelines
-
-- MVP focus: Least code change, happy-path only
-- No unnecessary defensive programming
-- Ship the happy path first: limit guards/fallbacks to what production has proven necessary, then iterate
-- Prefer minimal, readable code over elaborate abstractions; clarity beats cleverness
-- Break down complex tasks into small, testable units
-- Iterate after confirmation
-- Avoid writing specs unless explicitly asked
-- Remove dead/unreachable/unused code
-- Don’t write multiple versions or backups for the same logic — pick the best approach and implement it
-- Prefer `with_modified_env` (from spec helpers) over stubbing `ENV` directly in specs
-- Specs in parallel/reloading environments: prefer comparing `error.class.name` over constant class equality when asserting raised errors
+- **[Both] MVP focus**: keep changes minimal and happy-path only because the surface area is large.
+- **[Both] Avoid unnecessary defensive programming** because it slows iteration and obscures intent.
+- **[Both] Ship the happy path first** because production feedback should drive guardrails.
+- **[Both] Prefer minimal, readable code** because clarity beats cleverness in reviews.
+- **[Both] Break down complex tasks** into small, testable units because CI and review cycles are faster.
+- **[Both] Iterate after confirmation** because the project favors incremental delivery.
+- **[Both] Avoid writing specs unless asked** because scope is usually change-only.
+- **[Both] Remove dead/unreachable/unused code** when touched because it reduces maintenance load.
+- **[Both] Avoid duplicate implementations** because multiple versions drift quickly.
+- **[Both] Prefer `with_modified_env` in specs** because it is the repo helper for env isolation.
+- **[Both] In reloading/parallel specs, compare `error.class.name`** because class equality can break with reloading.
 
 ## Codex Worktree Workflow
 
@@ -63,10 +61,9 @@
 - Start each worktree with its own Overmind socket/title so multiple instances can run at the same time.
 
 ## Commit Messages
-
-- Prefer Conventional Commits: `type(scope): subject` (scope optional)
-- Example: `feat(auth): add user authentication`
-- Don't reference Claude in commit messages
+- **[Both] Use Conventional Commits** (`type(scope): subject`) because release tooling expects that format.
+- **[Both] Example**: `feat(auth): add user authentication` because scopes improve changelog clarity.
+- **[Both] Do not reference AI tools** in commit messages because it adds noise to history.
 
 ## PR Description Format
 
@@ -78,36 +75,51 @@
 - Do not add a `How this was tested` section listing specs/commands.
 
 ## Project-Specific
-
-- **Translations**:
-  - Only update `en.yml` and `en.json`
-  - Other languages are handled by the community
-  - Backend i18n → `en.yml`, Frontend i18n → `en.json`
-- **Frontend**:
-  - Use `components-next/` for message bubbles (the rest is being deprecated)
+- **[Both] Translations**: only update English source files because Crowdin/community handles other locales.
+- **[Backend] Backend i18n**: update `config/locales/en.yml` because Rails i18n loads YAML from there.
+- **[Frontend] Dashboard i18n**: update `app/javascript/dashboard/i18n/locale/en/**` because the dashboard composes locales from that tree.
+- **[Frontend] Widget/Survey i18n**: update `app/javascript/{widget,survey}/i18n/locale/en.json` because those apps import JSON locales directly.
+- **[Frontend] Sync i18n**: run `pnpm sync:i18n` after key changes because it syncs locale bundles.
+- **[Frontend] Message bubbles**: use `app/javascript/dashboard/components-next/` because legacy message bubbles are being deprecated.
 
 ## Ruby Best Practices
-
-- Use compact `module/class` definitions; avoid nested styles
+- **[Backend] Compact module/class definitions** because the codebase avoids deep nesting for readability.
 
 ## Enterprise Edition Notes
-
-- Chatwoot has an Enterprise overlay under `enterprise/` that extends/overrides OSS code.
-- When you add or modify core functionality, always check for corresponding files in `enterprise/` and keep behavior compatible.
-- Follow the Enterprise development practices documented here:
-  - https://chatwoot.help/hc/handbook/articles/developing-enterprise-edition-features-38
+- **[Both] Check `enterprise/` overlays** when changing core behavior because Enterprise code can override OSS.
+- **[Both] Use `prepend_mod_with`/`include_mod_with`** (see `config/initializers/01_inject_enterprise_edition_module.rb`) because overlays rely on those hooks.
+- **[Both] Keep OSS/Enterprise contracts aligned** because both editions ship the same public APIs.
+- **[Both] Add Enterprise specs under `spec/enterprise`** because CI expects mirrored spec structure.
+- **[Both] Follow the Enterprise handbook** because it documents required patterns: https://chatwoot.help/hc/handbook/articles/developing-enterprise-edition-features-38
 
 Practical checklist for any change impacting core logic or public APIs
-- Search for related files in both trees before editing (e.g., `rg -n "FooService|ControllerName|ModelName" app enterprise`).
-- If adding new endpoints, services, or models, consider whether Enterprise needs:
-  - An override (e.g., `enterprise/app/...`), or
-  - An extension point (e.g., `prepend_mod_with`, hooks, configuration) to avoid hard forks.
-- Avoid hardcoding instance- or plan-specific behavior in OSS; prefer configuration, feature flags, or extension points consumed by Enterprise.
-- Keep request/response contracts stable across OSS and Enterprise; update both sets of routes/controllers when introducing new APIs.
-- When renaming/moving shared code, mirror the change in `enterprise/` to prevent drift.
-- Tests: Add Enterprise-specific specs under `spec/enterprise`, mirroring OSS spec layout where applicable.
-- When modifying existing OSS features for Enterprise-only behavior, add an Enterprise module (via `prepend_mod_with`/`include_mod_with`) instead of editing OSS files directly—especially for policies, controllers, and services. For Enterprise-exclusive features, place code directly under `enterprise/`.
+- **[Both] Search in `app` and `enterprise`** before editing because overrides may exist (e.g., `rg -n "FooService|ControllerName|ModelName" app enterprise`).
+- **[Both] Consider overlays or extension points** (e.g., `prepend_mod_with`, hooks, configuration) because hard forks drift quickly.
+- **[Both] Avoid instance/plan hardcoding in OSS** because Enterprise consumes OSS via configuration and feature flags.
+- **[Both] Keep request/response contracts stable** because Enterprise expects OSS API parity.
+- **[Both] Mirror renames/moves in `enterprise/`** because the overlay must stay aligned.
+- **[Both] Add Enterprise-specific specs under `spec/enterprise`** because behavior changes must be validated in both editions.
+- **[Both] Prefer Enterprise modules over OSS edits** when behavior is Enterprise-only because `prepend_mod_with`/`include_mod_with` is the intended hook.
 
 ## Branding / White-labeling note
 
 - For user-facing strings that currently contain "Chatwoot" but should adapt to branded/self-hosted installs, prefer applying `replaceInstallationName` from `shared/composables/useBranding` in the UI layer (for example tooltip and suggestion labels) instead of adding hardcoded brand-specific copy.
+
+## Legacy / Exceptions to Know
+- **[Frontend] Composition API adoption is mixed** because the repo has both `<script setup>` and Options API components.
+- **[Frontend] Keep Options API files as-is** unless migration is requested because large rewrites are risky.
+- **[Frontend] Vuex is still active** in dashboard/v3/widget/survey; Pinia is used only for new features (e.g., `dashboard/stores/*.js` for voice calls and companies), not as an ongoing migration.
+- **[Frontend] Scoped styles and SCSS utilities exist** even though Tailwind is preferred because legacy styling is still in use.
+- **[Frontend] Legacy components remain outside `components-next/`** because the migration is incremental.
+
+## References (Repo Sources)
+- **[Frontend] Styling**: `tailwind.config.js`, `postcss.config.js`, `app/javascript/dashboard/assets/scss/`, `app/javascript/widget/assets/scss/`, `app/javascript/survey/assets/scss/`, and `app/javascript/portal/application.scss` because they define the Tailwind pipeline.
+- **[Frontend] i18n**: `app/javascript/dashboard/i18n/index.js` and `app/javascript/dashboard/i18n/locale/en/**` because they show locale composition.
+- **[Frontend] Widget/Survey i18n**: `app/javascript/widget/i18n/locale/en.json` and `app/javascript/survey/i18n/locale/en.json` because those are the app-specific JSON sources.
+- **[Backend] i18n**: `config/locales/en.yml` because Rails loads backend strings from YAML.
+- **[Both] Enterprise overlays**: `enterprise/` and `config/initializers/01_inject_enterprise_edition_module.rb` because they document override wiring.
+- **[Both] Translation process**: README section "Translation process" because it links to Crowdin guidelines.
+
+## Last Verified
+- **Date**: 2026-01-16
+- **Context**: Verified `package.json` scripts, Tailwind pipeline files, i18n layout under `app/javascript/**/i18n` and `config/locales/en.yml`, and Enterprise overlay hooks in `config/initializers/01_inject_enterprise_edition_module.rb`.
