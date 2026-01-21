@@ -69,7 +69,7 @@
   help_url: https://chwt.app/hc/canned
 - name: integrations
   display_name: Integrations
-  enabled: true
+  enabled: false
   help_url: https://chwt.app/hc/integrations
 - name: voice_recorder
   display_name: Voice Recorder
@@ -229,7 +229,7 @@
   chatwoot_internal: true
 - name: channel_tiktok
   display_name: TikTok Channel
-  enabled: true
+  enabled: false
 - name: csat_review_notes
   display_name: CSAT Review Notes
   enabled: false
