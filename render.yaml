@@ -104,5 +104,5 @@ databases:
   - name: crm-db
     region: frankfurt
     plan: basic-256mb
-    databaseName: crm
-    user: crm-admin
+    databaseName: chatwoot
+    user: chatwoot
