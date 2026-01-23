@@ -17,6 +17,8 @@ services:
     envVars:
       - key: RAILS_ENV
         value: production
+      - key: DEFAULT_LOCALE
+        value: tr
       - key: RAILS_SERVE_STATIC_FILES
         value: "true"
       - key: SECRET_KEY_BASE
@@ -69,6 +71,8 @@ services:
     envVars:
       - key: RAILS_ENV
         value: production
+      - key: DEFAULT_LOCALE
+        value: tr
       - key: SECRET_KEY_BASE
         sync: false # Must be the SAME value for web + worker (do not auto-generate per service)
       - key: DISABLE_ENTERPRISE
