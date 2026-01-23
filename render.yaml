@@ -1,9 +1,9 @@
-# Render Blueprint for Chatwoot
+# Render Blueprint for CRM
 # See: https://render.com/docs/blueprint-spec
 
 services:
   - type: web
-    name: chatwoot-web
+    name: crm-web
     runtime: docker
     region: frankfurt
     autoDeployTrigger: 'off'
@@ -29,11 +29,11 @@ services:
         value: https://app.kozmopath.com
       - key: DATABASE_URL
         fromDatabase:
-          name: chatwoot-db
+          name: crm-db
           property: connectionString
       - key: REDIS_URL
         fromService:
-          name: chatwoot-redis
+          name: crm-redis
           type: keyvalue
           property: connectionString
       # Instagram Channel Configuration
@@ -60,7 +60,7 @@ services:
         value: https://fra1.digitaloceanspaces.com  # Replace with your region endpoint
 
   - type: worker
-    name: chatwoot-worker
+    name: crm-worker
     runtime: docker
     region: frankfurt
     autoDeployTrigger: 'off'
@@ -81,11 +81,11 @@ services:
         value: https://app.kozmopath.com
       - key: DATABASE_URL
         fromDatabase:
-          name: chatwoot-db
+          name: crm-db
           property: connectionString
       - key: REDIS_URL
         fromService:
-          name: chatwoot-redis
+          name: crm-redis
           type: keyvalue
           property: connectionString
       # Instagram Channel Configuration
@@ -112,15 +112,15 @@ services:
         value: https://fra1.digitaloceanspaces.com  # Replace with your region endpoint
 
   - type: keyvalue
-    name: chatwoot-redis
+    name: crm-redis
     region: frankfurt
     plan: starter
     maxmemoryPolicy: allkeys-lru
     ipAllowList: []
 
 databases:
-  - name: chatwoot-db
+  - name: crm-db
     region: frankfurt
     plan: basic-256mb
-    databaseName: chatwoot
-    user: chatwoot
+    databaseName: crm
+    user: crm-admin
