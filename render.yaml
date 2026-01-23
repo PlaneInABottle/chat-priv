@@ -44,7 +44,7 @@ services:
       - key: STORAGE_SECRET_ACCESS_KEY
         sync: false  # Set this manually in Render dashboard or use sync: false to add as secret
       - key: STORAGE_BUCKET_NAME
-        value: simwoot-files  # Replace with your actual bucket name
+        value: kozmopath-files  # Replace with your actual bucket name
       - key: STORAGE_REGION
         value: fra1  # Replace with your region (fra1, nyc3, sgp1, etc)
       - key: STORAGE_ENDPOINT
@@ -87,7 +87,7 @@ services:
       - key: STORAGE_SECRET_ACCESS_KEY
         sync: false  # Set this manually in Render dashboard
       - key: STORAGE_BUCKET_NAME
-        value: simwoot-files  # Replace with your actual bucket name
+        value: kozmopath-files  # Replace with your actual bucket name
       - key: STORAGE_REGION
         value: fra1  # Replace with your region (fra1, nyc3, sgp1, etc)
       - key: STORAGE_ENDPOINT
