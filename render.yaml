@@ -36,15 +36,6 @@ services:
           name: crm-redis
           type: keyvalue
           property: connectionString
-      # Instagram Channel Configuration
-      - key: INSTAGRAM_APP_ID
-        sync: false  # Set this manually in Render dashboard
-      - key: INSTAGRAM_APP_SECRET
-        sync: false  # Set this manually in Render dashboard
-      - key: INSTAGRAM_VERIFY_TOKEN
-        sync: false  # Set this manually in Render dashboard (must be same value in both web and worker)
-      - key: ENABLE_INSTAGRAM_CHANNEL_HUMAN_AGENT
-        value: "false"  # Set to "true" if you need 7-day messaging window (requires Meta approval)
       # Storage configuration for DigitalOcean Spaces
       - key: ACTIVE_STORAGE_SERVICE
         value: s3_compatible
@@ -88,15 +79,6 @@ services:
           name: crm-redis
           type: keyvalue
           property: connectionString
-      # Instagram Channel Configuration
-      - key: INSTAGRAM_APP_ID
-        sync: false  # Set this manually in Render dashboard
-      - key: INSTAGRAM_APP_SECRET
-        sync: false  # Set this manually in Render dashboard
-      - key: INSTAGRAM_VERIFY_TOKEN
-        sync: false  # Set this manually in Render dashboard (must be same value in both web and worker)
-      - key: ENABLE_INSTAGRAM_CHANNEL_HUMAN_AGENT
-        value: "false"  # Set to "true" if you need 7-day messaging window (requires Meta approval)
       # Storage configuration for DigitalOcean Spaces
       - key: ACTIVE_STORAGE_SERVICE
         value: s3_compatible
