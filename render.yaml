@@ -24,7 +24,7 @@ services:
       - key: DISABLE_ENTERPRISE
         value: "true"
       - key: FRONTEND_URL
-        value: https://www.crm.toolympics.com
+        value: https://app.kozmopath.com
       - key: DATABASE_URL
         fromDatabase:
           name: chatwoot-db
@@ -74,7 +74,7 @@ services:
       - key: DISABLE_ENTERPRISE
         value: "true"
       - key: FRONTEND_URL
-        value: https://www.crm.toolympics.com
+        value: https://app.kozmopath.com
       - key: DATABASE_URL
         fromDatabase:
           name: chatwoot-db
