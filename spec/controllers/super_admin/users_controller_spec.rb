@@ -94,6 +94,23 @@ RSpec.describe 'Super Admin Users API', type: :request do
         expect(response).to redirect_to("http://www.example.com/super_admin/users/#{User.last.id}")
         expect(User.last).not_to be_confirmed
       end
+
+      it 'auto-confirms users created via super admin' do
+        sign_in(super_admin, scope: :super_admin)
+
+        post '/super_admin/users', params: {
+          user: {
+            name: 'new_user',
+            email: 'newuser@example.com',
+            password: 'Password1!'
+          }
+        }
+
+        expect(response).to have_http_status(:redirect)
+        created_user = User.find_by(email: 'newuser@example.com')
+        expect(created_user).to be_present
+        expect(created_user.confirmed?).to be(true)
+      end
     end
   end
 
