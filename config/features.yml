@@ -44,7 +44,7 @@
   enabled: true
 - name: agent_management
   display_name: Agent Management
-  enabled: true
+  enabled: false
 - name: team_management
   display_name: Team Management
   enabled: true
