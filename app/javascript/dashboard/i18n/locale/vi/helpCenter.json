@@ -319,8 +319,8 @@
       }
     },
     "TABLE": {
-      "LOADING_MESSAGE": "Đang tải nội dung...",
       "404": "Không có bài viết nào phù hợp với tìm kiếm của bạn 🔍",
+      "LOADING_MESSAGE": "Đang tải nội dung...",
       "NO_ARTICLES": "Không có bài viết nào có sẵn",
       "HEADERS": {
         "TITLE": "Tiêu đề",
@@ -695,7 +695,7 @@
       "CONFIRM_BUTTON_LABEL": "Tạo",
       "NAME": {
         "LABEL": "Tên",
-        "PLACEHOLDER": "User Guide | Chatwoot",
+        "PLACEHOLDER": "User Guide | Kozmopath",
         "MESSAGE": "Choose an name for your portal.",
         "ERROR": "Tên bắt buộc có"
       },

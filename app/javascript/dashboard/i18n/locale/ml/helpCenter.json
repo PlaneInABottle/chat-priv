@@ -319,8 +319,8 @@
       }
     },
     "TABLE": {
-      "LOADING_MESSAGE": "Loading articles...",
       "404": "No articles matches your search 🔍",
+      "LOADING_MESSAGE": "Loading articles...",
       "NO_ARTICLES": "There are no available articles",
       "HEADERS": {
         "TITLE": "തലക്കെട്ട്",
@@ -695,7 +695,7 @@
       "CONFIRM_BUTTON_LABEL": "സൃഷ്ടിക്കുക",
       "NAME": {
         "LABEL": "പേര്",
-        "PLACEHOLDER": "User Guide | Chatwoot",
+        "PLACEHOLDER": "User Guide | Kozmopath",
         "MESSAGE": "Choose an name for your portal.",
         "ERROR": "നാമം ആവശ്യമാണ്"
       },

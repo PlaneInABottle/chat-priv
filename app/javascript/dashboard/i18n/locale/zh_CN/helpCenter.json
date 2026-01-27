@@ -319,8 +319,8 @@
       }
     },
     "TABLE": {
-      "LOADING_MESSAGE": "正在加载文章...",
       "404": "没有找到您要搜索的文章 🔍",
+      "LOADING_MESSAGE": "正在加载文章...",
       "NO_ARTICLES": "没有可用的文章",
       "HEADERS": {
         "TITLE": "标题",
@@ -695,7 +695,7 @@
       "CONFIRM_BUTTON_LABEL": "创建",
       "NAME": {
         "LABEL": "姓名",
-        "PLACEHOLDER": "用户指南 | Chatwoot",
+        "PLACEHOLDER": "用户指南 | Kozmopath",
         "MESSAGE": "为您的门户选择一个名称。",
         "ERROR": "名字必填"
       },

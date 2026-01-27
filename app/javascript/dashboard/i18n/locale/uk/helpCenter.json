@@ -319,8 +319,8 @@
       }
     },
     "TABLE": {
-      "LOADING_MESSAGE": "Завантаження статей...",
       "404": "Немає статей, які відповідають вашому пошуку 🔍",
+      "LOADING_MESSAGE": "Завантаження статей...",
       "NO_ARTICLES": "Немає доступних статей",
       "HEADERS": {
         "TITLE": "Назва",
@@ -695,7 +695,7 @@
       "CONFIRM_BUTTON_LABEL": "Створити",
       "NAME": {
         "LABEL": "Ім'я",
-        "PLACEHOLDER": "User Guide | Chatwoot",
+        "PLACEHOLDER": "User Guide | Kozmopath",
         "MESSAGE": "Choose an name for your portal.",
         "ERROR": "Назва обов'язкова"
       },

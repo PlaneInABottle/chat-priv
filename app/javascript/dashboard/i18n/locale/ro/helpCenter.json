@@ -319,8 +319,8 @@
       }
     },
     "TABLE": {
-      "LOADING_MESSAGE": "Se încarcă articolele...",
       "404": "Nici un articol nu corespunde căutării tale 🔍",
+      "LOADING_MESSAGE": "Se încarcă articolele...",
       "NO_ARTICLES": "Nu există articole disponibile",
       "HEADERS": {
         "TITLE": "Titlu",
@@ -695,7 +695,7 @@
       "CONFIRM_BUTTON_LABEL": "Creeaza",
       "NAME": {
         "LABEL": "Nume",
-        "PLACEHOLDER": "User Guide | Chatwoot",
+        "PLACEHOLDER": "User Guide | Kozmopath",
         "MESSAGE": "Choose an name for your portal.",
         "ERROR": "Numele este obligatoriu"
       },

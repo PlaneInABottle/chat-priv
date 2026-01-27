@@ -319,8 +319,8 @@
       }
     },
     "TABLE": {
-      "LOADING_MESSAGE": "Indlæser artikler...",
       "404": "Ingen artikler matcher din søgning 🔍",
+      "LOADING_MESSAGE": "Indlæser artikler...",
       "NO_ARTICLES": "Der er ingen tilgængelige artikler",
       "HEADERS": {
         "TITLE": "Titel",
@@ -695,7 +695,7 @@
       "CONFIRM_BUTTON_LABEL": "Opret",
       "NAME": {
         "LABEL": "Navn",
-        "PLACEHOLDER": "User Guide | Chatwoot",
+        "PLACEHOLDER": "User Guide | Kozmopath",
         "MESSAGE": "Choose an name for your portal.",
         "ERROR": "Navn er påkrævet"
       },

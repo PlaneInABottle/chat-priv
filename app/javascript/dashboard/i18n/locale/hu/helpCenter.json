@@ -319,8 +319,8 @@
       }
     },
     "TABLE": {
-      "LOADING_MESSAGE": "Bejegyzések betöltése...",
       "404": "Nincs a keresésnek megfelelő cikk 🔍",
+      "LOADING_MESSAGE": "Bejegyzések betöltése...",
       "NO_ARTICLES": "Nincsennek elérhető cikkek",
       "HEADERS": {
         "TITLE": "Cím",
@@ -695,7 +695,7 @@
       "CONFIRM_BUTTON_LABEL": "Létrehozás",
       "NAME": {
         "LABEL": "Név",
-        "PLACEHOLDER": "User Guide | Chatwoot",
+        "PLACEHOLDER": "User Guide | Kozmopath",
         "MESSAGE": "Choose an name for your portal.",
         "ERROR": "Név kötelező"
       },

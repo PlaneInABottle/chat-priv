@@ -123,11 +123,11 @@
         "CUSTOM_EMAIL_DOMAIN_ENABLED": "Sada možete da dobijate e-poruke u vaš prilagođeni domen."
       }
     },
-    "UPDATE_CHATWOOT": "Dostupna je nadogradnja {latestChatwootVersion} za Chatwoot. Molim vas nadogradite vaše izdanje.",
+    "UPDATE_CHATWOOT": "Dostupna je nadogradnja {latestKozmopathVersion} za Kozmopath. Molim vas nadogradite vaše izdanje.",
     "LEARN_MORE": "Saznajte više",
-    "PAYMENT_PENDING": "Your payment is pending. Please update your payment information to continue using Chatwoot",
-    "UPGRADE": "Upgrade to continue using Chatwoot",
-    "LIMITS_UPGRADE": "Your account has exceeded the usage limits, please upgrade your plan to continue using Chatwoot",
+    "PAYMENT_PENDING": "Your payment is pending. Please update your payment information to continue using Kozmopath",
+    "UPGRADE": "Upgrade to continue using Kozmopath",
+    "LIMITS_UPGRADE": "Your account has exceeded the usage limits, please upgrade your plan to continue using Kozmopath",
     "OPEN_BILLING": "Open billing"
   },
   "FORMS": {
@@ -150,8 +150,8 @@
       "EMPTY_MESSAGE": "Nemate nepročitanih obaveštenja"
     },
     "LIST": {
-      "LOADING_MESSAGE": "Učitavanje obaveštenja...",
       "404": "Nema obaveštenja",
+      "LOADING_MESSAGE": "Učitavanje obaveštenja...",
       "TABLE_HEADER": [
         "Ime",
         "Broj telefona",

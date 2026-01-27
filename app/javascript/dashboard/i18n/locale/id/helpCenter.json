@@ -319,8 +319,8 @@
       }
     },
     "TABLE": {
-      "LOADING_MESSAGE": "Memuat portal...",
       "404": "Tidak ada artikel yang cocok dengan pencarian Anda 🔍",
+      "LOADING_MESSAGE": "Memuat portal...",
       "NO_ARTICLES": "Tidak ada artikel yang tersedia",
       "HEADERS": {
         "TITLE": "Judul",
@@ -695,7 +695,7 @@
       "CONFIRM_BUTTON_LABEL": "Buat",
       "NAME": {
         "LABEL": "Nama",
-        "PLACEHOLDER": "User Guide | Chatwoot",
+        "PLACEHOLDER": "User Guide | Kozmopath",
         "MESSAGE": "Choose an name for your portal.",
         "ERROR": "Nama dibutuhkan"
       },

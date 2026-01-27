@@ -319,8 +319,8 @@
       }
     },
     "TABLE": {
-      "LOADING_MESSAGE": "Carregant articles...",
       "404": "No hi ha cap article que coincideixi amb la teva cerca 🔍",
+      "LOADING_MESSAGE": "Carregant articles...",
       "NO_ARTICLES": "No hi ha articles disponibles",
       "HEADERS": {
         "TITLE": "Títol",
@@ -695,7 +695,7 @@
       "CONFIRM_BUTTON_LABEL": "Crear",
       "NAME": {
         "LABEL": "Nom",
-        "PLACEHOLDER": "User Guide | Chatwoot",
+        "PLACEHOLDER": "User Guide | Kozmopath",
         "MESSAGE": "Choose an name for your portal.",
         "ERROR": "El valor és necessari"
       },
