@@ -319,8 +319,8 @@
       }
     },
     "TABLE": {
-      "LOADING_MESSAGE": "טוען מאמרים...",
       "404": "אין מאמרים שתואמים לחיפוש שלך 🔍",
+      "LOADING_MESSAGE": "טוען מאמרים...",
       "NO_ARTICLES": "אין מאמרים זמינים",
       "HEADERS": {
         "TITLE": "כותרת",
@@ -695,7 +695,7 @@
       "CONFIRM_BUTTON_LABEL": "צור",
       "NAME": {
         "LABEL": "שם",
-        "PLACEHOLDER": "מדריך למשתמש | Chatwoot",
+        "PLACEHOLDER": "מדריך למשתמש | Kozmopath",
         "MESSAGE": "בחר שם לפורטל שלך.",
         "ERROR": "שם שדה חובה"
       },

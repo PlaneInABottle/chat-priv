@@ -319,8 +319,8 @@
       }
     },
     "TABLE": {
-      "LOADING_MESSAGE": "Φόρτωση άρθρων...",
       "404": "Δεν υπάρχουν άρθρα που να ταιριάζουν στην αναζήτησή σας 🔍",
+      "LOADING_MESSAGE": "Φόρτωση άρθρων...",
       "NO_ARTICLES": "Δεν υπάρχουν διαθέσιμα άρθρα",
       "HEADERS": {
         "TITLE": "Τίτλος",
@@ -695,7 +695,7 @@
       "CONFIRM_BUTTON_LABEL": "Δημιουργία",
       "NAME": {
         "LABEL": "Όνομα",
-        "PLACEHOLDER": "User Guide | Chatwoot",
+        "PLACEHOLDER": "User Guide | Kozmopath",
         "MESSAGE": "Choose an name for your portal.",
         "ERROR": "Απαιτείται όνομα"
       },

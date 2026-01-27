@@ -123,11 +123,11 @@
         "CUSTOM_EMAIL_DOMAIN_ENABLED": "Τώρα μπορείτε να λαμβάνετε emails στον τομέα (domain) σας."
       }
     },
-    "UPDATE_CHATWOOT": "Μια ενημέρωση {latestChatwootVersion} για το Chatwoot είναι διαθέσιμη. Ενημερώστε την εφαρμογή σας.",
+    "UPDATE_CHATWOOT": "Μια ενημέρωση {latestKozmopathVersion} για το Kozmopath είναι διαθέσιμη. Ενημερώστε την εφαρμογή σας.",
     "LEARN_MORE": "Μάθετε περισσότερα",
-    "PAYMENT_PENDING": "Your payment is pending. Please update your payment information to continue using Chatwoot",
-    "UPGRADE": "Upgrade to continue using Chatwoot",
-    "LIMITS_UPGRADE": "Your account has exceeded the usage limits, please upgrade your plan to continue using Chatwoot",
+    "PAYMENT_PENDING": "Your payment is pending. Please update your payment information to continue using Kozmopath",
+    "UPGRADE": "Upgrade to continue using Kozmopath",
+    "LIMITS_UPGRADE": "Your account has exceeded the usage limits, please upgrade your plan to continue using Kozmopath",
     "OPEN_BILLING": "Open billing"
   },
   "FORMS": {
@@ -150,8 +150,8 @@
       "EMPTY_MESSAGE": "Δεν έχετε μη αναγνωσμένες ειδοποιήσεις"
     },
     "LIST": {
-      "LOADING_MESSAGE": "Φόρτωση ειδοποιήσεων...",
       "404": "Καμία Ειδοποίηση",
+      "LOADING_MESSAGE": "Φόρτωση ειδοποιήσεων...",
       "TABLE_HEADER": [
         "Όνομα",
         "Αριθμός Τηλεφώνου",

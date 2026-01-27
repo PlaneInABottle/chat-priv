@@ -319,8 +319,8 @@
       }
     },
     "TABLE": {
-      "LOADING_MESSAGE": "Įkeliami straipsniai...",
       "404": "Nė vienas straipsnis neatitinka jūsų paieškos 🔍",
+      "LOADING_MESSAGE": "Įkeliami straipsniai...",
       "NO_ARTICLES": "Nėra pasiekiamų straipsnių",
       "HEADERS": {
         "TITLE": "Pavadinimas",
@@ -695,7 +695,7 @@
       "CONFIRM_BUTTON_LABEL": "Sukurti",
       "NAME": {
         "LABEL": "Vardas",
-        "PLACEHOLDER": "User Guide | Chatwoot",
+        "PLACEHOLDER": "User Guide | Kozmopath",
         "MESSAGE": "Choose an name for your portal.",
         "ERROR": "Yra reikalingas vardas"
       },

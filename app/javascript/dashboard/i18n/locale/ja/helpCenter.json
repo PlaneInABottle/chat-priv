@@ -319,8 +319,8 @@
       }
     },
     "TABLE": {
-      "LOADING_MESSAGE": "記事を読み込み中...",
       "404": "検索に一致する記事がありません 🔍",
+      "LOADING_MESSAGE": "記事を読み込み中...",
       "NO_ARTICLES": "利用可能な記事がありません",
       "HEADERS": {
         "TITLE": "タイトル",
@@ -695,7 +695,7 @@
       "CONFIRM_BUTTON_LABEL": "作成",
       "NAME": {
         "LABEL": "名前",
-        "PLACEHOLDER": "ユーザーガイド | Chatwoot",
+        "PLACEHOLDER": "ユーザーガイド | Kozmopath",
         "MESSAGE": "ポータルの名前を選択してください。",
         "ERROR": "名前が必須です"
       },

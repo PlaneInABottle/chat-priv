@@ -319,8 +319,8 @@
       }
     },
     "TABLE": {
-      "LOADING_MESSAGE": "Učitavanje čalanaka...",
       "404": "Nema čalanaka koji se poklapaju sa vašom pretragom 🔍",
+      "LOADING_MESSAGE": "Učitavanje čalanaka...",
       "NO_ARTICLES": "Nema dostupnih članaka",
       "HEADERS": {
         "TITLE": "Naslov",
@@ -695,7 +695,7 @@
       "CONFIRM_BUTTON_LABEL": "Napravi",
       "NAME": {
         "LABEL": "Ime",
-        "PLACEHOLDER": "User Guide | Chatwoot",
+        "PLACEHOLDER": "User Guide | Kozmopath",
         "MESSAGE": "Choose an name for your portal.",
         "ERROR": "Ime je neophodno"
       },

@@ -319,8 +319,8 @@
       }
     },
     "TABLE": {
-      "LOADING_MESSAGE": "Ładowanie artykułów...",
       "404": "Nie znaleziono artykułów pasujących do wyszukiwania 🔍",
+      "LOADING_MESSAGE": "Ładowanie artykułów...",
       "NO_ARTICLES": "Brak dostępnych artykułów",
       "HEADERS": {
         "TITLE": "Tytuł",
@@ -695,7 +695,7 @@
       "CONFIRM_BUTTON_LABEL": "Stwórz",
       "NAME": {
         "LABEL": "Imię",
-        "PLACEHOLDER": "User Guide | Chatwoot",
+        "PLACEHOLDER": "User Guide | Kozmopath",
         "MESSAGE": "Choose an name for your portal.",
         "ERROR": "Nazwa jest wymagana"
       },

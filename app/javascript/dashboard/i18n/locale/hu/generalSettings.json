@@ -123,11 +123,11 @@
         "CUSTOM_EMAIL_DOMAIN_ENABLED": "Most már goadhatsz e-maileket az egyedi domaineden."
       }
     },
-    "UPDATE_CHATWOOT": "Egy frissítés elérhető a Chatwoothoz {latestChatwootVersion}. Kérjük frissítsd a telepítésed.",
+    "UPDATE_CHATWOOT": "Egy frissítés elérhető a Kozmopathhoz {latestKozmopathVersion}. Kérjük frissítsd a telepítésed.",
     "LEARN_MORE": "Tudj meg többet",
-    "PAYMENT_PENDING": "A fizetésed folyamatban van. Kérlek, frissítsd fizetési adataitat a Chatwoot használatának folytatásához",
-    "UPGRADE": "Upgrade to continue using Chatwoot",
-    "LIMITS_UPGRADE": "A fiókod túllépte a használati korlátokat. Kérjük, frissítsd tervedet a Chatwoot használatának folytatásához",
+    "PAYMENT_PENDING": "A fizetésed folyamatban van. Kérlek, frissítsd fizetési adataitat a Kozmopath használatának folytatásához",
+    "UPGRADE": "Upgrade to continue using Kozmopath",
+    "LIMITS_UPGRADE": "A fiókod túllépte a használati korlátokat. Kérjük, frissítsd tervedet a Kozmopath használatának folytatásához",
     "OPEN_BILLING": "Számlázási beállítások megnyitása"
   },
   "FORMS": {
@@ -150,8 +150,8 @@
       "EMPTY_MESSAGE": "Nincs olvasatlan értesítésed"
     },
     "LIST": {
-      "LOADING_MESSAGE": "Értesítések betöltése...",
       "404": "Nincs értesítés",
+      "LOADING_MESSAGE": "Értesítések betöltése...",
       "TABLE_HEADER": [
         "Név",
         "Telefonszám",

@@ -47,9 +47,9 @@
       "TITLE": "Comparte tu resumen del año",
       "PREPARING": "Preparando tu imagen...",
       "DOWNLOAD": "Descargar",
-      "SHARE_TITLE": "Mi resumen del año {year}",
-      "SHARE_TEXT": "¡Mira mi resumen del año {year} con Chatwoot!",
-      "BRANDING": "Hecho con Chatwoot"
+      "SHARE_TITLE": "My {year} Year in Review",
+      "SHARE_TEXT": "Check out my {year} Year in Review with Kozmopath!",
+      "BRANDING": "Made with Kozmopath"
     },
     "BANNER": {
       "TITLE": "Tu resumen del año {year} ya está aquí",

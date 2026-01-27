@@ -123,11 +123,11 @@
         "CUSTOM_EMAIL_DOMAIN_ENABLED": "Bạn có thể nhận email trong miền tùy chỉnh của mình ngay bây giờ."
       }
     },
-    "UPDATE_CHATWOOT": "Đã có bản cập nhật {latestChatwootVersion} cho Chatwoot. Vui lòng cập nhật phiên bản của bạn.",
+    "UPDATE_CHATWOOT": "Đã có bản cập nhật {latestKozmopathVersion} cho Kozmopath. Vui lòng cập nhật phiên bản của bạn.",
     "LEARN_MORE": "Tìm hiểu thêm",
-    "PAYMENT_PENDING": "Your payment is pending. Please update your payment information to continue using Chatwoot",
-    "UPGRADE": "Upgrade to continue using Chatwoot",
-    "LIMITS_UPGRADE": "Your account has exceeded the usage limits, please upgrade your plan to continue using Chatwoot",
+    "PAYMENT_PENDING": "Your payment is pending. Please update your payment information to continue using Kozmopath",
+    "UPGRADE": "Upgrade to continue using Kozmopath",
+    "LIMITS_UPGRADE": "Your account has exceeded the usage limits, please upgrade your plan to continue using Kozmopath",
     "OPEN_BILLING": "Open billing"
   },
   "FORMS": {
@@ -150,8 +150,8 @@
       "EMPTY_MESSAGE": "Bạn không có thông báo tin chưa đọc"
     },
     "LIST": {
-      "LOADING_MESSAGE": "Đang tải thông báo...",
       "404": "Không có thông báo",
+      "LOADING_MESSAGE": "Đang tải thông báo...",
       "TABLE_HEADER": [
         "Tên",
         "Số điện thoại",

@@ -319,8 +319,8 @@
       }
     },
     "TABLE": {
-      "LOADING_MESSAGE": "Laddar artiklar...",
       "404": "No articles matches your search 🔍",
+      "LOADING_MESSAGE": "Laddar artiklar...",
       "NO_ARTICLES": "Det finns inga tillgängliga artiklar",
       "HEADERS": {
         "TITLE": "Title",
@@ -695,7 +695,7 @@
       "CONFIRM_BUTTON_LABEL": "Skapa",
       "NAME": {
         "LABEL": "Namn",
-        "PLACEHOLDER": "User Guide | Chatwoot",
+        "PLACEHOLDER": "User Guide | Kozmopath",
         "MESSAGE": "Choose an name for your portal.",
         "ERROR": "Name is required"
       },

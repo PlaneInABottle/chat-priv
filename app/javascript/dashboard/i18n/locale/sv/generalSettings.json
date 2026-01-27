@@ -123,11 +123,11 @@
         "CUSTOM_EMAIL_DOMAIN_ENABLED": "Du kan nu ta emot e-postmeddelanden i din egna domän."
       }
     },
-    "UPDATE_CHATWOOT": "En uppdatering {latestChatwootVersion} för Chatwoot är tillgänglig. Vänligen uppdatera din instans.",
+    "UPDATE_CHATWOOT": "En uppdatering {latestKozmopathVersion} för Kozmopath är tillgänglig. Vänligen uppdatera din instans.",
     "LEARN_MORE": "Läs mer",
-    "PAYMENT_PENDING": "Your payment is pending. Please update your payment information to continue using Chatwoot",
-    "UPGRADE": "Upgrade to continue using Chatwoot",
-    "LIMITS_UPGRADE": "Your account has exceeded the usage limits, please upgrade your plan to continue using Chatwoot",
+    "PAYMENT_PENDING": "Your payment is pending. Please update your payment information to continue using Kozmopath",
+    "UPGRADE": "Upgrade to continue using Kozmopath",
+    "LIMITS_UPGRADE": "Your account has exceeded the usage limits, please upgrade your plan to continue using Kozmopath",
     "OPEN_BILLING": "Open billing"
   },
   "FORMS": {
@@ -150,8 +150,8 @@
       "EMPTY_MESSAGE": "You have no unread notifications"
     },
     "LIST": {
-      "LOADING_MESSAGE": "Laddar aviseringar...",
       "404": "Inga aviseringar",
+      "LOADING_MESSAGE": "Laddar aviseringar...",
       "TABLE_HEADER": [
         "Namn",
         "Telefonnummer",
