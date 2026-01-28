@@ -21,7 +21,6 @@ const hasTiktokConfigured = computed(() => {
 });
 
 const channelList = computed(() => {
-  const { apiChannelName } = globalConfig.value;
   const channels = [
     {
       key: 'website',
@@ -42,34 +41,16 @@ const channelList = computed(() => {
       icon: 'i-woot-whatsapp',
     },
     {
-      key: 'sms',
-      title: t('INBOX_MGMT.ADD.AUTH.CHANNEL.SMS.TITLE'),
-      description: t('INBOX_MGMT.ADD.AUTH.CHANNEL.SMS.DESCRIPTION'),
-      icon: 'i-woot-sms',
-    },
-    {
       key: 'email',
       title: t('INBOX_MGMT.ADD.AUTH.CHANNEL.EMAIL.TITLE'),
       description: t('INBOX_MGMT.ADD.AUTH.CHANNEL.EMAIL.DESCRIPTION'),
       icon: 'i-woot-mail',
     },
     {
-      key: 'api',
-      title: apiChannelName || t('INBOX_MGMT.ADD.AUTH.CHANNEL.API.TITLE'),
-      description: t('INBOX_MGMT.ADD.AUTH.CHANNEL.API.DESCRIPTION'),
-      icon: 'i-woot-api',
-    },
-    {
       key: 'telegram',
       title: t('INBOX_MGMT.ADD.AUTH.CHANNEL.TELEGRAM.TITLE'),
       description: t('INBOX_MGMT.ADD.AUTH.CHANNEL.TELEGRAM.DESCRIPTION'),
       icon: 'i-woot-telegram',
-    },
-    {
-      key: 'line',
-      title: t('INBOX_MGMT.ADD.AUTH.CHANNEL.LINE.TITLE'),
-      description: t('INBOX_MGMT.ADD.AUTH.CHANNEL.LINE.DESCRIPTION'),
-      icon: 'i-woot-line',
     },
     {
       key: 'instagram',
@@ -87,13 +68,6 @@ const channelList = computed(() => {
       icon: 'i-woot-tiktok',
     });
   }
-
-  channels.push({
-    key: 'voice',
-    title: t('INBOX_MGMT.ADD.AUTH.CHANNEL.VOICE.TITLE'),
-    description: t('INBOX_MGMT.ADD.AUTH.CHANNEL.VOICE.DESCRIPTION'),
-    icon: 'i-ri-phone-fill',
-  });
 
   return channels;
 });

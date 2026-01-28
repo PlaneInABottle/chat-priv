@@ -11,11 +11,11 @@
   enabled: true
 - name: channel_email
   display_name: Email Channel
-  enabled: true
+  enabled: false
   help_url: https://chwt.app/hc/email
 - name: channel_facebook
   display_name: Facebook Channel
-  enabled: true
+  enabled: false
   help_url: https://chwt.app/hc/fb
 - name: channel_twitter
   display_name: Twitter Channel
@@ -80,7 +80,7 @@
   deprecated: true
 - name: channel_website
   display_name: Website Channel
-  enabled: true
+  enabled: false
 - name: campaigns
   display_name: Campaigns
   enabled: false
@@ -165,7 +165,7 @@
   chatwoot_internal: true
 - name: channel_instagram
   display_name: Instagram Channel
-  enabled: true
+  enabled: false
 - name: crm_integration
   display_name: CRM Integration
   enabled: false
