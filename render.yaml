@@ -36,13 +36,20 @@ services:
           name: crm-redis
           type: keyvalue
           property: connectionString
+      # Inbound email configuration for conversation continuity (SendGrid)
+      - key: RAILS_INBOUND_EMAIL_SERVICE
+        value: sendgrid
+      - key: MAILER_INBOUND_EMAIL_DOMAIN
+        value: raven.kozmopath.com
+      - key: RAILS_INBOUND_EMAIL_PASSWORD
+        sync: false  # Secret - set manually in Render dashboard
       # Storage configuration for DigitalOcean Spaces
       - key: ACTIVE_STORAGE_SERVICE
         value: s3_compatible
       - key: STORAGE_ACCESS_KEY_ID
-        sync: false  # Set this manually in Render dashboard or use sync: false to add as secret
+        sync: false  # Set this manually in Render dashboard
       - key: STORAGE_SECRET_ACCESS_KEY
-        sync: false  # Set this manually in Render dashboard or use sync: false to add as secret
+        sync: false  # Set this manually in Render dashboard
       - key: STORAGE_BUCKET_NAME
         value: kozmopath-files  # Replace with your actual bucket name
       - key: STORAGE_REGION
@@ -79,6 +86,13 @@ services:
           name: crm-redis
           type: keyvalue
           property: connectionString
+      # Inbound email configuration for conversation continuity (SendGrid)
+      - key: RAILS_INBOUND_EMAIL_SERVICE
+        value: sendgrid
+      - key: MAILER_INBOUND_EMAIL_DOMAIN
+        value: raven.kozmopath.com
+      - key: RAILS_INBOUND_EMAIL_PASSWORD
+        sync: false  # Secret - set manually in Render dashboard
       # Storage configuration for DigitalOcean Spaces
       - key: ACTIVE_STORAGE_SERVICE
         value: s3_compatible
