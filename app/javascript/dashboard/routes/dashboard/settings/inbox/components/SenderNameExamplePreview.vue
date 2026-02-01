@@ -31,7 +31,7 @@ const senderNameKeyOptions = computed(() => [
     heading: t('INBOX_MGMT.EDIT.SENDER_NAME_SECTION.FRIENDLY.TITLE'),
     content: t('INBOX_MGMT.EDIT.SENDER_NAME_SECTION.FRIENDLY.SUBTITLE'),
     preview: {
-      senderName: 'Smith',
+      senderName: 'Mirza',
       businessName: replaceInstallationName('Chatwoot'),
       email: '<support@yourbusiness.com>',
     },
