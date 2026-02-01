@@ -656,4 +656,7 @@ Rails.application.routes.draw do
   # ----------------------------------------------------------------------
   # Routes for testing
   resources :widget_tests, only: [:index] unless Rails.env.production?
+
+  # Action Mailbox routes for inbound email webhooks (SendGrid, SES, etc)
+  mount ActionMailbox::Engine => '/rails/action_mailbox'
 end
