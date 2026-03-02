@@ -54,11 +54,6 @@ const isRTL = useMapGetter('accounts/isRTL');
 const { width: windowWidth } = useWindowSize();
 const isMobile = computed(() => windowWidth.value < 768);
 
-const accountId = useMapGetter('getCurrentAccountId');
-const isFeatureEnabledonAccount = useMapGetter(
-  'accounts/isFeatureEnabledonAccount'
-);
-
 const hasAdvancedAssignment = computed(() => {
   return isFeatureEnabledonAccount.value(
     accountId.value,
