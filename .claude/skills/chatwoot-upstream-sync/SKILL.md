@@ -1,87 +1,38 @@
 ---
 name: chatwoot-upstream-sync
-description: Keep a forked Chatwoot repo up-to-date with upstream (chatwoot-origin/master) using a rebase-first workflow. Use when you need to fetch new updates from chatwoot-origin, rebase your origin/develop onto chatwoot-origin/master, resolve conflicts, force-push with lease safely, then sync origin/master from the updated develop. Also configures git to avoid pushing to chatwoot-origin by default.
+description: Keep a forked Chatwoot repository aligned with upstream using a rebase-first workflow. Use when the task is to fetch chatwoot-origin and origin, create backup branches, rebase the fork's develop branch onto upstream master, push develop and master with force-with-lease, and set git push safety so pushes default to the fork remote.
 ---
 
 # Chatwoot Upstream Sync
 
-## Rebase upstream into develop (recommended)
+Use the bundled script when you want the documented rebase-first sync flow and matching git safety configuration.
 
-1) Ensure a clean working tree
+## What the script does
 
-```bash
-git status -sb
-```
-
-2) Create safety backups
-
-```bash
-DEV_SHA=$(git rev-parse --short develop)
-MASTER_SHA=$(git rev-parse --short master)
-
-git branch backup/develop-pre-upstream-$DEV_SHA develop
-git branch backup/master-pre-upstream-$MASTER_SHA master
-```
-
-3) Fetch upstream and your fork
-
-```bash
-git fetch chatwoot-origin --prune
-git fetch origin --prune
-```
-
-4) Rebase develop onto upstream (avoid interactive editor)
-
-```bash
-git checkout develop
-GIT_EDITOR=: VISUAL=: EDITOR=: git rebase chatwoot-origin/master
-```
-
-### Conflict handling notes
-
-- Prefer `git status` + `git diff` to understand conflicts.
-- If a file is generated (lockfiles, schema dumps), prefer regenerating via the project toolchain instead of hand-editing.
-- If an editor pops up:
-
-```bash
-GIT_EDITOR=: VISUAL=: EDITOR=: git rebase --continue
-```
-
-Abort safely:
-
-```bash
-git rebase --abort
-```
-
-5) Force-push rebased develop to your fork
-
-```bash
-git push --force-with-lease origin develop
-```
-
-## Sync master from develop (make master match develop)
-
-```bash
-git checkout master
-git reset --hard develop
-
-git push --force-with-lease origin master
-```
-
-## Prevent accidental pushes to chatwoot-origin
-
-```bash
-git config push.default current
-
-git config branch.develop.pushRemote origin
-# Optional: make status/ahead-behind compare to your fork branch
-# git branch --set-upstream-to=origin/develop develop
-```
+1. Require a clean working tree.
+2. Create backup branches for the develop and master branches.
+3. Fetch both the upstream remote and the fork remote.
+4. Configure git so normal pushes stay on the current branch and the develop branch pushes to the fork remote.
+5. Rebase the develop branch onto the upstream branch with editors disabled.
+6. Force-push the rebased develop branch to the fork with lease protection.
+7. Reset the master branch to the updated develop branch and force-push that branch to the fork.
 
 ## Bundled automation
 
 ```bash
 .claude/skills/chatwoot-upstream-sync/scripts/rebase_upstream.sh \
-  --upstream chatwoot-origin --upstream-branch master \
-  --fork origin --develop develop --main master
+  --upstream chatwoot-origin \
+  --upstream-branch master \
+  --fork origin \
+  --develop develop \
+  --main master
 ```
+
+## Conflict handling
+
+If the rebase stops for conflicts:
+
+- inspect the conflicting files with normal git tools
+- resolve them manually
+- continue with `GIT_EDITOR=: VISUAL=: EDITOR=: git rebase --continue`
+- or abort with `git rebase --abort`
