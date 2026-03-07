@@ -1,99 +1,40 @@
 # Setup Checklist
 
-## Minimum Setup (Basic Email Support)
+## Contents
 
-- [ ] **SMTP configured** (at least for testing)
-  - SMTP_ADDRESS
-  - SMTP_PORT
-  - SMTP_USERNAME
-  - SMTP_PASSWORD
-  - MAILER_SENDER_EMAIL
-  
-- [ ] **Organizations add Email Inboxes**
-  - Dashboard → Settings → Inboxes → Add Email
-  - Configure IMAP settings
+- [Minimum instance setup](#minimum-instance-setup)
+- [Expanded email-ready setup](#expanded-email-ready-setup)
+- [Ownership guide](#ownership-guide)
+- [Escalation points](#escalation-points)
 
-**Result:** 
-- ✅ Agents can receive customer emails
-- ✅ Agents can send replies
-- ❌ Customer replies appear as NEW conversations (not threaded)
+## Minimum instance setup
 
----
+1. Confirm dependency install and repo boot works before changing application settings.
+2. Set outbound mail basics in `.env` using the SMTP variables documented in `.env.example`.
+3. Configure Google OAuth values if SSO or Google login is required.
+4. Verify the super-admin layer can reach the configuration pages needed for app settings.
 
-## Complete Setup (Production Ready)
+## Expanded email-ready setup
 
-- [ ] **SMTP configured** (Gmail, SendGrid, etc.)
-  ```env
-  SMTP_ADDRESS=smtp.gmail.com
-  SMTP_PORT=587
-  SMTP_USERNAME=your-email@gmail.com
-  SMTP_PASSWORD=your_app_password
-  MAILER_SENDER_EMAIL=noreply@your-domain.com
-  ```
+1. Set `MAILER_INBOUND_EMAIL_DOMAIN` if reply-address generation should use your domain.
+2. Decide whether inbound mail will stay IMAP-only or move to webhook ingress.
+3. If webhook ingress is required, hand off to [chatwoot-email-webhooks](../../chatwoot-email-webhooks/SKILL.md) for provider routing and endpoint checks.
+4. Confirm inbox-level channel credentials are configured after the instance-level settings are in place.
 
-- [ ] **Inbound Email Domain configured**
-  - Super Admin Console: `/super_admin/app_config?config=email`
-  - Value: `your-domain.com`
+## Ownership guide
 
-- [ ] **Webhook provider configured** (`.env`)
-  ```env
-  RAILS_INBOUND_EMAIL_SERVICE=mailgun  # or your provider
-  RAILS_INBOUND_EMAIL_PASSWORD=secure_password
-  MAILGUN_INGRESS_SIGNING_KEY=your_key
-  ```
+| Task | Typical owner |
+| --- | --- |
+| `.env` mailer and OAuth values | Super admin / deploy operator |
+| Inbound email domain | Super admin / deploy operator |
+| Inbox credentials and channel setup | Account or inbox admin |
+| Provider webhook routing | Deploy operator with webhook skill |
 
-- [ ] **Email provider webhook set up**
-  - Point to: `https://actionmailbox:PASSWORD@your-domain/rails/action_mailbox/mailgun/inbound_emails`
-  - Configure in your email provider (Mailgun, SendGrid, etc.)
+## Escalation points
 
-- [ ] **Organizations add Email Inboxes**
-  - Dashboard → Settings → Inboxes → Add Email
-  - Configure IMAP settings
+Escalate out of this skill when the task becomes:
 
-- [ ] **Optional: Google OAuth**
-  - Super Admin Console: `/super_admin/app_config?config=google`
-  - Set client ID, secret, redirect URI
-
-**Result:**
-- ✅ Agents can receive/send customer emails
-- ✅ Customer replies automatically continue in same conversation
-- ✅ Agents can log in with Google (if configured)
-- ✅ Organizations can use Gmail as email channel (if Google OAuth configured)
-
----
-
-## Who Sets What?
-
-| What | Who Sets | Where |
-|------|----------|-------|
-| Global SMTP | You (Super Admin) | `.env` |
-| Inbound Email Domain | You (Super Admin) | Super Admin Console |
-| Webhook Provider | You (Super Admin) | `.env` |
-| Per-Inbox IMAP | Organizations | Dashboard UI |
-| Google OAuth | You (Super Admin) | Super Admin Console |
-
----
-
-## Common Troubleshooting
-
-### Q: Can organizations set up email without me configuring SMTP?
-**A:** They can set up IMAP (receiving), but they can't send replies. SMTP must be configured by you (super admin) globally.
-
-### Q: Do I need Inbound Email Domain for email to work?
-**A:** No, but customer replies will appear as new conversations instead of continuing the thread. Recommended for production use.
-
-### Q: Can I use Gmail for both SMTP and Inbound Email Domain?
-**A:** 
-- **SMTP:** Yes ✅
-- **Inbound Email Domain:** No ❌ (You need your own domain)
-
-**Recommended setup:** Gmail SMTP + Your own domain for inbound
-
-### Q: What happens if I don't set SMTP?
-**A:** All emails fail silently. Notifications, replies, transcripts won't be sent. Core functionality (chat) still works.
-
-### Q: What happens if I don't set Inbound Email Domain?
-**A:** 
-- Email still works (can send/receive)
-- Customer replies appear as NEW conversations (bad UX)
-- Not recommended for production
+- debugging `/rails/action_mailbox` routes or auth failures
+- choosing between IMAP polling and webhook ingress
+- configuring SendGrid, Mailgun, or SES receive pipelines
+- validating hybrid IMAP + webhook behavior
