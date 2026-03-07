@@ -30,6 +30,10 @@ git branch "backup/${DEVELOP_BRANCH}-pre-upstream-${DEV_SHA}" "$DEVELOP_BRANCH" 
 git branch "backup/${MAIN_BRANCH}-pre-upstream-${MAIN_SHA}" "$MAIN_BRANCH" || true
 
 git fetch "$UPSTREAM_REMOTE" --prune
+git fetch "$FORK_REMOTE" --prune
+
+git config push.default current
+git config "branch.${DEVELOP_BRANCH}.pushRemote" "$FORK_REMOTE"
 
 git checkout "$DEVELOP_BRANCH"
 
@@ -39,7 +43,7 @@ export EDITOR=:
 
 if ! git rebase "${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH}"; then
   echo "Rebase stopped (likely conflicts)." >&2
-  echo "Resolve conflicts, then run: git rebase --continue" >&2
+  echo "Resolve conflicts, then run: GIT_EDITOR=: VISUAL=: EDITOR=: git rebase --continue" >&2
   exit 1
 fi
 
