@@ -1,76 +1,37 @@
 ---
 name: chatwoot-setup
-description: "Comprehensive guide for setting up and configuring Chatwoot authentication, email, and integrations. Use when asking about: (1) Google OAuth setup and configuration, (2) Email configuration (SMTP, inbound domains, webhooks), (3) Email flows and routing, (4) Configuration checklists and troubleshooting, (5) User hierarchy and organization setup."
+description: High-level guide for Chatwoot instance setup and administrator configuration. Use when the task is about Google OAuth, SMTP and inbound email domain configuration, setup checklists, or understanding the super admin → organization → agent hierarchy. For Action Mailbox provider webhooks, IMAP-versus-webhook decisions, hybrid ingress, or webhook troubleshooting, use chatwoot-email-webhooks.
 ---
 
 # Chatwoot Setup Guide
 
-## Overview
+Use this skill for instance-level setup and configuration questions. Keep webhook ingress details at a high level here and defer deep webhook work to [chatwoot-email-webhooks](../chatwoot-email-webhooks/SKILL.md).
 
-This skill provides comprehensive configuration guidance for Chatwoot, covering authentication (Google OAuth), email systems (SMTP, inbound routing, webhooks), and how the app hierarchy works (super admin → organizations → agents → customers).
+## Quick navigation
 
-## Quick Navigation
+- **Google OAuth**: Read [references/google-oauth.md](references/google-oauth.md).
+- **Email configuration overview**: Read [references/email-config.md](references/email-config.md).
+- **Setup sequencing and ownership**: Read [references/setup-checklist.md](references/setup-checklist.md).
+- **Message flow examples**: Read [references/email-flows.md](references/email-flows.md).
 
-**Start with the topic that matches your question:**
+## Core boundaries
 
-- **Setting up Google OAuth?** → See [google-oauth.md](references/google-oauth.md)
-  - How to create credentials in Google Cloud Console
-  - Configuration steps for Chatwoot
-  - OAuth flow explanation
+- Keep this skill focused on admin-owned setup: OAuth, SMTP, inbound domain, and account hierarchy.
+- Treat provider-specific Action Mailbox webhooks, ingress debugging, and IMAP-versus-webhook tradeoffs as webhook deep-dive topics.
+- When a request turns into provider setup or `/rails/action_mailbox` debugging, switch to [chatwoot-email-webhooks](../chatwoot-email-webhooks/SKILL.md).
 
-- **Configuring email?** → See [email-config.md](references/email-config.md)
-  - SMTP setup (for sending)
-  - Inbound Email Domain (for reply routing)
-  - Webhook vs IMAP comparison
-  - Email provider examples (Gmail, Mailgun, SendGrid)
+## Configuration map
 
-- **Understanding email flows?** → See [email-flows.md](references/email-flows.md)
-  - How emails move through the system
-  - Scenarios with and without Inbound Email Domain
-  - Why reply routing matters
+| Concern | Primary owner | Primary evidence |
+| --- | --- | --- |
+| Google OAuth | Super admin | `.env.example`, `references/google-oauth.md` |
+| Global outbound mail | Super admin | `.env.example`, `references/email-config.md` |
+| Inbound email domain | Super admin | `.env.example`, `references/email-config.md` |
+| Inbox channel credentials | Account or inbox admin | `references/email-flows.md` |
 
-- **Need a checklist?** → See [setup-checklist.md](references/setup-checklist.md)
-  - Minimum setup (basic functionality)
-  - Complete setup (production ready)
-  - Troubleshooting FAQ
+## Working model
 
-## Key Concepts
-
-### User Hierarchy
-
-```
-You (App Owner / Super Admin)
-  ↓
-Organizations (Teams using your Chatwoot)
-  ↓
-  Agents (Respond to customers)
-  ↓
-  Customers (External end users)
-```
-
-### Configuration Responsibility
-
-| What | Who Configures | Where |
-|------|---|---|
-| Global SMTP | You (Super Admin) | `.env` |
-| Google OAuth | You (Super Admin) | Super Admin Console |
-| Inbound Email Domain | You (Super Admin) | Super Admin Console |
-| Webhook Provider | You (Super Admin) | `.env` |
-| Per-Inbox Email | Organizations | Dashboard UI |
-
-### The Three Email Systems
-
-1. **System Emails** - Notifications and alerts (uses global SMTP)
-2. **Email Inbox Channel** - Customer support emails (per-organization IMAP/SMTP)
-3. **Inbound Email Domain** - Reply routing (uses webhooks + your domain)
-
-## Common Questions
-
-**Q: Can organizations use email without me setting up SMTP?**
-A: They can receive emails (IMAP), but not send replies. SMTP is required globally.
-
-**Q: Is Inbound Email Domain required?**
-A: No, but without it, customer replies appear as new conversations. Recommended for production.
-
-**Q: Can I use Gmail for everything?**
-A: SMTP yes, but not for Inbound Email Domain. Use Gmail SMTP + your own domain for inbound.
+- Chatwoot has a super-admin layer for instance-wide configuration.
+- Organizations and inboxes consume those instance-level defaults and add channel-specific credentials.
+- `MAILER_INBOUND_EMAIL_DOMAIN` and `RAILS_INBOUND_EMAIL_*` settings enable reply-address generation and webhook ingress, but this skill only covers the setup framing.
+- For actual provider routing, webhook URLs, hybrid operation, or 401/404 debugging, defer to the webhook skill.
