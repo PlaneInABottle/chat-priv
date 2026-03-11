@@ -10,17 +10,19 @@ Use this skill for production-style investigation on Render-hosted Chatwoot serv
 ## Quick navigation
 
 - **SSH and app-root discovery**: Read [references/ssh-and-runtime.md](references/ssh-and-runtime.md).
+- **Render CLI usage**: Read [references/render-cli.md](references/render-cli.md).
 - **Sidekiq and job-state checks**: Read [references/sidekiq-and-jobs.md](references/sidekiq-and-jobs.md).
 - **WhatsApp-specific debugging**: Read [references/whatsapp-debugging.md](references/whatsapp-debugging.md).
 
 ## Core workflow
 
 1. Confirm which Render service is the web app and which is the worker.
-2. Verify SSH access with a non-interactive command before running any deeper checks.
-3. Locate the Chatwoot app root dynamically instead of assuming a single path.
-4. Use `bundle exec rails runner` for inspection and one-shot fixes; avoid interactive console when Render Ruby/IRB is unstable.
-5. Trace the failure across boundaries in order: incoming webhook or request -> enqueue -> Sidekiq execution -> DB state -> UI visibility.
-6. Prefer read-only checks first. Only mutate state after confirming the exact failing flag or stale credential.
+2. Verify Render CLI auth and prefer `render ssh`, `render logs`, and `render psql` when they fit the task.
+3. Verify SSH access with a non-interactive command before running any deeper checks.
+4. Locate the Chatwoot app root dynamically instead of assuming a single path.
+5. Use `bundle exec rails runner` for inspection and one-shot fixes; avoid interactive console when Render Ruby/IRB is unstable.
+6. Trace the failure across boundaries in order: incoming webhook or request -> enqueue -> Sidekiq execution -> DB state -> UI visibility.
+7. Prefer read-only checks first. Only mutate state after confirming the exact failing flag or stale credential.
 
 ## Boundaries
 
@@ -36,4 +38,5 @@ Use this skill for production-style investigation on Render-hosted Chatwoot serv
 - `Webhooks::WhatsappEventsJob` drops inbound events when the channel is blank, inactive, or reauthorization is required.
 - The reauthorization flag for channels is stored in Redis via `Reauthorizable`, not directly in Postgres.
 - On Render, web and worker services are often separate; Sidekiq may be absent on the web service and healthy on the worker.
+- Render CLI is available in this environment and supports `render ssh`, `render logs`, `render psql`, and workspace-scoped non-interactive flows.
 - Old dead jobs in Sidekiq do not prove the current incident. Always inspect retry/queue/dead sets for the current signal, not just any failures.
