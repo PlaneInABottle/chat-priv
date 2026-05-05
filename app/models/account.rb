@@ -74,6 +74,16 @@ class Account < ApplicationRecord
     'additionalProperties': true
   }.to_json.freeze
 
+  AI_AGENT_MODELS = [
+    'deepseek/deepseek-v4-flash',
+    'openai/gpt-4o',
+    'openai/gpt-4o-mini',
+    'anthropic/claude-3.5-sonnet',
+    'anthropic/claude-3.5-haiku',
+    'google/gemini-2.0-flash-001',
+    'meta-llama/llama-3.3-70b-instruct'
+  ].freeze
+
   DEFAULT_QUERY_SETTING = {
     flag_query_mode: :bit_operator,
     check_for_column: false
@@ -90,6 +100,8 @@ class Account < ApplicationRecord
   store_accessor :settings, :audio_transcriptions, :auto_resolve_label
   store_accessor :settings, :captain_models, :captain_features
   store_accessor :settings, :keep_pending_on_bot_failure
+  store_accessor :settings, :ai_agent_model, :ai_agent_conversation_limit
+  attr_accessor :ai_agent_settings
 
   has_many :account_users, dependent: :destroy_async
   has_many :agent_bot_inboxes, dependent: :destroy_async
@@ -178,6 +190,28 @@ class Account < ApplicationRecord
 
   def support_email
     super.presence || ENV.fetch('MAILER_SENDER_EMAIL') { GlobalConfig.get('MAILER_SUPPORT_EMAIL')['MAILER_SUPPORT_EMAIL'] }
+  end
+
+  def ai_agent_settings
+    {
+      model: ai_agent_model,
+      conversation_limit: ai_agent_conversation_limit
+    }
+  end
+
+  def ai_agent_settings=(value)
+    return unless value.is_a?(Hash)
+
+    self.ai_agent_model = value[:model] if value.key?(:model)
+    self.ai_agent_conversation_limit = value[:conversation_limit] if value.key?(:conversation_limit)
+  end
+
+  def ai_agent_model
+    super.presence || 'deepseek/deepseek-v4-flash'
+  end
+
+  def ai_agent_conversation_limit
+    (super || 0).to_i
   end
 
   def usage_limits
