@@ -5,18 +5,6 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
 
   def show; end
 
-  def simulate
-    messages = params[:messages] || []
-    service = AiAgents::ResponseService.new(ai_agent: @ai_agent, messages: messages)
-    response_text = service.perform
-
-    if response_text
-      render json: { response: response_text }
-    else
-      render json: { error: 'Failed to generate response' }, status: :unprocessable_entity
-    end
-  end
-
   def update
     @ai_agent.assign_attributes(ai_agent_params)
     validate_inbox_presence! if @ai_agent.enabled? && ai_agent_params[:enabled].nil?
