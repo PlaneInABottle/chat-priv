@@ -16,6 +16,7 @@
 #
 #  index_agent_bots_on_account_id  (account_id)
 #
+# bot_type: webhook(0), ai(1)
 
 class AgentBot < ApplicationRecord
   include AccessTokenable
@@ -34,7 +35,8 @@ class AgentBot < ApplicationRecord
                                     dependent: :nullify,
                                     inverse_of: :assignee_agent_bot
   belongs_to :account, optional: true
-  enum bot_type: { webhook: 0 }
+  has_one :ai_agent, dependent: :nullify
+  enum bot_type: { webhook: 0, ai: 1 }
 
   validates :outgoing_url, length: { maximum: Limits::URL_LENGTH_LIMIT }
 

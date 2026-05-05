@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_01_14_201315) do
+ActiveRecord::Schema[7.1].define(version: 2026_05_05_082033) do
   # These extensions should be enabled to support this database
   enable_extension "pg_stat_statements"
   enable_extension "pg_trgm"
@@ -142,6 +142,40 @@ ActiveRecord::Schema[7.1].define(version: 2026_01_14_201315) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["account_id"], name: "index_agent_capacity_policies_on_account_id"
+  end
+
+  create_table "ai_agents", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "agent_bot_id"
+    t.text "prompt", default: ""
+    t.boolean "enabled", default: false, null: false
+    t.jsonb "config", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ai_agents_on_account_id", unique: true
+    t.index ["agent_bot_id"], name: "index_ai_agents_on_agent_bot_id", unique: true
+  end
+
+  create_table "ai_custom_tools", force: :cascade do |t|
+    t.integer "account_id", null: false
+    t.string "slug", null: false
+    t.string "title", null: false
+    t.text "description"
+    t.boolean "enabled", default: true, null: false
+    t.string "http_method", default: "GET", null: false
+    t.text "endpoint_url", null: false
+    t.text "request_template"
+    t.text "response_template"
+    t.string "auth_type", default: "none", null: false
+    t.jsonb "auth_config", default: {}, null: false
+    t.string "auth_secret"
+    t.string "auth_secret_secondary"
+    t.jsonb "param_schema", default: [], null: false
+    t.integer "timeout_ms", default: 5000, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "enabled"], name: "index_ai_custom_tools_on_account_id_and_enabled"
+    t.index ["account_id", "slug"], name: "index_ai_custom_tools_on_account_id_and_slug", unique: true
   end
 
   create_table "applied_slas", force: :cascade do |t|
@@ -1115,6 +1149,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_01_14_201315) do
     t.datetime "event_start_time", precision: nil
     t.datetime "event_end_time", precision: nil
     t.index ["account_id", "name", "created_at"], name: "reporting_events__account_id__name__created_at"
+    t.index ["account_id", "name", "inbox_id", "created_at"], name: "index_reporting_events_for_response_distribution"
     t.index ["account_id"], name: "index_reporting_events_on_account_id"
     t.index ["conversation_id"], name: "index_reporting_events_on_conversation_id"
     t.index ["created_at"], name: "index_reporting_events_on_created_at"
@@ -1270,6 +1305,9 @@ ActiveRecord::Schema[7.1].define(version: 2026_01_14_201315) do
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "ai_agents", "accounts", on_delete: :cascade
+  add_foreign_key "ai_agents", "agent_bots", on_delete: :nullify
+  add_foreign_key "ai_custom_tools", "accounts"
   add_foreign_key "inboxes", "portals"
   create_trigger("accounts_after_insert_row_tr", :generated => true, :compatibility => 1).
       on("accounts").
