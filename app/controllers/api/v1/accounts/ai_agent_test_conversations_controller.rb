@@ -18,6 +18,7 @@ class Api::V1::Accounts::AiAgentTestConversationsController < Api::V1::Accounts:
       messages: [],
       title: 'New Test Conversation'
     )
+    render :show
   end
 
   def destroy
@@ -31,7 +32,7 @@ class Api::V1::Accounts::AiAgentTestConversationsController < Api::V1::Accounts:
   end
 
   def send_message
-    content = params.require(:content).to_s.strip
+    content = params[:content].to_s.strip
     return render json: { error: 'Content is required' }, status: :bad_request if content.blank?
     return render json: { error: 'Message limit reached (200 messages max)' }, status: :unprocessable_entity if @test_conversation.at_message_limit?
 
