@@ -31,7 +31,8 @@
       "PLACEHOLDER": "Type a test message...",
       "SEND": "Send",
       "DISABLED": "Enable and configure AI Asistan to test",
-      "RESPONSE_WAIT": "AI is thinking..."
+      "RESPONSE_WAIT": "AI is thinking...",
+      "ERROR": "Sorry, I couldn't generate a response right now. Please try again."
     },
     "SAVE": {
       "BUTTON": "Save Changes",

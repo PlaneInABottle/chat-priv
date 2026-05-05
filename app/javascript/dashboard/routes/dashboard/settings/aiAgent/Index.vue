@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useMapGetter, useStore } from 'dashboard/composables/store';
 import { useAlert } from 'dashboard/composables';
 import { useI18n } from 'vue-i18n';
+import aiAgentAPI from 'dashboard/api/aiAgent';
 
 import SettingsLayout from '../SettingsLayout.vue';
 import BaseSettingsHeader from '../components/BaseSettingsHeader.vue';
@@ -103,15 +104,28 @@ const sendSimulatorMessage = async () => {
   simulatorInput.value = '';
   isSimulating.value = true;
 
-  // v1: Mock simulator - echo back a placeholder response
-  setTimeout(() => {
+  try {
+    const messages = simulatorMessages.value.map(m => ({
+      role: m.role,
+      content: m.content,
+    }));
+
+    const { data } = await aiAgentAPI.simulate({ messages });
+
     simulatorMessages.value.push({
       id: Date.now() + 1,
       role: 'assistant',
-      content: `This is a simulated response based on your system prompt. In a future update, this will connect to the real AI agent. Your prompt starts with: "${formState.value.prompt.substring(0, 80)}${formState.value.prompt.length > 80 ? '...' : ''}"`,
+      content: data.response,
     });
+  } catch {
+    simulatorMessages.value.push({
+      id: Date.now() + 1,
+      role: 'assistant',
+      content: t('AI_AGENT.SIMULATOR.ERROR'),
+    });
+  } finally {
     isSimulating.value = false;
-  }, 1200);
+  }
 };
 
 const handleSave = async () => {

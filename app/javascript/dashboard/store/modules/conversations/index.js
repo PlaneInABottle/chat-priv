@@ -222,9 +222,9 @@ export const mutations = {
         'attachments'
       );
       const incomingAttachments = hasAttachmentsField
-        ? (Array.isArray(message.attachments)
-            ? message.attachments.filter(Boolean)
-            : message.attachments)
+        ? Array.isArray(message.attachments)
+          ? message.attachments.filter(Boolean)
+          : message.attachments
         : undefined;
 
       const isDeleted = !!message.content_attributes?.deleted;
