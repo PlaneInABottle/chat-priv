@@ -34,6 +34,8 @@
       "EMPTY": "No test conversations yet. Start a new one to test your AI agent.",
       "EMPTY_CHAT": "Select or create a test conversation to begin chatting",
       "DELETE_CONFIRM": "Delete this test conversation?",
+      "DELETE": "Delete",
+      "CANCEL": "Cancel",
       "MESSAGES_COUNT": "{count} messages",
       "MESSAGE_LIMIT_REACHED": "Message limit reached (200 messages max). Start a new test conversation.",
       "TEST_MODE": "TEST MODE",

@@ -1,8 +1,9 @@
 <script setup>
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { formatDistanceToNow } from 'date-fns';
 import Icon from 'dashboard/components-next/icon/Icon.vue';
+import Dialog from 'dashboard/components-next/dialog/Dialog.vue';
 
 const props = defineProps({
   conversation: {
@@ -19,6 +20,8 @@ const emit = defineEmits(['select', 'delete']);
 
 const { t } = useI18n();
 
+const deleteDialogRef = ref(null);
+
 const relativeTime = computed(() => {
   const timestamp = props.conversation.last_message_at;
   if (!timestamp) return '';
@@ -27,9 +30,12 @@ const relativeTime = computed(() => {
 
 const handleDelete = event => {
   event.stopPropagation();
-  if (window.confirm(t('AI_AGENT.TEST_CONVERSATIONS.DELETE_CONFIRM'))) {
-    emit('delete', props.conversation.id);
-  }
+  deleteDialogRef.value?.open();
+};
+
+const confirmDelete = () => {
+  emit('delete', props.conversation.id);
+  deleteDialogRef.value?.close();
 };
 </script>
 
@@ -71,4 +77,14 @@ const handleDelete = event => {
       </span>
     </div>
   </div>
+
+  <Dialog
+    ref="deleteDialogRef"
+    type="alert"
+    :title="t('AI_AGENT.TEST_CONVERSATIONS.DELETE_CONFIRM')"
+    :description="conversation.title"
+    :confirm-button-label="t('AI_AGENT.TEST_CONVERSATIONS.DELETE')"
+    :cancel-button-label="t('AI_AGENT.TEST_CONVERSATIONS.CANCEL')"
+    @confirm="confirmDelete"
+  />
 </template>
