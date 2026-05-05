@@ -536,6 +536,10 @@ en:
       %{format_messages}
   agent_capacity_policy:
     inbox_already_assigned: 'Inbox has already been assigned to this policy'
+  helpers:
+    label:
+      account:
+        ai_agent_settings: "AI Agent Settings"
   portals:
     articles:
       captain_not_available: 'Translation requires Captain to be enabled for this account'
