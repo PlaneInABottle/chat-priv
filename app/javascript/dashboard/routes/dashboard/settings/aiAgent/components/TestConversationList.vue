@@ -1,7 +1,8 @@
 <script setup>
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import Button from 'dashboard/components-next/button/Button.vue';
+import Dialog from 'dashboard/components-next/dialog/Dialog.vue';
 import TestConversationListItem from './TestConversationListItem.vue';
 import TestConversationEmptyState from './TestConversationEmptyState.vue';
 
@@ -24,12 +25,17 @@ const emit = defineEmits(['select', 'create', 'delete', 'clearAll']);
 
 const { t } = useI18n();
 
+const clearAllDialogRef = ref(null);
+
 const hasConversations = computed(() => props.conversations.length > 0);
 
 const handleClearAll = () => {
-  if (window.confirm(t('AI_AGENT.TEST_CONVERSATIONS.CLEAR_ALL_CONFIRM'))) {
-    emit('clearAll');
-  }
+  clearAllDialogRef.value?.open();
+};
+
+const confirmClearAll = () => {
+  emit('clearAll');
+  clearAllDialogRef.value?.close();
 };
 </script>
 
@@ -77,4 +83,13 @@ const handleClearAll = () => {
       <TestConversationEmptyState v-else type="list" />
     </div>
   </div>
+
+  <Dialog
+    ref="clearAllDialogRef"
+    type="alert"
+    :title="t('AI_AGENT.TEST_CONVERSATIONS.CLEAR_ALL_CONFIRM')"
+    :confirm-button-label="t('AI_AGENT.TEST_CONVERSATIONS.DELETE')"
+    :cancel-button-label="t('AI_AGENT.TEST_CONVERSATIONS.CANCEL')"
+    @confirm="confirmClearAll"
+  />
 </template>
