@@ -261,6 +261,7 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
         expect(messages.first['content']).to eq('Hello AI')
         expect(messages.last['role']).to eq('assistant')
         expect(messages.last['content']).to eq('Hello from AI')
+        expect(json['title']).to eq('Hello AI')
       end
 
       it 'persists messages to the database' do
