@@ -3,6 +3,8 @@ json.account_id @ai_agent.account_id
 json.prompt @ai_agent.prompt
 json.enabled @ai_agent.enabled
 json.config @ai_agent.config
+json.model @ai_agent.account.ai_agent_model
+json.conversation_limit @ai_agent.account.ai_agent_conversation_limit
 json.created_at @ai_agent.created_at
 json.updated_at @ai_agent.updated_at
 
