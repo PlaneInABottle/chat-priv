@@ -171,6 +171,18 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_18_000000) do
     t.index ["user_id"], name: "index_agent_sessions_on_user_id"
   end
 
+  create_table "ai_agents", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "agent_bot_id"
+    t.text "prompt", default: ""
+    t.boolean "enabled", default: false, null: false
+    t.jsonb "config", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ai_agents_on_account_id", unique: true
+    t.index ["agent_bot_id"], name: "index_ai_agents_on_agent_bot_id", unique: true
+  end
+
   create_table "applied_slas", force: :cascade do |t|
     t.bigint "account_id", null: false
     t.bigint "sla_policy_id", null: false
@@ -1500,6 +1512,8 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_18_000000) do
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "ai_agents", "accounts", on_delete: :cascade
+  add_foreign_key "ai_agents", "agent_bots", on_delete: :nullify
   add_foreign_key "inboxes", "portals"
   add_foreign_key "user_sessions", "users"
   create_trigger("accounts_after_insert_row_tr", :generated => true, :compatibility => 1).
