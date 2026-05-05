@@ -106,7 +106,7 @@ class Account < ApplicationRecord
   has_many :account_users, dependent: :destroy_async
   has_many :agent_bot_inboxes, dependent: :destroy_async
   has_many :agent_bots, dependent: :destroy_async
-  has_one :ai_agent, dependent: :destroy
+  has_many :ai_agents, dependent: :destroy
   has_many :api_channels, dependent: :destroy_async, class_name: '::Channel::Api'
   has_many :articles, dependent: :destroy_async, class_name: '::Article'
   has_many :assignment_policies, dependent: :destroy_async

@@ -26,7 +26,7 @@ class AiAgent < ApplicationRecord
   belongs_to :agent_bot, optional: true
   has_many :test_conversations, class_name: 'AiAgentTestConversation', dependent: :destroy_async
 
-  validates :account_id, uniqueness: true
+  validates :name, presence: true
   validates :prompt, length: { maximum: 50_000 }
 
   after_create :create_linked_agent_bot
@@ -34,7 +34,7 @@ class AiAgent < ApplicationRecord
   private
 
   def create_linked_agent_bot
-    bot = account.agent_bots.create!(name: 'AI Asistan', bot_type: :ai, outgoing_url: nil)
+    bot = account.agent_bots.create!(name: name, bot_type: :ai, outgoing_url: nil)
     # rubocop:disable Rails/SkipsModelValidations — intentional: skip validations to avoid recursive callback
     update_column(:agent_bot_id, bot.id)
     # rubocop:enable Rails/SkipsModelValidations
