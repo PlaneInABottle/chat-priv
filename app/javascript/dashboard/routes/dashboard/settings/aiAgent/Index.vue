@@ -3,7 +3,6 @@ import { ref, computed, onMounted } from 'vue';
 import { useMapGetter, useStore } from 'dashboard/composables/store';
 import { useAlert } from 'dashboard/composables';
 import { useI18n } from 'vue-i18n';
-import aiAgentAPI from 'dashboard/api/aiAgent';
 
 import SettingsLayout from '../SettingsLayout.vue';
 import BaseSettingsHeader from '../components/BaseSettingsHeader.vue';
@@ -12,6 +11,7 @@ import Switch from 'dashboard/components-next/switch/Switch.vue';
 import TextArea from 'dashboard/components-next/textarea/TextArea.vue';
 import Avatar from 'dashboard/components-next/avatar/Avatar.vue';
 import Icon from 'dashboard/components-next/icon/Icon.vue';
+import TestConversationLayout from './components/TestConversationLayout.vue';
 
 const store = useStore();
 const { t } = useI18n();
@@ -21,9 +21,6 @@ const uiFlags = useMapGetter('aiAgent/getUIFlags');
 const inboxes = useMapGetter('inboxes/getInboxes');
 
 const isSaving = ref(false);
-const simulatorInput = ref('');
-const simulatorMessages = ref([]);
-const isSimulating = ref(false);
 
 // Local form state - initialized from store on load
 const formState = ref({
@@ -92,42 +89,6 @@ const isInboxSelected = inboxId => {
   return formState.value.inbox_ids.includes(inboxId);
 };
 
-const sendSimulatorMessage = async () => {
-  const message = simulatorInput.value.trim();
-  if (!message || isSimulatorDisabled.value || isSimulating.value) return;
-
-  simulatorMessages.value.push({
-    id: Date.now(),
-    role: 'user',
-    content: message,
-  });
-  simulatorInput.value = '';
-  isSimulating.value = true;
-
-  try {
-    const messages = simulatorMessages.value.map(m => ({
-      role: m.role,
-      content: m.content,
-    }));
-
-    const { data } = await aiAgentAPI.simulate({ messages });
-
-    simulatorMessages.value.push({
-      id: Date.now() + 1,
-      role: 'assistant',
-      content: data.response,
-    });
-  } catch {
-    simulatorMessages.value.push({
-      id: Date.now() + 1,
-      role: 'assistant',
-      content: t('AI_AGENT.SIMULATOR.ERROR'),
-    });
-  } finally {
-    isSimulating.value = false;
-  }
-};
-
 const handleSave = async () => {
   isSaving.value = true;
   try {
@@ -168,6 +129,7 @@ const syncFormState = () => {
 
 onMounted(async () => {
   await store.dispatch('aiAgent/get');
+  await store.dispatch('aiAgentTestConversations/get');
   syncFormState();
 });
 </script>
@@ -305,73 +267,12 @@ onMounted(async () => {
           </div>
         </div>
 
-        <!-- Simulator -->
+        <!-- Test Conversations -->
         <div>
           <h3 class="mb-2 text-sm font-medium text-n-slate-12">
-            {{ t('AI_AGENT.SIMULATOR.TITLE') }}
+            {{ t('AI_AGENT.TEST_CONVERSATIONS.TITLE') }}
           </h3>
-          <div
-            class="flex flex-col border rounded-lg border-n-weak dark:border-n-weak overflow-hidden"
-          >
-            <!-- Messages Area -->
-            <div
-              class="flex-1 p-4 space-y-3 min-h-[12rem] max-h-[20rem] overflow-y-auto bg-n-alpha-black1"
-            >
-              <div
-                v-if="isSimulatorDisabled"
-                class="flex items-center justify-center h-32 text-sm text-n-slate-11"
-              >
-                {{ t('AI_AGENT.SIMULATOR.DISABLED') }}
-              </div>
-              <template v-else>
-                <div
-                  v-for="msg in simulatorMessages"
-                  :key="msg.id"
-                  class="flex"
-                  :class="msg.role === 'user' ? 'justify-end' : 'justify-start'"
-                >
-                  <div
-                    class="max-w-[80%] px-3 py-2 rounded-lg text-sm"
-                    :class="
-                      msg.role === 'user'
-                        ? 'bg-n-brand text-white'
-                        : 'bg-n-slate-3 dark:bg-n-slate-8 text-n-slate-12'
-                    "
-                  >
-                    {{ msg.content }}
-                  </div>
-                </div>
-                <div v-if="isSimulating" class="flex justify-start">
-                  <div
-                    class="px-3 py-2 rounded-lg bg-n-slate-3 dark:bg-n-slate-8 text-n-slate-12 text-sm"
-                  >
-                    {{ t('AI_AGENT.SIMULATOR.RESPONSE_WAIT') }}
-                  </div>
-                </div>
-              </template>
-            </div>
-            <!-- Input Area -->
-            <div
-              class="flex items-center gap-2 p-3 border-t border-n-weak dark:border-n-weak bg-n-alpha-black2"
-            >
-              <input
-                v-model="simulatorInput"
-                type="text"
-                :placeholder="t('AI_AGENT.SIMULATOR.PLACEHOLDER')"
-                :disabled="isSimulatorDisabled || isSimulating"
-                class="flex-1 px-3 py-2 text-sm border rounded-lg bg-n-alpha-black2 border-n-weak dark:border-n-weak text-n-slate-12 placeholder:text-n-slate-10 focus:outline-none focus:ring-1 focus:ring-n-brand disabled:opacity-50 disabled:cursor-not-allowed"
-                @keyup.enter="sendSimulatorMessage"
-              />
-              <Button
-                :label="t('AI_AGENT.SIMULATOR.SEND')"
-                :disabled="
-                  isSimulatorDisabled || !simulatorInput.trim() || isSimulating
-                "
-                size="small"
-                @click="sendSimulatorMessage"
-              />
-            </div>
-          </div>
+          <TestConversationLayout :is-disabled="isSimulatorDisabled" />
         </div>
 
         <!-- Save Button -->
