@@ -24,14 +24,19 @@
 class AiAgent < ApplicationRecord
   belongs_to :account
   belongs_to :agent_bot, optional: true
-  has_many :test_conversations, class_name: 'AiAgentTestConversation', dependent: :destroy_async
+  has_many :test_conversations, class_name: 'AiAgentTestConversation', dependent: :destroy
 
   validates :name, presence: true
   validates :prompt, length: { maximum: 50_000 }
 
   after_create :create_linked_agent_bot
+  before_destroy :destroy_linked_agent_bot
 
   private
+
+  def destroy_linked_agent_bot
+    agent_bot&.destroy!
+  end
 
   def create_linked_agent_bot
     bot = account.agent_bots.create!(name: name, bot_type: :ai, outgoing_url: nil)

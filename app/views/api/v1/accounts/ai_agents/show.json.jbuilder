@@ -1,5 +1,6 @@
 json.id @ai_agent.id
 json.account_id @ai_agent.account_id
+json.name @ai_agent.name
 json.prompt @ai_agent.prompt
 json.enabled @ai_agent.enabled
 json.config @ai_agent.config
