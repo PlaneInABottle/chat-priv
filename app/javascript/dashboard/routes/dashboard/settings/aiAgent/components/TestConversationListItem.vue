@@ -46,7 +46,7 @@ const handleDelete = event => {
         {{ conversation.title }}
       </span>
       <button
-        class="opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-n-alpha-black2 transition-opacity"
+        class="opacity-40 group-hover:opacity-100 p-1 rounded-md hover:bg-n-alpha-black2 transition-opacity"
         @click="handleDelete"
       >
         <Icon icon="i-lucide-trash-2" class="text-n-slate-11 size-3.5" />
