@@ -1,0 +1,42 @@
+{
+  "AI_AGENT": {
+    "HEADER": "AI Asistan",
+    "DESCRIPTION": "Configure your AI assistant to help manage conversations",
+    "LEARN_MORE": "Learn more about AI Asistan",
+    "PROMPT": {
+      "LABEL": "System Prompt",
+      "PLACEHOLDER": "Enter instructions for your AI assistant...",
+      "HELP": "This prompt guides how the AI responds to conversations"
+    },
+    "ENABLED": {
+      "LABEL": "Enable AI Asistan",
+      "HELP": "When enabled, the AI will respond to conversations assigned to it"
+    },
+    "INBOXES": {
+      "LABEL": "Connected Inboxes",
+      "HELP": "Select which inboxes this AI assistant can be assigned to",
+      "NONE": "No inboxes available"
+    },
+    "MODEL": {
+      "LABEL": "AI Model",
+      "HELP": "The model is configured by your administrator"
+    },
+    "USAGE": {
+      "LABEL": "Conversation Usage",
+      "COUNT": "{used} of {limit} conversations",
+      "UNLIMITED": "{used} conversations"
+    },
+    "SIMULATOR": {
+      "TITLE": "Test AI Asistan",
+      "PLACEHOLDER": "Type a test message...",
+      "SEND": "Send",
+      "DISABLED": "Enable and configure AI Asistan to test",
+      "RESPONSE_WAIT": "AI is thinking..."
+    },
+    "SAVE": {
+      "BUTTON": "Save Changes",
+      "SUCCESS": "AI Asistan settings saved",
+      "ERROR": "Failed to save AI Asistan settings"
+    }
+  }
+}
