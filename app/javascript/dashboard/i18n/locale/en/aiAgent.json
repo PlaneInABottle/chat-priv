@@ -26,11 +26,19 @@
       "COUNT": "{used} of {limit} conversations",
       "UNLIMITED": "{used} conversations"
     },
-    "SIMULATOR": {
-      "TITLE": "Test AI Asistan",
+    "TEST_CONVERSATIONS": {
+      "TITLE": "Test Conversations",
+      "NEW": "New Test",
+      "CLEAR_ALL": "Clear All",
+      "CLEAR_ALL_CONFIRM": "Delete all test conversations? This cannot be undone.",
+      "EMPTY": "No test conversations yet. Start a new one to test your AI agent.",
+      "EMPTY_CHAT": "Select or create a test conversation to begin chatting",
+      "DELETE_CONFIRM": "Delete this test conversation?",
+      "MESSAGES_COUNT": "{count} messages",
+      "MESSAGE_LIMIT_REACHED": "Message limit reached (200 messages max). Start a new test conversation.",
+      "TEST_MODE": "TEST MODE",
       "PLACEHOLDER": "Type a test message...",
       "SEND": "Send",
-      "DISABLED": "Enable and configure AI Asistan to test",
       "RESPONSE_WAIT": "AI is thinking...",
       "ERROR": "Sorry, I couldn't generate a response right now. Please try again."
     },
