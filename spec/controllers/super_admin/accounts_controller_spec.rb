@@ -55,6 +55,56 @@ RSpec.describe 'Super Admin accounts API', type: :request do
     end
   end
 
+  describe 'PATCH /super_admin/accounts/{account_id}' do
+    context 'when it is an unauthenticated user' do
+      it 'returns unauthorized' do
+        patch "/super_admin/accounts/#{account.id}", params: { account: { name: 'New Name' } }
+        expect(response).to have_http_status(:redirect)
+      end
+    end
+
+    context 'when it is an authenticated user' do
+      it 'persists ai_agent_model and ai_agent_conversation_limit into settings' do
+        sign_in(super_admin, scope: :super_admin)
+        patch "/super_admin/accounts/#{account.id}", params: {
+          account: {
+            name: account.name,
+            ai_agent_settings: {
+              model: 'anthropic/claude-3.5-sonnet',
+              conversation_limit: 100
+            }
+          }
+        }
+
+        expect(response).to have_http_status(:redirect)
+        account.reload
+        expect(account.ai_agent_model).to eq('anthropic/claude-3.5-sonnet')
+        expect(account.ai_agent_conversation_limit).to eq(100)
+      end
+
+      it 'does not wipe existing settings keys when updating AI settings' do
+        account.update!(settings: { auto_resolve_after: 30, auto_resolve_message: 'Hello' })
+        sign_in(super_admin, scope: :super_admin)
+        patch "/super_admin/accounts/#{account.id}", params: {
+          account: {
+            name: account.name,
+            ai_agent_settings: {
+              model: 'openai/gpt-4o-mini',
+              conversation_limit: 25
+            }
+          }
+        }
+
+        expect(response).to have_http_status(:redirect)
+        account.reload
+        expect(account.settings['auto_resolve_after']).to eq(30)
+        expect(account.settings['auto_resolve_message']).to eq('Hello')
+        expect(account.ai_agent_model).to eq('openai/gpt-4o-mini')
+        expect(account.ai_agent_conversation_limit).to eq(25)
+      end
+    end
+  end
+
   describe 'DELETE /super_admin/accounts/{account_id}' do
     context 'when it is an unauthenticated user' do
       it 'returns unauthorized' do

@@ -1,0 +1,17 @@
+<div class="field-unit__label">
+  <%= f.label field.attribute %>
+</div>
+<div class="field-unit__field">
+  <div>
+    <%= label_tag 'account_ai_agent_settings_model', 'Model' %>
+    <%= select_tag "#{field.html_name}[model]",
+                   options_for_select(Account::AI_AGENT_MODELS, field.resource.ai_agent_model) %>
+  </div>
+  <div>
+    <%= label_tag 'account_ai_agent_settings_conversation_limit', 'Conversation Limit' %>
+    <%= number_field_tag "#{field.html_name}[conversation_limit]",
+                         field.resource.ai_agent_conversation_limit,
+                         min: 0 %>
+    <span>0 = unlimited</span>
+  </div>
+</div>
