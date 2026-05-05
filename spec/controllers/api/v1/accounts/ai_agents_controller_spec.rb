@@ -25,6 +25,8 @@ RSpec.describe 'Ai Agent API', type: :request do
         expect(json['account_id']).to eq(account.id)
         expect(json['enabled']).to be(false)
         expect(json['prompt']).to eq('')
+        expect(json['model']).to eq('deepseek/deepseek-v4-flash')
+        expect(json['conversation_limit']).to eq(0)
       end
 
       it 'returns existing ai_agent' do
@@ -34,6 +36,20 @@ RSpec.describe 'Ai Agent API', type: :request do
 
         expect(response).to have_http_status(:success)
         expect(response.parsed_body['id']).to eq(ai_agent.id)
+        expect(response.parsed_body['model']).to eq('deepseek/deepseek-v4-flash')
+        expect(response.parsed_body['conversation_limit']).to eq(0)
+      end
+
+      it 'returns configured model and limit' do
+        account.update!(ai_agent_model: 'openai/gpt-4o', ai_agent_conversation_limit: 50)
+        create(:ai_agent, account: account)
+
+        get "/api/v1/accounts/#{account.id}/ai_agent", headers: admin.create_new_auth_token, as: :json
+
+        expect(response).to have_http_status(:success)
+        json = response.parsed_body
+        expect(json['model']).to eq('openai/gpt-4o')
+        expect(json['conversation_limit']).to eq(50)
       end
     end
 
