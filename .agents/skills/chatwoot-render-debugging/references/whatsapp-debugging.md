@@ -1,5 +1,21 @@
 # WhatsApp Debugging on Render
 
+## Contents
+
+- [Goal](#goal)
+- [The actual inbound path in this repo](#the-actual-inbound-path-in-this-repo)
+- [Critical gating behavior](#critical-gating-behavior)
+- [Fast checks](#fast-checks)
+  - [Check live channel state](#check-live-channel-state)
+  - [Check whether webhook delivery actually arrived](#check-whether-webhook-delivery-actually-arrived)
+  - [Check whether DB side effects happened](#check-whether-db-side-effects-happened)
+- [Common Meta error meanings](#common-meta-error-meanings)
+  - [`(#100) Before override the current callback uri...`](#100-before-override-the-current-callback-uri)
+  - [`(#200) You do not have the necessary permissions to send messages...`](#200-you-do-not-have-the-necessary-permissions-to-send-messages)
+  - [`OAuthException code 190 subcode 460`](#oauthexception-code-190-subcode-460)
+- [Direct Meta probes](#direct-meta-probes)
+- [Reauthorization handling](#reauthorization-handling)
+
 ## Goal
 
 Trace WhatsApp incidents across channel config, webhook delivery, Sidekiq execution, Meta permissions, and database side effects.
