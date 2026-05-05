@@ -4,7 +4,7 @@ class AiAgentTestConversationPolicy < ApplicationPolicy
   end
 
   def show?
-    @account_user.administrator? && record_belongs_to_account?
+    @account_user.administrator?
   end
 
   def create?
@@ -12,7 +12,7 @@ class AiAgentTestConversationPolicy < ApplicationPolicy
   end
 
   def destroy?
-    @account_user.administrator? && record_belongs_to_account?
+    @account_user.administrator?
   end
 
   def clear_all?
@@ -20,18 +20,12 @@ class AiAgentTestConversationPolicy < ApplicationPolicy
   end
 
   def send_message?
-    @account_user.administrator? && record_belongs_to_account?
+    @account_user.administrator?
   end
 
   class Scope < Scope
     def resolve
       scope.where(account_id: @account.id)
     end
-  end
-
-  private
-
-  def record_belongs_to_account?
-    record.account_id == @account.id
   end
 end
