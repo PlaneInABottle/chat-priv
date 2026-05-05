@@ -89,8 +89,15 @@ Rails.application.routes.draw do
             end
           end
           resource :saml_settings, only: [:show, :create, :update, :destroy]
-          resource :ai_agent, only: [:show, :update] do
-            post :simulate, on: :member
+          resource :ai_agent, only: [:show, :update]
+
+          resources :ai_agent_test_conversations, only: [:index, :show, :create, :destroy] do
+            collection do
+              delete :clear_all
+            end
+            member do
+              post :send_message
+            end
           end
           resources :agent_bots, only: [:index, :create, :show, :update, :destroy] do
             delete :avatar, on: :member
