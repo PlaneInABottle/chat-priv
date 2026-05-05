@@ -93,12 +93,26 @@ export const actions = {
 
   sendMessage: async ({ commit }, { id, content }) => {
     commit('SET_UI_FLAG', { isSending: true });
+
+    // Optimistically add user message so it appears immediately
+    const optimisticMessage = {
+      id: `temp-${Date.now()}`,
+      role: 'user',
+      content,
+      created_at: new Date().toISOString(),
+    };
+    commit('ADD_MESSAGE', { id, message: optimisticMessage });
+
     try {
       const response = await AiAgentTestConversationsAPI.sendMessage(
         id,
         content
       );
-      commit('UPDATE_MESSAGES', { id, messages: response.data.messages });
+      commit('UPDATE_MESSAGES', {
+        id,
+        messages: response.data.messages,
+        title: response.data.title,
+      });
       return response.data;
     } catch (error) {
       throwErrorMessage(error);
@@ -144,7 +158,7 @@ export const mutations = {
     $state.sortOrder = [];
     $state.activeId = null;
   },
-  UPDATE_MESSAGES($state, { id, messages }) {
+  UPDATE_MESSAGES($state, { id, messages, title }) {
     if ($state.records[id]) {
       $state.records[id].messages = messages;
       $state.records[id].messages_count = messages.length;
@@ -154,6 +168,18 @@ export const mutations = {
         messages.length > 0
           ? messages[messages.length - 1].content?.substring(0, 60)
           : null;
+      if (title) {
+        $state.records[id].title = title;
+      }
+    }
+  },
+  ADD_MESSAGE($state, { id, message }) {
+    if ($state.records[id]) {
+      $state.records[id].messages = [...$state.records[id].messages, message];
+      $state.records[id].messages_count = $state.records[id].messages.length;
+      $state.records[id].last_message_at = message.created_at;
+      $state.records[id].last_message_preview =
+        message.content?.substring(0, 60) ?? null;
     }
   },
   SET_ACTIVE_ID($state, id) {

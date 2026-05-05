@@ -39,18 +39,7 @@ class Api::V1::Accounts::AiAgentTestConversationsController < Api::V1::Accounts:
     @test_conversation.append_message(role: 'user', content: content)
     @test_conversation.update!(title: content.truncate(50)) if @test_conversation.title == 'New Test Conversation'
 
-    service = AiAgents::ResponseService.new(
-      ai_agent: @ai_agent,
-      messages: @test_conversation.messages.map { |m| { role: m['role'], content: m['content'] } }
-    )
-    response_text = service.perform
-
-    if response_text
-      @test_conversation.append_message(role: 'assistant', content: response_text)
-      render json: { message: @test_conversation.messages.last, messages: @test_conversation.messages }
-    else
-      render json: { error: 'Failed to generate response' }, status: :unprocessable_entity
-    end
+    generate_and_render_ai_response
   end
 
   private
@@ -61,5 +50,20 @@ class Api::V1::Accounts::AiAgentTestConversationsController < Api::V1::Accounts:
 
   def set_test_conversation
     @test_conversation = @ai_agent.test_conversations.find(params[:id])
+  end
+
+  def generate_and_render_ai_response
+    service = AiAgents::ResponseService.new(
+      ai_agent: @ai_agent,
+      messages: @test_conversation.messages.map { |m| { role: m['role'], content: m['content'] } }
+    )
+    response_text = service.perform
+
+    if response_text
+      @test_conversation.append_message(role: 'assistant', content: response_text)
+      render json: { message: @test_conversation.messages.last, messages: @test_conversation.messages, title: @test_conversation.title }
+    else
+      render json: { error: 'Failed to generate response' }, status: :unprocessable_entity
+    end
   end
 end
