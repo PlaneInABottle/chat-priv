@@ -145,6 +145,19 @@ ActiveRecord::Schema[7.1].define(version: 2026_05_25_093000) do
     t.index ["account_id"], name: "index_agent_capacity_policies_on_account_id"
   end
 
+  create_table "ai_agent_test_conversations", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "ai_agent_id", null: false
+    t.string "title"
+    t.jsonb "messages", default: [], null: false
+    t.datetime "last_message_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ai_agent_test_conversations_on_account_id"
+    t.index ["ai_agent_id"], name: "index_ai_agent_test_conversations_on_ai_agent_id"
+    t.index ["last_message_at"], name: "index_ai_agent_test_conversations_on_last_message_at"
+  end
+
   create_table "ai_agents", force: :cascade do |t|
     t.bigint "account_id", null: false
     t.bigint "agent_bot_id"
