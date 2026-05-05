@@ -166,7 +166,8 @@ ActiveRecord::Schema[7.1].define(version: 2026_05_25_093000) do
     t.jsonb "config", default: {}
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index ["account_id"], name: "index_ai_agents_on_account_id", unique: true
+    t.string "name", default: "AI Asistan", null: false
+    t.index ["account_id"], name: "index_ai_agents_on_account_id"
     t.index ["agent_bot_id"], name: "index_ai_agents_on_agent_bot_id", unique: true
   end
 
