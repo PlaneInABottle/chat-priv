@@ -24,6 +24,7 @@
 class AiAgent < ApplicationRecord
   belongs_to :account
   belongs_to :agent_bot, optional: true
+  has_many :test_conversations, class_name: 'AiAgentTestConversation', dependent: :destroy_async
 
   validates :account_id, uniqueness: true
   validates :prompt, length: { maximum: 50_000 }
