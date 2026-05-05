@@ -395,6 +395,60 @@ RSpec.describe Account do
     end
   end
 
+  describe 'ai_agent_settings' do
+    let(:account) { create(:account) }
+
+    it 'returns default model when absent' do
+      expect(account.ai_agent_model).to eq('deepseek/deepseek-v4-flash')
+    end
+
+    it 'returns default limit when absent' do
+      expect(account.ai_agent_conversation_limit).to eq(0)
+    end
+
+    it 'allows explicit model to override default' do
+      account.update!(ai_agent_model: 'openai/gpt-4o')
+      expect(account.reload.ai_agent_model).to eq('openai/gpt-4o')
+    end
+
+    it 'allows explicit limit to override default' do
+      account.update!(ai_agent_conversation_limit: 100)
+      expect(account.reload.ai_agent_conversation_limit).to eq(100)
+    end
+
+    it 'returns ai_agent_settings as a hash' do
+      expect(account.ai_agent_settings).to eq(
+        model: 'deepseek/deepseek-v4-flash',
+        conversation_limit: 0
+      )
+    end
+
+    it 'round-trips ai_agent_settings through virtual attribute' do
+      account.ai_agent_settings = { model: 'anthropic/claude-3.5-sonnet', conversation_limit: 50 }
+      account.save!
+      account.reload
+
+      expect(account.ai_agent_model).to eq('anthropic/claude-3.5-sonnet')
+      expect(account.ai_agent_conversation_limit).to eq(50)
+      expect(account.ai_agent_settings).to eq(
+        model: 'anthropic/claude-3.5-sonnet',
+        conversation_limit: 50
+      )
+    end
+
+    it 'preserves existing settings keys when updating AI settings' do
+      account.update!(settings: { auto_resolve_after: 30, auto_resolve_message: 'Hello' })
+      account.ai_agent_settings = { model: 'openai/gpt-4o-mini', conversation_limit: 25 }
+      account.save!
+      account.reload
+
+      expect(account.settings['auto_resolve_after']).to eq(30)
+      expect(account.settings['auto_resolve_message']).to eq('Hello')
+      expect(account.ai_agent_model).to eq('openai/gpt-4o-mini')
+      expect(account.ai_agent_conversation_limit).to eq(25)
+    end
+  end
+
   describe 'captain_preferences' do
     let(:account) { create(:account) }
 
