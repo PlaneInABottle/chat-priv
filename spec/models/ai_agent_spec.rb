@@ -20,6 +20,28 @@ RSpec.describe AiAgent do
         expect(second).to be_valid
       end
     end
+
+    context 'when assigning an inbox already bound to another AI agent' do
+      let(:account) { create(:account) }
+      let(:inbox) { create(:inbox, account: account) }
+
+      it 'is invalid when inbox is already assigned to another AI agent' do
+        first_agent = create(:ai_agent, account: account, name: 'First Agent')
+        AgentBotInbox.create!(agent_bot: first_agent.agent_bot, inbox: inbox, account: account)
+
+        second_agent = build(:ai_agent, account: account, name: 'Second Agent', inbox_ids: [inbox.id])
+        expect(second_agent).not_to be_valid
+        expect(second_agent.errors[:inbox_ids]).to include('already assigned to another AI agent')
+      end
+
+      it 'is valid when inbox is assigned to the same agent' do
+        agent = create(:ai_agent, account: account, name: 'My Agent')
+        AgentBotInbox.create!(agent_bot: agent.agent_bot, inbox: inbox, account: account)
+
+        agent.inbox_ids = [inbox.id]
+        expect(agent).to be_valid
+      end
+    end
   end
 
   describe 'callbacks' do

@@ -35,6 +35,19 @@ RSpec.describe 'Ai Agents API', type: :request do
         expect(json.first['conversation_limit']).to eq(0)
         expect(json.first['ai_agent_model']).to eq('deepseek/deepseek-v4-flash')
       end
+
+      it 'returns agents sorted by created_at ascending' do
+        older_agent = create(:ai_agent, account: account, created_at: 2.days.ago)
+        newer_agent = create(:ai_agent, account: account, created_at: 1.hour.ago)
+
+        get "/api/v1/accounts/#{account.id}/ai_agents", headers: admin.create_new_auth_token, as: :json
+
+        expect(response).to have_http_status(:success)
+        json = response.parsed_body
+        expect(json.length).to eq(2)
+        expect(json.first['id']).to eq(older_agent.id)
+        expect(json.last['id']).to eq(newer_agent.id)
+      end
     end
 
     context 'when it is an authenticated agent' do
@@ -59,6 +72,9 @@ RSpec.describe 'Ai Agents API', type: :request do
 
     context 'when it is an authenticated administrator' do
       it 'returns the ai agent with nested bot and inboxes' do
+        inbox = create(:inbox, account: account)
+        AgentBotInbox.create!(agent_bot: ai_agent.agent_bot, inbox: inbox, account: account)
+
         get "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}", headers: admin.create_new_auth_token, as: :json
 
         expect(response).to have_http_status(:success)
@@ -69,6 +85,7 @@ RSpec.describe 'Ai Agents API', type: :request do
         expect(json['conversation_limit']).to eq(0)
         expect(json['agent_bot']).to be_present
         expect(json['agent_bot']['bot_type']).to eq('ai')
+        expect(json['agent_bot']['inbox_ids']).to include(inbox.id)
       end
     end
 
@@ -128,6 +145,20 @@ RSpec.describe 'Ai Agents API', type: :request do
              as: :json
 
         expect(response).to have_http_status(:unprocessable_entity)
+      end
+
+      it 'returns 422 when assigning inbox already bound to another AI agent' do
+        other_agent = create(:ai_agent, account: account)
+        inbox = create(:inbox, account: account)
+        AgentBotInbox.create!(agent_bot: other_agent.agent_bot, inbox: inbox, account: account)
+
+        post "/api/v1/accounts/#{account.id}/ai_agents",
+             headers: admin.create_new_auth_token,
+             params: { name: 'New Agent', inbox_ids: [inbox.id] },
+             as: :json
+
+        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response.parsed_body['errors']).to have_key('inbox_ids')
       end
     end
 
