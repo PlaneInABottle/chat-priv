@@ -38,20 +38,22 @@ class AiAgent < ApplicationRecord
   private
 
   def inbox_ids_conflict
-    target_ids = Array(inbox_ids).map(&:to_i).select(&:positive?)
+    target_ids = Array(inbox_ids).map(&:to_i).select(&:positive?).uniq
     return if target_ids.empty?
 
-    conflicts = AgentBotInbox.joins(:agent_bot)
-                             .where(agent_bots: { bot_type: :ai })
-                             .where.not(agent_bot_id: agent_bot_id)
+    conflicts = AgentBotInbox.where.not(agent_bot_id: agent_bot_id)
                              .where(inbox_id: target_ids)
                              .exists?
 
-    errors.add(:inbox_ids, 'already assigned to another AI agent') if conflicts
+    errors.add(:inbox_ids, 'already assigned to another agent bot') if conflicts
   end
 
   def destroy_linked_agent_bot
-    agent_bot&.destroy!
+    bot = agent_bot
+    return unless bot
+
+    bot.agent_bot_inboxes.destroy_all
+    bot.destroy!
   end
 
   def create_linked_agent_bot

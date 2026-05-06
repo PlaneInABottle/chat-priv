@@ -65,6 +65,7 @@ class AgentBotListener < BaseListener
   end
 
   def process_webhook_bot_event(agent_bot, payload)
+    return unless agent_bot.webhook?
     return if agent_bot.outgoing_url.blank?
 
     AgentBots::WebhookJob.perform_later(agent_bot.outgoing_url, payload)

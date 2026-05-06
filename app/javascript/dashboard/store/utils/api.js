@@ -95,9 +95,15 @@ export const parseAPIErrorResponse = error => {
     return error?.response?.data?.error;
   }
   if (error?.response?.data?.errors) {
-    return error?.response?.data?.errors[0];
+    const responseErrors = error?.response?.data?.errors;
+    if (Array.isArray(responseErrors)) {
+      return responseErrors[0];
+    }
+    if (typeof responseErrors === 'object') {
+      return Object.values(responseErrors).flat().find(Boolean);
+    }
   }
-  return error;
+  return error?.message || error;
 };
 
 export const throwErrorMessage = error => {

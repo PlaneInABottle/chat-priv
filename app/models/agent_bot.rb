@@ -26,6 +26,9 @@ class AgentBot < ApplicationRecord
     account_id = account&.id
     where(account_id: [nil, account_id])
   }
+  scope :webhook_accessible_to, lambda { |account|
+    accessible_to(account).webhook
+  }
 
   has_many :agent_bot_inboxes, dependent: :destroy_async
   has_many :inboxes, through: :agent_bot_inboxes

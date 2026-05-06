@@ -51,10 +51,12 @@ class Api::V1::Accounts::InboxesController < Api::V1::Accounts::BaseController
   end
 
   def agent_bot
-    @agent_bot = @inbox.agent_bot
+    @agent_bot = @inbox.agent_bot if @inbox.agent_bot&.webhook?
   end
 
   def set_agent_bot
+    return render_ai_binding_conflict if @inbox.agent_bot&.ai?
+
     if @agent_bot
       agent_bot_inbox = @inbox.agent_bot_inbox || AgentBotInbox.new(inbox: @inbox)
       agent_bot_inbox.agent_bot = @agent_bot
@@ -95,7 +97,11 @@ class Api::V1::Accounts::InboxesController < Api::V1::Accounts::BaseController
   end
 
   def fetch_agent_bot
-    @agent_bot = AgentBot.find(params[:agent_bot]) if params[:agent_bot]
+    @agent_bot = AgentBot.webhook_accessible_to(Current.account).find(params[:agent_bot]) if params[:agent_bot]
+  end
+
+  def render_ai_binding_conflict
+    render json: { error: 'AI agent bot binding can only be managed from AI agent settings' }, status: :unprocessable_entity
   end
 
   def validate_whatsapp_cloud_channel
