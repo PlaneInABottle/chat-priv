@@ -45,7 +45,7 @@ class Api::V1::Accounts::AiAgentTestConversationsController < Api::V1::Accounts:
   private
 
   def set_ai_agent
-    @ai_agent = Current.account.ai_agent || Current.account.create_ai_agent
+    @ai_agent = Current.account.ai_agents.find(params[:ai_agent_id])
   end
 
   def set_test_conversation
