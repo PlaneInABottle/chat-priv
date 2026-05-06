@@ -28,11 +28,27 @@ class AiAgent < ApplicationRecord
 
   validates :name, presence: true
   validates :prompt, length: { maximum: 50_000 }
+  validate :inbox_ids_conflict, if: -> { inbox_ids.present? }
+
+  attr_accessor :inbox_ids
 
   after_create :create_linked_agent_bot
   before_destroy :destroy_linked_agent_bot
 
   private
+
+  def inbox_ids_conflict
+    target_ids = Array(inbox_ids).map(&:to_i).select(&:positive?)
+    return if target_ids.empty?
+
+    conflicts = AgentBotInbox.joins(:agent_bot)
+                             .where(agent_bots: { bot_type: :ai })
+                             .where.not(agent_bot_id: agent_bot_id)
+                             .where(inbox_id: target_ids)
+                             .exists?
+
+    errors.add(:inbox_ids, 'already assigned to another AI agent') if conflicts
+  end
 
   def destroy_linked_agent_bot
     agent_bot&.destroy!
