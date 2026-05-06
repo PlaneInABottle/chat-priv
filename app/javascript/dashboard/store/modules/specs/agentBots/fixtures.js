@@ -24,6 +24,18 @@ export const agentBotRecords = [
     access_token: 'hN8QwG769RqBXmme',
     system_bot: false,
   },
+  {
+    account_id: 1,
+    id: 13,
+    name: 'AI Agent Bot',
+    description: 'AI Agent Bot Description',
+    bot_type: 'ai',
+    thumbnail: 'https://example.com/thumbnail.jpg',
+    bot_config: {},
+    outgoing_url: '',
+    access_token: 'hN8QwG769RqBXmme',
+    system_bot: false,
+  },
 ];
 
 export const agentBotData = {

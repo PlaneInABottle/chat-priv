@@ -19,6 +19,10 @@ const props = defineProps({
     type: Object,
     default: () => ({}),
   },
+  isDisabled: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const emit = defineEmits(['select', 'create', 'delete', 'clearAll']);
@@ -51,18 +55,20 @@ const confirmClearAll = () => {
       <div class="flex items-center gap-2">
         <Button
           :label="t('AI_AGENT.TEST_CONVERSATIONS.NEW')"
-          size="small"
+          size="sm"
           variant="faded"
           :is-loading="uiFlags.isCreating"
+          :disabled="isDisabled"
           @click="emit('create')"
         />
         <Button
           v-if="hasConversations"
           icon="i-lucide-trash"
-          size="small"
+          size="sm"
           variant="faded"
           color="ruby"
           :is-loading="uiFlags.isDeleting"
+          :disabled="isDisabled"
           @click="handleClearAll"
         />
       </div>

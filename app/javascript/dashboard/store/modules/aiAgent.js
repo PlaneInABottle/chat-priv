@@ -1,5 +1,5 @@
 import AiAgentAPI from '../../api/aiAgent';
-import { throwErrorMessage } from '../utils/api';
+import { parseAPIErrorResponse, throwErrorMessage } from '../utils/api';
 
 export const state = {
   records: {},
@@ -67,8 +67,9 @@ export const actions = {
       commit('ADD_AI_AGENT', response.data);
       return response.data;
     } catch (error) {
-      throwErrorMessage(error);
-      return null;
+      return {
+        error: parseAPIErrorResponse(error),
+      };
     } finally {
       commit('SET_AI_AGENT_UI_FLAG', { isCreating: false });
     }
@@ -92,8 +93,9 @@ export const actions = {
       commit('UPDATE_AI_AGENT', response.data);
       return response.data;
     } catch (error) {
-      throwErrorMessage(error);
-      return null;
+      return {
+        error: parseAPIErrorResponse(error),
+      };
     } finally {
       commit('SET_AI_AGENT_UI_FLAG', { isUpdating: false });
     }

@@ -22,7 +22,7 @@ export const state = {
 
 export const getters = {
   getBots($state) {
-    return $state.records;
+    return $state.records.filter(record => record.bot_type === 'webhook');
   },
   getUIFlags($state) {
     return $state.uiFlags;

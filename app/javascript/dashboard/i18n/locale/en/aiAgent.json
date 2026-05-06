@@ -20,7 +20,8 @@
     "INBOXES": {
       "LABEL": "Connected Inboxes",
       "HELP": "Select which inboxes this AI assistant can be assigned to",
-      "NONE": "No inboxes available"
+      "NONE": "No inboxes available",
+      "ASSIGNED_TO": "Assigned to {owner}"
     },
     "MODEL": {
       "LABEL": "AI Model",
@@ -47,6 +48,7 @@
       "PLACEHOLDER": "Type a test message...",
       "SEND": "Send",
       "RESPONSE_WAIT": "AI is thinking...",
+      "SAVE_BEFORE_TESTING": "Save your changes before testing this AI agent.",
       "ERROR": "Sorry, I couldn't generate a response right now. Please try again."
     },
     "SAVE": {

@@ -1,10 +1,16 @@
 <script setup>
 import { ref } from 'vue';
+import { useAlert } from 'dashboard/composables';
 import { useMapGetter, useStore } from 'dashboard/composables/store';
+import { useI18n } from 'vue-i18n';
 import TestConversationList from './TestConversationList.vue';
 import TestConversationChatPanel from './TestConversationChatPanel.vue';
 
-defineProps({
+const props = defineProps({
+  aiAgentId: {
+    type: Number,
+    required: true,
+  },
   isDisabled: {
     type: Boolean,
     default: false,
@@ -12,6 +18,7 @@ defineProps({
 });
 
 const store = useStore();
+const { t } = useI18n();
 
 const conversations = useMapGetter(
   'aiAgentTestConversations/getTestConversations'
@@ -24,31 +31,50 @@ const uiFlags = useMapGetter('aiAgentTestConversations/getUIFlags');
 const showListOnMobile = ref(true);
 
 const selectConversation = id => {
+  if (props.isDisabled) return;
   showListOnMobile.value = false;
-  store.dispatch('aiAgentTestConversations/show', id);
+  store.dispatch('aiAgentTestConversations/show', {
+    aiAgentId: props.aiAgentId,
+    id,
+  });
 };
 
 const createConversation = async () => {
-  const data = await store.dispatch('aiAgentTestConversations/create');
+  if (props.isDisabled) return;
+  const data = await store.dispatch('aiAgentTestConversations/create', {
+    aiAgentId: props.aiAgentId,
+  });
   if (data) {
     showListOnMobile.value = false;
   }
 };
 
 const deleteConversation = id => {
-  store.dispatch('aiAgentTestConversations/delete', id);
+  if (props.isDisabled) return;
+  store.dispatch('aiAgentTestConversations/delete', {
+    aiAgentId: props.aiAgentId,
+    id,
+  });
 };
 
 const clearAllConversations = () => {
-  store.dispatch('aiAgentTestConversations/clearAll');
+  if (props.isDisabled) return;
+  store.dispatch('aiAgentTestConversations/clearAll', {
+    aiAgentId: props.aiAgentId,
+  });
 };
 
-const sendMessage = content => {
+const sendMessage = async content => {
   if (!activeConversation.value) return;
-  store.dispatch('aiAgentTestConversations/sendMessage', {
+  const result = await store.dispatch('aiAgentTestConversations/sendMessage', {
+    aiAgentId: props.aiAgentId,
     id: activeConversation.value.id,
     content,
   });
+
+  if (result?.error) {
+    useAlert(result.error || t('AI_AGENT.TEST_CONVERSATIONS.ERROR'));
+  }
 };
 
 const handleBack = () => {
@@ -69,6 +95,7 @@ const handleBack = () => {
         :conversations="conversations"
         :active-id="activeConversation?.id"
         :ui-flags="uiFlags"
+        :is-disabled="isDisabled"
         @select="selectConversation"
         @create="createConversation"
         @delete="deleteConversation"
