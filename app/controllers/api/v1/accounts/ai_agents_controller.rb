@@ -4,13 +4,14 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
   before_action :set_ai_agent, only: [:show, :update, :destroy]
 
   def index
-    @ai_agents = Current.account.ai_agents.includes(agent_bot: :inboxes)
+    @ai_agents = Current.account.ai_agents.includes(agent_bot: :inboxes).order(:created_at)
   end
 
   def show; end
 
   def create
     @ai_agent = Current.account.ai_agents.build(ai_agent_params)
+    @ai_agent.inbox_ids = inbox_ids_param if params.key?(:inbox_ids)
 
     if @ai_agent.save
       sync_inbox_bindings if params.key?(:inbox_ids)
@@ -22,14 +23,11 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
 
   def update
     @ai_agent.assign_attributes(ai_agent_params)
-
-    if params.key?(:inbox_ids) && !sync_inbox_bindings
-      render json: { errors: @ai_agent.errors }, status: :unprocessable_entity
-      return
-    end
+    @ai_agent.inbox_ids = inbox_ids_param if params.key?(:inbox_ids)
 
     if @ai_agent.save
       @ai_agent.agent_bot&.update!(name: @ai_agent.name)
+      sync_inbox_bindings if params.key?(:inbox_ids)
       render :show
     else
       render json: { errors: @ai_agent.errors }, status: :unprocessable_entity
@@ -60,18 +58,6 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
     return true unless bot
 
     target_ids = inbox_ids_param
-
-    # Check for conflicts with other AI agents
-    conflicts = AgentBotInbox.joins(:agent_bot)
-                             .where(agent_bots: { bot_type: :ai })
-                             .where.not(agent_bot_id: bot.id)
-                             .where(inbox_id: target_ids)
-                             .exists?
-
-    if conflicts
-      @ai_agent.errors.add(:inbox_ids, 'already assigned to another AI agent')
-      return false
-    end
 
     # Clear existing bindings for this bot
     bot.agent_bot_inboxes.destroy_all

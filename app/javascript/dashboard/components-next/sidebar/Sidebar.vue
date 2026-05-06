@@ -730,7 +730,7 @@ const menuItems = computed(() => {
           to: accountScopedRoute('agent_bots'),
         },
         {
-          name: 'Settings AI Asistan',
+          name: 'Settings AI Agent',
           label: t('SIDEBAR.AI_ASISTAN'),
           icon: 'i-lucide-sparkles',
           to: accountScopedRoute('ai_agents'),
