@@ -54,6 +54,16 @@ describe AgentBotListener do
           listener.message_created(event)
         end
       end
+
+      it 'does not send message for ai bots even if outgoing_url is present' do
+        ai_bot = create(:ai_agent, account: account).agent_bot
+        ai_bot.update_column(:outgoing_url, 'https://example.com/webhook')
+        create(:agent_bot_inbox, inbox: inbox, agent_bot: ai_bot)
+
+        expect(AgentBots::WebhookJob).not_to receive(:perform_later)
+
+        listener.message_created(event)
+      end
     end
   end
 

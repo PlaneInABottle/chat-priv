@@ -34,6 +34,16 @@ describe('#parseAPIErrorResponse', () => {
       })
     ).toBe('Error Message [error]');
 
+    expect(
+      parseAPIErrorResponse({
+        response: {
+          data: {
+            errors: { inbox_ids: ['already assigned to another agent bot'] },
+          },
+        },
+      })
+    ).toBe('already assigned to another agent bot');
+
     expect(parseAPIErrorResponse('Error: 422 Failed')).toBe(
       'Error: 422 Failed'
     );

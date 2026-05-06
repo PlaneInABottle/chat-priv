@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useMapGetter, useStore } from 'dashboard/composables/store';
 import { useAlert } from 'dashboard/composables';
@@ -26,6 +26,7 @@ const uiFlags = useMapGetter('aiAgent/getUIFlags');
 const inboxes = useMapGetter('inboxes/getInboxes');
 
 const isSaving = ref(false);
+const inboxError = ref('');
 
 // Local form state - initialized from store on load
 const formState = ref({
@@ -50,14 +51,28 @@ const isFormDirty = computed(() => {
     formState.value.enabled !== record.enabled ||
     formState.value.prompt !== (record.prompt || '') ||
     JSON.stringify(formState.value.inbox_ids) !==
-      JSON.stringify(record.inbox_ids || [])
+      JSON.stringify(record.agent_bot?.inbox_ids || [])
   );
 });
 
 const maxCharacters = 4000;
 
+const persistedInboxIds = computed(() => {
+  return aiAgent.value?.agent_bot?.inbox_ids || [];
+});
+
 const inboxList = computed(() => {
-  return inboxes.value || [];
+  if (aiAgent.value?.available_inboxes?.length) {
+    return aiAgent.value.available_inboxes;
+  }
+
+  return (inboxes.value || []).map(inbox => ({
+    ...inbox,
+    available: true,
+    owned_by_current_ai_agent: persistedInboxIds.value.includes(inbox.id),
+    conflicting: false,
+    owner_name: null,
+  }));
 });
 
 const usageUsed = computed(() => {
@@ -79,10 +94,49 @@ const usageDisplay = computed(() => {
 });
 
 const isSimulatorDisabled = computed(() => {
-  return !formState.value.enabled || !formState.value.prompt.trim();
+  return (
+    !aiAgent.value?.enabled ||
+    !aiAgent.value?.prompt?.trim() ||
+    isFormDirty.value
+  );
 });
 
+function syncFormState() {
+  const record = aiAgent.value;
+  if (record) {
+    formState.value = {
+      name: record.name || '',
+      enabled: record.enabled || false,
+      prompt: record.prompt || '',
+      inbox_ids: record.agent_bot?.inbox_ids || [],
+    };
+  } else {
+    formState.value = {
+      name: '',
+      enabled: false,
+      prompt: '',
+      inbox_ids: [],
+    };
+  }
+}
+
+async function loadAgentDetail(aiAgentId) {
+  if (!aiAgentId) return;
+
+  await store.dispatch('aiAgent/show', aiAgentId);
+  store.dispatch('aiAgentTestConversations/reset');
+  await store.dispatch('aiAgentTestConversations/get', {
+    aiAgentId,
+  });
+  syncFormState();
+}
+
 const toggleInbox = inboxId => {
+  const inbox = inboxList.value.find(item => item.id === inboxId);
+  if (inbox?.conflicting) {
+    return;
+  }
+
   const ids = [...formState.value.inbox_ids];
   const index = ids.indexOf(inboxId);
   if (index === -1) {
@@ -97,8 +151,17 @@ const isInboxSelected = inboxId => {
   return formState.value.inbox_ids.includes(inboxId);
 };
 
+const getInboxStatusText = inbox => {
+  if (inbox.conflicting && inbox.owner_name) {
+    return t('AI_AGENT.INBOXES.ASSIGNED_TO', { owner: inbox.owner_name });
+  }
+
+  return inbox.channel_type;
+};
+
 const handleSave = async () => {
   isSaving.value = true;
+  inboxError.value = '';
   try {
     const payload = {
       id: agentId.value,
@@ -110,8 +173,15 @@ const handleSave = async () => {
       },
     };
     const result = await store.dispatch('aiAgent/update', payload);
-    if (result) {
+    if (result?.id) {
       useAlert(t('AI_AGENT.SAVE.SUCCESS'));
+      syncFormState();
+      return;
+    }
+
+    if (result?.error) {
+      inboxError.value = result.error;
+      useAlert(result.error);
     } else {
       useAlert(t('AI_AGENT.SAVE.ERROR'));
     }
@@ -122,35 +192,20 @@ const handleSave = async () => {
   }
 };
 
-const syncFormState = () => {
-  const record = aiAgent.value;
-  if (record) {
-    formState.value = {
-      name: record.name || '',
-      enabled: record.enabled || false,
-      prompt: record.prompt || '',
-      inbox_ids: record.inbox_ids || [],
-    };
-  } else {
-    formState.value = {
-      name: '',
-      enabled: false,
-      prompt: '',
-      inbox_ids: [],
-    };
-  }
-};
-
 const goBack = () => {
   router.push({ name: 'ai_agents' });
 };
 
 onMounted(async () => {
-  await store.dispatch('aiAgent/show', agentId.value);
-  await store.dispatch('aiAgentTestConversations/get', {
-    aiAgentId: agentId.value,
-  });
-  syncFormState();
+  await loadAgentDetail(agentId.value);
+});
+
+watch(agentId, async (newAgentId, oldAgentId) => {
+  if (!newAgentId || newAgentId === oldAgentId) {
+    return;
+  }
+
+  await loadAgentDetail(newAgentId);
 });
 </script>
 
@@ -223,6 +278,9 @@ onMounted(async () => {
           <p class="mb-4 text-sm text-n-slate-11">
             {{ t('AI_AGENT.INBOXES.HELP') }}
           </p>
+          <p v-if="inboxError" class="mb-4 text-sm text-n-ruby-11">
+            {{ inboxError }}
+          </p>
           <div v-if="inboxList.length === 0" class="text-sm text-n-slate-11">
             {{ t('AI_AGENT.INBOXES.NONE') }}
           </div>
@@ -230,12 +288,18 @@ onMounted(async () => {
             <div
               v-for="inbox in inboxList"
               :key="inbox.id"
-              class="flex items-center gap-3 p-3 rounded-lg border border-n-weak dark:border-n-weak hover:bg-n-alpha-black1 cursor-pointer"
+              class="flex items-center gap-3 p-3 rounded-lg border border-n-weak dark:border-n-weak"
+              :class="[
+                inbox.conflicting
+                  ? 'opacity-60 cursor-not-allowed bg-n-alpha-black1'
+                  : 'hover:bg-n-alpha-black1 cursor-pointer',
+              ]"
               @click="toggleInbox(inbox.id)"
             >
               <input
                 type="checkbox"
                 :checked="isInboxSelected(inbox.id)"
+                :disabled="inbox.conflicting"
                 class="w-4 h-4 rounded border-n-slate-6 text-n-brand focus:ring-n-brand"
                 @click.stop
                 @change="toggleInbox(inbox.id)"
@@ -251,7 +315,7 @@ onMounted(async () => {
                   {{ inbox.name }}
                 </span>
                 <span class="text-xs text-n-slate-11">
-                  {{ inbox.channel_type }}
+                  {{ getInboxStatusText(inbox) }}
                 </span>
               </div>
             </div>
@@ -311,7 +375,13 @@ onMounted(async () => {
           <h3 class="mb-2 text-sm font-medium text-n-slate-12">
             {{ t('AI_AGENT.TEST_CONVERSATIONS.TITLE') }}
           </h3>
-          <TestConversationLayout :is-disabled="isSimulatorDisabled" />
+          <p v-if="isSimulatorDisabled" class="mb-3 text-sm text-n-slate-11">
+            {{ t('AI_AGENT.TEST_CONVERSATIONS.SAVE_BEFORE_TESTING') }}
+          </p>
+          <TestConversationLayout
+            :ai-agent-id="agentId"
+            :is-disabled="isSimulatorDisabled"
+          />
         </div>
 
         <!-- Save Button -->

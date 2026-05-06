@@ -1,5 +1,5 @@
 import AiAgentTestConversationsAPI from '../../api/aiAgentTestConversations';
-import { throwErrorMessage } from '../utils/api';
+import { parseAPIErrorResponse, throwErrorMessage } from '../utils/api';
 
 export const state = {
   records: {},
@@ -36,6 +36,10 @@ export const actions = {
     try {
       const api = new AiAgentTestConversationsAPI(resolvedAiAgentId);
       const response = await api.get();
+      const activeAiAgentId = rootState.aiAgent.activeId;
+      if (activeAiAgentId && activeAiAgentId !== resolvedAiAgentId) {
+        return;
+      }
       commit('SET_CONVERSATIONS', response.data);
     } catch (error) {
       throwErrorMessage(error);
@@ -157,8 +161,8 @@ export const actions = {
       });
       return response.data;
     } catch (error) {
-      throwErrorMessage(error);
-      return null;
+      commit('REMOVE_MESSAGE', { id, messageId: optimisticMessage.id });
+      return { error: parseAPIErrorResponse(error) };
     } finally {
       commit('SET_UI_FLAG', { isSending: false });
     }
@@ -166,6 +170,10 @@ export const actions = {
 
   setActiveId: async ({ commit }, id) => {
     commit('SET_ACTIVE_ID', id);
+  },
+
+  reset: ({ commit }) => {
+    commit('RESET_CONVERSATIONS_STATE');
   },
 };
 
@@ -180,6 +188,9 @@ export const mutations = {
       $state.records[item.id] = item;
       $state.sortOrder.push(item.id);
     });
+    if (!$state.sortOrder.includes($state.activeId)) {
+      $state.activeId = null;
+    }
   },
   SET_CONVERSATION_ITEM($state, data) {
     $state.records[data.id] = { ...($state.records[data.id] || {}), ...data };
@@ -196,6 +207,11 @@ export const mutations = {
     }
   },
   CLEAR_ALL_CONVERSATIONS($state) {
+    $state.records = {};
+    $state.sortOrder = [];
+    $state.activeId = null;
+  },
+  RESET_CONVERSATIONS_STATE($state) {
     $state.records = {};
     $state.sortOrder = [];
     $state.activeId = null;
@@ -222,6 +238,18 @@ export const mutations = {
       $state.records[id].last_message_at = message.created_at;
       $state.records[id].last_message_preview =
         message.content?.substring(0, 60) ?? null;
+    }
+  },
+  REMOVE_MESSAGE($state, { id, messageId }) {
+    if ($state.records[id]) {
+      $state.records[id].messages = $state.records[id].messages.filter(
+        message => message.id !== messageId
+      );
+      $state.records[id].messages_count = $state.records[id].messages.length;
+      const lastMessage = $state.records[id].messages.at(-1);
+      $state.records[id].last_message_at = lastMessage?.created_at ?? null;
+      $state.records[id].last_message_preview =
+        lastMessage?.content?.substring(0, 60) ?? null;
     }
   },
   SET_ACTIVE_ID($state, id) {
