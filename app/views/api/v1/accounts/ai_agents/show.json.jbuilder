@@ -18,3 +18,19 @@ if @ai_agent.agent_bot.present?
     json.inbox_ids @ai_agent.agent_bot.inboxes.pluck(:id)
   end
 end
+
+json.available_inboxes @available_inboxes do |inbox|
+  owner_bot = inbox.agent_bot
+  owned_by_current_ai_agent = owner_bot&.id == @ai_agent.agent_bot_id
+  conflicting = owner_bot.present? && !owned_by_current_ai_agent
+  owner_name = owner_bot&.ai_agent&.name.presence || owner_bot&.name.presence
+
+  json.id inbox.id
+  json.name inbox.name
+  json.avatar_url inbox.avatar_url
+  json.channel_type inbox.channel_type
+  json.available owner_bot.blank?
+  json.owned_by_current_ai_agent owned_by_current_ai_agent
+  json.conflicting conflicting
+  json.owner_name owner_name
+end

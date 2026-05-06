@@ -79,6 +79,7 @@ const handleKeyup = event => {
         class="flex items-center gap-3 p-3 border-b border-n-slate-6 shrink-0"
       >
         <button
+          type="button"
           class="md:hidden p-1 rounded-md hover:bg-n-alpha-black1"
           @click="emit('back')"
         >
@@ -146,8 +147,9 @@ const handleKeyup = event => {
         />
         <Button
           icon="i-lucide-send"
+          type="button"
           :disabled="isInputDisabled || !inputValue.trim()"
-          size="small"
+          size="sm"
           @click="handleSend"
         />
       </div>

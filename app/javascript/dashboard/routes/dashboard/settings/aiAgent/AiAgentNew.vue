@@ -7,6 +7,7 @@ import { useI18n } from 'vue-i18n';
 
 import SettingsLayout from '../SettingsLayout.vue';
 import BaseSettingsHeader from '../components/BaseSettingsHeader.vue';
+import Button from 'dashboard/components-next/button/Button.vue';
 
 const store = useStore();
 const { t } = useI18n();
@@ -62,17 +63,20 @@ const handleCancel = () => {
           @input="errorMessage = ''"
         />
         <div class="flex items-center gap-3">
-          <woot-button
+          <Button
             type="submit"
             variant="solid"
             color="blue"
             :is-loading="uiFlags.isCreating"
-          >
-            {{ t('AI_AGENTS.NEW.CREATE') }}
-          </woot-button>
-          <woot-button type="button" variant="clear" @click="handleCancel">
-            {{ t('AI_AGENTS.NEW.CANCEL') }}
-          </woot-button>
+            :label="t('AI_AGENTS.NEW.CREATE')"
+          />
+          <Button
+            type="button"
+            variant="link"
+            color="slate"
+            :label="t('AI_AGENTS.NEW.CANCEL')"
+            @click="handleCancel"
+          />
         </div>
       </form>
     </template>

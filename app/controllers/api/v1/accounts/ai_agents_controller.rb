@@ -7,7 +7,9 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
     @ai_agents = Current.account.ai_agents.includes(agent_bot: :inboxes).order(:created_at)
   end
 
-  def show; end
+  def show
+    load_available_inboxes
+  end
 
   def create
     @ai_agent = Current.account.ai_agents.build(ai_agent_params)
@@ -15,6 +17,7 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
 
     if @ai_agent.save
       sync_inbox_bindings if params.key?(:inbox_ids)
+      load_available_inboxes
       render :show
     else
       render json: { errors: @ai_agent.errors }, status: :unprocessable_entity
@@ -28,6 +31,7 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
     if @ai_agent.save
       @ai_agent.agent_bot&.update!(name: @ai_agent.name)
       sync_inbox_bindings if params.key?(:inbox_ids)
+      load_available_inboxes
       render :show
     else
       render json: { errors: @ai_agent.errors }, status: :unprocessable_entity
@@ -42,7 +46,7 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
   private
 
   def set_ai_agent
-    @ai_agent = Current.account.ai_agents.find(params[:id])
+    @ai_agent = Current.account.ai_agents.includes(agent_bot: :inboxes).find(params[:id])
   end
 
   def ai_agent_params
@@ -57,7 +61,7 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
     bot = @ai_agent.agent_bot
     return true unless bot
 
-    target_ids = inbox_ids_param
+    target_ids = inbox_ids_param.uniq
 
     # Clear existing bindings for this bot
     bot.agent_bot_inboxes.destroy_all
@@ -71,6 +75,11 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
     end
 
     bot.update!(name: @ai_agent.name)
+    @ai_agent.reload
     true
+  end
+
+  def load_available_inboxes
+    @available_inboxes = Current.account.inboxes.includes(:channel, agent_bot: :ai_agent).order_by_name
   end
 end
