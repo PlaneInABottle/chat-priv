@@ -27,10 +27,15 @@ export const getters = {
 };
 
 export const actions = {
-  get: async ({ commit }) => {
+  get: async ({ commit, rootState }, payload = {}) => {
+    const { aiAgentId } = payload;
+    const resolvedAiAgentId = aiAgentId || rootState.aiAgent.activeId;
+    if (!resolvedAiAgentId) return;
+
     commit('SET_UI_FLAG', { isFetching: true });
     try {
-      const response = await AiAgentTestConversationsAPI.get();
+      const api = new AiAgentTestConversationsAPI(resolvedAiAgentId);
+      const response = await api.get();
       commit('SET_CONVERSATIONS', response.data);
     } catch (error) {
       throwErrorMessage(error);
@@ -39,10 +44,21 @@ export const actions = {
     }
   },
 
-  show: async ({ commit }, id) => {
+  show: async ({ commit, rootState }, payload) => {
+    let aiAgentId;
+    let id;
+    if (typeof payload === 'object') {
+      ({ aiAgentId, id } = payload);
+    } else {
+      id = payload;
+    }
+    const resolvedAiAgentId = aiAgentId || rootState.aiAgent.activeId;
+    if (!resolvedAiAgentId || !id) return;
+
     commit('SET_UI_FLAG', { isFetchingItem: true });
     try {
-      const response = await AiAgentTestConversationsAPI.show(id);
+      const api = new AiAgentTestConversationsAPI(resolvedAiAgentId);
+      const response = await api.show(id);
       commit('SET_CONVERSATION_ITEM', response.data);
       commit('SET_ACTIVE_ID', response.data.id);
     } catch (error) {
@@ -52,10 +68,15 @@ export const actions = {
     }
   },
 
-  create: async ({ commit }) => {
+  create: async ({ commit, rootState }, payload = {}) => {
+    const { aiAgentId, title } = payload;
+    const resolvedAiAgentId = aiAgentId || rootState.aiAgent.activeId;
+    if (!resolvedAiAgentId) return null;
+
     commit('SET_UI_FLAG', { isCreating: true });
     try {
-      const response = await AiAgentTestConversationsAPI.create();
+      const api = new AiAgentTestConversationsAPI(resolvedAiAgentId);
+      const response = await api.create(title ? { title } : {});
       commit('SET_CONVERSATION_ITEM', response.data);
       commit('SET_ACTIVE_ID', response.data.id);
       return response.data;
@@ -67,10 +88,21 @@ export const actions = {
     }
   },
 
-  delete: async ({ commit }, id) => {
+  delete: async ({ commit, rootState }, payload) => {
+    let aiAgentId;
+    let id;
+    if (typeof payload === 'object') {
+      ({ aiAgentId, id } = payload);
+    } else {
+      id = payload;
+    }
+    const resolvedAiAgentId = aiAgentId || rootState.aiAgent.activeId;
+    if (!resolvedAiAgentId || !id) return;
+
     commit('SET_UI_FLAG', { isDeleting: true });
     try {
-      await AiAgentTestConversationsAPI.delete(id);
+      const api = new AiAgentTestConversationsAPI(resolvedAiAgentId);
+      await api.delete(id);
       commit('REMOVE_CONVERSATION', id);
     } catch (error) {
       throwErrorMessage(error);
@@ -79,10 +111,15 @@ export const actions = {
     }
   },
 
-  clearAll: async ({ commit }) => {
+  clearAll: async ({ commit, rootState }, payload = {}) => {
+    const { aiAgentId } = payload;
+    const resolvedAiAgentId = aiAgentId || rootState.aiAgent.activeId;
+    if (!resolvedAiAgentId) return;
+
     commit('SET_UI_FLAG', { isDeleting: true });
     try {
-      await AiAgentTestConversationsAPI.clearAll();
+      const api = new AiAgentTestConversationsAPI(resolvedAiAgentId);
+      await api.clearAll();
       commit('CLEAR_ALL_CONVERSATIONS');
     } catch (error) {
       throwErrorMessage(error);
@@ -91,23 +128,28 @@ export const actions = {
     }
   },
 
-  sendMessage: async ({ commit }, { id, content }) => {
+  sendMessage: async ({ commit, rootState }, payload) => {
+    const { aiAgentId, id, message, content } = payload || {};
+    const resolvedAiAgentId = aiAgentId || rootState.aiAgent.activeId;
+    if (!resolvedAiAgentId || !id) return null;
+
+    const messageContent = content || message;
+    if (!messageContent) return null;
+
     commit('SET_UI_FLAG', { isSending: true });
 
     // Optimistically add user message so it appears immediately
     const optimisticMessage = {
       id: `temp-${Date.now()}`,
       role: 'user',
-      content,
+      content: messageContent,
       created_at: new Date().toISOString(),
     };
     commit('ADD_MESSAGE', { id, message: optimisticMessage });
 
     try {
-      const response = await AiAgentTestConversationsAPI.sendMessage(
-        id,
-        content
-      );
+      const api = new AiAgentTestConversationsAPI(resolvedAiAgentId);
+      const response = await api.sendMessage(id, messageContent);
       commit('UPDATE_MESSAGES', {
         id,
         messages: response.data.messages,
