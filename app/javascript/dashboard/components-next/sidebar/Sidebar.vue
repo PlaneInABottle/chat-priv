@@ -872,7 +872,7 @@ const menuItems = computed(() => {
           name: 'Settings AI Asistan',
           label: t('SIDEBAR.AI_ASISTAN'),
           icon: 'i-lucide-sparkles',
-          to: accountScopedRoute('ai_agent'),
+          to: accountScopedRoute('ai_agents'),
         },
         {
           name: 'Settings Macros',
