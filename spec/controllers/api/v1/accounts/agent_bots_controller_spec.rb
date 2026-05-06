@@ -3,6 +3,7 @@ require 'rails_helper'
 RSpec.describe 'Agent Bot API', type: :request do
   let!(:account) { create(:account) }
   let!(:agent_bot) { create(:agent_bot, account: account) }
+  let!(:ai_agent_bot) { create(:ai_agent, account: account).agent_bot }
   let(:admin) { create(:user, account: account, role: :administrator) }
   let(:agent) { create(:user, account: account, role: :agent) }
 
@@ -52,6 +53,16 @@ RSpec.describe 'Agent Bot API', type: :request do
         # Verify both bots have thumbnail field
         expect(global_bot_response).to include('thumbnail')
         expect(account_bot_response).to include('thumbnail')
+      end
+
+      it 'excludes ai agent bots from the generic index' do
+        get "/api/v1/accounts/#{account.id}/agent_bots",
+            headers: agent.create_new_auth_token,
+            as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(response.body).to include(agent_bot.name)
+        expect(response.body).not_to include(ai_agent_bot.name)
       end
     end
 
@@ -109,6 +120,14 @@ RSpec.describe 'Agent Bot API', type: :request do
         expect(response.parsed_body['system_bot']).to be(true)
         expect(response.parsed_body).not_to include('outgoing_url')
       end
+
+      it 'does not show an ai agent bot' do
+        get "/api/v1/accounts/#{account.id}/agent_bots/#{ai_agent_bot.id}",
+            headers: agent.create_new_auth_token,
+            as: :json
+
+        expect(response).to have_http_status(:not_found)
+      end
     end
 
     context 'when it is an authenticated administrator' do
@@ -142,6 +161,17 @@ RSpec.describe 'Agent Bot API', type: :request do
         end.to change(AgentBot, :count).by(1)
 
         expect(response).to have_http_status(:success)
+      end
+
+      it 'rejects explicit ai bot_type' do
+        expect do
+          post "/api/v1/accounts/#{account.id}/agent_bots", headers: admin.create_new_auth_token,
+                                                            params: valid_params.merge(bot_type: 'ai'),
+                                                            as: :json
+        end.not_to change(AgentBot, :count)
+
+        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response.parsed_body['error']).to eq('bot_type must be webhook')
       end
 
       it 'would not create the agent bot when agent' do
@@ -201,6 +231,27 @@ RSpec.describe 'Agent Bot API', type: :request do
         expect(response.body).not_to include(global_bot.access_token.token)
       end
 
+      it 'does not update an ai agent bot' do
+        patch "/api/v1/accounts/#{account.id}/agent_bots/#{ai_agent_bot.id}",
+              headers: admin.create_new_auth_token,
+              params: valid_params,
+              as: :json
+
+        expect(response).to have_http_status(:not_found)
+        expect(ai_agent_bot.reload.name).not_to eq('test_updated')
+      end
+
+      it 'rejects explicit ai bot_type on update' do
+        patch "/api/v1/accounts/#{account.id}/agent_bots/#{agent_bot.id}",
+              headers: admin.create_new_auth_token,
+              params: valid_params.merge(bot_type: 'ai'),
+              as: :json
+
+        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response.parsed_body['error']).to eq('bot_type must be webhook')
+        expect(agent_bot.reload.bot_type).to eq('webhook')
+      end
+
       it 'updates avatar and includes thumbnail in response' do
         # no avatar before upload
         expect(agent_bot.avatar.attached?).to be(false)
@@ -244,7 +295,7 @@ RSpec.describe 'Agent Bot API', type: :request do
                as: :json
 
         expect(response).to have_http_status(:success)
-        expect(account.agent_bots.size).to eq(0)
+        expect(account.agent_bots.reload.webhook.size).to eq(0)
       end
 
       it 'would not delete the agent bot when agent' do
@@ -264,6 +315,15 @@ RSpec.describe 'Agent Bot API', type: :request do
 
         expect(response).to have_http_status(:not_found)
         expect(account.agent_bots.size).not_to eq(0)
+      end
+
+      it 'would not delete an ai agent bot' do
+        delete "/api/v1/accounts/#{account.id}/agent_bots/#{ai_agent_bot.id}",
+               headers: admin.create_new_auth_token,
+               as: :json
+
+        expect(response).to have_http_status(:not_found)
+        expect(ai_agent_bot.reload).to be_present
       end
     end
   end
@@ -340,6 +400,18 @@ RSpec.describe 'Agent Bot API', type: :request do
         expect(response).to have_http_status(:not_found)
         global_bot.reload
         expect(global_bot.access_token.token).to eq(old_token)
+      end
+
+      it 'would not reset access token for an ai agent bot' do
+        old_token = ai_agent_bot.access_token.token
+
+        post "/api/v1/accounts/#{account.id}/agent_bots/#{ai_agent_bot.id}/reset_access_token",
+             headers: admin.create_new_auth_token,
+             as: :json
+
+        expect(response).to have_http_status(:not_found)
+        ai_agent_bot.reload
+        expect(ai_agent_bot.access_token.token).to eq(old_token)
       end
     end
   end

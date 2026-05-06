@@ -31,7 +31,7 @@ RSpec.describe AiAgent do
 
         second_agent = build(:ai_agent, account: account, name: 'Second Agent', inbox_ids: [inbox.id])
         expect(second_agent).not_to be_valid
-        expect(second_agent.errors[:inbox_ids]).to include('already assigned to another AI agent')
+        expect(second_agent.errors[:inbox_ids]).to include('already assigned to another agent bot')
       end
 
       it 'is valid when inbox is assigned to the same agent' do
@@ -40,6 +40,15 @@ RSpec.describe AiAgent do
 
         agent.inbox_ids = [inbox.id]
         expect(agent).to be_valid
+      end
+
+      it 'is invalid when inbox is already assigned to a webhook bot' do
+        webhook_bot = create(:agent_bot, account: account)
+        AgentBotInbox.create!(agent_bot: webhook_bot, inbox: inbox, account: account)
+
+        ai_agent = build(:ai_agent, account: account, name: 'Second Agent', inbox_ids: [inbox.id])
+        expect(ai_agent).not_to be_valid
+        expect(ai_agent.errors[:inbox_ids]).to include('already assigned to another agent bot')
       end
     end
   end
@@ -71,6 +80,18 @@ RSpec.describe AiAgent do
         ai_agent = create(:ai_agent, account: account)
 
         expect(ai_agent.agent_bot.account_id).to eq(account.id)
+      end
+    end
+
+    context 'when before_destroy' do
+      it 'removes linked inbox bindings before destroying the agent bot' do
+        ai_agent = create(:ai_agent, account: account)
+        inbox = create(:inbox, account: account)
+        AgentBotInbox.create!(agent_bot: ai_agent.agent_bot, inbox: inbox, account: account)
+
+        ai_agent.destroy!
+
+        expect(AgentBotInbox.where(agent_bot_id: ai_agent.agent_bot_id, inbox_id: inbox.id)).to be_empty
       end
     end
   end

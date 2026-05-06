@@ -1143,6 +1143,7 @@ RSpec.describe 'Inboxes API', type: :request do
 
   describe 'GET /api/v1/accounts/{account.id}/inboxes/{inbox.id}/agent_bot' do
     let(:inbox) { create(:inbox, account: account) }
+    let(:ai_agent) { create(:ai_agent, account: account) }
 
     before do
       create(:inbox_member, user: agent, inbox: inbox)
@@ -1178,12 +1179,25 @@ RSpec.describe 'Inboxes API', type: :request do
         inbox_data = JSON.parse(response.body, symbolize_names: true)
         expect(inbox_data[:agent_bot][:name]).to eq agent_bot.name
       end
+
+      it 'returns empty when the inbox is attached to an ai bot' do
+        create(:agent_bot_inbox, agent_bot: ai_agent.agent_bot, inbox: inbox)
+
+        get "/api/v1/accounts/#{account.id}/inboxes/#{inbox.id}/agent_bot",
+            headers: agent.create_new_auth_token,
+            as: :json
+
+        expect(response).to have_http_status(:success)
+        inbox_data = JSON.parse(response.body, symbolize_names: true)
+        expect(inbox_data[:agent_bot].blank?).to be(true)
+      end
     end
   end
 
   describe 'POST /api/v1/accounts/{account.id}/inboxes/:id/set_agent_bot' do
     let(:inbox) { create(:inbox, account: account) }
     let(:agent_bot) { create(:agent_bot) }
+    let(:ai_agent) { create(:ai_agent, account: account) }
 
     context 'when it is an unauthenticated user' do
       it 'returns unauthorized' do
@@ -1214,6 +1228,42 @@ RSpec.describe 'Inboxes API', type: :request do
              as: :json
 
         expect(response).to have_http_status(:not_found)
+      end
+
+      it 'rejects ai agent bot assignment' do
+        post "/api/v1/accounts/#{account.id}/inboxes/#{inbox.id}/set_agent_bot",
+             headers: admin.create_new_auth_token,
+             params: { agent_bot: ai_agent.agent_bot.id },
+             as: :json
+
+        expect(response).to have_http_status(:not_found)
+        expect(inbox.reload.agent_bot).to be_blank
+      end
+
+      it 'does not overwrite an existing ai bot binding with a webhook bot' do
+        create(:agent_bot_inbox, agent_bot: ai_agent.agent_bot, inbox: inbox)
+
+        post "/api/v1/accounts/#{account.id}/inboxes/#{inbox.id}/set_agent_bot",
+             headers: admin.create_new_auth_token,
+             params: { agent_bot: agent_bot.id },
+             as: :json
+
+        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response.parsed_body['error']).to eq('AI agent bot binding can only be managed from AI agent settings')
+        expect(inbox.reload.agent_bot.id).to eq(ai_agent.agent_bot.id)
+      end
+
+      it 'does not disconnect an existing ai bot binding' do
+        create(:agent_bot_inbox, agent_bot: ai_agent.agent_bot, inbox: inbox)
+
+        post "/api/v1/accounts/#{account.id}/inboxes/#{inbox.id}/set_agent_bot",
+             headers: admin.create_new_auth_token,
+             params: { agent_bot: nil },
+             as: :json
+
+        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response.parsed_body['error']).to eq('AI agent bot binding can only be managed from AI agent settings')
+        expect(inbox.reload.agent_bot.id).to eq(ai_agent.agent_bot.id)
       end
 
       it 'disconnects the agent bot' do
