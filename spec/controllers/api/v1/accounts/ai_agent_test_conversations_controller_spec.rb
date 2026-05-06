@@ -6,10 +6,10 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
   let(:agent) { create(:user, account: account, role: :agent) }
   let(:ai_agent) { create(:ai_agent, account: account) }
 
-  describe 'GET /api/v1/accounts/{account.id}/ai_agent_test_conversations' do
+  describe 'GET /api/v1/accounts/{account.id}/ai_agents/{ai_agent.id}/test_conversations' do
     context 'when it is an unauthenticated user' do
       it 'returns unauthorized' do
-        get "/api/v1/accounts/#{account.id}/ai_agent_test_conversations"
+        get "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations"
 
         expect(response).to have_http_status(:unauthorized)
       end
@@ -17,7 +17,7 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
 
     context 'when it is an authenticated administrator' do
       it 'returns an empty array when no test conversations exist' do
-        get "/api/v1/accounts/#{account.id}/ai_agent_test_conversations",
+        get "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations",
             headers: admin.create_new_auth_token,
             as: :json
 
@@ -29,7 +29,7 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
         old_conversation = create(:ai_agent_test_conversation, account: account, ai_agent: ai_agent, last_message_at: 2.days.ago)
         new_conversation = create(:ai_agent_test_conversation, account: account, ai_agent: ai_agent, last_message_at: 1.hour.ago)
 
-        get "/api/v1/accounts/#{account.id}/ai_agent_test_conversations",
+        get "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations",
             headers: admin.create_new_auth_token,
             as: :json
 
@@ -46,7 +46,7 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
         create(:ai_agent_test_conversation, account: other_account, ai_agent: other_ai_agent)
         local_conversation = create(:ai_agent_test_conversation, account: account, ai_agent: ai_agent)
 
-        get "/api/v1/accounts/#{account.id}/ai_agent_test_conversations",
+        get "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations",
             headers: admin.create_new_auth_token,
             as: :json
 
@@ -59,7 +59,7 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
 
     context 'when it is an authenticated agent' do
       it 'returns unauthorized' do
-        get "/api/v1/accounts/#{account.id}/ai_agent_test_conversations",
+        get "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations",
             headers: agent.create_new_auth_token,
             as: :json
 
@@ -68,12 +68,12 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
     end
   end
 
-  describe 'GET /api/v1/accounts/{account.id}/ai_agent_test_conversations/:id' do
+  describe 'GET /api/v1/accounts/{account.id}/ai_agents/{ai_agent.id}/test_conversations/:id' do
     let!(:test_conversation) { create(:ai_agent_test_conversation, account: account, ai_agent: ai_agent) }
 
     context 'when it is an unauthenticated user' do
       it 'returns unauthorized' do
-        get "/api/v1/accounts/#{account.id}/ai_agent_test_conversations/#{test_conversation.id}"
+        get "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations/#{test_conversation.id}"
 
         expect(response).to have_http_status(:unauthorized)
       end
@@ -81,7 +81,7 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
 
     context 'when it is an authenticated administrator' do
       it 'returns the test conversation with messages' do
-        get "/api/v1/accounts/#{account.id}/ai_agent_test_conversations/#{test_conversation.id}",
+        get "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations/#{test_conversation.id}",
             headers: admin.create_new_auth_token,
             as: :json
 
@@ -96,7 +96,7 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
 
     context 'when it is an authenticated agent' do
       it 'returns unauthorized' do
-        get "/api/v1/accounts/#{account.id}/ai_agent_test_conversations/#{test_conversation.id}",
+        get "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations/#{test_conversation.id}",
             headers: agent.create_new_auth_token,
             as: :json
 
@@ -105,10 +105,10 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
     end
   end
 
-  describe 'POST /api/v1/accounts/{account.id}/ai_agent_test_conversations' do
+  describe 'POST /api/v1/accounts/{account.id}/ai_agents/{ai_agent.id}/test_conversations' do
     context 'when it is an unauthenticated user' do
       it 'returns unauthorized' do
-        post "/api/v1/accounts/#{account.id}/ai_agent_test_conversations"
+        post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations"
 
         expect(response).to have_http_status(:unauthorized)
       end
@@ -117,7 +117,7 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
     context 'when it is an authenticated administrator' do
       it 'creates a new empty test conversation with default title' do
         expect do
-          post "/api/v1/accounts/#{account.id}/ai_agent_test_conversations",
+          post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations",
                headers: admin.create_new_auth_token,
                as: :json
         end.to change(AiAgentTestConversation, :count).by(1)
@@ -128,24 +128,11 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
         expect(json['messages']).to eq([])
         expect(json['messages_count']).to eq(0)
       end
-
-      it 'auto-creates an ai_agent if none exists' do
-        account_without_agent = create(:account)
-        admin_for_account = create(:user, account: account_without_agent, role: :administrator)
-
-        expect do
-          post "/api/v1/accounts/#{account_without_agent.id}/ai_agent_test_conversations",
-               headers: admin_for_account.create_new_auth_token,
-               as: :json
-        end.to change(AiAgent, :count).by(1).and change(AiAgentTestConversation, :count).by(1)
-
-        expect(response).to have_http_status(:success)
-      end
     end
 
     context 'when it is an authenticated agent' do
       it 'returns unauthorized' do
-        post "/api/v1/accounts/#{account.id}/ai_agent_test_conversations",
+        post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations",
              headers: agent.create_new_auth_token,
              as: :json
 
@@ -154,12 +141,12 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
     end
   end
 
-  describe 'DELETE /api/v1/accounts/{account.id}/ai_agent_test_conversations/:id' do
+  describe 'DELETE /api/v1/accounts/{account.id}/ai_agents/{ai_agent.id}/test_conversations/:id' do
     let!(:test_conversation) { create(:ai_agent_test_conversation, account: account, ai_agent: ai_agent) }
 
     context 'when it is an unauthenticated user' do
       it 'returns unauthorized' do
-        delete "/api/v1/accounts/#{account.id}/ai_agent_test_conversations/#{test_conversation.id}"
+        delete "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations/#{test_conversation.id}"
 
         expect(response).to have_http_status(:unauthorized)
       end
@@ -168,7 +155,7 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
     context 'when it is an authenticated administrator' do
       it 'deletes the test conversation' do
         expect do
-          delete "/api/v1/accounts/#{account.id}/ai_agent_test_conversations/#{test_conversation.id}",
+          delete "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations/#{test_conversation.id}",
                  headers: admin.create_new_auth_token,
                  as: :json
         end.to change(AiAgentTestConversation, :count).by(-1)
@@ -179,7 +166,7 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
 
     context 'when it is an authenticated agent' do
       it 'returns unauthorized' do
-        delete "/api/v1/accounts/#{account.id}/ai_agent_test_conversations/#{test_conversation.id}",
+        delete "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations/#{test_conversation.id}",
                headers: agent.create_new_auth_token,
                as: :json
 
@@ -188,10 +175,10 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
     end
   end
 
-  describe 'DELETE /api/v1/accounts/{account.id}/ai_agent_test_conversations/clear_all' do
+  describe 'DELETE /api/v1/accounts/{account.id}/ai_agents/{ai_agent.id}/test_conversations/clear_all' do
     context 'when it is an unauthenticated user' do
       it 'returns unauthorized' do
-        delete "/api/v1/accounts/#{account.id}/ai_agent_test_conversations/clear_all"
+        delete "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations/clear_all"
 
         expect(response).to have_http_status(:unauthorized)
       end
@@ -205,7 +192,7 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
         create(:ai_agent_test_conversation, account: other_account, ai_agent: other_ai_agent)
 
         expect do
-          delete "/api/v1/accounts/#{account.id}/ai_agent_test_conversations/clear_all",
+          delete "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations/clear_all",
                  headers: admin.create_new_auth_token,
                  as: :json
         end.to change(AiAgentTestConversation, :count).by(-3)
@@ -218,7 +205,7 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
 
     context 'when it is an authenticated agent' do
       it 'returns unauthorized' do
-        delete "/api/v1/accounts/#{account.id}/ai_agent_test_conversations/clear_all",
+        delete "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations/clear_all",
                headers: agent.create_new_auth_token,
                as: :json
 
@@ -227,7 +214,7 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
     end
   end
 
-  describe 'POST /api/v1/accounts/{account.id}/ai_agent_test_conversations/:id/send_message' do
+  describe 'POST /api/v1/accounts/{account.id}/ai_agents/{ai_agent.id}/test_conversations/:id/send_message' do
     let!(:test_conversation) { create(:ai_agent_test_conversation, account: account, ai_agent: ai_agent) }
 
     before do
@@ -238,7 +225,7 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
 
     context 'when it is an unauthenticated user' do
       it 'returns unauthorized' do
-        post "/api/v1/accounts/#{account.id}/ai_agent_test_conversations/#{test_conversation.id}/send_message",
+        post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations/#{test_conversation.id}/send_message",
              params: { content: 'Hi' }
 
         expect(response).to have_http_status(:unauthorized)
@@ -247,7 +234,7 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
 
     context 'when it is an authenticated administrator' do
       it 'persists user message and returns AI response' do
-        post "/api/v1/accounts/#{account.id}/ai_agent_test_conversations/#{test_conversation.id}/send_message",
+        post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations/#{test_conversation.id}/send_message",
              headers: admin.create_new_auth_token,
              params: { content: 'Hello AI' },
              as: :json
@@ -265,7 +252,7 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
       end
 
       it 'persists messages to the database' do
-        post "/api/v1/accounts/#{account.id}/ai_agent_test_conversations/#{test_conversation.id}/send_message",
+        post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations/#{test_conversation.id}/send_message",
              headers: admin.create_new_auth_token,
              params: { content: 'Hello AI' },
              as: :json
@@ -276,7 +263,7 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
       end
 
       it 'generates title from first user message' do
-        post "/api/v1/accounts/#{account.id}/ai_agent_test_conversations/#{test_conversation.id}/send_message",
+        post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations/#{test_conversation.id}/send_message",
              headers: admin.create_new_auth_token,
              params: { content: 'This is a very long first message that should be truncated to fifty characters' },
              as: :json
@@ -290,7 +277,7 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
       it 'does not change title if it was already customized' do
         test_conversation.update!(title: 'Custom Title')
 
-        post "/api/v1/accounts/#{account.id}/ai_agent_test_conversations/#{test_conversation.id}/send_message",
+        post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations/#{test_conversation.id}/send_message",
              headers: admin.create_new_auth_token,
              params: { content: 'Hello AI' },
              as: :json
@@ -301,7 +288,7 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
       end
 
       it 'returns bad request when content is blank' do
-        post "/api/v1/accounts/#{account.id}/ai_agent_test_conversations/#{test_conversation.id}/send_message",
+        post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations/#{test_conversation.id}/send_message",
              headers: admin.create_new_auth_token,
              params: { content: '   ' },
              as: :json
@@ -311,7 +298,7 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
       end
 
       it 'returns bad request when content is missing' do
-        post "/api/v1/accounts/#{account.id}/ai_agent_test_conversations/#{test_conversation.id}/send_message",
+        post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations/#{test_conversation.id}/send_message",
              headers: admin.create_new_auth_token,
              params: {},
              as: :json
@@ -324,7 +311,7 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
           instance_double(AiAgents::ResponseService, perform: nil)
         )
 
-        post "/api/v1/accounts/#{account.id}/ai_agent_test_conversations/#{test_conversation.id}/send_message",
+        post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations/#{test_conversation.id}/send_message",
              headers: admin.create_new_auth_token,
              params: { content: 'Hello AI' },
              as: :json
@@ -343,7 +330,7 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
         end
         test_conversation.update!(messages: max_messages)
 
-        post "/api/v1/accounts/#{account.id}/ai_agent_test_conversations/#{test_conversation.id}/send_message",
+        post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations/#{test_conversation.id}/send_message",
              headers: admin.create_new_auth_token,
              params: { content: 'One too many' },
              as: :json
@@ -355,7 +342,7 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
 
     context 'when it is an authenticated agent' do
       it 'returns unauthorized' do
-        post "/api/v1/accounts/#{account.id}/ai_agent_test_conversations/#{test_conversation.id}/send_message",
+        post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations/#{test_conversation.id}/send_message",
              headers: agent.create_new_auth_token,
              params: { content: 'Hello' },
              as: :json
