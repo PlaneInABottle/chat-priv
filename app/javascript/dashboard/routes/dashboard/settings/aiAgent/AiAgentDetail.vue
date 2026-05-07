@@ -93,11 +93,68 @@ const usageDisplay = computed(() => {
   return t('AI_AGENT.USAGE.UNLIMITED', { used: usageUsed.value });
 });
 
+const hasPersistedPrompt = computed(() => {
+  return Boolean(aiAgent.value?.prompt?.trim());
+});
+
+const isPersistedEnabled = computed(() => {
+  return Boolean(aiAgent.value?.enabled);
+});
+
+const hasRecoverablePersistedState = computed(() => {
+  return isPersistedEnabled.value && !hasPersistedPrompt.value;
+});
+
+const simulatorDisabledMessageKey = computed(() => {
+  if (isFormDirty.value) {
+    return 'AI_AGENT.TEST_CONVERSATIONS.SAVE_BEFORE_TESTING';
+  }
+
+  if (!isPersistedEnabled.value) {
+    return 'AI_AGENT.TEST_CONVERSATIONS.ENABLE_BEFORE_TESTING';
+  }
+
+  if (!hasPersistedPrompt.value) {
+    return 'AI_AGENT.TEST_CONVERSATIONS.ADD_PROMPT_BEFORE_TESTING';
+  }
+
+  return null;
+});
+
+const promptMessageKey = computed(() => {
+  if (formState.value.enabled && !formState.value.prompt.trim()) {
+    return 'AI_AGENT.PROMPT.REQUIRED_FOR_TESTING';
+  }
+
+  return 'AI_AGENT.PROMPT.HELP';
+});
+
+const promptMessageType = computed(() => {
+  if (formState.value.enabled && !formState.value.prompt.trim()) {
+    return 'warning';
+  }
+
+  return 'info';
+});
+
+const promptMessage = computed(() => {
+  return t(promptMessageKey.value);
+});
+
 const isSimulatorDisabled = computed(() => {
+  return Boolean(simulatorDisabledMessageKey.value);
+});
+
+const simulatorDisabledMessage = computed(() => {
+  return simulatorDisabledMessageKey.value
+    ? t(simulatorDisabledMessageKey.value)
+    : '';
+});
+
+const isSaveDisabled = computed(() => {
   return (
-    !aiAgent.value?.enabled ||
-    !aiAgent.value?.prompt?.trim() ||
-    isFormDirty.value
+    isSaving.value ||
+    (!isFormDirty.value && !hasRecoverablePersistedState.value)
   );
 });
 
@@ -259,8 +316,8 @@ watch(agentId, async (newAgentId, oldAgentId) => {
             v-model="formState.prompt"
             :label="t('AI_AGENT.PROMPT.LABEL')"
             :placeholder="t('AI_AGENT.PROMPT.PLACEHOLDER')"
-            :message="t('AI_AGENT.PROMPT.HELP')"
-            message-type="info"
+            :message="promptMessage"
+            :message-type="promptMessageType"
             :max-length="maxCharacters"
             show-character-count
             auto-height
@@ -376,7 +433,7 @@ watch(agentId, async (newAgentId, oldAgentId) => {
             {{ t('AI_AGENT.TEST_CONVERSATIONS.TITLE') }}
           </h3>
           <p v-if="isSimulatorDisabled" class="mb-3 text-sm text-n-slate-11">
-            {{ t('AI_AGENT.TEST_CONVERSATIONS.SAVE_BEFORE_TESTING') }}
+            {{ simulatorDisabledMessage }}
           </p>
           <TestConversationLayout
             :ai-agent-id="agentId"
@@ -389,7 +446,7 @@ watch(agentId, async (newAgentId, oldAgentId) => {
           <Button
             :label="t('AI_AGENT.SAVE.BUTTON')"
             :is-loading="isSaving"
-            :disabled="!isFormDirty || isSaving"
+            :disabled="isSaveDisabled"
             @click="handleSave"
           />
         </div>

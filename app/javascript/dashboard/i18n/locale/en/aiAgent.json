@@ -11,7 +11,8 @@
     "PROMPT": {
       "LABEL": "System Prompt",
       "PLACEHOLDER": "Enter instructions for your AI assistant...",
-      "HELP": "This prompt guides how the AI responds to conversations"
+      "HELP": "This prompt guides how the AI responds to conversations",
+      "REQUIRED_FOR_TESTING": "Add a system prompt, then save your changes before testing this AI agent."
     },
     "ENABLED": {
       "LABEL": "Enable AI Asistan",
@@ -49,6 +50,8 @@
       "SEND": "Send",
       "RESPONSE_WAIT": "AI is thinking...",
       "SAVE_BEFORE_TESTING": "Save your changes before testing this AI agent.",
+      "ENABLE_BEFORE_TESTING": "Enable this AI agent and save your changes before testing.",
+      "ADD_PROMPT_BEFORE_TESTING": "Add a system prompt and save your changes before testing this AI agent.",
       "ERROR": "Sorry, I couldn't generate a response right now. Please try again."
     },
     "SAVE": {
