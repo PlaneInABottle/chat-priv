@@ -9,6 +9,7 @@ import Slack from './Slack.vue';
 import Linear from './Linear.vue';
 import Notion from './Notion.vue';
 import Shopify from './Shopify.vue';
+import Ikas from './Ikas.vue';
 
 export default {
   routes: [
@@ -87,6 +88,15 @@ export default {
             permissions: ['administrator'],
           },
           props: route => ({ error: route.query.error }),
+        },
+        {
+          path: 'ikas',
+          name: 'settings_integrations_ikas',
+          component: Ikas,
+          meta: {
+            featureFlag: FEATURE_FLAGS.INTEGRATIONS,
+            permissions: ['administrator'],
+          },
         },
         {
           path: ':integration_id',

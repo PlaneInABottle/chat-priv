@@ -387,6 +387,42 @@
         "CONFIRM": "Yes, delete",
         "CANCEL": "Cancel"
       }
+    },
+    "IKAS": {
+      "CONNECT": "Connect ikas",
+      "UPDATE": "Save changes",
+      "SUCCESS": "ikas integration saved successfully",
+      "DISABLED": "Encryption is not configured on this Kozmpath instance. You can view ikas here, but connecting it is disabled until encryption is available.",
+      "RECONNECT_REQUIRED": "Your existing ikas connection needs attention. Reconnect with valid credentials or disconnect it.",
+      "CONNECTED_STORE": "Connected store: {storeHost}",
+      "TOOL_CONTEXT_NOTE": "This page only configures the base account connection. sales_channel_id and other tool-specific settings are intentionally out of scope for v1 in Kozmpath.",
+      "DELETE": {
+        "TITLE": "Disconnect ikas",
+        "MESSAGE": "Are you sure you want to disconnect the ikas integration?"
+      },
+      "FORM": {
+        "STORE_URL": {
+          "LABEL": "Store URL",
+          "PLACEHOLDER": "https://your-store.myikas.com",
+          "HELP": "Enter the full ikas store URL. Kozmpath will normalize it to the canonical host."
+        },
+        "CLIENT_ID": {
+          "LABEL": "Client ID",
+          "PLACEHOLDER": "Enter your ikas client ID",
+          "HELP": "Enter the client ID generated for your private app.",
+          "HELP_MASKED": "A client ID is already saved ({clientId}). Enter a new one only if you want to replace it."
+        },
+        "CLIENT_SECRET": {
+          "LABEL": "Client secret",
+          "PLACEHOLDER": "Enter your ikas client secret",
+          "HELP": "Enter the client secret generated for your private app.",
+          "HELP_OPTIONAL": "Leave blank to keep the current saved client secret."
+        }
+      },
+      "ERRORS": {
+        "REQUIRED_FIELDS": "Store URL, client ID, and client secret are required to connect ikas.",
+        "GENERIC": "There was an error validating the ikas connection. Please review your details and try again."
+      }
     }
   },
   "CAPTAIN": {

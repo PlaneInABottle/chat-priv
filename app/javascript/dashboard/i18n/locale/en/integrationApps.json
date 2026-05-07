@@ -8,7 +8,10 @@
     "NO_RESULTS": "No results found matching your search",
     "STATUS": {
       "ENABLED": "Enabled",
-      "DISABLED": "Disabled"
+      "DISABLED": "Disabled",
+      "CONNECTED": "Connected",
+      "DISCONNECTED": "Disconnected",
+      "RECONNECT_REQUIRED": "Reconnect required"
     },
     "CONFIGURE": "Configure",
     "ADD_BUTTON": "Add a new hook",

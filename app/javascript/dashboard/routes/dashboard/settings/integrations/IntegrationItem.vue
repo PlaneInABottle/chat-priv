@@ -13,6 +13,10 @@ const props = defineProps({
     type: [String, Number],
     required: true,
   },
+  logo: {
+    type: String,
+    default: '',
+  },
   name: {
     type: String,
     default: '',
@@ -25,6 +29,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  state: {
+    type: String,
+    default: '',
+  },
 });
 
 const getters = useStoreGetters();
@@ -33,15 +41,47 @@ const accountId = getters.getCurrentAccountId;
 const { t } = useI18n();
 const { replaceInstallationName } = useBranding();
 
+const integrationLogo = computed(() => props.logo || `${props.id}.png`);
+const integrationDarkLogo = computed(() => {
+  const extension = integrationLogo.value.split('.').pop();
+  const suffix = `.${extension}`;
+  const baseName = integrationLogo.value.endsWith(suffix)
+    ? integrationLogo.value.slice(0, -suffix.length)
+    : integrationLogo.value;
+  return `${baseName}-dark.${extension}`;
+});
+
+const statusKeyMap = {
+  connected: 'CONNECTED',
+  reconnect_required: 'RECONNECT_REQUIRED',
+  disabled: 'DISABLED',
+  not_connected: 'DISCONNECTED',
+};
+
+const integrationStatusKey = computed(() => {
+  if (props.state && statusKeyMap[props.state]) {
+    return statusKeyMap[props.state];
+  }
+
+  return props.enabled ? 'CONNECTED' : 'DISCONNECTED';
+});
+
 const integrationStatus = computed(() =>
-  props.enabled
-    ? t('INTEGRATION_APPS.STATUS.ENABLED')
-    : t('INTEGRATION_APPS.STATUS.DISABLED')
+  t(`INTEGRATION_APPS.STATUS.${integrationStatusKey.value}`)
 );
 
-const integrationStatusColor = computed(() =>
-  props.enabled ? 'teal' : 'slate'
-);
+const integrationStatusColor = computed(() => {
+  switch (props.state) {
+    case 'connected':
+      return 'teal';
+    case 'reconnect_required':
+      return 'amber';
+    case 'disabled':
+      return 'slate';
+    default:
+      return props.enabled ? 'teal' : 'slate';
+  }
+});
 
 const actionURL = computed(() =>
   frontendURL(`accounts/${accountId.value}/settings/integrations/${props.id}`)
@@ -55,11 +95,11 @@ const actionURL = computed(() =>
     <div class="flex items-start justify-between">
       <div class="flex h-12 w-12 mb-2">
         <img
-          :src="`/dashboard/images/integrations/${id}.png`"
+          :src="`/dashboard/images/integrations/${integrationLogo}`"
           class="max-w-full rounded-md border border-n-weak shadow-sm block dark:hidden bg-n-alpha-3 dark:bg-n-alpha-2"
         />
         <img
-          :src="`/dashboard/images/integrations/${id}-dark.png`"
+          :src="`/dashboard/images/integrations/${integrationDarkLogo}`"
           class="max-w-full rounded-md border border-n-weak shadow-sm hidden dark:block bg-n-alpha-3 dark:bg-n-alpha-2"
         />
       </div>

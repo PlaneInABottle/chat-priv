@@ -157,6 +157,9 @@
   display_name: Shopify Integration
   enabled: false
   chatwoot_internal: true
+- name: ikas_integration
+  display_name: ikas Integration
+  enabled: false
 - name: search_with_gin
   display_name: Search messages with GIN
   enabled: false
