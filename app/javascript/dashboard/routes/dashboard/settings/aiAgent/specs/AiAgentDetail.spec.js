@@ -108,11 +108,17 @@ const mountComponent = options => {
         },
         BaseSettingsHeader: { template: '<div />' },
         Button: {
-          template: '<button><slot /></button>',
+          template: '<button :disabled="disabled"><slot /></button>',
           props: ['label', 'disabled', 'isLoading'],
         },
-        Switch: { template: '<input type="checkbox" />' },
-        TextArea: { template: '<textarea />' },
+        Switch: {
+          template: '<input type="checkbox" :checked="modelValue" />',
+          props: ['modelValue'],
+        },
+        TextArea: {
+          template: '<textarea>{{ message }}</textarea>',
+          props: ['message', 'messageType'],
+        },
         Avatar: { template: '<div />' },
         Icon: { template: '<i />' },
         TestConversationLayout: TestConversationLayoutStub,
@@ -198,6 +204,39 @@ describe('AiAgentDetail.vue', () => {
     expect(wrapper.text()).toContain(
       'Save your changes before testing this AI agent.'
     );
+  });
+
+  it('shows prompt guidance and keeps save actionable when enabled agent has no prompt', async () => {
+    const { wrapper } = mountComponent({
+      aiAgentRecord: buildAiAgent({
+        name: 'Browser Verify Bot',
+        enabled: true,
+        prompt: '',
+        agent_bot: { inbox_ids: [2] },
+        available_inboxes: [],
+      }),
+    });
+
+    await flushPromises();
+
+    expect(wrapper.vm.isFormDirty).toBe(false);
+    expect(wrapper.vm.isSimulatorDisabled).toBe(true);
+    expect(wrapper.vm.simulatorDisabledMessageKey).toBe(
+      'AI_AGENT.TEST_CONVERSATIONS.ADD_PROMPT_BEFORE_TESTING'
+    );
+    expect(wrapper.vm.promptMessageKey).toBe(
+      'AI_AGENT.PROMPT.REQUIRED_FOR_TESTING'
+    );
+    expect(wrapper.vm.promptMessageType).toBe('warning');
+    expect(wrapper.text()).toContain(
+      'Add a system prompt and save your changes before testing this AI agent.'
+    );
+    expect(wrapper.text()).toContain(
+      'Add a system prompt, then save your changes before testing this AI agent.'
+    );
+
+    const buttons = wrapper.findAll('button');
+    expect(buttons.at(-1).attributes('disabled')).toBeUndefined();
   });
 
   it('preserves owner labels after save response includes available_inboxes', async () => {
