@@ -109,6 +109,38 @@ RSpec.describe 'Integration Apps API', type: :request do
         app = response.parsed_body['payload'].find { |int_app| int_app['id'] == 'slack' }
         expect(app['hooks'].first['settings']).to eq('channel_name' => 'support')
       end
+
+      it 'lists ikas when the feature is enabled and encryption is unavailable' do
+        account.enable_features('ikas_integration')
+        account.save!
+        allow(Chatwoot).to receive(:encryption_configured?).and_return(false)
+
+        get api_v1_account_integrations_apps_url(account),
+            headers: admin.create_new_auth_token,
+            as: :json
+
+        expect(response).to have_http_status(:success)
+        ikas_app = response.parsed_body['payload'].find { |app| app['id'] == 'ikas' }
+        expect(ikas_app['state']).to eq('disabled')
+        expect(ikas_app['can_connect']).to be false
+      end
+
+      it 'lists ikas as reconnect_required for malformed hooks' do
+        account.enable_features('ikas_integration')
+        account.save!
+        hook = create(:integrations_hook, :ikas, account: account)
+        hook.update_column(:access_token, nil)
+        allow(Chatwoot).to receive(:encryption_configured?).and_return(true)
+
+        get api_v1_account_integrations_apps_url(account),
+            headers: admin.create_new_auth_token,
+            as: :json
+
+        expect(response).to have_http_status(:success)
+        ikas_app = response.parsed_body['payload'].find { |app| app['id'] == 'ikas' }
+        expect(ikas_app['state']).to eq('reconnect_required')
+        expect(ikas_app['last_validation_error_code']).to eq('malformed_hook')
+      end
     end
   end
 

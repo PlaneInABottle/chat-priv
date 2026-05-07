@@ -150,6 +150,22 @@ en:
         verification_failed: 'Could not verify Cloudflare RealtimeKit credentials right now. Please try again.'
     slack:
       invalid_channel_id: 'Invalid slack channel. Please try again'
+    ikas:
+      unavailable: 'ikas integration is not available for this account.'
+      missing_required_fields: 'Store URL, client ID, and client secret are required.'
+      invalid_store_url: 'Enter a valid ikas store URL ending in .myikas.com.'
+      auth_failed: 'ikas rejected the provided credentials. Please verify the client ID, client secret, and store URL.'
+      probe_failed: 'ikas authentication succeeded, but Kozmpath could not validate the API probe.'
+      timeout: 'The ikas validation request timed out. Please try again.'
+      network_error: 'Kozmpath could not reach ikas. Please verify the store URL and try again.'
+      rate_limited: 'ikas rate limited the validation request. Please try again later.'
+      duplicate_hook: 'Multiple ikas connections were found for this account. Disconnect the duplicates before reconnecting.'
+      malformed_hook: 'The saved ikas connection is incomplete and must be reconnected.'
+      encryption_unavailable: 'Encryption is not configured on this Kozmpath instance. ikas connection is disabled until encryption is available.'
+      connected: 'ikas is connected.'
+      reconnect_required: 'ikas needs to be reconnected.'
+      not_connected: 'ikas is not connected.'
+      disabled: 'ikas is visible, but connecting it is disabled until encryption is configured.'
     whatsapp:
       token_exchange_failed: 'Failed to exchange code for access token. Please try again.'
       invalid_token_permissions: 'The access token does not have the required permissions for WhatsApp.'
@@ -426,6 +442,10 @@ en:
       name: 'Shopify'
       short_description: 'Access order details and customer data from your Shopify store.'
       description: 'Connect your Shopify store to access order details, customer information, and product data directly within your conversations and helps your support team provide faster, more contextual assistance to your customers.'
+    ikas:
+      name: 'ikas'
+      short_description: 'Connect your ikas store credentials for future Kozmpath integrations.'
+      description: 'Connect your ikas store with store URL, client ID, and client secret so Kozmpath can validate the connection and make it available for future features without exposing secrets.'
     leadsquared:
       name: 'LeadSquared'
       short_description: 'Sync your contacts and conversations with LeadSquared CRM.'

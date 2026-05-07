@@ -253,6 +253,27 @@ shopify:
   allow_multiple_hooks: false
   visible_properties: []
 
+ikas:
+  id: ikas
+  feature_flag: ikas_integration
+  logo: ikas.svg
+  i18n_key: ikas
+  hook_type: account
+  allow_multiple_hooks: false
+  settings_json_schema:
+    {
+      'type': 'object',
+      'properties':
+        {
+          'client_id': { 'type': 'string' },
+          'validation_state': { 'type': 'string', 'enum': ['connected', 'reconnect_required'] },
+          'last_validated_at': { 'type': ['string', 'null'] },
+          'last_validation_error_code': { 'type': ['string', 'null'] },
+        },
+      'required': ['client_id'],
+      'additionalProperties': false,
+    }
+
 leadsquared:
   id: leadsquared
   feature_flag: crm_integration

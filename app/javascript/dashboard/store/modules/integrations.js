@@ -16,6 +16,10 @@ const state = {
     isCreatingSlack: false,
     isUpdatingSlack: false,
     isFetchingSlackChannels: false,
+    isFetchingIkas: false,
+    isCreatingIkas: false,
+    isUpdatingIkas: false,
+    isDeletingIkas: false,
   },
 };
 
@@ -87,6 +91,49 @@ export const actions = {
       });
     }
     return null;
+  },
+
+  showIkas: async ({ commit }) => {
+    commit(types.default.SET_INTEGRATIONS_UI_FLAG, { isFetchingIkas: true });
+    try {
+      const response = await IntegrationsAPI.showIkas();
+      commit(types.default.ADD_INTEGRATION, response.data);
+      return response.data;
+    } finally {
+      commit(types.default.SET_INTEGRATIONS_UI_FLAG, { isFetchingIkas: false });
+    }
+  },
+
+  connectIkas: async ({ commit }, payload) => {
+    commit(types.default.SET_INTEGRATIONS_UI_FLAG, { isCreatingIkas: true });
+    try {
+      const response = await IntegrationsAPI.connectIkas(payload);
+      commit(types.default.ADD_INTEGRATION, response.data);
+      return response.data;
+    } finally {
+      commit(types.default.SET_INTEGRATIONS_UI_FLAG, { isCreatingIkas: false });
+    }
+  },
+
+  updateIkas: async ({ commit }, payload) => {
+    commit(types.default.SET_INTEGRATIONS_UI_FLAG, { isUpdatingIkas: true });
+    try {
+      const response = await IntegrationsAPI.updateIkas(payload);
+      commit(types.default.ADD_INTEGRATION, response.data);
+      return response.data;
+    } finally {
+      commit(types.default.SET_INTEGRATIONS_UI_FLAG, { isUpdatingIkas: false });
+    }
+  },
+
+  deleteIkas: async ({ commit }) => {
+    commit(types.default.SET_INTEGRATIONS_UI_FLAG, { isDeletingIkas: true });
+    try {
+      const response = await IntegrationsAPI.deleteIkas();
+      commit(types.default.ADD_INTEGRATION, response.data);
+    } finally {
+      commit(types.default.SET_INTEGRATIONS_UI_FLAG, { isDeletingIkas: false });
+    }
   },
 
   deleteIntegration: async ({ commit }, integrationId) => {

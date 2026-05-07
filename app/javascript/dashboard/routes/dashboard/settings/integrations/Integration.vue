@@ -15,12 +15,15 @@ const props = defineProps({
     type: [String, Number],
     required: true,
   },
+  integrationLogo: { type: String, default: '' },
   integrationName: { type: String, default: '' },
   integrationDescription: { type: String, default: '' },
   integrationEnabled: { type: Boolean, default: false },
   integrationAction: { type: String, default: '' },
   actionButtonText: { type: String, default: '' },
   deleteConfirmationText: { type: Object, default: () => ({}) },
+  customDeleteAction: { type: Function, default: null },
+  redirectAfterDelete: { type: Boolean, default: true },
 });
 
 const { t } = useI18n();
@@ -31,6 +34,17 @@ const { replaceInstallationName } = useBranding();
 const dialogRef = ref(null);
 
 const accountId = computed(() => store.getters.getCurrentAccountId);
+const integrationLogo = computed(
+  () => props.integrationLogo || `${props.integrationId}.png`
+);
+const integrationDarkLogo = computed(() => {
+  const extension = integrationLogo.value.split('.').pop();
+  const suffix = `.${extension}`;
+  const baseName = integrationLogo.value.endsWith(suffix)
+    ? integrationLogo.value.slice(0, -suffix.length)
+    : integrationLogo.value;
+  return `${baseName}-dark.${extension}`;
+});
 
 const openDeletePopup = () => {
   if (dialogRef.value) {
@@ -46,6 +60,11 @@ const closeDeletePopup = () => {
 
 const deleteIntegration = async () => {
   try {
+    if (props.customDeleteAction) {
+      await props.customDeleteAction();
+      return;
+    }
+
     await store.dispatch('integrations/deleteIntegration', props.integrationId);
     useAlert(t('INTEGRATION_SETTINGS.DELETE.API.SUCCESS_MESSAGE'));
   } catch (error) {
@@ -56,7 +75,9 @@ const deleteIntegration = async () => {
 const confirmDeletion = () => {
   closeDeletePopup();
   deleteIntegration();
-  router.push({ name: 'settings_applications' });
+  if (props.redirectAfterDelete) {
+    router.push({ name: 'settings_applications' });
+  }
 };
 </script>
 
@@ -69,11 +90,11 @@ const confirmDeletion = () => {
     >
       <div class="flex h-16 w-16 items-center justify-center flex-shrink-0">
         <img
-          :src="`/dashboard/images/integrations/${integrationId}.png`"
+          :src="`/dashboard/images/integrations/${integrationLogo}`"
           class="max-w-full rounded-md border border-n-weak shadow-sm block dark:hidden bg-n-alpha-3 dark:bg-n-alpha-2"
         />
         <img
-          :src="`/dashboard/images/integrations/${integrationId}-dark.png`"
+          :src="`/dashboard/images/integrations/${integrationDarkLogo}`"
           class="max-w-full rounded-md border border-n-weak shadow-sm hidden dark:block bg-n-alpha-3 dark:bg-n-alpha-2"
         />
       </div>
@@ -87,34 +108,33 @@ const confirmDeletion = () => {
       </div>
     </div>
     <div class="flex justify-center items-center mb-0">
-      <router-link
-        :to="
-          frontendURL(
-            `accounts/${accountId}/settings/integrations/` + integrationId
-          )
-        "
-      >
-        <div v-if="integrationEnabled">
-          <div v-if="integrationAction === 'disconnect'">
-            <Button
-              :label="
-                actionButtonText ||
-                $t('INTEGRATION_SETTINGS.WEBHOOK.DELETE.BUTTON_TEXT')
-              "
-              faded
-              ruby
-              @click="openDeletePopup"
-            />
-          </div>
-          <div v-else>
-            <Button
-              faded
-              blue
-              :label="t('INTEGRATION_SETTINGS.WEBHOOK.CONFIGURE')"
-            />
-          </div>
+      <div v-if="integrationEnabled">
+        <div v-if="integrationAction === 'disconnect'">
+          <Button
+            :label="
+              actionButtonText ||
+              $t('INTEGRATION_SETTINGS.WEBHOOK.DELETE.BUTTON_TEXT')
+            "
+            faded
+            ruby
+            @click="openDeletePopup"
+          />
         </div>
-      </router-link>
+        <router-link
+          v-else
+          :to="
+            frontendURL(
+              `accounts/${accountId}/settings/integrations/` + integrationId
+            )
+          "
+        >
+          <Button
+            faded
+            blue
+            :label="t('INTEGRATION_SETTINGS.WEBHOOK.CONFIGURE')"
+          />
+        </router-link>
+      </div>
       <div v-if="!integrationEnabled">
         <slot name="action">
           <a :href="integrationAction">
