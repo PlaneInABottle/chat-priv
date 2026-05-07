@@ -66,6 +66,7 @@ onMounted(() => {
             :name="item.name"
             :description="item.description"
             :enabled="item.enabled"
+            :state="item.state"
           />
         </div>
       </div>

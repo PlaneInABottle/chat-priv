@@ -38,6 +38,24 @@ FactoryBot.define do
       reference_id { 'test-store.myshopify.com' }
     end
 
+    trait :ikas do
+      app_id { 'ikas' }
+      access_token { 'secret-value' }
+      reference_id { 'test-store.myikas.com' }
+      settings do
+        {
+          'client_id' => 'client-id-1234',
+          'validation_state' => 'connected',
+          'last_validated_at' => Time.current.iso8601,
+          'last_validation_error_code' => nil
+        }
+      end
+
+      after(:build) do |hook, evaluator|
+        hook.access_token = evaluator.access_token
+      end
+    end
+
     trait :leadsquared do
       app_id { 'leadsquared' }
       settings do

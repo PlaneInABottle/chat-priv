@@ -135,4 +135,90 @@ describe('#actions', () => {
       ]);
     });
   });
+
+  describe('#showIkas', () => {
+    it('sends correct actions if API is success', async () => {
+      const data = { id: 'ikas', state: 'not_connected' };
+      axios.get.mockResolvedValue({ data });
+
+      await actions.showIkas({ commit });
+
+      expect(commit.mock.calls).toEqual([
+        [types.SET_INTEGRATIONS_UI_FLAG, { isFetchingIkas: true }],
+        [types.ADD_INTEGRATION, data],
+        [types.SET_INTEGRATIONS_UI_FLAG, { isFetchingIkas: false }],
+      ]);
+    });
+  });
+
+  describe('#connectIkas', () => {
+    it('sends correct actions if API is success', async () => {
+      const data = { id: 'ikas', state: 'connected' };
+      axios.post.mockResolvedValue({ data });
+
+      await actions.connectIkas({ commit }, { client_id: 'client-id' });
+
+      expect(commit.mock.calls).toEqual([
+        [types.SET_INTEGRATIONS_UI_FLAG, { isCreatingIkas: true }],
+        [types.ADD_INTEGRATION, data],
+        [types.SET_INTEGRATIONS_UI_FLAG, { isCreatingIkas: false }],
+      ]);
+    });
+  });
+
+  describe('#updateIkas', () => {
+    it('sends correct actions if API is success', async () => {
+      const data = { id: 'ikas', state: 'connected' };
+      axios.patch.mockResolvedValue({ data });
+
+      await actions.updateIkas({ commit }, { client_id: 'client-id' });
+
+      expect(commit.mock.calls).toEqual([
+        [types.SET_INTEGRATIONS_UI_FLAG, { isUpdatingIkas: true }],
+        [types.ADD_INTEGRATION, data],
+        [types.SET_INTEGRATIONS_UI_FLAG, { isUpdatingIkas: false }],
+      ]);
+    });
+  });
+
+  describe('#deleteIkas', () => {
+    it('sends correct actions if API is success', async () => {
+      axios.delete.mockResolvedValue({
+        data: {
+          id: 'ikas',
+          enabled: false,
+          state: 'not_connected',
+          can_connect: true,
+          can_disconnect: false,
+          store_host: null,
+          store_url: null,
+          client_id_masked: null,
+          last_validated_at: null,
+          last_validation_error_code: null,
+        },
+      });
+
+      await actions.deleteIkas({ commit });
+
+      expect(commit.mock.calls).toEqual([
+        [types.SET_INTEGRATIONS_UI_FLAG, { isDeletingIkas: true }],
+        [
+          types.ADD_INTEGRATION,
+          {
+            id: 'ikas',
+            enabled: false,
+            state: 'not_connected',
+            can_connect: true,
+            can_disconnect: false,
+            store_host: null,
+            store_url: null,
+            client_id_masked: null,
+            last_validated_at: null,
+            last_validation_error_code: null,
+          },
+        ],
+        [types.SET_INTEGRATIONS_UI_FLAG, { isDeletingIkas: false }],
+      ]);
+    });
+  });
 });
