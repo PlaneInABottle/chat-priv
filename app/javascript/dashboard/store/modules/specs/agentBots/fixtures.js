@@ -8,7 +8,7 @@ export const agentBotRecords = [
     thumbnail: 'https://example.com/thumbnail.jpg',
     bot_config: {},
     outgoing_url: 'https://example.com/outgoing',
-    access_token: 'hN8QwG769RqBXmme',
+    access_token: 'fake-agent-bot-token',
     system_bot: false,
   },
 
@@ -21,7 +21,7 @@ export const agentBotRecords = [
     thumbnail: 'https://example.com/thumbnail.jpg',
     bot_config: {},
     outgoing_url: 'https://example.com/outgoing',
-    access_token: 'hN8QwG769RqBXmme',
+    access_token: 'fake-agent-bot-token',
     system_bot: false,
   },
   {
@@ -33,7 +33,7 @@ export const agentBotRecords = [
     thumbnail: 'https://example.com/thumbnail.jpg',
     bot_config: {},
     outgoing_url: '',
-    access_token: 'hN8QwG769RqBXmme',
+    access_token: 'fake-agent-bot-token',
     system_bot: false,
   },
 ];
