@@ -4,6 +4,7 @@
 - **[Both] Setup**: `bundle install && pnpm install` because dependencies span Ruby gems and pnpm packages.
 - **[Frontend] Run Dev**: `pnpm dev` or `overmind start -f ./Procfile.dev` because the frontend relies on the Procfile.dev stack.
 - **[Both] Run Project (foreman)**: `pnpm start:dev` or `pnpm start:test` because these scripts map to the current `package.json` Procfile runners.
+- **[Frontend] Browser verification**: when using `agent-browser` for Chatwoot UI checks, prefer the reusable Chatwoot browser profile instead of `agent-browser` named sessions because the profile is the repo-standard persistent browser context.
 - **[Backend] Seed Local Test Data**: `bundle exec rails db:seed` (quickly populates minimal data for standard feature verification).
 - **[Backend] Seed Search Test Data**: `bundle exec rails search:setup_test_data` (bulk fixture generation for search/performance/manual load scenarios).
 - **[Backend] Seed Account Sample Data (richer test data)**: `Seeders::AccountSeeder` is available as an internal utility and is exposed through Super Admin `Accounts#seed`, but can be used directly in dev workflows too:
