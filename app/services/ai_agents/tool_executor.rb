@@ -1,28 +1,34 @@
 # frozen_string_literal: true
 
-require 'set'
-
 module AiAgents
   class ToolExecutor
     Result = Struct.new(:status, :tool_event, :tool_result, keyword_init: true)
 
-      def initialize(ai_agent:, account:, mode:, executed_tool_keys: Set.new, conversation: nil, trigger_message: nil)
-        @ai_agent = ai_agent
-        @account = account
-        @mode = mode
-        @executed_tool_keys = executed_tool_keys
-        @config = AiAgents::Config.new(ai_agent.config, allow_legacy_human_handoff_settings: true)
-        @conversation = conversation
-        @trigger_message = trigger_message
-      end
+    def initialize(ai_agent:, account:, mode:, executed_tool_keys: Set.new, conversation: nil, trigger_message: nil)
+      @ai_agent = ai_agent
+      @account = account
+      @mode = mode
+      @executed_tool_keys = executed_tool_keys
+      @config = AiAgents::Config.new(ai_agent.config, allow_legacy_human_handoff_settings: true)
+      @conversation = conversation
+      @trigger_message = trigger_message
+    end
 
     def execute(tool_call)
       started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       definition = AiAgents::ToolRegistry.find(tool_call[:name])
       return rejected_result(tool_call, 'unknown_tool', started_at: started_at) unless definition
-      return rejected_result(tool_call, 'tool_not_enabled', started_at: started_at, definition: definition) unless config.enabled_tool?(definition.key)
+
+      unless config.enabled_tool?(definition.key)
+        return rejected_result(tool_call, 'tool_not_enabled', started_at: started_at,
+                                                              definition: definition)
+      end
       return rejected_result(tool_call, 'tool_not_allowed_in_mode', started_at: started_at, definition: definition) unless mode_supported?(definition)
-      return rejected_result(tool_call, 'duplicate_tool_execution', started_at: started_at, definition: definition) if executed_tool_keys.include?(definition.key)
+
+      if executed_tool_keys.include?(definition.key)
+        return rejected_result(tool_call, 'duplicate_tool_execution', started_at: started_at,
+                                                                      definition: definition)
+      end
 
       integration_gate_error = validate_integration_gate(definition)
       return rejected_result(tool_call, integration_gate_error, started_at: started_at, definition: definition) if integration_gate_error
@@ -31,14 +37,14 @@ module AiAgents
       return rejected_result(tool_call, 'invalid_tool_arguments', started_at: started_at, definition: definition, args: {}) unless args
 
       executed_tool_keys << definition.key
-        service = definition.service_class.constantize.new(
-          ai_agent: ai_agent,
-          account: account,
-          mode: mode,
-          settings: config.tool_settings(definition.key),
-          conversation: conversation,
-          trigger_message: trigger_message
-        )
+      service = definition.service_class.constantize.new(
+        ai_agent: ai_agent,
+        account: account,
+        mode: mode,
+        settings: config.tool_settings(definition.key),
+        conversation: conversation,
+        trigger_message: trigger_message
+      )
       tool_result = service.call(args: args)
       status = tool_result[:status] == 'ok' ? 'executed' : 'error'
       log_tool_execution(
@@ -147,15 +153,17 @@ module AiAgents
         error_message: 'Tool execution was rejected.'
       }
 
-      log_tool_execution(
-        tool_call: tool_call,
-        definition: definition,
-        status: 'rejected',
-        tool_result: tool_result,
-        args: args || sanitize_args(tool_call[:arguments]),
-        terminal: definition&.terminal || false,
-        started_at: started_at
-      ) if started_at
+      if started_at
+        log_tool_execution(
+          tool_call: tool_call,
+          definition: definition,
+          status: 'rejected',
+          tool_result: tool_result,
+          args: args || sanitize_args(tool_call[:arguments]),
+          terminal: definition&.terminal || false,
+          started_at: started_at
+        )
+      end
 
       Result.new(
         status: 'rejected',
