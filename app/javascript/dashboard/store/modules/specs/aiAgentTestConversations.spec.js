@@ -163,7 +163,11 @@ describe('aiAgentTestConversations store', () => {
           1: {
             id: 1,
             messages: [
-              { id: 'm1', content: 'First', created_at: '2024-01-01T00:00:00Z' },
+              {
+                id: 'm1',
+                content: 'First',
+                created_at: '2024-01-01T00:00:00Z',
+              },
               {
                 id: 'temp-1',
                 content: 'Optimistic',

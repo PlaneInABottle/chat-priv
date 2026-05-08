@@ -8,7 +8,12 @@ RSpec.describe AiAgents::ToolExecutor do
     create(:message, account: account, inbox: conversation.inbox, conversation: conversation, message_type: 'incoming', sender: conversation.contact)
   end
   let(:executor) do
-    described_class.new(ai_agent: ai_agent, account: account, mode: :test, conversation: conversation, trigger_message: trigger_message)
+    described_class.new(
+      ai_agent: ai_agent,
+      account: account,
+      mode: :test,
+      context: { conversation: conversation, trigger_message: trigger_message }
+    )
   end
 
   def handoff_args
@@ -17,6 +22,14 @@ RSpec.describe AiAgents::ToolExecutor do
 
   def tool_call(name: 'human_handoff', arguments: {})
     { id: 'call_1', name: name, arguments: arguments.to_json }
+  end
+
+  def stub_handoff_service(result: nil, error: nil)
+    service = instance_double(AiAgents::Tools::HumanHandoffService)
+    allow(AiAgents::Tools::HumanHandoffService).to receive(:new).and_return(service)
+    return allow(service).to receive(:call).and_raise(error) if error
+
+    allow(service).to receive(:call).and_return(result)
   end
 
   it 'logs unknown tool rejections' do
@@ -51,8 +64,7 @@ RSpec.describe AiAgents::ToolExecutor do
   end
 
   it 'logs service error results' do
-    allow_any_instance_of(AiAgents::Tools::HumanHandoffService).to receive(:call).and_return({ status: 'error', error_code: 'handoff_failed',
-                                                                                               raw_response: 'secret' })
+    stub_handoff_service(result: { status: 'error', error_code: 'handoff_failed', raw_response: 'secret' })
 
     result = executor.execute(tool_call(arguments: handoff_args))
 
@@ -62,7 +74,7 @@ RSpec.describe AiAgents::ToolExecutor do
   end
 
   it 'logs service exceptions as rejected tool exceptions' do
-    allow_any_instance_of(AiAgents::Tools::HumanHandoffService).to receive(:call).and_raise(StandardError, 'boom')
+    stub_handoff_service(error: StandardError.new('boom'))
 
     result = executor.execute(tool_call(arguments: handoff_args))
 

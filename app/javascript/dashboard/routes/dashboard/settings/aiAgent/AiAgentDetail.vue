@@ -76,7 +76,8 @@ const isFormDirty = computed(() => {
       formState.value.enabled !== false ||
       formState.value.prompt !== '' ||
       formState.value.inbox_ids.length !== 0 ||
-      JSON.stringify(formState.value.tools) !== JSON.stringify(defaultToolsState())
+      JSON.stringify(formState.value.tools) !==
+        JSON.stringify(defaultToolsState())
     );
   }
   return (
@@ -98,7 +99,9 @@ const tabs = computed(() => [
   { label: t('AI_AGENT.TABS.TOOL_LOGS'), value: 'tool_logs' },
 ]);
 
-const activeTabIndex = computed(() => tabs.value.findIndex(tab => tab.value === activeTab.value));
+const activeTabIndex = computed(() =>
+  tabs.value.findIndex(tab => tab.value === activeTab.value)
+);
 
 const persistedInboxIds = computed(() => {
   return aiAgent.value?.agent_bot?.inbox_ids || [];
@@ -248,7 +251,8 @@ function syncFormState() {
   }
 }
 
-const isToolEnabled = toolKey => formState.value.tools.enabled.includes(toolKey);
+const isToolEnabled = toolKey =>
+  formState.value.tools.enabled.includes(toolKey);
 
 const toggleTool = toolKey => {
   const enabled = new Set(formState.value.tools.enabled);
@@ -265,7 +269,10 @@ const toggleTool = toolKey => {
       enabled: Array.from(enabled),
       ikas_lookup_order: {
         ...formState.value.tools.ikas_lookup_order,
-        enabled: toolKey === 'ikas_lookup_order' ? enabled.has(toolKey) : formState.value.tools.ikas_lookup_order.enabled,
+        enabled:
+          toolKey === 'ikas_lookup_order'
+            ? enabled.has(toolKey)
+            : formState.value.tools.ikas_lookup_order.enabled,
       },
     },
   };
@@ -340,10 +347,12 @@ const handleSave = async () => {
           tools: {
             enabled: formState.value.tools.enabled,
             human_handoff: {
-              allowed_labels: formState.value.tools.human_handoff.allowed_labels,
+              allowed_labels:
+                formState.value.tools.human_handoff.allowed_labels,
             },
             ikas_lookup_order: {
-              enabled: formState.value.tools.enabled.includes('ikas_lookup_order'),
+              enabled:
+                formState.value.tools.enabled.includes('ikas_lookup_order'),
             },
           },
         },
@@ -418,219 +427,240 @@ watch(agentId, async (newAgentId, oldAgentId) => {
           @tab-changed="handleTabChange"
         />
         <template v-if="activeTab === 'settings'">
-        <!-- Name Input -->
-        <div>
-          <woot-input
-            v-model="formState.name"
-            :label="t('AI_AGENT.NAME.LABEL')"
-            :placeholder="t('AI_AGENT.NAME.PLACEHOLDER')"
-          />
-        </div>
-
-        <!-- Enable/Disable Toggle -->
-        <div class="flex items-center justify-between">
-          <div class="flex flex-col gap-1">
-            <span class="text-sm font-medium text-n-slate-12">
-              {{ t('AI_AGENT.ENABLED.LABEL') }}
-            </span>
-            <span class="text-sm text-n-slate-11">
-              {{ t('AI_AGENT.ENABLED.HELP') }}
-            </span>
+          <!-- Name Input -->
+          <div>
+            <woot-input
+              v-model="formState.name"
+              :label="t('AI_AGENT.NAME.LABEL')"
+              :placeholder="t('AI_AGENT.NAME.PLACEHOLDER')"
+            />
           </div>
-          <Switch v-model="formState.enabled" />
-        </div>
 
-        <!-- Prompt Editor -->
-        <div>
-          <AiAgentPromptEditor
-            v-model="formState.prompt"
-            :message="promptMessage"
-            :message-type="promptMessageType"
-            :max-length="maxCharacters"
-          />
-        </div>
-
-        <!-- Inbox Selection -->
-        <div>
-          <h3 class="mb-2 text-sm font-medium text-n-slate-12">
-            {{ t('AI_AGENT.INBOXES.LABEL') }}
-          </h3>
-          <p class="mb-4 text-sm text-n-slate-11">
-            {{ t('AI_AGENT.INBOXES.HELP') }}
-          </p>
-          <p v-if="inboxError" class="mb-4 text-sm text-n-ruby-11">
-            {{ inboxError }}
-          </p>
-          <div v-if="inboxList.length === 0" class="text-sm text-n-slate-11">
-            {{ t('AI_AGENT.INBOXES.NONE') }}
+          <!-- Enable/Disable Toggle -->
+          <div class="flex items-center justify-between">
+            <div class="flex flex-col gap-1">
+              <span class="text-sm font-medium text-n-slate-12">
+                {{ t('AI_AGENT.ENABLED.LABEL') }}
+              </span>
+              <span class="text-sm text-n-slate-11">
+                {{ t('AI_AGENT.ENABLED.HELP') }}
+              </span>
+            </div>
+            <Switch v-model="formState.enabled" />
           </div>
-          <div v-else class="flex flex-col gap-2">
+
+          <!-- Prompt Editor -->
+          <div>
+            <AiAgentPromptEditor
+              v-model="formState.prompt"
+              :message="promptMessage"
+              :message-type="promptMessageType"
+              :max-length="maxCharacters"
+            />
+          </div>
+
+          <!-- Inbox Selection -->
+          <div>
+            <h3 class="mb-2 text-sm font-medium text-n-slate-12">
+              {{ t('AI_AGENT.INBOXES.LABEL') }}
+            </h3>
+            <p class="mb-4 text-sm text-n-slate-11">
+              {{ t('AI_AGENT.INBOXES.HELP') }}
+            </p>
+            <p v-if="inboxError" class="mb-4 text-sm text-n-ruby-11">
+              {{ inboxError }}
+            </p>
+            <div v-if="inboxList.length === 0" class="text-sm text-n-slate-11">
+              {{ t('AI_AGENT.INBOXES.NONE') }}
+            </div>
+            <div v-else class="flex flex-col gap-2">
+              <div
+                v-for="inbox in inboxList"
+                :key="inbox.id"
+                class="flex items-center gap-3 p-3 rounded-lg border border-n-weak dark:border-n-weak"
+                :class="[
+                  inbox.conflicting
+                    ? 'opacity-60 cursor-not-allowed bg-n-alpha-black1'
+                    : 'hover:bg-n-alpha-black1 cursor-pointer',
+                ]"
+                @click="toggleInbox(inbox.id)"
+              >
+                <input
+                  type="checkbox"
+                  :checked="isInboxSelected(inbox.id)"
+                  :disabled="inbox.conflicting"
+                  class="w-4 h-4 rounded border-n-slate-6 text-n-brand focus:ring-n-brand"
+                  @click.stop
+                  @change="toggleInbox(inbox.id)"
+                />
+                <Avatar
+                  :name="inbox.name"
+                  :src="inbox.avatar_url"
+                  :size="28"
+                  rounded-full
+                />
+                <div class="flex flex-col">
+                  <span class="text-sm font-medium text-n-slate-12">
+                    {{ inbox.name }}
+                  </span>
+                  <span class="text-xs text-n-slate-11">
+                    {{ getInboxStatusText(inbox) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Model Display -->
+          <div>
+            <h3 class="mb-2 text-sm font-medium text-n-slate-12">
+              {{ t('AI_AGENT.MODEL.LABEL') }}
+            </h3>
             <div
-              v-for="inbox in inboxList"
-              :key="inbox.id"
-              class="flex items-center gap-3 p-3 rounded-lg border border-n-weak dark:border-n-weak"
-              :class="[
-                inbox.conflicting
-                  ? 'opacity-60 cursor-not-allowed bg-n-alpha-black1'
-                  : 'hover:bg-n-alpha-black1 cursor-pointer',
-              ]"
-              @click="toggleInbox(inbox.id)"
+              class="flex items-center gap-3 p-4 rounded-lg border border-n-weak dark:border-n-weak bg-n-alpha-black1"
             >
-              <input
-                type="checkbox"
-                :checked="isInboxSelected(inbox.id)"
-                :disabled="inbox.conflicting"
-                class="w-4 h-4 rounded border-n-slate-6 text-n-brand focus:ring-n-brand"
-                @click.stop
-                @change="toggleInbox(inbox.id)"
-              />
-              <Avatar
-                :name="inbox.name"
-                :src="inbox.avatar_url"
-                :size="28"
-                rounded-full
-              />
+              <div
+                class="flex items-center justify-center w-10 h-10 rounded-full bg-n-purple-3"
+              >
+                <Icon icon="i-lucide-brain" class="text-n-purple-9 size-5" />
+              </div>
               <div class="flex flex-col">
-                <span class="text-sm font-medium text-n-slate-12">
-                  {{ inbox.name }}
+                <span class="text-sm font-semibold text-n-slate-12">
+                  {{ aiAgent?.model || '—' }}
                 </span>
                 <span class="text-xs text-n-slate-11">
-                  {{ getInboxStatusText(inbox) }}
+                  {{ t('AI_AGENT.MODEL.HELP') }}
                 </span>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- Model Display -->
-        <div>
-          <h3 class="mb-2 text-sm font-medium text-n-slate-12">
-            {{ t('AI_AGENT.MODEL.LABEL') }}
-          </h3>
-          <div
-            class="flex items-center gap-3 p-4 rounded-lg border border-n-weak dark:border-n-weak bg-n-alpha-black1"
-          >
-            <div
-              class="flex items-center justify-center w-10 h-10 rounded-full bg-n-purple-3"
-            >
-              <Icon icon="i-lucide-brain" class="text-n-purple-9 size-5" />
-            </div>
-            <div class="flex flex-col">
-              <span class="text-sm font-semibold text-n-slate-12">
-                {{ aiAgent?.model || '—' }}
-              </span>
-              <span class="text-xs text-n-slate-11">
-                {{ t('AI_AGENT.MODEL.HELP') }}
-              </span>
-            </div>
-          </div>
-        </div>
+          <div>
+            <h3 class="mb-2 text-sm font-medium text-n-slate-12">
+              {{ t('AI_AGENT.TOOLS.LABEL') }}
+            </h3>
+            <p class="mb-4 text-sm text-n-slate-11">
+              {{ t('AI_AGENT.TOOLS.HELP') }}
+            </p>
 
-        <div>
-          <h3 class="mb-2 text-sm font-medium text-n-slate-12">
-            {{ t('AI_AGENT.TOOLS.LABEL') }}
-          </h3>
-          <p class="mb-4 text-sm text-n-slate-11">
-            {{ t('AI_AGENT.TOOLS.HELP') }}
-          </p>
-
-          <div class="flex flex-col gap-4">
-            <div
-              v-for="tool in availableTools"
-              :key="tool.key"
-              class="p-4 rounded-lg border border-n-weak dark:border-n-weak"
-            >
-              <div class="flex items-start justify-between gap-4">
-                <div>
-                  <p class="text-sm font-medium text-n-slate-12">
-                    {{ t(`AI_AGENT.TOOLS.${tool.key.toUpperCase()}.LABEL`) }}
-                  </p>
-                  <p class="text-sm text-n-slate-11">
-                    {{ t(`AI_AGENT.TOOLS.${tool.key.toUpperCase()}.HELP`) }}
-                  </p>
-                </div>
-                <Switch
-                  :model-value="isToolEnabled(tool.key)"
-                  :disabled="tool.key === 'ikas_lookup_order' && !isIkasAvailable"
-                  @update:model-value="toggleTool(tool.key)"
-                />
-              </div>
-
-              <div v-if="tool.key === 'human_handoff'" class="mt-4 flex flex-col gap-4">
-                <div class="flex flex-col gap-1">
-                  <label class="mb-0.5 text-sm font-medium text-n-slate-12">
-                    {{ t('AI_AGENT.TOOLS.HUMAN_HANDOFF.ALLOWED_LABELS_LABEL') }}
-                  </label>
-                  <TagMultiSelectComboBox
-                    :model-value="formState.tools.human_handoff.allowed_labels"
-                    :options="handoffLabelOptions"
-                    :placeholder="t('AI_AGENT.TOOLS.HUMAN_HANDOFF.ALLOWED_LABELS_PLACEHOLDER')"
-                    :search-placeholder="t('AI_AGENT.TOOLS.HUMAN_HANDOFF.ALLOWED_LABELS_SEARCH_PLACEHOLDER')"
-                    :empty-state="t('AI_AGENT.TOOLS.HUMAN_HANDOFF.ALLOWED_LABELS_EMPTY')"
-                    @update:model-value="updateHandoffLabels"
+            <div class="flex flex-col gap-4">
+              <div
+                v-for="tool in availableTools"
+                :key="tool.key"
+                class="p-4 rounded-lg border border-n-weak dark:border-n-weak"
+              >
+                <div class="flex items-start justify-between gap-4">
+                  <div>
+                    <p class="text-sm font-medium text-n-slate-12">
+                      {{ t(`AI_AGENT.TOOLS.${tool.key.toUpperCase()}.LABEL`) }}
+                    </p>
+                    <p class="text-sm text-n-slate-11">
+                      {{ t(`AI_AGENT.TOOLS.${tool.key.toUpperCase()}.HELP`) }}
+                    </p>
+                  </div>
+                  <Switch
+                    :model-value="isToolEnabled(tool.key)"
+                    :disabled="
+                      tool.key === 'ikas_lookup_order' && !isIkasAvailable
+                    "
+                    @update:model-value="toggleTool(tool.key)"
                   />
                 </div>
 
-                <p class="text-xs text-n-slate-10">
-                  {{ t('AI_AGENT.TOOLS.HUMAN_HANDOFF.ALLOWED_LABELS_HELP') }}
+                <div
+                  v-if="tool.key === 'human_handoff'"
+                  class="mt-4 flex flex-col gap-4"
+                >
+                  <div class="flex flex-col gap-1">
+                    <label class="mb-0.5 text-sm font-medium text-n-slate-12">
+                      {{
+                        t('AI_AGENT.TOOLS.HUMAN_HANDOFF.ALLOWED_LABELS_LABEL')
+                      }}
+                    </label>
+                    <TagMultiSelectComboBox
+                      :model-value="
+                        formState.tools.human_handoff.allowed_labels
+                      "
+                      :options="handoffLabelOptions"
+                      :placeholder="
+                        t(
+                          'AI_AGENT.TOOLS.HUMAN_HANDOFF.ALLOWED_LABELS_PLACEHOLDER'
+                        )
+                      "
+                      :search-placeholder="
+                        t(
+                          'AI_AGENT.TOOLS.HUMAN_HANDOFF.ALLOWED_LABELS_SEARCH_PLACEHOLDER'
+                        )
+                      "
+                      :empty-state="
+                        t('AI_AGENT.TOOLS.HUMAN_HANDOFF.ALLOWED_LABELS_EMPTY')
+                      "
+                      @update:model-value="updateHandoffLabels"
+                    />
+                  </div>
+
+                  <p class="text-xs text-n-slate-10">
+                    {{ t('AI_AGENT.TOOLS.HUMAN_HANDOFF.ALLOWED_LABELS_HELP') }}
+                  </p>
+                </div>
+
+                <p
+                  v-if="tool.key === 'ikas_lookup_order'"
+                  class="mt-3 text-xs"
+                  :class="
+                    isIkasAvailable ? 'text-n-teal-11' : 'text-n-slate-11'
+                  "
+                >
+                  {{
+                    isIkasAvailable
+                      ? t('AI_AGENT.TOOLS.IKAS_LOOKUP_ORDER.CONNECTED')
+                      : t('AI_AGENT.TOOLS.IKAS_LOOKUP_ORDER.UNAVAILABLE', {
+                          state: ikasIntegration.state,
+                        })
+                  }}
                 </p>
               </div>
-
-              <p
-                v-if="tool.key === 'ikas_lookup_order'"
-                class="mt-3 text-xs"
-                :class="isIkasAvailable ? 'text-n-teal-11' : 'text-n-slate-11'"
-              >
-                {{
-                  isIkasAvailable
-                    ? t('AI_AGENT.TOOLS.IKAS_LOOKUP_ORDER.CONNECTED')
-                    : t('AI_AGENT.TOOLS.IKAS_LOOKUP_ORDER.UNAVAILABLE', {
-                        state: ikasIntegration.state,
-                      })
-                }}
-              </p>
             </div>
           </div>
-        </div>
 
-        <!-- Usage Counter -->
-        <div>
-          <h3 class="mb-2 text-sm font-medium text-n-slate-12">
-            {{ t('AI_AGENT.USAGE.LABEL') }}
-          </h3>
-          <div
-            class="flex items-center gap-3 p-4 rounded-lg border border-n-weak dark:border-n-weak bg-n-alpha-black1"
-          >
+          <!-- Usage Counter -->
+          <div>
+            <h3 class="mb-2 text-sm font-medium text-n-slate-12">
+              {{ t('AI_AGENT.USAGE.LABEL') }}
+            </h3>
             <div
-              class="flex items-center justify-center w-10 h-10 rounded-full bg-n-blue-3"
+              class="flex items-center gap-3 p-4 rounded-lg border border-n-weak dark:border-n-weak bg-n-alpha-black1"
             >
-              <Icon
-                icon="i-lucide-message-square"
-                class="text-n-brand size-5"
-              />
-            </div>
-            <div class="flex flex-col">
-              <span class="text-lg font-semibold text-n-slate-12">
-                {{ usageDisplay }}
-              </span>
+              <div
+                class="flex items-center justify-center w-10 h-10 rounded-full bg-n-blue-3"
+              >
+                <Icon
+                  icon="i-lucide-message-square"
+                  class="text-n-brand size-5"
+                />
+              </div>
+              <div class="flex flex-col">
+                <span class="text-lg font-semibold text-n-slate-12">
+                  {{ usageDisplay }}
+                </span>
+              </div>
             </div>
           </div>
-        </div>
         </template>
         <div v-show="activeTab === 'test'">
-        <!-- Test Conversations -->
-        <div>
-          <h3 class="mb-2 text-sm font-medium text-n-slate-12">
-            {{ t('AI_AGENT.TEST_CONVERSATIONS.TITLE') }}
-          </h3>
-          <p v-if="isSimulatorDisabled" class="mb-3 text-sm text-n-slate-11">
-            {{ simulatorDisabledMessage }}
-          </p>
-          <TestConversationLayout
-            :ai-agent-id="agentId"
-            :is-disabled="isSimulatorDisabled"
-          />
-        </div>
+          <!-- Test Conversations -->
+          <div>
+            <h3 class="mb-2 text-sm font-medium text-n-slate-12">
+              {{ t('AI_AGENT.TEST_CONVERSATIONS.TITLE') }}
+            </h3>
+            <p v-if="isSimulatorDisabled" class="mb-3 text-sm text-n-slate-11">
+              {{ simulatorDisabledMessage }}
+            </p>
+            <TestConversationLayout
+              :ai-agent-id="agentId"
+              :is-disabled="isSimulatorDisabled"
+            />
+          </div>
         </div>
         <template v-if="activeTab === 'tool_logs'">
           <AiAgentToolLogs :ai-agent-id="agentId" />
