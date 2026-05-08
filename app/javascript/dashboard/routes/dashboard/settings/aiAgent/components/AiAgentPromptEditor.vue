@@ -17,7 +17,9 @@ const { t } = useI18n();
 const textareaRef = ref(null);
 const showPreview = ref(false);
 
-const previewHtml = computed(() => new MessageFormatter(props.modelValue).formattedMessage);
+const previewHtml = computed(
+  () => new MessageFormatter(props.modelValue).formattedMessage
+);
 
 const updateValue = value => {
   emit('update:modelValue', value);
@@ -30,16 +32,50 @@ const insertMarkdown = (before, after = '', placeholder = '') => {
   const start = textarea?.selectionStart ?? props.modelValue.length;
   const end = textarea?.selectionEnd ?? props.modelValue.length;
   const selected = props.modelValue.slice(start, end) || placeholder;
-  updateValue(`${props.modelValue.slice(0, start)}${before}${selected}${after}${props.modelValue.slice(end)}`);
+  updateValue(
+    `${props.modelValue.slice(0, start)}${before}${selected}${after}${props.modelValue.slice(end)}`
+  );
 };
 
 const toolbarActions = [
-  { key: 'bold', label: 'AI_AGENT.PROMPT.TOOLBAR.BOLD', before: '**', after: '**', placeholder: 'bold text' },
-  { key: 'italic', label: 'AI_AGENT.PROMPT.TOOLBAR.ITALIC', before: '*', after: '*', placeholder: 'italic text' },
-  { key: 'heading', label: 'AI_AGENT.PROMPT.TOOLBAR.HEADING', before: '## ', placeholder: 'Heading' },
-  { key: 'bullets', label: 'AI_AGENT.PROMPT.TOOLBAR.BULLETS', before: '- ', placeholder: 'List item' },
-  { key: 'numbered', label: 'AI_AGENT.PROMPT.TOOLBAR.NUMBERED', before: '1. ', placeholder: 'List item' },
-  { key: 'section', label: 'AI_AGENT.PROMPT.TOOLBAR.SECTION', before: '\n---\n## ', placeholder: 'Section' },
+  {
+    key: 'bold',
+    label: 'AI_AGENT.PROMPT.TOOLBAR.BOLD',
+    before: '**',
+    after: '**',
+    placeholder: 'bold text',
+  },
+  {
+    key: 'italic',
+    label: 'AI_AGENT.PROMPT.TOOLBAR.ITALIC',
+    before: '*',
+    after: '*',
+    placeholder: 'italic text',
+  },
+  {
+    key: 'heading',
+    label: 'AI_AGENT.PROMPT.TOOLBAR.HEADING',
+    before: '## ',
+    placeholder: 'Heading',
+  },
+  {
+    key: 'bullets',
+    label: 'AI_AGENT.PROMPT.TOOLBAR.BULLETS',
+    before: '- ',
+    placeholder: 'List item',
+  },
+  {
+    key: 'numbered',
+    label: 'AI_AGENT.PROMPT.TOOLBAR.NUMBERED',
+    before: '1. ',
+    placeholder: 'List item',
+  },
+  {
+    key: 'section',
+    label: 'AI_AGENT.PROMPT.TOOLBAR.SECTION',
+    before: '\n---\n## ',
+    placeholder: 'Section',
+  },
 ];
 </script>
 
@@ -55,8 +91,16 @@ const toolbarActions = [
       >
         {{ t(action.label) }}
       </button>
-      <button type="button" class="rounded border border-n-weak px-2 py-1 text-xs text-n-slate-12" @click="showPreview = !showPreview">
-        {{ showPreview ? t('AI_AGENT.PROMPT.PREVIEW.HIDE') : t('AI_AGENT.PROMPT.PREVIEW.SHOW') }}
+      <button
+        type="button"
+        class="rounded border border-n-weak px-2 py-1 text-xs text-n-slate-12"
+        @click="showPreview = !showPreview"
+      >
+        {{
+          showPreview
+            ? t('AI_AGENT.PROMPT.PREVIEW.HIDE')
+            : t('AI_AGENT.PROMPT.PREVIEW.SHOW')
+        }}
       </button>
     </div>
     <TextArea

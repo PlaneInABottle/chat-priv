@@ -102,7 +102,9 @@ describe('TestConversationChatPanel.vue', () => {
       },
     });
 
-    expect(wrapper.text()).toContain('AI_AGENT.TEST_CONVERSATIONS.HANDOFF_TITLE');
+    expect(wrapper.text()).toContain(
+      'AI_AGENT.TEST_CONVERSATIONS.HANDOFF_TITLE'
+    );
     expect(wrapper.text()).toContain('Escalate to billing');
     expect(wrapper.text()).toContain('vip');
     expect(wrapper.text()).toContain('ignored');

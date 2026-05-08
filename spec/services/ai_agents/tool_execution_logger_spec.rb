@@ -17,10 +17,11 @@ RSpec.describe AiAgents::ToolExecutionLogger do
       tool_call: { id: 'call_1', name: 'human_handoff' },
       definition: definition,
       status: 'executed',
-      tool_result: { status: 'ok', raw_response: 'secret' },
-      args: { 'reason' => 'Need help' },
-      terminal: true,
-      duration_ms: 12
+      payload: {
+        tool_result: { status: 'ok', raw_response: 'secret' },
+        args: { 'reason' => 'Need help' },
+        duration_ms: 12
+      }
     )
 
     execution = AiAgentToolExecution.last
@@ -33,10 +34,11 @@ RSpec.describe AiAgents::ToolExecutionLogger do
       tool_call: { id: 'call_2', name: 'missing_tool' },
       definition: nil,
       status: 'rejected',
-      tool_result: { status: 'error', error_code: 'unknown_tool', error_message: 'Tool execution was rejected.' },
-      args: {},
-      terminal: false,
-      duration_ms: 1
+      payload: {
+        tool_result: { status: 'error', error_code: 'unknown_tool', error_message: 'Tool execution was rejected.' },
+        args: {},
+        duration_ms: 1
+      }
     )
 
     execution = AiAgentToolExecution.last

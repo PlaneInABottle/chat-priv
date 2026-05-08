@@ -18,10 +18,9 @@ const getMessagePreview = message => {
   if (!message) return null;
   if (message.content) return message.content.substring(0, 60);
   if (message.terminal_action === 'handoff') {
-    return (message.tool_result?.customer_message || 'Human handoff preview').substring(
-      0,
-      60
-    );
+    return (
+      message.tool_result?.customer_message || 'Human handoff preview'
+    ).substring(0, 60);
   }
 
   return null;
@@ -236,7 +235,9 @@ export const mutations = {
       $state.records[id].last_message_at =
         messages.length > 0 ? messages[messages.length - 1].created_at : null;
       $state.records[id].last_message_preview =
-        messages.length > 0 ? getMessagePreview(messages[messages.length - 1]) : null;
+        messages.length > 0
+          ? getMessagePreview(messages[messages.length - 1])
+          : null;
       if (title) {
         $state.records[id].title = title;
       }
