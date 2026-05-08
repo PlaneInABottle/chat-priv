@@ -1,5 +1,5 @@
+/* global axios */
 import ApiClient from './ApiClient';
-import axios from 'axios';
 
 class AiAgentAPI extends ApiClient {
   constructor() {
