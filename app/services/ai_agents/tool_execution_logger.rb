@@ -1,0 +1,53 @@
+# frozen_string_literal: true
+
+module AiAgents
+  class ToolExecutionLogger
+    def initialize(ai_agent:, account:, conversation:, trigger_message:, mode:)
+      @ai_agent = ai_agent
+      @account = account
+      @conversation = conversation
+      @trigger_message = trigger_message
+      @mode = mode
+    end
+
+    def call(tool_call:, definition:, status:, tool_result:, args:, terminal:, duration_ms:)
+      AiAgentToolExecution.create!(
+        account: account,
+        ai_agent: ai_agent,
+        conversation: conversation,
+        message: trigger_message,
+        tool_key: tool_key(tool_call, definition),
+        tool_name: definition&.name,
+        mode: mode.to_s,
+        status: status,
+        error_code: error_code(tool_result),
+        error_message: error_message(tool_result),
+        tool_call_id: tool_call[:id],
+        arguments: args || {},
+        result: sanitized_result(tool_result),
+        terminal: terminal || false,
+        duration_ms: duration_ms
+      )
+    end
+
+    private
+
+    attr_reader :ai_agent, :account, :conversation, :trigger_message, :mode
+
+    def tool_key(tool_call, definition)
+      definition&.key || tool_call[:name].to_s
+    end
+
+    def error_code(tool_result)
+      tool_result[:error_code] || tool_result['error_code']
+    end
+
+    def error_message(tool_result)
+      tool_result[:error_message] || tool_result['error_message']
+    end
+
+    def sanitized_result(tool_result)
+      tool_result.except(:raw_response, 'raw_response').deep_stringify_keys
+    end
+  end
+end
