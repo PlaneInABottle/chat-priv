@@ -9,13 +9,13 @@ import SettingsLayout from '../SettingsLayout.vue';
 import BaseSettingsHeader from '../components/BaseSettingsHeader.vue';
 import Button from 'dashboard/components-next/button/Button.vue';
 import Switch from 'dashboard/components-next/switch/Switch.vue';
-import TextArea from 'dashboard/components-next/textarea/TextArea.vue';
 import TagMultiSelectComboBox from 'dashboard/components-next/combobox/TagMultiSelectComboBox.vue';
 import Avatar from 'dashboard/components-next/avatar/Avatar.vue';
 import Icon from 'dashboard/components-next/icon/Icon.vue';
 import TestConversationLayout from './components/TestConversationLayout.vue';
 import TabBar from 'dashboard/components-next/tabbar/TabBar.vue';
 import AiAgentToolLogs from './components/AiAgentToolLogs.vue';
+import AiAgentPromptEditor from './components/AiAgentPromptEditor.vue';
 
 const defaultToolsState = () => ({
   enabled: [],
@@ -174,7 +174,7 @@ const promptMessageKey = computed(() => {
 
 const promptMessageType = computed(() => {
   if (formState.value.enabled && !formState.value.prompt.trim()) {
-    return 'warning';
+    return 'error';
   }
 
   return 'info';
@@ -442,18 +442,11 @@ watch(agentId, async (newAgentId, oldAgentId) => {
 
         <!-- Prompt Editor -->
         <div>
-          <TextArea
+          <AiAgentPromptEditor
             v-model="formState.prompt"
-            :label="t('AI_AGENT.PROMPT.LABEL')"
-            :placeholder="t('AI_AGENT.PROMPT.PLACEHOLDER')"
             :message="promptMessage"
             :message-type="promptMessageType"
             :max-length="maxCharacters"
-            show-character-count
-            auto-height
-            min-height="8rem"
-            max-height="20rem"
-            resize
           />
         </div>
 
