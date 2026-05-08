@@ -77,9 +77,37 @@ class AgentBotListener < BaseListener
   end
 
   def process_message_event(method_name, agent_bot, message, _event)
-    # Only webhook bots are supported
+    return process_ai_bot_event(agent_bot, message) if agent_bot.ai? && method_name == 'message_created'
+
     payload = message.webhook_data.merge(event: method_name)
     process_webhook_bot_event(agent_bot, payload)
+  end
+
+  def process_ai_bot_event(agent_bot, message)
+    return unless eligible_ai_message?(message)
+    return if ai_handoff_completed?(message.conversation)
+    return unless agent_bot.ai_agent&.enabled?
+
+    AgentBots::AiResponseJob.perform_later(message)
+  end
+
+  def eligible_ai_message?(message)
+    return false unless message.incoming?
+    return false if message.private?
+    return false if message.activity?
+    return false if message.template?
+    return false if ai_generated_message?(message)
+
+    true
+  end
+
+  def ai_generated_message?(message)
+    message.outgoing? && message.sender_type.in?(['AgentBot', 'Captain::Assistant'])
+  end
+
+  def ai_handoff_completed?(conversation)
+    attrs = conversation.additional_attributes
+    attrs.is_a?(Hash) && attrs['ai_handoff_completed'] == true
   end
 
   def process_webhook_bot_event(agent_bot, payload)

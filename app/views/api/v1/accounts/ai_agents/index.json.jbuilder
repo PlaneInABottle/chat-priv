@@ -3,6 +3,7 @@ json.array! @ai_agents do |ai_agent|
   json.name ai_agent.name
   json.prompt ai_agent.prompt
   json.enabled ai_agent.enabled
+  json.enabled_tool_keys AiAgents::Config.new(ai_agent.config).enabled_tool_keys
   json.created_at ai_agent.created_at
   json.updated_at ai_agent.updated_at
 

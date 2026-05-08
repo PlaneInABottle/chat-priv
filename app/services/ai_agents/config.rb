@@ -1,0 +1,155 @@
+# frozen_string_literal: true
+
+module AiAgents
+  class Config
+    HUMAN_HANDOFF_TOOL = 'human_handoff'.freeze
+    IKAS_LOOKUP_ORDER_TOOL = 'ikas_lookup_order'.freeze
+    TOOLS_KEY = 'tools'.freeze
+    ENABLED_KEY = 'enabled'.freeze
+    HUMAN_HANDOFF_SETTINGS_KEYS = ['allowed_labels'].freeze
+    LEGACY_HUMAN_HANDOFF_SETTINGS_KEYS = %w[preview_only transfer_message].freeze
+
+    def initialize(config, allow_legacy_human_handoff_settings: false)
+      @config = config.is_a?(Hash) ? config.deep_stringify_keys : {}
+      @allow_legacy_human_handoff_settings = allow_legacy_human_handoff_settings
+    end
+
+    def valid?
+      errors.empty?
+    end
+
+    def errors
+      @errors ||= validate
+    end
+
+    def normalized_config
+      normalized = config.deep_dup
+      return normalized unless tools_config
+
+      normalized[TOOLS_KEY] = normalized_tools_config
+      normalized
+    end
+
+    def enabled_tool_keys
+      @enabled_tool_keys ||= begin
+        keys = Array(tools_config&.[](ENABLED_KEY)).filter_map(&:presence).map(&:to_s).uniq
+        keys & AiAgents::ToolRegistry.keys
+      end
+    end
+
+    def enabled_tool?(tool_key)
+      enabled_tool_keys.include?(tool_key.to_s)
+    end
+
+    def tool_settings(tool_key)
+      normalized_tools_config.fetch(tool_key.to_s, {})
+    end
+
+    def tools_summary
+      {
+        ENABLED_KEY => enabled_tool_keys,
+        HUMAN_HANDOFF_TOOL => human_handoff_settings,
+        IKAS_LOOKUP_ORDER_TOOL => ikas_lookup_order_settings
+      }
+    end
+
+    private
+
+    attr_reader :config, :allow_legacy_human_handoff_settings
+
+    def tools_config
+      value = config[TOOLS_KEY]
+      value.is_a?(Hash) ? value.deep_stringify_keys : value
+    end
+
+    def normalized_tools_config
+      {
+        ENABLED_KEY => enabled_tool_keys,
+        HUMAN_HANDOFF_TOOL => human_handoff_settings,
+        IKAS_LOOKUP_ORDER_TOOL => ikas_lookup_order_settings
+      }
+    end
+
+    def human_handoff_settings
+      settings = tools_config&.dig(HUMAN_HANDOFF_TOOL)
+      settings = settings.deep_stringify_keys if settings.is_a?(Hash)
+
+      {
+        'allowed_labels' => Array(settings&.[]('allowed_labels')).filter_map(&:presence).map(&:to_s).uniq
+      }
+    end
+
+    def ikas_lookup_order_settings
+      settings = tools_config&.dig(IKAS_LOOKUP_ORDER_TOOL)
+      settings = settings.deep_stringify_keys if settings.is_a?(Hash)
+
+      {
+        'enabled' => settings&.key?('enabled') ? settings['enabled'] : false
+      }
+    end
+
+    def validate
+      return [] if config.blank?
+      return ['config must be a JSON object'] unless config.is_a?(Hash)
+      return [] if tools_config.nil?
+      return ['config.tools must be an object'] unless tools_config.is_a?(Hash)
+
+      [].tap do |messages|
+        messages.concat(validate_enabled_tools)
+        messages.concat(validate_tool_keys)
+        messages.concat(validate_human_handoff_settings)
+        messages.concat(validate_ikas_lookup_order_settings)
+      end
+    end
+
+    def validate_enabled_tools
+      enabled = tools_config[ENABLED_KEY]
+      return [] if enabled.nil?
+      return ['config.tools.enabled must be an array'] unless enabled.is_a?(Array)
+
+      unknown_keys = enabled.filter_map(&:presence).map(&:to_s).uniq - AiAgents::ToolRegistry.keys
+      return [] if unknown_keys.empty?
+
+      ["config.tools.enabled contains unknown tools: #{unknown_keys.join(', ')}"]
+    end
+
+    def validate_tool_keys
+      unknown_keys = tools_config.keys - [ENABLED_KEY, *AiAgents::ToolRegistry.keys]
+      return [] if unknown_keys.empty?
+
+      ["config.tools contains unknown keys: #{unknown_keys.join(', ')}"]
+    end
+
+    def validate_human_handoff_settings
+      settings = tools_config[HUMAN_HANDOFF_TOOL]
+      return [] if settings.nil?
+      return ['config.tools.human_handoff must be an object'] unless settings.is_a?(Hash)
+
+      [].tap do |messages|
+        unknown_keys = settings.keys - allowed_human_handoff_settings_keys
+        messages << "config.tools.human_handoff contains unknown keys: #{unknown_keys.join(', ')}" if unknown_keys.present?
+        messages << 'config.tools.human_handoff.allowed_labels must be an array' if settings.key?('allowed_labels') && !settings['allowed_labels'].is_a?(Array)
+      end
+    end
+
+    def validate_ikas_lookup_order_settings
+      settings = tools_config[IKAS_LOOKUP_ORDER_TOOL]
+      return [] if settings.nil?
+      return ['config.tools.ikas_lookup_order must be an object'] unless settings.is_a?(Hash)
+      return [] unless settings.key?('enabled') && !boolean?(settings['enabled'])
+
+      ['config.tools.ikas_lookup_order.enabled must be true or false']
+    end
+
+    def allowed_human_handoff_settings_keys
+      return HUMAN_HANDOFF_SETTINGS_KEYS unless allow_legacy_human_handoff_settings
+
+      HUMAN_HANDOFF_SETTINGS_KEYS + LEGACY_HUMAN_HANDOFF_SETTINGS_KEYS
+    end
+
+    def boolean?(value)
+      [true, false].include?(value)
+    end
+
+  end
+end
