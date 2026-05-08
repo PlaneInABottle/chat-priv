@@ -51,12 +51,14 @@ RSpec.describe AiAgents::ToolExecutor do
   end
 
   it 'logs service error results' do
-    allow_any_instance_of(AiAgents::Tools::HumanHandoffService).to receive(:call).and_return({ status: 'error', error_code: 'handoff_failed', raw_response: 'secret' })
+    allow_any_instance_of(AiAgents::Tools::HumanHandoffService).to receive(:call).and_return({ status: 'error', error_code: 'handoff_failed',
+                                                                                               raw_response: 'secret' })
 
     result = executor.execute(tool_call(arguments: handoff_args))
 
     expect(result.status).to eq('error')
-    expect(AiAgentToolExecution.last).to have_attributes(status: 'error', error_code: 'handoff_failed', result: { 'status' => 'error', 'error_code' => 'handoff_failed' })
+    expect(AiAgentToolExecution.last).to have_attributes(status: 'error', error_code: 'handoff_failed',
+                                                         result: { 'status' => 'error', 'error_code' => 'handoff_failed' })
   end
 
   it 'logs service exceptions as rejected tool exceptions' do
