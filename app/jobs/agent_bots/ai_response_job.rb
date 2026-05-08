@@ -8,6 +8,11 @@ class AgentBots::AiResponseJob < ApplicationJob
 
     perform_immediately(message)
     AiAgents::ResponseBuffer.complete!(message, buffer_token)
+  rescue StandardError
+    raise if buffer_token.nil?
+
+    AiAgents::ResponseBuffer.release!(message, buffer_token)
+    raise
   end
 
   private
