@@ -67,5 +67,27 @@ RSpec.describe 'Ai Agent Tool Executions API', type: :request do
 
       expect(response.parsed_body['payload'].pluck('id')).to eq([matching.id])
     end
+
+    it 'limits results to the requested bounded size' do
+      create_list(:ai_agent_tool_execution, 3, account: account, ai_agent: ai_agent)
+
+      get "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/tool_executions",
+          headers: admin.create_new_auth_token,
+          params: { limit: 2 },
+          as: :json
+
+      expect(response.parsed_body['payload'].size).to eq(2)
+    end
+
+    it 'clamps the requested limit to the maximum size' do
+      create_list(:ai_agent_tool_execution, 101, account: account, ai_agent: ai_agent)
+
+      get "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/tool_executions",
+          headers: admin.create_new_auth_token,
+          params: { limit: 101 },
+          as: :json
+
+      expect(response.parsed_body['payload'].size).to eq(100)
+    end
   end
 end
