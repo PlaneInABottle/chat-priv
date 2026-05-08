@@ -19,6 +19,30 @@ RSpec.describe AiAgentToolExecution do
       expect(execution).not_to be_valid
       expect(execution.errors[:ai_agent]).to include('must belong to account')
     end
+
+    it 'requires the conversation to belong to the same account' do
+      execution = build(:ai_agent_tool_execution, conversation: create(:conversation))
+
+      expect(execution).not_to be_valid
+      expect(execution.errors[:conversation]).to include('must belong to account')
+    end
+
+    it 'requires the message to belong to the same account' do
+      execution = build(:ai_agent_tool_execution, message: create(:message))
+
+      expect(execution).not_to be_valid
+      expect(execution.errors[:message]).to include('must belong to account')
+    end
+
+    it 'requires the message to belong to the same conversation' do
+      account = create(:account)
+      conversation = create(:conversation, account: account)
+      message = create(:message, account: account)
+      execution = build(:ai_agent_tool_execution, account: account, conversation: conversation, message: message)
+
+      expect(execution).not_to be_valid
+      expect(execution.errors[:message]).to include('must belong to conversation')
+    end
   end
 
   describe 'enums' do
