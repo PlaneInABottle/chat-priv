@@ -41,6 +41,17 @@ class AiAgents::ResponseBuffer
       end
     end
 
+    def release!(message, buffer_token)
+      conversation = message.conversation.reload
+      conversation.with_lock do
+        metadata = current_metadata(conversation)
+        next false unless matching_metadata?(metadata, message, buffer_token, 'claimed')
+
+        write_metadata!(conversation, metadata.merge('status' => 'scheduled', 'released_at' => Time.current.iso8601(3)))
+        true
+      end
+    end
+
     def buffer_seconds
       raw_value = GlobalConfig.get_value(CONFIG_KEY)
       value = Integer(raw_value.presence || DEFAULT_BUFFER_SECONDS)
