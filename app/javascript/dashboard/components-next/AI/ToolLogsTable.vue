@@ -5,7 +5,10 @@ import { formatDistanceToNow } from 'date-fns';
 const props = defineProps({
   rows: { type: Array, default: () => [] },
   filters: { type: Object, default: () => ({}) },
-  sort: { type: Object, default: () => ({ sort: 'created_at', direction: 'desc' }) },
+  sort: {
+    type: Object,
+    default: () => ({ sort: 'created_at', direction: 'desc' }),
+  },
   loading: { type: Boolean, default: false },
   error: { type: String, default: '' },
   showAccountColumn: { type: Boolean, default: false },
@@ -28,7 +31,10 @@ const columns = computed(() => {
   ];
 
   return props.showAccountColumn
-    ? [{ key: 'account_name', label: 'Account', sortable: true }, ...baseColumns]
+    ? [
+        { key: 'account_name', label: 'Account', sortable: true },
+        ...baseColumns,
+      ]
     : baseColumns;
 });
 
@@ -111,6 +117,31 @@ const statusLabel = status => {
 const hasCustomDateRange = computed(
   () => normalizedFilters.value.date_range === 'custom'
 );
+
+const labels = {
+  allStatuses: 'All statuses',
+  executed: 'Executed',
+  error: 'Error',
+  rejected: 'Rejected',
+  allTime: 'All time',
+  last24Hours: 'Last 24 hours',
+  last7Days: 'Last 7 days',
+  last30Days: 'Last 30 days',
+  custom: 'Custom',
+  allTools: 'All tools',
+  allAccounts: 'All accounts',
+  refresh: 'Refresh',
+  loading: 'Loading tool logs...',
+  empty: 'No tool executions yet.',
+  startDate: 'Start date',
+  endDate: 'End date',
+  conversation: 'Conversation',
+  arguments: 'Arguments',
+  result: 'Result',
+  expandRow: 'Expand row',
+  collapseRow: 'Collapse row',
+  emptyValue: '—',
+};
 </script>
 
 <template>
@@ -121,28 +152,28 @@ const hasCustomDateRange = computed(
         class="rounded border border-n-weak p-2 text-sm"
         @change="updateFilter('status', textInputValue($event))"
       >
-        <option value="">All statuses</option>
-        <option value="executed">Executed</option>
-        <option value="error">Error</option>
-        <option value="rejected">Rejected</option>
+        <option value="">{{ labels.allStatuses }}</option>
+        <option value="executed">{{ labels.executed }}</option>
+        <option value="error">{{ labels.error }}</option>
+        <option value="rejected">{{ labels.rejected }}</option>
       </select>
       <select
         :value="normalizedFilters.date_range"
         class="rounded border border-n-weak p-2 text-sm"
         @change="updateFilter('date_range', textInputValue($event))"
       >
-        <option value="">All time</option>
-        <option value="24h">Last 24 hours</option>
-        <option value="7d">Last 7 days</option>
-        <option value="30d">Last 30 days</option>
-        <option value="custom">Custom</option>
+        <option value="">{{ labels.allTime }}</option>
+        <option value="24h">{{ labels.last24Hours }}</option>
+        <option value="7d">{{ labels.last7Days }}</option>
+        <option value="30d">{{ labels.last30Days }}</option>
+        <option value="custom">{{ labels.custom }}</option>
       </select>
       <select
         :value="normalizedFilters.tool_key"
         class="rounded border border-n-weak p-2 text-sm"
         @change="updateFilter('tool_key', textInputValue($event))"
       >
-        <option value="">All tools</option>
+        <option value="">{{ labels.allTools }}</option>
         <option v-for="tool in toolOptions" :key="tool.key" :value="tool.key">
           {{ tool.name || tool.key }}
         </option>
@@ -153,8 +184,12 @@ const hasCustomDateRange = computed(
         class="rounded border border-n-weak p-2 text-sm"
         @change="updateFilter('account_id', textInputValue($event))"
       >
-        <option value="">All accounts</option>
-        <option v-for="account in accountOptions" :key="account.id" :value="account.id">
+        <option value="">{{ labels.allAccounts }}</option>
+        <option
+          v-for="account in accountOptions"
+          :key="account.id"
+          :value="account.id"
+        >
           {{ account.name }}
         </option>
       </select>
@@ -163,7 +198,7 @@ const hasCustomDateRange = computed(
         :value="normalizedFilters.start_date"
         type="datetime-local"
         class="rounded border border-n-weak p-2 text-sm"
-        aria-label="Start date"
+        :aria-label="labels.startDate"
         @change="updateFilter('start_date', textInputValue($event))"
       />
       <input
@@ -171,17 +206,21 @@ const hasCustomDateRange = computed(
         :value="normalizedFilters.end_date"
         type="datetime-local"
         class="rounded border border-n-weak p-2 text-sm"
-        aria-label="End date"
+        :aria-label="labels.endDate"
         @change="updateFilter('end_date', textInputValue($event))"
       />
-      <button type="button" class="button button--secondary" @click="emit('refresh')">
-        Refresh
+      <button
+        type="button"
+        class="button button--secondary"
+        @click="emit('refresh')"
+      >
+        {{ labels.refresh }}
       </button>
     </div>
-    <p v-if="loading" class="text-sm text-n-slate-11">Loading tool logs...</p>
+    <p v-if="loading" class="text-sm text-n-slate-11">{{ labels.loading }}</p>
     <p v-else-if="error" class="text-sm text-n-ruby-11">{{ error }}</p>
     <p v-else-if="rows.length === 0" class="text-sm text-n-slate-11">
-      No tool executions yet.
+      {{ labels.empty }}
     </p>
     <div v-else class="overflow-x-auto rounded-lg border border-n-weak">
       <table class="w-full text-left">
@@ -208,7 +247,10 @@ const hasCustomDateRange = computed(
         <tbody class="divide-y divide-n-container">
           <template v-for="row in rows" :key="row.id">
             <tr class="hover:bg-n-slate-2">
-              <td v-if="showAccountColumn" class="px-4 py-3 text-sm text-n-slate-12">
+              <td
+                v-if="showAccountColumn"
+                class="px-4 py-3 text-sm text-n-slate-12"
+              >
                 {{ row.account_name || 'Unknown account' }}
               </td>
               <td class="px-4 py-3 text-sm text-n-slate-11">
@@ -232,19 +274,36 @@ const hasCustomDateRange = computed(
                 </span>
               </td>
               <td class="px-4 py-3 text-sm">
-                <a v-if="row.conversation_url" :href="row.conversation_url" class="text-n-brand underline">
-                  Conversation #{{ row.conversation_display_id }}
+                <a
+                  v-if="row.conversation_url"
+                  :href="row.conversation_url"
+                  class="text-n-brand underline"
+                >
+                  {{ labels.conversation }} {{ row.conversation_display_id }}
                 </a>
-                <span v-else class="text-n-slate-10">—</span>
+                <span v-else class="text-n-slate-10">
+                  {{ labels.emptyValue }}
+                </span>
               </td>
               <td class="px-4 py-3">
                 <button
                   type="button"
                   class="rounded p-1 text-n-slate-10 hover:bg-n-slate-3 hover:text-n-slate-12"
-                  :aria-label="isRowExpanded(row.id) ? 'Collapse row' : 'Expand row'"
+                  :aria-label="
+                    isRowExpanded(row.id)
+                      ? labels.collapseRow
+                      : labels.expandRow
+                  "
                   @click="toggleRow(row.id)"
                 >
-                  <i :class="isRowExpanded(row.id) ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'" class="size-4" />
+                  <i
+                    :class="
+                      isRowExpanded(row.id)
+                        ? 'i-lucide-chevron-up'
+                        : 'i-lucide-chevron-down'
+                    "
+                    class="size-4"
+                  />
                 </button>
               </td>
             </tr>
@@ -252,12 +311,24 @@ const hasCustomDateRange = computed(
               <td :colspan="columns.length" class="px-4 py-4">
                 <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
                   <div>
-                    <h4 class="mb-2 text-xs font-medium uppercase text-n-slate-11">Arguments</h4>
-                    <pre class="overflow-auto rounded bg-n-alpha-black1 p-3 text-xs"><code>{{ prettyJson(row.arguments) }}</code></pre>
+                    <h4
+                      class="mb-2 text-xs font-medium uppercase text-n-slate-11"
+                    >
+                      {{ labels.arguments }}
+                    </h4>
+                    <pre
+                      class="overflow-auto rounded bg-n-alpha-black1 p-3 text-xs"
+                    ><code>{{ prettyJson(row.arguments) }}</code></pre>
                   </div>
                   <div>
-                    <h4 class="mb-2 text-xs font-medium uppercase text-n-slate-11">Result</h4>
-                    <pre class="overflow-auto rounded bg-n-alpha-black1 p-3 text-xs"><code>{{ prettyJson(row.result) }}</code></pre>
+                    <h4
+                      class="mb-2 text-xs font-medium uppercase text-n-slate-11"
+                    >
+                      {{ labels.result }}
+                    </h4>
+                    <pre
+                      class="overflow-auto rounded bg-n-alpha-black1 p-3 text-xs"
+                    ><code>{{ prettyJson(row.result) }}</code></pre>
                   </div>
                 </div>
                 <p v-if="row.error_message" class="mt-3 text-sm text-n-ruby-11">

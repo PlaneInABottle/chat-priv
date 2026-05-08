@@ -24,9 +24,9 @@ describe('SuperAdmin AiAgentToolExecutions Index', () => {
     expect(wrapper.findComponent(ToolLogsTable).props('rows')).toEqual(
       componentData.initial_payload.payload
     );
-    expect(wrapper.findComponent(ToolLogsTable).props('showAccountColumn')).toBe(
-      true
-    );
+    expect(
+      wrapper.findComponent(ToolLogsTable).props('showAccountColumn')
+    ).toBe(true);
   });
 
   it('fetches JSON when filters change', async () => {

@@ -28,7 +28,10 @@ describe('ToolLogsTable', () => {
   });
 
   it('renders the account column when requested', () => {
-    const wrapper = mountComponent({ rows: [defaultRow], showAccountColumn: true });
+    const wrapper = mountComponent({
+      rows: [defaultRow],
+      showAccountColumn: true,
+    });
 
     expect(wrapper.text()).toContain('Account');
     expect(wrapper.text()).toContain('Acme');
