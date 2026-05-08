@@ -1,11 +1,17 @@
 require 'rails_helper'
 describe AgentBotListener do
+  include ActiveJob::TestHelper
+
   let(:listener) { described_class.instance }
   let!(:account) { create(:account) }
   let!(:user) { create(:user, account: account) }
   let!(:inbox) { create(:inbox, account: account) }
   let!(:agent_bot) { create(:agent_bot) }
   let!(:conversation) { create(:conversation, account: account, inbox: inbox, assignee: user) }
+
+  before do
+    clear_enqueued_jobs
+  end
 
   describe '#message_created' do
     let(:event_name) { 'message.created' }
@@ -72,6 +78,108 @@ describe AgentBotListener do
 
         listener.message_created(event)
       end
+
+      it 'enqueues live AI response job for eligible incoming customer messages' do
+        ai_bot = create(:ai_agent, :with_human_handoff_tool, account: account, enabled: true).agent_bot
+        create(:agent_bot_inbox, inbox: inbox, agent_bot: ai_bot)
+        incoming_message = create(:message,
+                                  account: account,
+                                  inbox: inbox,
+                                  conversation: conversation,
+                                  message_type: 'incoming',
+                                  sender: conversation.contact)
+        incoming_event = Events::Base.new(event_name, Time.zone.now, message: incoming_message)
+
+        expect { listener.message_created(incoming_event) }
+          .to have_enqueued_job(AgentBots::AiResponseJob).with(incoming_message).on_queue('high')
+      end
+
+      it 'does not enqueue live AI response job for private notes' do
+        ai_bot = create(:ai_agent, :with_human_handoff_tool, account: account, enabled: true).agent_bot
+        create(:agent_bot_inbox, inbox: inbox, agent_bot: ai_bot)
+        private_note = create(:message,
+                              account: account,
+                              inbox: inbox,
+                              conversation: conversation,
+                              message_type: 'incoming',
+                              private: true,
+                              sender: conversation.contact)
+        private_event = Events::Base.new(event_name, Time.zone.now, message: private_note)
+
+        expect { listener.message_created(private_event) }
+          .not_to have_enqueued_job(AgentBots::AiResponseJob)
+      end
+
+      it 'does not enqueue live AI response job after ai handoff is completed' do
+        ai_bot = create(:ai_agent, :with_human_handoff_tool, account: account, enabled: true).agent_bot
+        create(:agent_bot_inbox, inbox: inbox, agent_bot: ai_bot)
+        conversation.update!(additional_attributes: { 'ai_handoff_completed' => true })
+        incoming_message = create(:message,
+                                  account: account,
+                                  inbox: inbox,
+                                  conversation: conversation,
+                                  message_type: 'incoming',
+                                  sender: conversation.contact)
+        incoming_event = Events::Base.new(event_name, Time.zone.now, message: incoming_message)
+
+        expect { listener.message_created(incoming_event) }
+          .not_to have_enqueued_job(AgentBots::AiResponseJob)
+      end
+    end
+  end
+
+  describe '#message_updated' do
+    let(:event_name) { 'message.updated' }
+
+    it 'preserves webhook behavior for webhook bots' do
+      incoming_message = create(:message,
+                                account: account,
+                                inbox: inbox,
+                                conversation: conversation,
+                                message_type: 'incoming',
+                                sender: conversation.contact)
+      event = Events::Base.new(event_name, Time.zone.now, message: incoming_message)
+      create(:agent_bot_inbox, inbox: inbox, agent_bot: agent_bot)
+
+      expect(AgentBots::WebhookJob).to receive(:perform_later).with(agent_bot.outgoing_url,
+                                                                    incoming_message.webhook_data.merge(event: 'message_updated')).once
+
+      listener.message_updated(event)
+    end
+
+    it 'does not enqueue live AI response job for ai bots on updates' do
+      ai_bot = create(:ai_agent, :with_human_handoff_tool, account: account, enabled: true).agent_bot
+      create(:agent_bot_inbox, inbox: inbox, agent_bot: ai_bot)
+      incoming_message = create(:message,
+                                account: account,
+                                inbox: inbox,
+                                conversation: conversation,
+                                message_type: 'incoming',
+                                sender: conversation.contact)
+      event = Events::Base.new(event_name, Time.zone.now, message: incoming_message)
+
+      expect { listener.message_updated(event) }
+        .not_to have_enqueued_job(AgentBots::AiResponseJob)
+    end
+  end
+
+  describe '#conversation_opened' do
+    it 'preserves webhook-only behavior' do
+      create(:agent_bot_inbox, inbox: inbox, agent_bot: agent_bot)
+      event = Events::Base.new('conversation.opened', Time.zone.now, conversation: conversation)
+
+      expect(AgentBots::WebhookJob).to receive(:perform_later).once
+      expect { listener.conversation_opened(event) }.not_to have_enqueued_job(AgentBots::AiResponseJob)
+    end
+  end
+
+  describe '#conversation_resolved' do
+    it 'preserves webhook-only behavior' do
+      create(:agent_bot_inbox, inbox: inbox, agent_bot: agent_bot)
+      event = Events::Base.new('conversation.resolved', Time.zone.now, conversation: conversation)
+
+      expect(AgentBots::WebhookJob).to receive(:perform_later).once
+      expect { listener.conversation_resolved(event) }.not_to have_enqueued_job(AgentBots::AiResponseJob)
     end
   end
 
@@ -191,6 +299,22 @@ describe AgentBotListener do
           ).once
 
         listener.webwidget_triggered(event)
+      end
+
+      it 'does not enqueue live AI response job' do
+        ai_bot = create(:ai_agent, :with_human_handoff_tool, account: account, enabled: true).agent_bot
+        create(:agent_bot_inbox, inbox: inbox, agent_bot: ai_bot)
+
+        event = double
+        allow(event).to receive(:data)
+          .and_return(
+            {
+              contact_inbox: conversation.contact_inbox,
+              event_info: { country: 'US' }
+            }
+          )
+
+        expect { listener.webwidget_triggered(event) }.not_to have_enqueued_job(AgentBots::AiResponseJob)
       end
     end
   end
