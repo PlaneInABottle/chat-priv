@@ -22,14 +22,21 @@ module AiAgents
     def perform
       return nil unless @ai_agent.enabled?
 
-      response = make_api_request
-      response.dig('choices', 0, 'message', 'content')
+      adapter.perform(messages: normalized_messages, tools: [], tool_choice: 'auto')[:assistant_text]
     rescue StandardError => e
       Rails.logger.error "[AiAgents::ResponseService] Error: #{e.message}"
       nil
     end
 
     private
+
+    def adapter
+      @adapter ||= AiAgents::LlmAdapters::OpenAiCompatibleAdapter.new(ai_agent: @ai_agent, account: @account)
+    end
+
+    def normalized_messages
+      @messages.map { |msg| { role: msg[:role] || msg['role'], content: msg[:content] || msg['content'] } }
+    end
 
     def make_api_request
       uri = URI(api_endpoint)

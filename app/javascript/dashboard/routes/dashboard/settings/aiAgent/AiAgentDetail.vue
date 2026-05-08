@@ -10,9 +10,36 @@ import BaseSettingsHeader from '../components/BaseSettingsHeader.vue';
 import Button from 'dashboard/components-next/button/Button.vue';
 import Switch from 'dashboard/components-next/switch/Switch.vue';
 import TextArea from 'dashboard/components-next/textarea/TextArea.vue';
+import TagMultiSelectComboBox from 'dashboard/components-next/combobox/TagMultiSelectComboBox.vue';
 import Avatar from 'dashboard/components-next/avatar/Avatar.vue';
 import Icon from 'dashboard/components-next/icon/Icon.vue';
 import TestConversationLayout from './components/TestConversationLayout.vue';
+
+const defaultToolsState = () => ({
+  enabled: [],
+  human_handoff: {
+    allowed_labels: [],
+  },
+  ikas_lookup_order: {
+    enabled: false,
+  },
+});
+
+const normalizeToolsState = toolsConfig => {
+  const tools = toolsConfig || {};
+
+  return {
+    enabled: Array.from(new Set(tools.enabled || [])).filter(Boolean),
+    human_handoff: {
+      allowed_labels: Array.from(
+        new Set(tools.human_handoff?.allowed_labels || [])
+      ).filter(Boolean),
+    },
+    ikas_lookup_order: {
+      enabled: Boolean(tools.ikas_lookup_order?.enabled),
+    },
+  };
+};
 
 const store = useStore();
 const { t } = useI18n();
@@ -24,6 +51,7 @@ const agentId = computed(() => Number(route.params.id));
 const aiAgent = useMapGetter('aiAgent/getAiAgent');
 const uiFlags = useMapGetter('aiAgent/getUIFlags');
 const inboxes = useMapGetter('inboxes/getInboxes');
+const labels = useMapGetter('labels/getLabels');
 
 const isSaving = ref(false);
 const inboxError = ref('');
@@ -34,6 +62,7 @@ const formState = ref({
   enabled: false,
   prompt: '',
   inbox_ids: [],
+  tools: defaultToolsState(),
 });
 
 const isFormDirty = computed(() => {
@@ -43,7 +72,8 @@ const isFormDirty = computed(() => {
       formState.value.name !== '' ||
       formState.value.enabled !== false ||
       formState.value.prompt !== '' ||
-      formState.value.inbox_ids.length !== 0
+      formState.value.inbox_ids.length !== 0 ||
+      JSON.stringify(formState.value.tools) !== JSON.stringify(defaultToolsState())
     );
   }
   return (
@@ -51,7 +81,9 @@ const isFormDirty = computed(() => {
     formState.value.enabled !== record.enabled ||
     formState.value.prompt !== (record.prompt || '') ||
     JSON.stringify(formState.value.inbox_ids) !==
-      JSON.stringify(record.agent_bot?.inbox_ids || [])
+      JSON.stringify(record.agent_bot?.inbox_ids || []) ||
+    JSON.stringify(formState.value.tools) !==
+      JSON.stringify(normalizeToolsState(record.tools_config))
   );
 });
 
@@ -158,6 +190,32 @@ const isSaveDisabled = computed(() => {
   );
 });
 
+const availableTools = computed(() => aiAgent.value?.available_tools || []);
+
+const handoffLabelOptions = computed(() => {
+  return (labels.value || []).map(label => ({
+    value: label.title,
+    label: label.title,
+  }));
+});
+
+const ikasIntegration = computed(() => {
+  return (
+    aiAgent.value?.ikas_integration || {
+      feature_enabled: false,
+      state: 'disabled',
+      can_connect: false,
+    }
+  );
+});
+
+const isIkasAvailable = computed(() => {
+  return (
+    ikasIntegration.value.feature_enabled &&
+    ikasIntegration.value.state === 'connected'
+  );
+});
+
 function syncFormState() {
   const record = aiAgent.value;
   if (record) {
@@ -166,6 +224,7 @@ function syncFormState() {
       enabled: record.enabled || false,
       prompt: record.prompt || '',
       inbox_ids: record.agent_bot?.inbox_ids || [],
+      tools: normalizeToolsState(record.tools_config),
     };
   } else {
     formState.value = {
@@ -173,13 +232,51 @@ function syncFormState() {
       enabled: false,
       prompt: '',
       inbox_ids: [],
+      tools: defaultToolsState(),
     };
   }
 }
 
+const isToolEnabled = toolKey => formState.value.tools.enabled.includes(toolKey);
+
+const toggleTool = toolKey => {
+  const enabled = new Set(formState.value.tools.enabled);
+  if (enabled.has(toolKey)) {
+    enabled.delete(toolKey);
+  } else {
+    enabled.add(toolKey);
+  }
+
+  formState.value = {
+    ...formState.value,
+    tools: {
+      ...formState.value.tools,
+      enabled: Array.from(enabled),
+      ikas_lookup_order: {
+        ...formState.value.tools.ikas_lookup_order,
+        enabled: toolKey === 'ikas_lookup_order' ? enabled.has(toolKey) : formState.value.tools.ikas_lookup_order.enabled,
+      },
+    },
+  };
+};
+
+const updateHandoffLabels = value => {
+  formState.value = {
+    ...formState.value,
+    tools: {
+      ...formState.value.tools,
+      human_handoff: {
+        ...formState.value.tools.human_handoff,
+        allowed_labels: value,
+      },
+    },
+  };
+};
+
 async function loadAgentDetail(aiAgentId) {
   if (!aiAgentId) return;
 
+  await store.dispatch('labels/get');
   await store.dispatch('aiAgent/show', aiAgentId);
   store.dispatch('aiAgentTestConversations/reset');
   await store.dispatch('aiAgentTestConversations/get', {
@@ -227,6 +324,18 @@ const handleSave = async () => {
         enabled: formState.value.enabled,
         prompt: formState.value.prompt,
         inbox_ids: formState.value.inbox_ids,
+        config: {
+          ...(aiAgent.value?.config || {}),
+          tools: {
+            enabled: formState.value.tools.enabled,
+            human_handoff: {
+              allowed_labels: formState.value.tools.human_handoff.allowed_labels,
+            },
+            ikas_lookup_order: {
+              enabled: formState.value.tools.enabled.includes('ikas_lookup_order'),
+            },
+          },
+        },
       },
     };
     const result = await store.dispatch('aiAgent/update', payload);
@@ -399,6 +508,73 @@ watch(agentId, async (newAgentId, oldAgentId) => {
               <span class="text-xs text-n-slate-11">
                 {{ t('AI_AGENT.MODEL.HELP') }}
               </span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="mb-2 text-sm font-medium text-n-slate-12">
+            {{ t('AI_AGENT.TOOLS.LABEL') }}
+          </h3>
+          <p class="mb-4 text-sm text-n-slate-11">
+            {{ t('AI_AGENT.TOOLS.HELP') }}
+          </p>
+
+          <div class="flex flex-col gap-4">
+            <div
+              v-for="tool in availableTools"
+              :key="tool.key"
+              class="p-4 rounded-lg border border-n-weak dark:border-n-weak"
+            >
+              <div class="flex items-start justify-between gap-4">
+                <div>
+                  <p class="text-sm font-medium text-n-slate-12">
+                    {{ t(`AI_AGENT.TOOLS.${tool.key.toUpperCase()}.LABEL`) }}
+                  </p>
+                  <p class="text-sm text-n-slate-11">
+                    {{ t(`AI_AGENT.TOOLS.${tool.key.toUpperCase()}.HELP`) }}
+                  </p>
+                </div>
+                <Switch
+                  :model-value="isToolEnabled(tool.key)"
+                  :disabled="tool.key === 'ikas_lookup_order' && !isIkasAvailable"
+                  @update:model-value="toggleTool(tool.key)"
+                />
+              </div>
+
+              <div v-if="tool.key === 'human_handoff'" class="mt-4 flex flex-col gap-4">
+                <div class="flex flex-col gap-1">
+                  <label class="mb-0.5 text-sm font-medium text-n-slate-12">
+                    {{ t('AI_AGENT.TOOLS.HUMAN_HANDOFF.ALLOWED_LABELS_LABEL') }}
+                  </label>
+                  <TagMultiSelectComboBox
+                    :model-value="formState.tools.human_handoff.allowed_labels"
+                    :options="handoffLabelOptions"
+                    :placeholder="t('AI_AGENT.TOOLS.HUMAN_HANDOFF.ALLOWED_LABELS_PLACEHOLDER')"
+                    :search-placeholder="t('AI_AGENT.TOOLS.HUMAN_HANDOFF.ALLOWED_LABELS_SEARCH_PLACEHOLDER')"
+                    :empty-state="t('AI_AGENT.TOOLS.HUMAN_HANDOFF.ALLOWED_LABELS_EMPTY')"
+                    @update:model-value="updateHandoffLabels"
+                  />
+                </div>
+
+                <p class="text-xs text-n-slate-10">
+                  {{ t('AI_AGENT.TOOLS.HUMAN_HANDOFF.ALLOWED_LABELS_HELP') }}
+                </p>
+              </div>
+
+              <p
+                v-if="tool.key === 'ikas_lookup_order'"
+                class="mt-3 text-xs"
+                :class="isIkasAvailable ? 'text-n-teal-11' : 'text-n-slate-11'"
+              >
+                {{
+                  isIkasAvailable
+                    ? t('AI_AGENT.TOOLS.IKAS_LOOKUP_ORDER.CONNECTED')
+                    : t('AI_AGENT.TOOLS.IKAS_LOOKUP_ORDER.UNAVAILABLE', {
+                        state: ikasIntegration.state,
+                      })
+                }}
+              </p>
             </div>
           </div>
         </div>

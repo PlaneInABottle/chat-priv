@@ -35,6 +35,16 @@ const isInputDisabled = computed(() => {
   return props.isDisabled || props.uiFlags.isSending || isAtLimit.value;
 });
 
+const isHandoffPreview = message => message?.terminal_action === 'handoff';
+
+const handoffPreviewSummary = message => {
+  return (
+    message?.tool_result?.customer_message ||
+    message?.content ||
+    t('AI_AGENT.TEST_CONVERSATIONS.HANDOFF_PREVIEW')
+  );
+};
+
 const scrollToBottom = () => {
   nextTick(() => {
     if (messageAreaRef.value) {
@@ -50,7 +60,10 @@ watch(
   }
 );
 
-const handleSend = () => {
+const handleSend = event => {
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+
   const content = inputValue.value.trim();
   if (!content || isInputDisabled.value) return;
   inputValue.value = '';
@@ -119,7 +132,36 @@ const handleKeyup = event => {
                 : 'bg-n-slate-3 dark:bg-n-slate-8 text-n-slate-12 rounded-2xl rounded-tl-sm'
             "
           >
-            {{ msg.content }}
+            <template v-if="isHandoffPreview(msg)">
+              <p class="font-medium text-n-amber-11">
+                {{ t('AI_AGENT.TEST_CONVERSATIONS.HANDOFF_TITLE') }}
+              </p>
+              <p>{{ handoffPreviewSummary(msg) }}</p>
+              <p
+                v-if="msg.tool_result?.private_note_preview"
+                class="mt-2 text-xs text-n-slate-11"
+              >
+                {{ t('AI_AGENT.TEST_CONVERSATIONS.INTERNAL_NOTE') }}:
+                {{ msg.tool_result.private_note_preview }}
+              </p>
+              <p
+                v-if="msg.tool_result?.labels_to_apply?.length"
+                class="mt-1 text-xs text-n-slate-11"
+              >
+                {{ t('AI_AGENT.TEST_CONVERSATIONS.LABELS_TO_APPLY') }}:
+                {{ msg.tool_result.labels_to_apply.join(', ') }}
+              </p>
+              <p
+                v-if="msg.tool_result?.labels_ignored?.length"
+                class="mt-1 text-xs text-n-slate-10"
+              >
+                {{ t('AI_AGENT.TEST_CONVERSATIONS.LABELS_IGNORED') }}:
+                {{ msg.tool_result.labels_ignored.join(', ') }}
+              </p>
+            </template>
+            <template v-else>
+              {{ msg.content }}
+            </template>
           </div>
         </div>
 
@@ -150,7 +192,7 @@ const handleKeyup = event => {
           type="button"
           :disabled="isInputDisabled || !inputValue.trim()"
           size="sm"
-          @click="handleSend"
+          @click.stop.prevent="handleSend"
         />
       </div>
     </template>

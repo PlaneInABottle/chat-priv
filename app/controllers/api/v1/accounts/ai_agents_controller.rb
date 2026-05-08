@@ -12,7 +12,7 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
   end
 
   def create
-    @ai_agent = Current.account.ai_agents.build(ai_agent_params)
+    @ai_agent = Current.account.ai_agents.build(merged_ai_agent_params)
     @ai_agent.inbox_ids = inbox_ids_param if params.key?(:inbox_ids)
 
     if @ai_agent.save
@@ -25,7 +25,7 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
   end
 
   def update
-    @ai_agent.assign_attributes(ai_agent_params)
+    @ai_agent.assign_attributes(merged_ai_agent_params)
     @ai_agent.inbox_ids = inbox_ids_param if params.key?(:inbox_ids)
 
     if @ai_agent.save
@@ -50,11 +50,22 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
   end
 
   def ai_agent_params
-    params.permit(:name, :prompt, :enabled)
+    params.permit(:name, :prompt, :enabled, config: {})
   end
 
   def inbox_ids_param
     Array(params[:inbox_ids]).map(&:to_i).select(&:positive?)
+  end
+
+  def merged_ai_agent_params
+    permitted = ai_agent_params.to_h.deep_stringify_keys
+    return permitted unless permitted.key?('config')
+
+    permitted.merge('config' => existing_config.deep_merge(permitted['config'] || {}))
+  end
+
+  def existing_config
+    @ai_agent&.config.is_a?(Hash) ? @ai_agent.config.deep_stringify_keys : {}
   end
 
   def sync_inbox_bindings
