@@ -1,0 +1,78 @@
+<section class="main-content__body">
+  <h1 class="text-2xl font-medium text-n-slate-12 mb-6">AI Agent Tools</h1>
+  <%= form_with url: super_admin_ai_agent_tools_path, method: :get, local: true, class: 'mb-6' do %>
+    <label for="account_id" class="font-medium mr-2">Account filter</label>
+    <%= select_tag :account_id, options_for_select([['All accounts', '']] + @account_filter_options, params[:account_id]), onchange: 'this.form.submit()' %>
+  <% end %>
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+    <% %w[executed error rejected].each do |status| %>
+      <div class="outline outline-1 outline-n-container p-4 rounded-lg shadow-sm">
+        <p class="text-n-slate-11 mb-1"><%= status.titleize %></p>
+        <p class="text-2xl font-medium"><%= @analytics[status] || 0 %></p>
+      </div>
+    <% end %>
+  </div>
+  <table class="w-full text-left border-collapse">
+    <thead>
+      <tr>
+        <th>Key</th>
+        <th>Name</th>
+        <th>Description</th>
+        <th>Mode</th>
+        <th>Default</th>
+        <th>Integration</th>
+        <th>Terminal</th>
+        <th>Service</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @tool_definitions.each do |tool| %>
+        <tr>
+          <td><%= link_to tool.key, super_admin_ai_agent_tool_path(tool.key), class: 'text-blue-600 underline' %></td>
+          <td><%= tool.name %></td>
+          <td><%= tool.description %></td>
+          <td><%= tool.mode_support %></td>
+          <td><%= AiAgents::Config::DEFAULT_ENABLED_TOOL_KEYS.include?(tool.key) ? 'Yes' : 'No' %></td>
+          <td><%= tool.requires_integration_app_id.presence || 'None' %></td>
+          <td><%= tool.terminal ? 'Yes' : 'No' %></td>
+          <td><%= tool.service_class %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+  <h2 class="text-lg font-medium mt-8 mb-3">Recent executions</h2>
+  <% if @recent_executions.empty? %>
+    <p>No tool executions yet.</p>
+  <% else %>
+    <table class="w-full text-left border-collapse">
+      <thead>
+        <tr>
+          <th>Account</th>
+          <th>Tool</th>
+          <th>Status</th>
+          <th>Mode</th>
+          <th>Conversation</th>
+          <th>Created</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @recent_executions.each do |execution| %>
+          <tr>
+            <td><%= execution.account.name %></td>
+            <td><%= execution.tool_key %></td>
+            <td><%= execution.status %></td>
+            <td><%= execution.mode %></td>
+            <td>
+              <% if execution.conversation %>
+                <%= link_to execution.conversation.display_id, app_account_conversation_url(account_id: execution.account_id, id: execution.conversation.display_id), class: 'text-blue-600 underline' %>
+              <% else %>
+                None
+              <% end %>
+            </td>
+            <td><%= l(execution.created_at, format: :short) %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% end %>
+</section>
