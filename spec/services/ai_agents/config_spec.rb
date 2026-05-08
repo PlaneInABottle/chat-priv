@@ -2,6 +2,45 @@ require 'rails_helper'
 
 RSpec.describe AiAgents::Config do
   describe '#valid?' do
+    it 'defaults human handoff on when config is nil' do
+      config = described_class.new(nil)
+
+      expect(config.enabled_tool_keys).to eq(['human_handoff'])
+    end
+
+    it 'defaults human handoff on when config is not an object' do
+      config = described_class.new('bad')
+
+      expect(config.enabled_tool_keys).to eq(['human_handoff'])
+    end
+
+    it 'defaults human handoff on when tools config is missing' do
+      config = described_class.new({ 'other' => true })
+
+      expect(config.tools_summary['enabled']).to eq(['human_handoff'])
+      expect(config.normalized_config).to eq({ 'other' => true })
+    end
+
+    it 'defaults human handoff on when tools enabled is missing' do
+      config = described_class.new({ 'tools' => { 'human_handoff' => { 'allowed_labels' => ['vip'] } } })
+
+      expect(config.enabled_tool_keys).to eq(['human_handoff'])
+      expect(config.normalized_config['tools']['enabled']).to eq(['human_handoff'])
+    end
+
+    it 'respects an explicit empty enabled array as opt-out' do
+      config = described_class.new({ 'tools' => { 'enabled' => [] } })
+
+      expect(config.enabled_tool_keys).to eq([])
+      expect(config.tools_summary['enabled']).to eq([])
+    end
+
+    it 'does not default-enable ikas lookup order' do
+      config = described_class.new({})
+
+      expect(config.enabled_tool_keys).not_to include('ikas_lookup_order')
+    end
+
     it 'rejects unknown tool keys inside tools subtree' do
       config = described_class.new({ 'tools' => { 'enabled' => ['unknown_tool'] } })
 

@@ -6,6 +6,7 @@ module AiAgents
     IKAS_LOOKUP_ORDER_TOOL = 'ikas_lookup_order'.freeze
     TOOLS_KEY = 'tools'.freeze
     ENABLED_KEY = 'enabled'.freeze
+    DEFAULT_ENABLED_TOOL_KEYS = [HUMAN_HANDOFF_TOOL].freeze
     HUMAN_HANDOFF_SETTINGS_KEYS = ['allowed_labels'].freeze
     LEGACY_HUMAN_HANDOFF_SETTINGS_KEYS = %w[preview_only transfer_message].freeze
 
@@ -32,7 +33,7 @@ module AiAgents
 
     def enabled_tool_keys
       @enabled_tool_keys ||= begin
-        keys = Array(tools_config&.[](ENABLED_KEY)).filter_map(&:presence).map(&:to_s).uniq
+        keys = Array(enabled_tools_value).filter_map(&:presence).map(&:to_s).uniq
         keys & AiAgents::ToolRegistry.keys
       end
     end
@@ -68,6 +69,12 @@ module AiAgents
         HUMAN_HANDOFF_TOOL => human_handoff_settings,
         IKAS_LOOKUP_ORDER_TOOL => ikas_lookup_order_settings
       }
+    end
+
+    def enabled_tools_value
+      return DEFAULT_ENABLED_TOOL_KEYS unless tools_config.is_a?(Hash) && tools_config.key?(ENABLED_KEY)
+
+      tools_config[ENABLED_KEY]
     end
 
     def human_handoff_settings
