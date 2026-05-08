@@ -1,6 +1,6 @@
 module SuperAdmin::NavigationHelper
   def settings_open?
-    params[:controller].in? %w[super_admin/settings super_admin/app_configs super_admin/ai_agent_tools]
+    params[:controller].in? %w[super_admin/settings super_admin/app_configs super_admin/ai_agent_tools super_admin/ai_agent_tool_executions]
   end
 
   def settings_pages

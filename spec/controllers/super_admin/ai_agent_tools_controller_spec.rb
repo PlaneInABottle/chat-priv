@@ -16,6 +16,7 @@ RSpec.describe 'Super Admin AI Agent Tools', type: :request do
 
     expect(response).to have_http_status(:success)
     expect(response.body).to include('human_handoff', 'ikas_lookup_order')
+    expect(response.body).to include('/super_admin/ai_agent_tool_executions')
   end
 
   it 'shows tool details with schema and read-only source code' do
@@ -61,6 +62,16 @@ RSpec.describe 'Super Admin AI Agent Tools', type: :request do
       attr_accessor :params
     end.new
     helper_context.params = { controller: 'super_admin/ai_agent_tools' }
+
+    expect(helper_context.settings_open?).to be(true)
+  end
+
+  it 'keeps settings navigation open for execution logs pages' do
+    helper_context = Class.new do
+      include SuperAdmin::NavigationHelper
+      attr_accessor :params
+    end.new
+    helper_context.params = { controller: 'super_admin/ai_agent_tool_executions' }
 
     expect(helper_context.settings_open?).to be(true)
   end
