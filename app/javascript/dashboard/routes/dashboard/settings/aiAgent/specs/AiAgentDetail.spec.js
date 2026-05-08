@@ -148,6 +148,10 @@ const mountComponent = options => {
           template: '<textarea>{{ message }}</textarea>',
           props: ['message', 'messageType'],
         },
+        AiAgentPromptEditor: {
+          template: '<textarea>{{ message }}</textarea>',
+          props: ['modelValue', 'message', 'messageType', 'maxLength'],
+        },
         TabBar: {
           template: '<div><button v-for="tab in tabs" :key="tab.value" @click="$emit(\'tabChanged\', tab)">{{ tab.label }}</button></div>',
           props: ['tabs', 'initialActiveTab'],
@@ -271,7 +275,7 @@ describe('AiAgentDetail.vue', () => {
     expect(wrapper.vm.promptMessageKey).toBe(
       'AI_AGENT.PROMPT.REQUIRED_FOR_TESTING'
     );
-    expect(wrapper.vm.promptMessageType).toBe('warning');
+    expect(wrapper.vm.promptMessageType).toBe('error');
     expect(wrapper.text()).toContain(
       'Add a system prompt and save your changes before testing this AI agent.'
     );
