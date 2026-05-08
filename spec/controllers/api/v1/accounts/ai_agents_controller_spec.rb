@@ -90,6 +90,9 @@ RSpec.describe 'Ai Agents API', type: :request do
         expect(json['agent_bot']).to be_present
         expect(json['agent_bot']['bot_type']).to eq('ai')
         expect(json['agent_bot']['inbox_ids']).to include(inbox.id)
+        expect(json['tools_config']).to include('enabled' => [])
+        expect(json['available_tools'].map { |tool| tool['key'] }).to match_array(%w[human_handoff ikas_lookup_order])
+        expect(json['ikas_integration']).to include('feature_enabled', 'state', 'can_connect')
       end
 
       it 'returns available inbox ownership metadata for the detail page' do
@@ -171,6 +174,51 @@ RSpec.describe 'Ai Agents API', type: :request do
         expect(json['agent_bot']).to be_present
         expect(json['agent_bot']['name']).to eq('New Agent')
         expect(json['agent_bot']['bot_type']).to eq('ai')
+      end
+
+      it 'permits nested tools config' do
+        post "/api/v1/accounts/#{account.id}/ai_agents",
+             headers: admin.create_new_auth_token,
+             params: {
+               name: 'New Agent',
+               config: {
+                  tools: {
+                    enabled: ['human_handoff'],
+                    human_handoff: {
+                      allowed_labels: ['vip']
+                    }
+                  }
+                }
+             },
+             as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(AiAgent.last.config).to include(
+          'tools' => include(
+            'enabled' => ['human_handoff']
+          )
+        )
+      end
+
+      it 'rejects removed human handoff config keys' do
+        post "/api/v1/accounts/#{account.id}/ai_agents",
+             headers: admin.create_new_auth_token,
+             params: {
+               name: 'New Agent',
+               config: {
+                 tools: {
+                   enabled: ['human_handoff'],
+                   human_handoff: {
+                     allowed_labels: ['vip'],
+                     transfer_message: 'Please wait.'
+                   }
+                 }
+               }
+             },
+             as: :json
+
+        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response.parsed_body.dig('errors', 'config')).to include('config.tools.human_handoff contains unknown keys: transfer_message')
       end
 
       it 'creates agent and syncs inbox bindings' do
@@ -286,6 +334,28 @@ RSpec.describe 'Ai Agents API', type: :request do
 
         expect(response).to have_http_status(:success)
         expect(ai_agent.reload.prompt).to eq('You are a helpful assistant.')
+      end
+
+      it 'updates nested tools config without dropping sibling config keys' do
+        ai_agent.update!(config: { 'existing' => { 'keep' => true } })
+
+        patch "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}",
+              headers: admin.create_new_auth_token,
+              params: {
+                config: {
+                  existing: { keep: true },
+                  tools: {
+                    enabled: ['human_handoff']
+                  }
+                }
+              },
+              as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(ai_agent.reload.config).to include(
+          'existing' => { 'keep' => true },
+          'tools' => include('enabled' => ['human_handoff'])
+        )
       end
 
       it 'syncs inbox bindings' do

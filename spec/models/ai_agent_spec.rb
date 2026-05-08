@@ -51,6 +51,27 @@ RSpec.describe AiAgent do
         expect(ai_agent.errors[:inbox_ids]).to include('already assigned to another agent bot')
       end
     end
+
+    context 'when validating tools config' do
+      let(:account) { create(:account) }
+
+      it 'rejects unknown tools in config.tools.enabled' do
+        ai_agent = build(:ai_agent, account: account, config: { 'tools' => { 'enabled' => ['unknown_tool'] } })
+
+        expect(ai_agent).not_to be_valid
+        expect(ai_agent.errors[:config]).to include('config.tools.enabled contains unknown tools: unknown_tool')
+      end
+
+      it 'allows known tools and preserves sibling config keys' do
+        ai_agent = build(:ai_agent, account: account, config: {
+          'other' => { 'persist' => true },
+          'tools' => { 'enabled' => ['human_handoff'] }
+        })
+
+        expect(ai_agent).to be_valid
+        expect(ai_agent.config['other']).to eq({ 'persist' => true })
+      end
+    end
   end
 
   describe 'callbacks' do
