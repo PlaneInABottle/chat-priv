@@ -1,6 +1,11 @@
 class SuperAdmin::AiAgentToolExecutionsController < SuperAdmin::ApplicationController
   def index
-    @tool_execution_query = AiAgents::ToolExecutionQuery.new(scope: tool_executions_scope, params: params, super_admin: true, strict_dates: json_request?)
+    @tool_execution_query = AiAgents::ToolExecutionQuery.new(
+      scope: tool_executions_scope,
+      params: params,
+      super_admin: true,
+      strict_dates: json_request?
+    )
     return render json: { errors: @tool_execution_query.errors }, status: :unprocessable_entity unless @tool_execution_query.valid?
 
     @tool_executions = @tool_execution_query.results.includes(:account, :ai_agent, :conversation)
@@ -36,6 +41,7 @@ class SuperAdmin::AiAgentToolExecutionsController < SuperAdmin::ApplicationContr
     }
   end
 
+  # rubocop:disable Metrics/MethodLength
   def serialized_execution(execution)
     {
       id: execution.id,
@@ -61,6 +67,7 @@ class SuperAdmin::AiAgentToolExecutionsController < SuperAdmin::ApplicationContr
       created_at: execution.created_at
     }
   end
+  # rubocop:enable Metrics/MethodLength
 
   def conversation_url(execution)
     return unless execution.conversation
