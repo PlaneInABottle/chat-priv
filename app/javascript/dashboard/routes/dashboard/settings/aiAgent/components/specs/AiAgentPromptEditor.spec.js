@@ -50,7 +50,9 @@ describe('AiAgentPromptEditor', () => {
   it('emits markdown model updates from the editor', async () => {
     const wrapper = mountComponent();
 
-    await wrapper.findComponent(Editor).vm.$emit('update:modelValue', '*updated*');
+    await wrapper
+      .findComponent(Editor)
+      .vm.$emit('update:modelValue', '*updated*');
 
     expect(wrapper.emitted('update:modelValue')[0][0]).toBe('*updated*');
   });

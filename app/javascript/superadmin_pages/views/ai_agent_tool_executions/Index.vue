@@ -23,9 +23,11 @@ const csrfToken = () =>
 
 const buildQueryParams = () => {
   const params = new URLSearchParams();
-  Object.entries({ ...filters.value, ...sort.value }).forEach(([key, value]) => {
-    if (value) params.append(key, value);
-  });
+  Object.entries({ ...filters.value, ...sort.value }).forEach(
+    ([key, value]) => {
+      if (value) params.append(key, value);
+    }
+  );
   return params;
 };
 
