@@ -88,7 +88,7 @@ class AgentBotListener < BaseListener
     return if ai_handoff_completed?(message.conversation)
     return unless agent_bot.ai_agent&.enabled?
 
-    AgentBots::AiResponseJob.perform_later(message)
+    AiAgents::ResponseBuffer.schedule!(message)
   end
 
   def eligible_ai_message?(message)

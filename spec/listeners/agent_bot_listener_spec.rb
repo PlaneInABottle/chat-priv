@@ -71,7 +71,7 @@ describe AgentBotListener do
 
       it 'does not send message for ai bots even if outgoing_url is present' do
         ai_bot = create(:ai_agent, account: account).agent_bot
-        ai_bot.update_column(:outgoing_url, 'https://example.com/webhook')
+        ai_bot.update!(outgoing_url: 'https://example.com/webhook')
         create(:agent_bot_inbox, inbox: inbox, agent_bot: ai_bot)
 
         expect(AgentBots::WebhookJob).not_to receive(:perform_later)
@@ -79,7 +79,7 @@ describe AgentBotListener do
         listener.message_created(event)
       end
 
-      it 'enqueues live AI response job for eligible incoming customer messages' do
+      it 'enqueues delayed live AI response job for eligible incoming customer messages' do
         ai_bot = create(:ai_agent, :with_human_handoff_tool, account: account, enabled: true).agent_bot
         create(:agent_bot_inbox, inbox: inbox, agent_bot: ai_bot)
         incoming_message = create(:message,
@@ -88,6 +88,37 @@ describe AgentBotListener do
                                   conversation: conversation,
                                   message_type: 'incoming',
                                   sender: conversation.contact)
+        incoming_event = Events::Base.new(event_name, Time.zone.now, message: incoming_message)
+
+        expect { listener.message_created(incoming_event) }
+          .to have_enqueued_job(AgentBots::AiResponseJob).with(incoming_message, kind_of(String)).on_queue('high')
+      end
+
+      it 'resets the buffer token for successive incoming customer messages' do
+        ai_bot = create(:ai_agent, :with_human_handoff_tool, account: account, enabled: true).agent_bot
+        create(:agent_bot_inbox, inbox: inbox, agent_bot: ai_bot)
+        messages = create_list(:message, 3, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming',
+                                            sender: conversation.contact)
+        clear_enqueued_jobs
+
+        messages.each do |incoming_message|
+          listener.message_created(Events::Base.new(event_name, Time.zone.now, message: incoming_message))
+        end
+
+        ai_jobs = enqueued_jobs.select { |job| job[:job] == AgentBots::AiResponseJob }
+        expect(ai_jobs.size).to eq(3)
+        tokens = ai_jobs.map { |job| job[:args].last }
+        expect(tokens.uniq.size).to eq(3)
+        expect(conversation.reload.additional_attributes.dig('ai_response_buffer', 'message_id')).to eq(messages.last.id)
+        expect(conversation.additional_attributes.dig('ai_response_buffer', 'token')).to eq(tokens.last)
+      end
+
+      it 'enqueues immediate live AI response job when buffering is disabled' do
+        allow(GlobalConfig).to receive(:get_value).with('AI_AGENT_RESPONSE_BUFFER_SECONDS').and_return('0')
+        ai_bot = create(:ai_agent, :with_human_handoff_tool, account: account, enabled: true).agent_bot
+        create(:agent_bot_inbox, inbox: inbox, agent_bot: ai_bot)
+        incoming_message = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming',
+                                            sender: conversation.contact)
         incoming_event = Events::Base.new(event_name, Time.zone.now, message: incoming_message)
 
         expect { listener.message_created(incoming_event) }

@@ -13,12 +13,22 @@ RSpec.describe 'Super Admin Application Config API', type: :request do
 
     context 'when it is an authenticated super admin' do
       let!(:config) { create(:installation_config, { name: 'FB_APP_ID', value: 'TESTVALUE' }) }
+      let!(:ai_response_buffer_config) { create(:installation_config, { name: 'AI_AGENT_RESPONSE_BUFFER_SECONDS', value: 5 }) }
 
       it 'shows the app_config page' do
         sign_in(super_admin, scope: :super_admin)
         get '/super_admin/app_config?config=facebook'
         expect(response).to have_http_status(:success)
         expect(response.body).to include(config.value)
+      end
+
+      it 'shows the AI response buffer on the captain app_config page' do
+        sign_in(super_admin, scope: :super_admin)
+        get '/super_admin/app_config?config=captain'
+
+        expect(response).to have_http_status(:success)
+        expect(response.body).to include('AI_AGENT_RESPONSE_BUFFER_SECONDS')
+        expect(response.body).to include(ai_response_buffer_config.value.to_s)
       end
     end
   end
@@ -55,6 +65,15 @@ RSpec.describe 'Super Admin Application Config API', type: :request do
         expect(flash[:success]).to be_present
         expect(flash[:alert]).to be_blank
         expect(flash[:notice]).to be_blank
+      end
+
+      it 'updates the AI response buffer on the captain app_config page' do
+        sign_in(super_admin, scope: :super_admin)
+        post '/super_admin/app_config?config=captain', params: { app_config: { AI_AGENT_RESPONSE_BUFFER_SECONDS: '7' } }
+
+        expect(response).to have_http_status(:found)
+        expect(response).to redirect_to(super_admin_settings_path)
+        expect(InstallationConfig.find_by(name: 'AI_AGENT_RESPONSE_BUFFER_SECONDS').value).to eq('7')
       end
     end
   end
