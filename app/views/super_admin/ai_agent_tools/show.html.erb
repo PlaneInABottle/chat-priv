@@ -1,0 +1,21 @@
+<section class="main-content__body">
+  <%= link_to 'Back to AI Agent Tools', super_admin_ai_agent_tools_path, class: 'text-blue-600 underline' %>
+  <h1 class="text-2xl font-medium text-n-slate-12 my-6"><%= @tool_definition.key %></h1>
+  <dl class="grid grid-cols-1 gap-3 mb-6">
+    <div><dt class="font-medium">Name</dt><dd><%= @tool_definition.name %></dd></div>
+    <div><dt class="font-medium">Description</dt><dd><%= @tool_definition.description %></dd></div>
+    <div><dt class="font-medium">Mode support</dt><dd><%= @tool_definition.mode_support %></dd></div>
+    <div><dt class="font-medium">Default enabled</dt><dd><%= AiAgents::Config::DEFAULT_ENABLED_TOOL_KEYS.include?(@tool_definition.key) ? 'Yes' : 'No' %></dd></div>
+    <div><dt class="font-medium">Integration app</dt><dd><%= @tool_definition.requires_integration_app_id.presence || 'None' %></dd></div>
+    <div><dt class="font-medium">Terminal</dt><dd><%= @tool_definition.terminal ? 'Yes' : 'No' %></dd></div>
+    <div><dt class="font-medium">Service class</dt><dd><%= @tool_definition.service_class %></dd></div>
+  </dl>
+  <h2 class="text-lg font-medium mb-2">Input schema</h2>
+  <pre class="overflow-auto rounded bg-slate-100 p-4"><code><%= JSON.pretty_generate(@tool_definition.input_schema) %></code></pre>
+  <h2 class="text-lg font-medium mt-6 mb-2">Service source</h2>
+  <% if @source_code.present? %>
+    <pre class="overflow-auto rounded bg-slate-100 p-4"><code><%= @source_code %></code></pre>
+  <% else %>
+    <p>Source unavailable.</p>
+  <% end %>
+</section>
