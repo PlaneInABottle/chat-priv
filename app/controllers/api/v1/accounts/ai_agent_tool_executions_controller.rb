@@ -1,10 +1,13 @@
 class Api::V1::Accounts::AiAgentToolExecutionsController < Api::V1::Accounts::BaseController
+  DEFAULT_LIMIT = 25
+  MAX_LIMIT = 100
+
   before_action :current_account
   before_action :set_ai_agent
   before_action :authorize_ai_agent
 
   def index
-    @tool_executions = filtered_tool_executions.order(created_at: :desc)
+    @tool_executions = filtered_tool_executions.order(created_at: :desc).limit(result_limit)
     @tool_executions_count = @tool_executions.count
   end
 
@@ -16,6 +19,12 @@ class Api::V1::Accounts::AiAgentToolExecutionsController < Api::V1::Accounts::Ba
 
   def authorize_ai_agent
     authorize @ai_agent, :show?
+  end
+
+  def result_limit
+    return DEFAULT_LIMIT if params[:limit].blank?
+
+    params[:limit].to_i.clamp(1, MAX_LIMIT)
   end
 
   def filtered_tool_executions
