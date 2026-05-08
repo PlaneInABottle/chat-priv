@@ -1,9 +1,25 @@
+tool_config = AiAgents::Config.new(@ai_agent.config)
+ikas_summary = Integrations::Ikas::ConnectionStatus.new(account: @ai_agent.account).payload
+
 json.id @ai_agent.id
 json.account_id @ai_agent.account_id
 json.name @ai_agent.name
 json.prompt @ai_agent.prompt
 json.enabled @ai_agent.enabled
 json.config @ai_agent.config
+json.tools_config tool_config.tools_summary
+json.available_tools AiAgents::ToolRegistry.available_definitions do |tool|
+  json.key tool.key
+  json.name tool.name
+  json.description tool.description
+  json.mode_support tool.mode_support
+  json.terminal tool.terminal
+end
+json.ikas_integration do
+  json.feature_enabled @ai_agent.account.feature_enabled?('ikas_integration')
+  json.state ikas_summary[:state]
+  json.can_connect ikas_summary[:can_connect]
+end
 json.model @ai_agent.account.ai_agent_model
 json.conversation_limit @ai_agent.account.ai_agent_conversation_limit
 json.created_at @ai_agent.created_at

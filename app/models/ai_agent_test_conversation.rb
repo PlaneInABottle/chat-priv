@@ -16,12 +16,17 @@ class AiAgentTestConversation < ApplicationRecord
     last = messages.last
     return nil unless last
 
-    last['content'].to_s.truncate(60)
+    preview_content(last).to_s.truncate(60)
   end
 
-  def append_message(role:, content:)
+  def append_message(role:, content:, metadata: {})
     ts = Time.current.iso8601(3)
-    new_message = { 'id' => SecureRandom.uuid, 'role' => role, 'content' => content, 'created_at' => ts }
+    new_message = {
+      'id' => SecureRandom.uuid,
+      'role' => role,
+      'content' => content,
+      'created_at' => ts
+    }.merge(metadata.deep_stringify_keys)
     updated_messages = messages + [new_message]
     update!(messages: updated_messages, last_message_at: ts)
     new_message
@@ -35,5 +40,12 @@ class AiAgentTestConversation < ApplicationRecord
 
   def messages_must_be_array
     errors.add(:messages, 'must be an array') unless messages.is_a?(Array)
+  end
+
+  def preview_content(message)
+    return message['content'] if message['content'].present?
+    return message.dig('tool_result', 'customer_message') if message.dig('terminal_action') == 'handoff'
+
+    nil
   end
 end

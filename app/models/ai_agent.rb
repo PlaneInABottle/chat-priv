@@ -29,6 +29,7 @@ class AiAgent < ApplicationRecord
   validates :name, presence: true
   validates :prompt, length: { maximum: 50_000 }
   validate :inbox_ids_conflict, if: -> { inbox_ids.present? }
+  validate :tools_config_must_be_valid
 
   attr_accessor :inbox_ids
 
@@ -46,6 +47,15 @@ class AiAgent < ApplicationRecord
                              .exists?
 
     errors.add(:inbox_ids, 'already assigned to another agent bot') if conflicts
+  end
+
+  def tools_config_must_be_valid
+    parsed_config = AiAgents::Config.new(config)
+    return if parsed_config.valid?
+
+    parsed_config.errors.each do |message|
+      errors.add(:config, message)
+    end
   end
 
   def destroy_linked_agent_bot

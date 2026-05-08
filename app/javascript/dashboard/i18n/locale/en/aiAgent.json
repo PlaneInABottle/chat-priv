@@ -28,6 +28,25 @@
       "LABEL": "AI Model",
       "HELP": "The model is configured by your administrator"
     },
+    "TOOLS": {
+      "LABEL": "Built-in Tools",
+      "HELP": "Enable the allowlisted tools available to this AI agent in simulator mode.",
+      "HUMAN_HANDOFF": {
+        "LABEL": "Human handoff",
+        "HELP": "Allow the AI agent to hand conversations to a human and limit which existing labels it may apply.",
+        "ALLOWED_LABELS_LABEL": "Allowed labels",
+        "ALLOWED_LABELS_PLACEHOLDER": "Select labels",
+        "ALLOWED_LABELS_SEARCH_PLACEHOLDER": "Search labels",
+        "ALLOWED_LABELS_EMPTY": "No matching labels found",
+        "ALLOWED_LABELS_HELP": "Only existing account labels can be selected. The AI can apply only this subset during handoff."
+      },
+      "IKAS_LOOKUP_ORDER": {
+        "LABEL": "ikas lookup order",
+        "HELP": "Reserved for future contract-verified order lookups.",
+        "CONNECTED": "ikas integration is connected, but execution remains gated in this slice.",
+        "UNAVAILABLE": "ikas lookup order is unavailable (state: {state})."
+      }
+    },
     "USAGE": {
       "LABEL": "Conversation Usage",
       "COUNT": "{used} of {limit} conversations",
@@ -49,6 +68,11 @@
       "PLACEHOLDER": "Type a test message...",
       "SEND": "Send",
       "RESPONSE_WAIT": "AI is thinking...",
+      "HANDOFF_TITLE": "Human handoff preview",
+      "HANDOFF_PREVIEW": "This conversation would be handed off to a human agent.",
+      "INTERNAL_NOTE": "Internal note",
+      "LABELS_TO_APPLY": "Labels to apply",
+      "LABELS_IGNORED": "Labels ignored",
       "SAVE_BEFORE_TESTING": "Save your changes before testing this AI agent.",
       "ENABLE_BEFORE_TESTING": "Enable this AI agent and save your changes before testing.",
       "ADD_PROMPT_BEFORE_TESTING": "Add a system prompt and save your changes before testing this AI agent.",
