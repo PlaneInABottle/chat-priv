@@ -4,6 +4,11 @@
     "DESCRIPTION": "Configure your AI assistant to help manage conversations",
     "LEARN_MORE": "Learn more about AI Asistan",
     "BACK": "Back",
+    "TABS": {
+      "SETTINGS": "Settings",
+      "TEST": "Test",
+      "TOOL_LOGS": "Tool Logs"
+    },
     "NAME": {
       "LABEL": "Agent Name",
       "PLACEHOLDER": "Enter agent name..."
@@ -77,6 +82,27 @@
       "ENABLE_BEFORE_TESTING": "Enable this AI agent and save your changes before testing.",
       "ADD_PROMPT_BEFORE_TESTING": "Add a system prompt and save your changes before testing this AI agent.",
       "ERROR": "Sorry, I couldn't generate a response right now. Please try again."
+    },
+    "TOOL_LOGS": {
+      "TITLE": "Tool Logs",
+      "LOADING": "Loading tool logs...",
+      "EMPTY": "No tool executions yet.",
+      "ERROR": "Failed to load tool logs.",
+      "CONVERSATION_LINK": "Conversation #{id}",
+      "FILTERS": {
+        "ALL_STATUSES": "All statuses",
+        "ALL_MODES": "All modes",
+        "TOOL_KEY": "Tool key"
+      },
+      "STATUS": {
+        "EXECUTED": "Executed",
+        "ERROR": "Error",
+        "REJECTED": "Rejected"
+      },
+      "MODE": {
+        "TEST": "Test",
+        "LIVE": "Live"
+      }
     },
     "SAVE": {
       "BUTTON": "Save Changes",

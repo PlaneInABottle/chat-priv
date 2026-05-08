@@ -14,6 +14,8 @@ import TagMultiSelectComboBox from 'dashboard/components-next/combobox/TagMultiS
 import Avatar from 'dashboard/components-next/avatar/Avatar.vue';
 import Icon from 'dashboard/components-next/icon/Icon.vue';
 import TestConversationLayout from './components/TestConversationLayout.vue';
+import TabBar from 'dashboard/components-next/tabbar/TabBar.vue';
+import AiAgentToolLogs from './components/AiAgentToolLogs.vue';
 
 const defaultToolsState = () => ({
   enabled: [],
@@ -55,6 +57,7 @@ const labels = useMapGetter('labels/getLabels');
 
 const isSaving = ref(false);
 const inboxError = ref('');
+const activeTab = ref('settings');
 
 // Local form state - initialized from store on load
 const formState = ref({
@@ -88,6 +91,14 @@ const isFormDirty = computed(() => {
 });
 
 const maxCharacters = 4000;
+
+const tabs = computed(() => [
+  { label: t('AI_AGENT.TABS.SETTINGS'), value: 'settings' },
+  { label: t('AI_AGENT.TABS.TEST'), value: 'test' },
+  { label: t('AI_AGENT.TABS.TOOL_LOGS'), value: 'tool_logs' },
+]);
+
+const activeTabIndex = computed(() => tabs.value.findIndex(tab => tab.value === activeTab.value));
 
 const persistedInboxIds = computed(() => {
   return aiAgent.value?.agent_bot?.inbox_ids || [];
@@ -362,6 +373,10 @@ const goBack = () => {
   router.push({ name: 'ai_agents' });
 };
 
+const handleTabChange = tab => {
+  activeTab.value = tab.value;
+};
+
 onMounted(async () => {
   await loadAgentDetail(agentId.value);
 });
@@ -397,6 +412,12 @@ watch(agentId, async (newAgentId, oldAgentId) => {
     </template>
     <template #body>
       <div class="flex flex-col gap-8">
+        <TabBar
+          :tabs="tabs"
+          :initial-active-tab="activeTabIndex"
+          @tab-changed="handleTabChange"
+        />
+        <template v-if="activeTab === 'settings'">
         <!-- Name Input -->
         <div>
           <woot-input
@@ -602,7 +623,8 @@ watch(agentId, async (newAgentId, oldAgentId) => {
             </div>
           </div>
         </div>
-
+        </template>
+        <div v-show="activeTab === 'test'">
         <!-- Test Conversations -->
         <div>
           <h3 class="mb-2 text-sm font-medium text-n-slate-12">
@@ -616,6 +638,10 @@ watch(agentId, async (newAgentId, oldAgentId) => {
             :is-disabled="isSimulatorDisabled"
           />
         </div>
+        </div>
+        <template v-if="activeTab === 'tool_logs'">
+          <AiAgentToolLogs :ai-agent-id="agentId" />
+        </template>
 
         <!-- Save Button -->
         <div class="flex justify-end">
