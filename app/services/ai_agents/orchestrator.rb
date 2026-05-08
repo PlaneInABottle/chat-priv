@@ -68,8 +68,7 @@ module AiAgents
         account: ai_agent.account,
         mode: mode,
         executed_tool_keys: executed_tool_keys,
-        conversation: conversation,
-        trigger_message: trigger_message
+        context: { conversation: conversation, trigger_message: trigger_message }
       )
     end
 

@@ -3,13 +3,22 @@ import { createStore } from 'vuex';
 import { defineComponent, nextTick } from 'vue';
 import AiAgentDetail from '../AiAgentDetail.vue';
 
-vi.mock('dashboard/components-next/combobox/TagMultiSelectComboBox.vue', () => ({
-  default: {
-    name: 'TagMultiSelectComboBox',
-    template: '<div data-testid="tag-multi-select" />',
-    props: ['modelValue', 'options', 'placeholder', 'searchPlaceholder', 'emptyState'],
-  },
-}));
+vi.mock(
+  'dashboard/components-next/combobox/TagMultiSelectComboBox.vue',
+  () => ({
+    default: {
+      name: 'TagMultiSelectComboBox',
+      template: '<div data-testid="tag-multi-select" />',
+      props: [
+        'modelValue',
+        'options',
+        'placeholder',
+        'searchPlaceholder',
+        'emptyState',
+      ],
+    },
+  })
+);
 
 vi.mock('vue-router', async importOriginal => {
   const actual = await importOriginal();
@@ -48,10 +57,7 @@ const buildAiAgent = overrides => ({
     },
     ikas_lookup_order: { enabled: false },
   },
-  available_tools: [
-    { key: 'human_handoff' },
-    { key: 'ikas_lookup_order' },
-  ],
+  available_tools: [{ key: 'human_handoff' }, { key: 'ikas_lookup_order' }],
   ikas_integration: {
     feature_enabled: false,
     state: 'not_connected',
@@ -153,7 +159,8 @@ const mountComponent = options => {
           props: ['modelValue', 'message', 'messageType', 'maxLength'],
         },
         TabBar: {
-          template: '<div><button v-for="tab in tabs" :key="tab.value" @click="$emit(\'tabChanged\', tab)">{{ tab.label }}</button></div>',
+          template:
+            '<div><button v-for="tab in tabs" :key="tab.value" @click="$emit(\'tabChanged\', tab)">{{ tab.label }}</button></div>',
           props: ['tabs', 'initialActiveTab'],
         },
         AiAgentToolLogs: { template: '<div class="tool-logs" />' },
@@ -201,9 +208,9 @@ describe('AiAgentDetail.vue', () => {
 
     await nextTick();
 
-    const inboxCheckboxes = wrapper.findAll('input[type="checkbox"]').filter(
-      checkbox => checkbox.attributes('disabled') !== undefined
-    );
+    const inboxCheckboxes = wrapper
+      .findAll('input[type="checkbox"]')
+      .filter(checkbox => checkbox.attributes('disabled') !== undefined);
     expect(inboxCheckboxes.length).toBeGreaterThan(0);
     expect(wrapper.text()).toContain('Assigned to Other Agent');
   });
@@ -228,7 +235,10 @@ describe('AiAgentDetail.vue', () => {
     const { wrapper } = mountComponent();
     await flushPromises();
 
-    await wrapper.findAll('button').find(button => button.text() === 'Tool Logs').trigger('click');
+    await wrapper
+      .findAll('button')
+      .find(button => button.text() === 'Tool Logs')
+      .trigger('click');
 
     expect(wrapper.find('.tool-logs').exists()).toBe(true);
   });
@@ -378,7 +388,9 @@ describe('AiAgentDetail.vue', () => {
       { value: 'billing', label: 'billing' },
       { value: 'vip', label: 'vip' },
     ]);
-    expect(wrapper.find('[data-testid="tag-multi-select"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="tag-multi-select"]').exists()).toBe(
+      true
+    );
   });
 
   it('hydrates and saves tools subtree config', async () => {

@@ -14,7 +14,9 @@ const emit = defineEmits(['delete']);
 
 const { t } = useI18n();
 
-const inboxCount = computed(() => props.agent.agent_bot?.inbox_ids?.length || 0);
+const inboxCount = computed(
+  () => props.agent.agent_bot?.inbox_ids?.length || 0
+);
 
 const formattedDate = computed(() => {
   if (!props.agent.created_at) return '';

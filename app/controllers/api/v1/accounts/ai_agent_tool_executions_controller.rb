@@ -20,9 +20,19 @@ class Api::V1::Accounts::AiAgentToolExecutionsController < Api::V1::Accounts::Ba
 
   def filtered_tool_executions
     executions = @ai_agent.tool_executions.where(account_id: Current.account.id)
-    executions = executions.where(status: params[:status]) if params[:status].present? && AiAgentToolExecution.statuses.key?(params[:status])
-    executions = executions.where(mode: params[:mode]) if params[:mode].present? && AiAgentToolExecution.modes.key?(params[:mode])
     executions = executions.where(tool_key: params[:tool_key]) if params[:tool_key].present?
-    executions
+    filter_by_mode(filter_by_status(executions))
+  end
+
+  def filter_by_status(executions)
+    return executions unless params[:status].present? && AiAgentToolExecution.statuses.key?(params[:status])
+
+    executions.where(status: params[:status])
+  end
+
+  def filter_by_mode(executions)
+    return executions unless params[:mode].present? && AiAgentToolExecution.modes.key?(params[:mode])
+
+    executions.where(mode: params[:mode])
   end
 end

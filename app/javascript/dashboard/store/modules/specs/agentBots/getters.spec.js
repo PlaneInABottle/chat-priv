@@ -4,7 +4,9 @@ import { agentBotRecords } from './fixtures';
 describe('#getters', () => {
   it('getBots', () => {
     const state = { records: agentBotRecords };
-    expect(getters.getBots(state)).toEqual(agentBotRecords.filter(bot => bot.bot_type === 'webhook'));
+    expect(getters.getBots(state)).toEqual(
+      agentBotRecords.filter(bot => bot.bot_type === 'webhook')
+    );
   });
 
   it('getBot', () => {
