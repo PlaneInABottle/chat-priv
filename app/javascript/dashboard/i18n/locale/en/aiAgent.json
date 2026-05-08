@@ -17,20 +17,7 @@
       "LABEL": "System Prompt",
       "PLACEHOLDER": "Enter instructions for your AI assistant...",
       "HELP": "This prompt guides how the AI responds to conversations",
-      "REQUIRED_FOR_TESTING": "Add a system prompt, then save your changes before testing this AI agent.",
-      "TOOLBAR": {
-        "BOLD": "Bold",
-        "ITALIC": "Italic",
-        "HEADING": "Heading",
-        "BULLETS": "Bullets",
-        "NUMBERED": "Numbered list",
-        "SECTION": "Section"
-      },
-      "PREVIEW": {
-        "SHOW": "Show preview",
-        "HIDE": "Hide preview",
-        "TITLE": "Preview"
-      }
+      "REQUIRED_FOR_TESTING": "Add a system prompt, then save your changes before testing this AI agent."
     },
     "ENABLED": {
       "LABEL": "Enable AI Asistan",
