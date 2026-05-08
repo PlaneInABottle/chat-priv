@@ -17,6 +17,7 @@ import TagAgents from '../conversation/TagAgents.vue';
 import VariableList from '../conversation/VariableList.vue';
 import TagTools from '../conversation/TagTools.vue';
 import CopilotMenuBar from './CopilotMenuBar.vue';
+import { exitEmptyListItem } from './listKeymap';
 
 import { useEmitter } from 'dashboard/composables/emitter';
 import { useI18n } from 'vue-i18n';
@@ -726,12 +727,22 @@ function onKeydown(event) {
     collapseSelection(editorView);
     return true;
   }
+
+  if (
+    event.key === 'Backspace' &&
+    exitEmptyListItem(state, editorView.dispatch)
+  ) {
+    event.preventDefault();
+    return true;
+  }
+
   if (isEnterToSendEnabled()) {
     handleLineBreakWhenEnterToSendEnabled(event);
   }
   if (isCmdPlusEnterToSendEnabled()) {
     handleLineBreakWhenCmdAndEnterToSendEnabled(event);
   }
+
   return false;
 }
 
