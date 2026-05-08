@@ -78,4 +78,29 @@ RSpec.describe AgentBots::AiResponseJob do
 
     expect(AiAgents::LiveProcessor).not_to have_received(:new)
   end
+
+  it 'releases a claimed token for retry when processing raises' do
+    token = SecureRandom.uuid
+    message.conversation.update!(additional_attributes: {
+                                   'ai_response_buffer' => {
+                                     'message_id' => message.id,
+                                     'conversation_id' => message.conversation_id,
+                                     'token' => token,
+                                     'status' => 'scheduled'
+                                   }
+                                 })
+    failing_processor = instance_double(AiAgents::LiveProcessor, perform: true)
+    allow(failing_processor).to receive(:perform).and_raise(StandardError, 'temporary failure')
+    allow(AiAgents::LiveProcessor).to receive(:new).with(message: message).and_return(failing_processor, processor)
+
+    expect { described_class.perform_now(message, token) }.to raise_error(StandardError, 'temporary failure')
+
+    metadata = message.conversation.reload.additional_attributes['ai_response_buffer']
+    expect(metadata['status']).to eq('scheduled')
+
+    described_class.perform_now(message, token)
+
+    expect(processor).to have_received(:perform)
+    expect(message.conversation.reload.additional_attributes.dig('ai_response_buffer', 'status')).to eq('completed')
+  end
 end
