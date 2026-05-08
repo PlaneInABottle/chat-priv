@@ -103,4 +103,28 @@ RSpec.describe AgentBots::AiResponseJob do
     expect(processor).to have_received(:perform)
     expect(message.conversation.reload.additional_attributes.dig('ai_response_buffer', 'status')).to eq('completed')
   end
+
+  it 'does not release the token when completion raises after processing succeeds' do
+    token = SecureRandom.uuid
+    message.conversation.update!(additional_attributes: {
+                                   'ai_response_buffer' => {
+                                     'message_id' => message.id,
+                                     'conversation_id' => message.conversation_id,
+                                     'token' => token,
+                                     'status' => 'scheduled'
+                                   }
+                                 })
+    allow(AiAgents::LiveProcessor).to receive(:new).with(message: message).and_return(processor)
+    allow(AiAgents::ResponseBuffer).to receive(:complete!).with(message, token).and_raise(StandardError, 'completion failure')
+
+    expect { described_class.perform_now(message, token) }.to raise_error(StandardError, 'completion failure')
+
+    metadata = message.conversation.reload.additional_attributes['ai_response_buffer']
+    expect(metadata['status']).to eq('claimed')
+
+    allow(AiAgents::ResponseBuffer).to receive(:complete!).and_call_original
+    described_class.perform_now(message, token)
+
+    expect(processor).to have_received(:perform).once
+  end
 end
