@@ -19,7 +19,8 @@ RSpec.describe 'Ai Agent Tool Executions API', type: :request do
       get "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/tool_executions", headers: admin.create_new_auth_token, as: :json
 
       expect(response).to have_http_status(:success)
-      expect(response.parsed_body['payload'].first).to include('id' => execution.id, 'tool_key' => 'human_handoff', 'arguments' => { 'reason' => 'Need help' })
+      expect(response.parsed_body['payload'].first).to include('id' => execution.id, 'tool_key' => 'human_handoff',
+                                                               'arguments' => { 'reason' => 'Need help' })
     end
 
     it 'denies non-administrator users through the parent AI agent policy' do
