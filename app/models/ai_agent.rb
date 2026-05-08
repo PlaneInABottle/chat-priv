@@ -24,6 +24,7 @@
 class AiAgent < ApplicationRecord
   belongs_to :account
   belongs_to :agent_bot, optional: true
+  has_many :tool_executions, class_name: 'AiAgentToolExecution', dependent: :destroy
   has_many :test_conversations, class_name: 'AiAgentTestConversation', dependent: :destroy
 
   validates :name, presence: true

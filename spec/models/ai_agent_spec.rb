@@ -4,6 +4,7 @@ RSpec.describe AiAgent do
   describe 'associations' do
     it { is_expected.to belong_to(:account) }
     it { is_expected.to belong_to(:agent_bot).optional(true) }
+    it { is_expected.to have_many(:tool_executions).class_name('AiAgentToolExecution').dependent(:destroy) }
   end
 
   describe 'validations' do
