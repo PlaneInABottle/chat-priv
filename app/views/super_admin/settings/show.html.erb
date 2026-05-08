@@ -91,6 +91,15 @@
       <h3 class="h-5 leading-5 text-n-slate-12 font-medium text-base">Features</h3>
     </div>
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-2 gap-y-3">
+      <a class="group outline outline-1 outline-n-container p-4 rounded-lg relative shadow-sm no-underline" href="<%= super_admin_ai_agent_tools_path %>">
+        <div class="flex items-center justify-center w-10 h-10 mb-2 border border-slate-100 border-solid text-slate-800 rounded-full">
+          <svg width="20" height="20"><use xlink:href="#icon-bot" /></svg>
+        </div>
+        <div class="flex items-center justify-between mb-1.5 mt-4">
+          <h3 class="text-n-slate-12 font-medium">AI Agent Tools</h3>
+        </div>
+        <p class="text-n-slate-11 mb-0">Review AI agent tool registry metadata and execution analytics.</p>
+      </a>
       <% SuperAdmin::FeaturesHelper.available_features.each do |feature, attrs| %>
         <div class="group outline outline-1 outline-n-container p-4 rounded-lg relative shadow-sm">
           <span class="<%= attrs[:enabled] ? 'bg-green-400 text-white': 'bg-slate-300 text-slate-800' %> absolute rounded-full p-1 inline-flex right-4 top-5">
