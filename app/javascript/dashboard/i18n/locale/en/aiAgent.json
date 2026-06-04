@@ -81,7 +81,6 @@
       "RESPONSE_WAIT": "AI is thinking...",
       "HANDOFF_TITLE": "Human handoff preview",
       "HANDOFF_PREVIEW": "This conversation would be handed off to a human agent.",
-      "TOOL_CALLS": "Tool calls",
       "INTERNAL_NOTE": "Internal note",
       "LABELS_TO_APPLY": "Labels to apply",
       "LABELS_IGNORED": "Labels ignored",
