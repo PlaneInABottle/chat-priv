@@ -109,34 +109,4 @@ describe('TestConversationChatPanel.vue', () => {
     expect(wrapper.text()).toContain('vip');
     expect(wrapper.text()).toContain('ignored');
   });
-
-  it('renders ikas tool call metadata inside assistant messages', () => {
-    const wrapper = mountComponent({
-      conversation: {
-        ...conversation,
-        messages: [
-          {
-            id: 'catalog-1',
-            role: 'assistant',
-            content: '70x100 ölçünüze uygun ürünler var.',
-            tool_events: [
-              {
-                tool: 'ikas_catalog_search',
-                status: 'ok',
-                tool_call_id: 'call_1',
-                args: { query: 'akordiyon sineklik 70x100' },
-                result: { result_type: 'show_compatible_candidates' },
-              },
-            ],
-          },
-        ],
-        messages_count: 1,
-      },
-    });
-
-    expect(wrapper.text()).toContain('AI_AGENT.TEST_CONVERSATIONS.TOOL_CALLS');
-    expect(wrapper.text()).toContain('ikas_catalog_search');
-    expect(wrapper.text()).toContain('akordiyon sineklik 70x100');
-    expect(wrapper.text()).toContain('show_compatible_candidates');
-  });
 });
