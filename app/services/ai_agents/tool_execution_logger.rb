@@ -13,8 +13,8 @@ class AiAgents::ToolExecutionLogger
     AiAgentToolExecution.create!(
       account: account,
       ai_agent: ai_agent,
-      conversation: conversation,
-      message: trigger_message,
+      conversation: loggable_conversation,
+      message: loggable_message,
       tool_key: tool_key(tool_call, definition),
       tool_name: definition&.name,
       mode: mode.to_s,
@@ -32,6 +32,14 @@ class AiAgents::ToolExecutionLogger
   private
 
   attr_reader :ai_agent, :account, :conversation, :trigger_message, :mode
+
+  def loggable_conversation
+    conversation if conversation.is_a?(Conversation)
+  end
+
+  def loggable_message
+    trigger_message if trigger_message.is_a?(Message)
+  end
 
   def tool_key(tool_call, definition)
     definition&.key || tool_call[:name].to_s
