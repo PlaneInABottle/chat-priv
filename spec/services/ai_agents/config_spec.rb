@@ -39,6 +39,28 @@ RSpec.describe AiAgents::Config do
       config = described_class.new({})
 
       expect(config.enabled_tool_keys).not_to include('ikas_lookup_order')
+      expect(config.enabled_tool_keys).not_to include('ikas_catalog_search')
+    end
+
+    it 'allows ikas catalog search without nested settings' do
+      config = described_class.new({ 'tools' => { 'enabled' => ['ikas_catalog_search'], 'ikas_catalog_search' => {} } })
+
+      expect(config).to be_valid
+      expect(config.enabled_tool_keys).to eq(['ikas_catalog_search'])
+      expect(config.tools_summary['ikas_catalog_search']).to eq({})
+    end
+
+    it 'allows ikas order lookup when enabled for an ikas-connected account' do
+      config = described_class.new({
+                                     'tools' => {
+                                       'enabled' => ['ikas_lookup_order'],
+                                       'ikas_lookup_order' => { 'enabled' => true }
+                                     }
+                                   })
+
+      expect(config).to be_valid
+      expect(config.enabled_tool_keys).to eq(['ikas_lookup_order'])
+      expect(config.tools_summary['ikas_lookup_order']).to eq({ 'enabled' => true })
     end
 
     it 'rejects unknown tool keys inside tools subtree' do

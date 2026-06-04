@@ -78,6 +78,26 @@ RSpec.describe AiAgents::LiveProcessor do
                                                                    ]))
   end
 
+  it 'uses the latest AgentBot boundary when multiple AI replies exist' do
+    create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming', sender: conversation.contact,
+                     content: 'Old one')
+    create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'outgoing', sender: ai_agent.agent_bot,
+                     content: 'First boundary')
+    create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming', sender: conversation.contact,
+                     content: 'Old two')
+    create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'outgoing', sender: ai_agent.agent_bot,
+                     content: 'Latest boundary')
+    latest = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming', sender: conversation.contact,
+                              content: 'Current question')
+    allow(adapter).to receive(:perform).and_return({ assistant_text: 'Done', tool_calls: [], finish_reason: 'stop' })
+
+    described_class.new(message: latest, adapter: adapter).perform
+
+    expect(adapter).to have_received(:perform).with(hash_including(messages: [
+                                                                     { role: 'user', content: latest.content }
+                                                                   ]))
+  end
+
   it 'does not execute for private notes' do
     message = create(:message,
                      account: account,

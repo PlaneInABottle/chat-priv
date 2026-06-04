@@ -402,7 +402,9 @@ Rails.application.routes.draw do
                 get :orders
               end
             end
-            resource :ikas, controller: 'ikas', only: [:show, :create, :update, :destroy]
+            resource :ikas, controller: 'ikas', only: [:show, :create, :update, :destroy] do
+              post :catalog_sync
+            end
             resource :linear, controller: 'linear', only: [] do
               collection do
                 delete :destroy

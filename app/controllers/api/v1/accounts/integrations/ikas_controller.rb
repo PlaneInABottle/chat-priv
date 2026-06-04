@@ -21,8 +21,9 @@ class Api::V1::Accounts::Integrations::IkasController < Api::V1::Accounts::BaseC
     result = validator.perform
     return render_validation_error(result) unless result.success?
 
-    hook = Current.account.hooks.create!(create_hook_attributes(result))
-    @status_payload = fresh_status_payload.merge(hook: hook)
+    connected_hook = Current.account.hooks.create!(create_hook_attributes(result))
+    enqueue_catalog_sync(connected_hook)
+    @status_payload = fresh_status_payload.merge(hook: connected_hook)
 
     render json: response_payload, status: :created
   end
@@ -36,6 +37,7 @@ class Api::V1::Accounts::Integrations::IkasController < Api::V1::Accounts::BaseC
     return render_validation_error(result) unless result.success?
 
     hook.update!(update_hook_attributes(result))
+    enqueue_catalog_sync(hook)
     @status_payload = fresh_status_payload
 
     render json: response_payload
@@ -44,9 +46,18 @@ class Api::V1::Accounts::Integrations::IkasController < Api::V1::Accounts::BaseC
   def destroy
     return render json: error_response('not_connected'), status: :not_found if hook.blank?
 
+    remove_catalog_snapshots!
     Current.account.hooks.where(app_id: IKAS_APP_ID).destroy_all
 
     render json: disconnected_payload
+  end
+
+  def catalog_sync
+    return render json: error_response('not_connected'), status: :not_found if hook.blank?
+    return render_encryption_unavailable unless @status_payload[:encryption_available]
+
+    enqueue_catalog_sync(hook)
+    render json: response_payload
   end
 
   private
@@ -70,6 +81,7 @@ class Api::V1::Accounts::Integrations::IkasController < Api::V1::Accounts::BaseC
       client_id_masked: masked_client_id,
       last_validated_at: @status_payload[:last_validated_at],
       last_validation_error_code: @status_payload[:last_validation_error_code],
+      catalog_sync: catalog_sync_payload,
       status_message: status_message,
       uses_api_version: 'v1'
     }
@@ -108,12 +120,44 @@ class Api::V1::Accounts::Integrations::IkasController < Api::V1::Accounts::BaseC
       client_id_masked: nil,
       last_validated_at: nil,
       last_validation_error_code: nil,
+      catalog_sync: catalog_sync_payload(nil),
       status_message: I18n.t("errors.ikas.#{Chatwoot.encryption_configured? ? 'not_connected' : 'disabled'}")
     )
   end
 
   def hook
     @status_payload[:hook]
+  end
+
+  def enqueue_catalog_sync(sync_hook)
+    Integrations::Ikas::CatalogSyncJob.perform_later(sync_hook.id)
+  end
+
+  def remove_catalog_snapshots!
+    Current.account.ikas_catalog_snapshots.where(integrations_hook: Current.account.hooks.where(app_id: IKAS_APP_ID)).find_each do |snapshot|
+      Integrations::Ikas::Catalog::SnapshotStore.remove_artifact_for(snapshot)
+      snapshot.destroy!
+    end
+  end
+
+  def catalog_sync_payload(payload_hook = hook)
+    return { status: 'not_connected' } if payload_hook.blank?
+
+    latest = payload_hook.ikas_catalog_snapshots.order(created_at: :desc, id: :desc).first
+    completed = payload_hook.ikas_catalog_snapshots.latest_completed.first
+    counts = completed&.counts || {}
+
+    {
+      status: latest&.status || 'not_synced',
+      last_synced_at: completed&.completed_at&.iso8601,
+      started_at: latest&.started_at&.iso8601,
+      completed_at: latest&.completed_at&.iso8601,
+      products_count: counts['products'].to_i,
+      categories_count: counts['categories'].to_i,
+      option_sets_count: counts['product_option_sets'].to_i,
+      catalog_items_count: counts['catalog_items'].to_i,
+      error_message: latest&.failed? ? latest.error_message : nil
+    }
   end
 
   def duplicate_hooks?
@@ -125,9 +169,15 @@ class Api::V1::Accounts::Integrations::IkasController < Api::V1::Accounts::BaseC
       client_id: ikas_params[:client_id],
       client_secret: ikas_params[:client_secret],
       store_url: ikas_params[:store_url],
-      existing_secret: hook&.access_token,
+      existing_secret: stored_access_token,
       existing_client_id: hook&.settings&.[]('client_id')
     )
+  end
+
+  def stored_access_token
+    hook&.access_token
+  rescue ActiveRecord::Encryption::Errors::Decryption
+    nil
   end
 
   def ikas_params

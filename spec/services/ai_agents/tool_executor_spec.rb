@@ -1,6 +1,8 @@
 require 'rails_helper'
 
 RSpec.describe AiAgents::ToolExecutor do
+  before { Integrations::Hook.name }
+
   let(:account) { create(:account) }
   let(:ai_agent) { create(:ai_agent, :with_human_handoff_tool, account: account) }
   let(:conversation) { create(:conversation, account: account) }
@@ -88,5 +90,60 @@ RSpec.describe AiAgents::ToolExecutor do
     result = executor.execute(tool_call(arguments: handoff_args))
 
     expect(result.status).to eq('executed')
+  end
+
+  it 'rejects ikas catalog search when ikas is not connected' do
+    ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'], 'ikas_catalog_search' => {} } })
+
+    result = executor.execute(tool_call(name: 'ikas_catalog_search', arguments: { query: '70x90 sineklik' }))
+
+    expect(result.status).to eq('rejected')
+    expect(AiAgentToolExecution.last.error_code).to eq('ikas_feature_disabled')
+  end
+
+  it 'executes ikas catalog search when ikas is connected' do
+    allow(Chatwoot).to receive(:encryption_configured?).and_return(true)
+    account.enable_features('ikas_integration')
+    account.save!
+    create(:integrations_hook, :ikas, account: account)
+    ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'], 'ikas_catalog_search' => {} } })
+    service = instance_double(AiAgents::Tools::IkasCatalogSearchService, call: { status: 'ok', result_type: 'show_candidates' })
+    allow(AiAgents::Tools::IkasCatalogSearchService).to receive(:new).and_return(service)
+
+    result = executor.execute(tool_call(name: 'ikas_catalog_search', arguments: { query: '70x90 sineklik' }))
+
+    expect(result.status).to eq('executed')
+    expect(AiAgentToolExecution.last.tool_key).to eq('ikas_catalog_search')
+  end
+
+  it 'executes ikas order lookup when ikas is connected and masks contact identifiers in logs' do
+    allow(Chatwoot).to receive(:encryption_configured?).and_return(true)
+    account.enable_features('ikas_integration')
+    account.save!
+    create(:integrations_hook, :ikas, account: account)
+    ai_agent.update!(
+      config: {
+        'tools' => {
+          'enabled' => ['ikas_lookup_order'],
+          'ikas_lookup_order' => { 'enabled' => true }
+        }
+      }
+    )
+    service = instance_double(AiAgents::Tools::IkasLookupOrderService, call: { status: 'ok', result_type: 'show_order_status' })
+    allow(AiAgents::Tools::IkasLookupOrderService).to receive(:new).and_return(service)
+
+    result = executor.execute(
+      tool_call(
+        name: 'ikas_lookup_order',
+        arguments: { order_identifier: '30564', email: 'buyer@example.com', phone: '+905419719978' }
+      )
+    )
+
+    expect(result.status).to eq('executed')
+    expect(result.tool_event['args']).to include('email' => 'b***@example.com', 'phone' => '***9978')
+    expect(AiAgentToolExecution.last).to have_attributes(
+      tool_key: 'ikas_lookup_order',
+      arguments: include('email' => 'b***@example.com', 'phone' => '***9978')
+    )
   end
 end

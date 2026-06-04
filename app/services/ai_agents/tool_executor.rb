@@ -25,7 +25,7 @@ class AiAgents::ToolExecutor
     executed_tool_keys << definition.key
     tool_result = service_for(definition).call(args: args)
     status = tool_result[:status] == 'ok' ? 'executed' : 'error'
-    log_tool_execution(tool_call, definition, status, log_payload(tool_result, args, started_at))
+    log_tool_execution(tool_call, definition, status, log_payload(tool_result, args, started_at, definition))
 
     Result.new(
       status: status,
@@ -71,10 +71,10 @@ class AiAgents::ToolExecutor
     )
   end
 
-  def log_payload(tool_result, args, started_at)
+  def log_payload(tool_result, args, started_at, definition)
     {
       tool_result: sanitize_result(tool_result),
-      args: args,
+      args: sanitize_parsed_args(args, definition),
       duration_ms: duration_ms(started_at)
     }
   end
@@ -111,13 +111,14 @@ class AiAgents::ToolExecutor
   end
 
   def validate_integration_gate(definition)
-    return nil unless definition.key == AiAgents::Config::IKAS_LOOKUP_ORDER_TOOL
+    return nil unless definition.requires_integration_app_id
+    return nil unless definition.requires_integration_app_id == Integrations::Ikas::ConnectionStatus::IKAS_APP_ID
     return 'ikas_feature_disabled' unless account.feature_enabled?('ikas_integration')
 
     state = Integrations::Ikas::ConnectionStatus.new(account: account).payload[:state]
     return 'ikas_not_connected' unless state == 'connected'
 
-    'ikas_contract_unverified'
+    nil
   end
 
   def build_tool_event(tool_call, definition, tool_result)
@@ -126,13 +127,13 @@ class AiAgents::ToolExecutor
       'status' => tool_result[:status],
       'tool_call_id' => tool_call[:id],
       'terminal' => definition.terminal,
-      'args' => sanitize_args(tool_call[:arguments]),
+      'args' => sanitize_args(tool_call[:arguments], definition: definition),
       'result' => sanitize_result(tool_result)
     }
   end
 
-  def sanitize_args(arguments)
-    JSON.parse(arguments.presence || '{}')
+  def sanitize_args(arguments, definition: nil)
+    sanitize_parsed_args(JSON.parse(arguments.presence || '{}'), definition)
   rescue JSON::ParserError
     {}
   end
@@ -144,7 +145,10 @@ class AiAgents::ToolExecutor
   def rejected_result(tool_call, error_code, started_at: nil, definition: nil, args: nil)
     tool_result = rejected_tool_result(error_code)
 
-    log_tool_execution(tool_call, definition, 'rejected', rejection_log_payload(tool_call, tool_result, args, started_at)) if started_at
+    if started_at
+      payload = rejection_log_payload(tool_call, tool_result, args, started_at, definition)
+      log_tool_execution(tool_call, definition, 'rejected', payload)
+    end
 
     Result.new(status: 'rejected', tool_event: rejected_tool_event(tool_call, error_code), tool_result: tool_result)
   end
@@ -158,12 +162,18 @@ class AiAgents::ToolExecutor
     }
   end
 
-  def rejection_log_payload(tool_call, tool_result, args, started_at)
+  def rejection_log_payload(tool_call, tool_result, args, started_at, definition)
     {
       tool_result: tool_result,
-      args: args || sanitize_args(tool_call[:arguments]),
+      args: rejection_args(tool_call, args, definition),
       duration_ms: duration_ms(started_at)
     }
+  end
+
+  def rejection_args(tool_call, args, definition)
+    return sanitize_parsed_args(args, definition) if args
+
+    sanitize_args(tool_call[:arguments], definition: definition)
   end
 
   def rejected_tool_result(error_code)
@@ -172,5 +182,28 @@ class AiAgents::ToolExecutor
       error_code: error_code,
       error_message: 'Tool execution was rejected.'
     }
+  end
+
+  def sanitize_parsed_args(args, definition)
+    sanitized = args.deep_dup
+    return sanitized unless definition&.key == AiAgents::Config::IKAS_LOOKUP_ORDER_TOOL
+
+    sanitized['email'] = mask_email(sanitized['email']) if sanitized['email'].present?
+    sanitized['phone'] = mask_phone(sanitized['phone']) if sanitized['phone'].present?
+    sanitized
+  end
+
+  def mask_email(value)
+    local, domain = value.to_s.split('@', 2)
+    return '[redacted]' if local.blank? || domain.blank?
+
+    "#{local.first}***@#{domain}"
+  end
+
+  def mask_phone(value)
+    digits = value.to_s.delete('^0-9')
+    return '[redacted]' if digits.length < 4
+
+    "***#{digits.last(4)}"
   end
 end

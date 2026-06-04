@@ -1,22 +1,27 @@
 # frozen_string_literal: true
 
-module AiAgents
-  module Tools
-    class IkasLookupOrderService
-      def initialize(ai_agent:, account:, mode:, settings:)
-        @ai_agent = ai_agent
-        @account = account
-        @mode = mode
-        @settings = settings || {}
-      end
-
-      def call(args:)
-        {
-          status: 'error',
-          error_code: 'not_implemented',
-          error_message: 'ikas_lookup_order is unavailable until the ikas order lookup contract is verified.'
-        }
-      end
-    end
+class AiAgents::Tools::IkasLookupOrderService
+  def initialize(ai_agent:, account:, mode:, settings:, **context)
+    @ai_agent = ai_agent
+    @account = account
+    @mode = mode
+    @settings = settings || {}
+    @conversation = context[:conversation]
+    @trigger_message = context[:trigger_message]
   end
+
+  def call(**kwargs)
+    args = kwargs.fetch(:args, {}) || {}
+
+    Integrations::Ikas::OrderLookupService.new(
+      account: account,
+      conversation: conversation,
+      identifiers: args.slice('order_identifier', 'email', 'phone'),
+      limit: args['limit'].presence || Integrations::Ikas::OrderLookupService::DEFAULT_LIMIT
+    ).call
+  end
+
+  private
+
+  attr_reader :account, :conversation
 end

@@ -19,6 +19,17 @@ json.ikas_integration do
   json.feature_enabled @ai_agent.account.feature_enabled?('ikas_integration')
   json.state ikas_summary[:state]
   json.can_connect ikas_summary[:can_connect]
+  if ikas_summary[:hook].present?
+    latest_snapshot = ikas_summary[:hook].ikas_catalog_snapshots.order(created_at: :desc, id: :desc).first
+    completed_snapshot = ikas_summary[:hook].ikas_catalog_snapshots.latest_completed.first
+    json.catalog_sync do
+      json.status latest_snapshot&.status || 'not_synced'
+      json.last_synced_at completed_snapshot&.completed_at&.iso8601
+      json.products_count completed_snapshot&.counts&.[]('products').to_i
+      json.catalog_items_count completed_snapshot&.counts&.[]('catalog_items').to_i
+      json.error_message latest_snapshot&.failed? ? latest_snapshot.error_message : nil
+    end
+  end
 end
 json.model @ai_agent.account.ai_agent_model
 json.conversation_limit @ai_agent.account.ai_agent_conversation_limit

@@ -6,6 +6,7 @@ RSpec.describe 'Ikas Integration API', type: :request do
   let(:agent) { create(:user, account: account, role: :agent) }
 
   before do
+    Integrations::Hook.name
     account.enable_features('ikas_integration')
     account.save!
   end
@@ -34,6 +35,19 @@ RSpec.describe 'Ikas Integration API', type: :request do
       expect(response).to have_http_status(:ok)
       expect(response.parsed_body['state']).to eq('disabled')
       expect(response.parsed_body['can_connect']).to be false
+    end
+
+    it 'returns disabled when a hook exists but encryption is unavailable' do
+      create(:integrations_hook, :ikas, account: account)
+      allow(Chatwoot).to receive(:encryption_configured?).and_return(false)
+
+      get "/api/v1/accounts/#{account.id}/integrations/ikas", headers: admin.create_new_auth_token, as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body['enabled']).to be true
+      expect(response.parsed_body['state']).to eq('disabled')
+      expect(response.parsed_body['can_connect']).to be false
+      expect(response.parsed_body['can_disconnect']).to be true
     end
 
     it 'returns reconnect_required for malformed hooks' do
@@ -114,6 +128,8 @@ RSpec.describe 'Ikas Integration API', type: :request do
       expect(hook.access_token).to eq('client-secret-1234')
       expect(response.body).not_to include('client-secret-1234')
       expect(response.parsed_body['store_url']).to eq('https://test-store.myikas.com')
+      expect(response.parsed_body['catalog_sync']['status']).to eq('not_synced')
+      expect(Integrations::Ikas::CatalogSyncJob).to have_been_enqueued.with(hook.id)
     end
 
     it 'does not persist invalid credentials' do
@@ -235,6 +251,8 @@ RSpec.describe 'Ikas Integration API', type: :request do
     let!(:hook) { create(:integrations_hook, :ikas, account: account) }
 
     it 'removes the ikas hook' do
+      allow(Chatwoot).to receive(:encryption_configured?).and_return(true)
+
       expect do
         delete "/api/v1/accounts/#{account.id}/integrations/ikas", headers: admin.create_new_auth_token, as: :json
       end.to change { account.hooks.where(app_id: 'ikas').count }.by(-1)
@@ -250,6 +268,30 @@ RSpec.describe 'Ikas Integration API', type: :request do
 
       expect(response).to have_http_status(:not_found)
       expect(response.parsed_body['error']).to eq(I18n.t('errors.ikas.unavailable'))
+    end
+  end
+
+  describe 'POST /api/v1/accounts/:account_id/integrations/ikas/catalog_sync' do
+    let!(:hook) { create(:integrations_hook, :ikas, account: account) }
+
+    it 'enqueues a catalog sync for the connected hook' do
+      allow(Chatwoot).to receive(:encryption_configured?).and_return(true)
+
+      post "/api/v1/accounts/#{account.id}/integrations/ikas/catalog_sync", headers: admin.create_new_auth_token, as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body['catalog_sync']['status']).to eq('not_synced')
+      expect(Integrations::Ikas::CatalogSyncJob).to have_been_enqueued.with(hook.id)
+    end
+
+    it 'does not enqueue a catalog sync when encryption is unavailable' do
+      allow(Chatwoot).to receive(:encryption_configured?).and_return(false)
+
+      post "/api/v1/accounts/#{account.id}/integrations/ikas/catalog_sync", headers: admin.create_new_auth_token, as: :json
+
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response.parsed_body['last_validation_error_code']).to eq('encryption_unavailable')
+      expect(Integrations::Ikas::CatalogSyncJob).not_to have_been_enqueued
     end
   end
 end

@@ -56,12 +56,20 @@ const buildAiAgent = overrides => ({
       allowed_labels: [],
     },
     ikas_lookup_order: { enabled: false },
+    ikas_catalog_search: {},
   },
-  available_tools: [{ key: 'human_handoff' }, { key: 'ikas_lookup_order' }],
+  available_tools: [
+    { key: 'human_handoff' },
+    { key: 'ikas_lookup_order' },
+    { key: 'ikas_catalog_search' },
+  ],
   ikas_integration: {
     feature_enabled: false,
     state: 'not_connected',
     can_connect: true,
+    catalog_sync: {
+      status: 'not_synced',
+    },
   },
   ...overrides,
 });
@@ -402,6 +410,7 @@ describe('AiAgentDetail.vue', () => {
             allowed_labels: ['vip'],
           },
           ikas_lookup_order: { enabled: false },
+          ikas_catalog_search: {},
         },
       }),
     });
@@ -440,6 +449,7 @@ describe('AiAgentDetail.vue', () => {
             allowed_labels: ['vip', 'billing'],
           },
           ikas_lookup_order: { enabled: false },
+          ikas_catalog_search: {},
         },
       }),
     });

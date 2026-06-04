@@ -21,6 +21,7 @@ const sort = ref({ sort: 'created_at', direction: 'desc' });
 const toolOptions = [
   { key: 'human_handoff', name: 'human_handoff' },
   { key: 'ikas_lookup_order', name: 'ikas_lookup_order' },
+  { key: 'ikas_catalog_search', name: 'ikas_catalog_search' },
 ];
 
 const requestParams = computed(() => ({

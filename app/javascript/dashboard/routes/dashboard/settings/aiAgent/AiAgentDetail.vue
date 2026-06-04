@@ -25,6 +25,7 @@ const defaultToolsState = () => ({
   ikas_lookup_order: {
     enabled: false,
   },
+  ikas_catalog_search: {},
 });
 
 const normalizeToolsState = toolsConfig => {
@@ -40,6 +41,7 @@ const normalizeToolsState = toolsConfig => {
     ikas_lookup_order: {
       enabled: Boolean(tools.ikas_lookup_order?.enabled),
     },
+    ikas_catalog_search: {},
   };
 };
 
@@ -230,6 +232,10 @@ const isIkasAvailable = computed(() => {
   );
 });
 
+const isIkasCatalogReady = computed(() => {
+  return ikasIntegration.value.catalog_sync?.status === 'completed';
+});
+
 function syncFormState() {
   const record = aiAgent.value;
   if (record) {
@@ -274,6 +280,7 @@ const toggleTool = toolKey => {
             ? enabled.has(toolKey)
             : formState.value.tools.ikas_lookup_order.enabled,
       },
+      ikas_catalog_search: {},
     },
   };
 };
@@ -354,6 +361,7 @@ const handleSave = async () => {
               enabled:
                 formState.value.tools.enabled.includes('ikas_lookup_order'),
             },
+            ikas_catalog_search: {},
           },
         },
       },
@@ -561,7 +569,9 @@ watch(agentId, async (newAgentId, oldAgentId) => {
                   <Switch
                     :model-value="isToolEnabled(tool.key)"
                     :disabled="
-                      tool.key === 'ikas_lookup_order' && !isIkasAvailable
+                      tool.key === 'ikas_catalog_search'
+                        ? !isIkasAvailable || !isIkasCatalogReady
+                        : tool.key === 'ikas_lookup_order' && !isIkasAvailable
                     "
                     @update:model-value="toggleTool(tool.key)"
                   />
@@ -605,19 +615,33 @@ watch(agentId, async (newAgentId, oldAgentId) => {
                 </div>
 
                 <p
-                  v-if="tool.key === 'ikas_lookup_order'"
+                  v-if="tool.key.startsWith('ikas_')"
                   class="mt-3 text-xs"
                   :class="
                     isIkasAvailable ? 'text-n-teal-11' : 'text-n-slate-11'
                   "
                 >
-                  {{
-                    isIkasAvailable
-                      ? t('AI_AGENT.TOOLS.IKAS_LOOKUP_ORDER.CONNECTED')
-                      : t('AI_AGENT.TOOLS.IKAS_LOOKUP_ORDER.UNAVAILABLE', {
-                          state: ikasIntegration.state,
-                        })
-                  }}
+                  <template v-if="tool.key === 'ikas_catalog_search'">
+                    {{
+                      isIkasAvailable && isIkasCatalogReady
+                        ? t('AI_AGENT.TOOLS.IKAS_CATALOG_SEARCH.READY')
+                        : t('AI_AGENT.TOOLS.IKAS_CATALOG_SEARCH.UNAVAILABLE', {
+                            state: ikasIntegration.state,
+                            catalogStatus:
+                              ikasIntegration.catalog_sync?.status ||
+                              'not_synced',
+                          })
+                    }}
+                  </template>
+                  <template v-else>
+                    {{
+                      isIkasAvailable
+                        ? t('AI_AGENT.TOOLS.IKAS_LOOKUP_ORDER.CONNECTED')
+                        : t('AI_AGENT.TOOLS.IKAS_LOOKUP_ORDER.UNAVAILABLE', {
+                            state: ikasIntegration.state,
+                          })
+                    }}
+                  </template>
                 </p>
               </div>
             </div>

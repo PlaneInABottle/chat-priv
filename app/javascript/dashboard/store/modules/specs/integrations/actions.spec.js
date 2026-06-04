@@ -181,6 +181,25 @@ describe('#actions', () => {
     });
   });
 
+  describe('#syncIkasCatalog', () => {
+    it('sends correct actions if API is success', async () => {
+      const data = {
+        id: 'ikas',
+        state: 'connected',
+        catalog_sync: { status: 'pending' },
+      };
+      axios.post.mockResolvedValue({ data });
+
+      await actions.syncIkasCatalog({ commit });
+
+      expect(commit.mock.calls).toEqual([
+        [types.SET_INTEGRATIONS_UI_FLAG, { isSyncingIkasCatalog: true }],
+        [types.ADD_INTEGRATION, data],
+        [types.SET_INTEGRATIONS_UI_FLAG, { isSyncingIkasCatalog: false }],
+      ]);
+    });
+  });
+
   describe('#deleteIkas', () => {
     it('sends correct actions if API is success', async () => {
       axios.delete.mockResolvedValue({

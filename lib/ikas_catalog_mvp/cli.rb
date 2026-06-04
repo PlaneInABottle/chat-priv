@@ -1,0 +1,104 @@
+# frozen_string_literal: true
+
+require 'optparse'
+require_relative '../ikas_catalog_mvp'
+
+module IkasCatalogMvp
+  class CLI
+    def self.call(argv)
+      new(argv).call
+    end
+
+    def initialize(argv)
+      @argv = argv.dup
+    end
+
+    def call
+      command = argv.shift
+      case command
+      when 'sync' then sync
+      when 'build' then build
+      when 'query' then query
+      else
+        warn usage
+        1
+      end
+    rescue Error, OptionParser::ParseError, KeyError => e
+      warn({ 'error' => e.message }.to_json)
+      1
+    end
+
+    private
+
+    attr_reader :argv
+
+    def sync
+      options = {
+        store_url: ENV['IKAS_STORE_URL'],
+        client_id: ENV['IKAS_CLIENT_ID'],
+        client_secret: ENV['IKAS_CLIENT_SECRET'],
+        graphql_url: ENV['IKAS_API_URL'],
+        output_root: ROOT_DIR.to_s
+      }
+      OptionParser.new do |parser|
+        parser.on('--store-url VALUE') { |value| options[:store_url] = value }
+        parser.on('--client-id VALUE') { |value| options[:client_id] = value }
+        parser.on('--client-secret VALUE') { |value| options[:client_secret] = value }
+        parser.on('--api-url VALUE') { |value| options[:graphql_url] = value }
+        parser.on('--output-root VALUE') { |value| options[:output_root] = value }
+      end.parse!(argv)
+
+      require_option!(options, :store_url)
+      require_option!(options, :client_id)
+      require_option!(options, :client_secret)
+
+      client = CatalogClient.new(
+        store_url: options.fetch(:store_url),
+        client_id: options.fetch(:client_id),
+        client_secret: options.fetch(:client_secret),
+        graphql_url: options[:graphql_url].to_s.empty? ? DEFAULT_GRAPHQL_URL : options[:graphql_url]
+      )
+      puts JSON.pretty_generate(RawSync.new(client: client, output_root: options.fetch(:output_root)).perform)
+      0
+    end
+
+    def build
+      options = {}
+      OptionParser.new do |parser|
+        parser.on('--snapshot-dir VALUE') { |value| options[:snapshot_dir] = value }
+        parser.on('--sqlite-path VALUE') { |value| options[:sqlite_path] = value }
+      end.parse!(argv)
+
+      require_option!(options, :snapshot_dir)
+      puts JSON.pretty_generate(SqliteBuilder.new(snapshot_dir: options.fetch(:snapshot_dir), sqlite_path: options[:sqlite_path]).build)
+      0
+    end
+
+    def query
+      options = { limit: QueryEngine::DEFAULT_LIMIT }
+      OptionParser.new do |parser|
+        parser.on('--sqlite-path VALUE') { |value| options[:sqlite_path] = value }
+        parser.on('--text VALUE') { |value| options[:text] = value }
+        parser.on('--limit VALUE') { |value| options[:limit] = value.to_i }
+      end.parse!(argv)
+
+      require_option!(options, :sqlite_path)
+      require_option!(options, :text)
+      puts JSON.pretty_generate(QueryEngine.new(sqlite_path: options.fetch(:sqlite_path)).query(options.fetch(:text), limit: options.fetch(:limit)))
+      0
+    end
+
+    def require_option!(options, key)
+      raise KeyError, "missing required option: #{key}" if options[key].to_s.empty?
+    end
+
+    def usage
+      <<~TEXT
+        Usage:
+          bin/ikas_catalog_mvp sync --store-url STORE --client-id ID --client-secret SECRET [--api-url URL] [--output-root DIR]
+          bin/ikas_catalog_mvp build --snapshot-dir DIR [--sqlite-path FILE]
+          bin/ikas_catalog_mvp query --sqlite-path FILE --text TEXT [--limit N]
+      TEXT
+    end
+  end
+end
