@@ -154,8 +154,7 @@ RSpec.describe 'Conversation Label API', type: :request do
              as: :json
 
         expect(response).to have_http_status(:success)
-        # Labels are stored with their original casing, but matched case-insensitively
-        expect(conversation.reload.label_list.map(&:downcase)).to include('support')
+        expect(conversation.reload.label_list).to contain_exactly('support')
       end
 
       it 'allows bot to clear all labels with empty array' do

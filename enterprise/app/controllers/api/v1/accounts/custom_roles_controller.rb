@@ -1,4 +1,5 @@
 class Api::V1::Accounts::CustomRolesController < Api::V1::Accounts::EnterpriseAccountsController
+  before_action :ensure_custom_roles_supported
   before_action :fetch_custom_role, only: [:show, :update, :destroy]
   before_action :check_authorization
 
@@ -27,5 +28,13 @@ class Api::V1::Accounts::CustomRolesController < Api::V1::Accounts::EnterpriseAc
 
   def fetch_custom_role
     @custom_role = Current.account.custom_roles.find_by(id: params[:id])
+  end
+
+  def ensure_custom_roles_supported
+    return if Current.account.respond_to?(:custom_roles)
+
+    return render json: [] if action_name == 'index'
+
+    head :not_found
   end
 end
