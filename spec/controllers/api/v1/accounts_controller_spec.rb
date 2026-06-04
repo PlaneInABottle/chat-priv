@@ -334,6 +334,21 @@ RSpec.describe 'Accounts API', type: :request do
         end
       end
 
+      it 'updates required conversation attributes' do
+        create(:custom_attribute_definition,
+               account: account,
+               attribute_model: 'conversation_attribute',
+               attribute_key: 'resolution_reason')
+
+        patch "/api/v1/accounts/#{account.id}",
+              params: { conversation_required_attributes: ['resolution_reason'] },
+              headers: admin.create_new_auth_token,
+              as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(account.reload.settings['conversation_required_attributes']).to eq(['resolution_reason'])
+      end
+
       it 'updates onboarding step to invite_team if onboarding step is present in account custom attributes' do
         account.update(custom_attributes: { onboarding_step: 'account_update' })
         patch "/api/v1/accounts/#{account.id}",

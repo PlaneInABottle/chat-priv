@@ -22,13 +22,16 @@ class Api::V1::Accounts::Conversations::LabelsController < Api::V1::Accounts::Co
 
     # Defensive: compact to handle any nil values in the array
     requested_labels = permitted_params[:labels].compact
-    # Use case-insensitive comparison to match how labels are actually stored
     existing_labels = Current.account.labels.where('LOWER(title) IN (?)', requested_labels.map(&:downcase)).pluck(:title)
-    existing_labels_downcased = existing_labels.map(&:downcase)
-    invalid_labels = requested_labels.reject { |label| existing_labels_downcased.include?(label.downcase) }
+    labels_by_downcased_title = existing_labels.index_by(&:downcase)
+    invalid_labels = requested_labels.reject { |label| labels_by_downcased_title.key?(label.downcase) }
 
-    return if invalid_labels.empty?
+    return render_missing_labels(invalid_labels) if invalid_labels.any?
 
+    params[:labels] = requested_labels.map { |label| labels_by_downcased_title[label.downcase] }
+  end
+
+  def render_missing_labels(invalid_labels)
     render json: {
       error: 'Labels not found',
       message: "The following labels do not exist: #{invalid_labels.join(', ')}. Bots can only use existing labels."
