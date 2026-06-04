@@ -1,34 +1,38 @@
-button:not(.reset-base),
-input[type='button']:not(.reset-base),
-input[type='reset']:not(.reset-base),
-input[type='submit']:not(.reset-base),
+// Scoped to .main-content to avoid bleeding into sidebar/settings chrome
+.main-content button:not(.reset-base),
+.main-content input[type='button']:not(.reset-base),
+.main-content input[type='reset']:not(.reset-base),
+.main-content input[type='submit']:not(.reset-base),
 .button:not(.reset-base) {
   appearance: none;
   background-color: $color-woot;
-  border: 0;
-  border-radius: $base-border-radius;
+  border: 1px solid transparent;
+  border-radius: 7px;
   color: $white;
   cursor: pointer;
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
   font-size: $font-size-small;
   -webkit-font-smoothing: antialiased;
   font-weight: $font-weight-medium;
-  line-height: 1;
-  padding: $space-one $space-two;
+  line-height: 1.4;
+  padding: 0.4375rem 0.875rem;
   text-decoration: none;
-  transition: background-color $base-duration $base-timing;
+  transition: all 0.15s ease;
   user-select: none;
   vertical-align: middle;
   white-space: nowrap;
 
   &:hover {
-    background-color: mix($black, $color-woot, 20%);
+    background-color: mix($black, $color-woot, 15%);
     color: $white;
   }
 
-  &:focus {
-    outline: $focus-outline;
-    outline-offset: $focus-outline-offset;
+  &:focus-visible {
+    outline: 2px solid transparentize($color-woot, 0.5);
+    outline-offset: 2px;
   }
 
   &:disabled {
@@ -41,10 +45,34 @@ input[type='submit']:not(.reset-base),
   }
 }
 
+// Variant specificity matched to base via .main-content nesting
+.main-content button.button--secondary,
+.main-content input.button--secondary,
+.main-content button.button--alt,
+.main-content input.button--alt,
+.button--secondary,
 .button--alt {
   background-color: transparent;
-  border: $base-border;
-  border-color: $blue;
-  color: $blue;
-  margin-bottom: $base-spacing;
+  border: 1px solid $base-border-color;
+  color: $base-font-color;
+
+  &:hover {
+    background-color: $base-background-color;
+    border-color: mix($black, $base-border-color, 15%);
+    color: $grey-7;
+  }
+}
+
+.main-content button.button--danger,
+.main-content input.button--danger,
+.button--danger {
+  background-color: transparent;
+  border: 1px solid transparentize($red, 0.7);
+  color: $red;
+
+  &:hover {
+    background-color: transparentize($red, 0.92);
+    border-color: $red;
+    color: $red;
+  }
 }

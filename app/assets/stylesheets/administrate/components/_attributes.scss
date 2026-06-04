@@ -1,11 +1,17 @@
 .attribute-label {
-  @include data-label;
   clear: left;
   float: left;
-  margin-bottom: $base-spacing;
-  margin-top: 0.25em;
+  margin-bottom: 0;
+  margin-top: 0;
+  padding: 0.5rem 1rem 0.5rem 0;
   text-align: left;
-  width: calc(16% - 1rem);
+  width: 20%;
+  min-width: 7rem;
+  max-width: 12rem;
+  color: $hint-grey;
+  font-size: $font-size-small;
+  font-weight: $font-weight-medium;
+  border-bottom: 1px solid $base-border-color;
 }
 
 .preserve-whitespace {
@@ -15,12 +21,20 @@
 
 .attribute-data {
   float: left;
-  margin-bottom: $base-spacing;
-  margin-left: 1.25rem;
-  width: calc(84% - 0.625rem);
+  margin-bottom: 0;
+  margin-left: 1rem;
+  padding: 0.5rem 0;
+  width: calc(80% - 1rem);
+  font-size: $font-size-small;
+  border-bottom: 1px solid $base-border-color;
 }
 
 .attribute--nested {
   border: $base-border;
   padding: $small-spacing;
+}
+
+// Clearfix for fieldsets containing floated attributes
+fieldset {
+  display: flow-root;
 }

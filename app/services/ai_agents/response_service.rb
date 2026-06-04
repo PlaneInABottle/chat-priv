@@ -56,8 +56,8 @@ module AiAgents
       {
         'Content-Type' => 'application/json',
         'Authorization' => "Bearer #{api_key}",
-        'HTTP-Referer' => 'https://chatwoot.com',
-        'X-Title' => 'Chatwoot AI Agent'
+        'HTTP-Referer' => 'https://www.kozmopath.com',
+        'X-Title' => 'Kozmopath AI Agent'
       }
     end
 
