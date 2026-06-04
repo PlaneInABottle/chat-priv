@@ -2,6 +2,7 @@ class Api::V1::Accounts::AiAgentToolExecutionsController < Api::V1::Accounts::Ba
   before_action :current_account
   before_action :set_ai_agent
   before_action :authorize_ai_agent
+  before_action :ensure_ai_agent_enabled
 
   def index
     @tool_execution_query = AiAgents::ToolExecutionQuery.new(scope: tool_executions_scope, params: params)

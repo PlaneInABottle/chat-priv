@@ -1,7 +1,7 @@
 require 'rails_helper'
 
 RSpec.describe 'Ai Agent Tool Executions API', type: :request do
-  let!(:account) { create(:account) }
+  let!(:account) { create(:account, settings: { ai_agent_enabled: true }) }
   let(:admin) { create(:user, account: account, role: :administrator) }
   let(:agent) { create(:user, account: account, role: :agent) }
   let(:ai_agent) { create(:ai_agent, account: account) }
@@ -22,6 +22,15 @@ RSpec.describe 'Ai Agent Tool Executions API', type: :request do
       expect(response.parsed_body['payload'].first).to include('id' => execution.id, 'tool_key' => 'human_handoff',
                                                                'arguments' => { 'reason' => 'Need help' })
       expect(response.parsed_body['meta']['filters']).to include('sort' => 'created_at', 'direction' => 'desc', 'limit' => 25)
+    end
+
+    it 'returns forbidden when AI Agent is disabled for the account' do
+      account.update!(ai_agent_enabled: false)
+
+      get "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/tool_executions", headers: admin.create_new_auth_token, as: :json
+
+      expect(response).to have_http_status(:forbidden)
+      expect(response.parsed_body['error']).to eq('AI Agent is not enabled for this account')
     end
 
     it 'denies non-administrator users through the parent AI agent policy' do

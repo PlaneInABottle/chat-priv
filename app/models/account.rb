@@ -65,8 +65,7 @@ class Account < ApplicationRecord
   store_accessor :settings, :reporting_timezone
   store_accessor :settings, :keep_pending_on_bot_failure
   store_accessor :settings, :captain_auto_resolve_mode
-  store_accessor :settings, :ai_agent_model, :ai_agent_conversation_limit
-  attr_accessor :ai_agent_settings
+  store_accessor :settings, :ai_agent_enabled, :ai_agent_model, :ai_agent_conversation_limit
 
   include AccountCaptainAutoResolve
 
@@ -164,6 +163,7 @@ class Account < ApplicationRecord
 
   def ai_agent_settings
     {
+      enabled: ai_agent_enabled?,
       model: ai_agent_model,
       conversation_limit: ai_agent_conversation_limit
     }
@@ -172,8 +172,14 @@ class Account < ApplicationRecord
   def ai_agent_settings=(value)
     return unless value.is_a?(Hash)
 
-    self.ai_agent_model = value[:model] if value.key?(:model)
-    self.ai_agent_conversation_limit = value[:conversation_limit] if value.key?(:conversation_limit)
+    settings = value.with_indifferent_access
+    self.ai_agent_enabled = settings[:enabled] if settings.key?(:enabled)
+    self.ai_agent_model = settings[:model] if settings.key?(:model)
+    self.ai_agent_conversation_limit = settings[:conversation_limit] if settings.key?(:conversation_limit)
+  end
+
+  def ai_agent_enabled?
+    ActiveModel::Type::Boolean.new.cast(ai_agent_enabled) == true
   end
 
   def ai_agent_model
