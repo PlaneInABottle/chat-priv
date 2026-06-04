@@ -12,6 +12,12 @@
   </dl>
   <h2 class="text-lg font-medium mb-2">Input schema</h2>
   <pre class="overflow-auto rounded bg-slate-100 p-4"><code><%= JSON.pretty_generate(@tool_definition.input_schema) %></code></pre>
+  <h2 class="text-lg font-medium mt-6 mb-2">Tool policy prompt</h2>
+  <% if @tool_policy.present? %>
+    <pre class="overflow-auto rounded bg-slate-100 p-4"><code><%= @tool_policy %></code></pre>
+  <% else %>
+    <p>No extra policy prompt configured for this tool.</p>
+  <% end %>
   <h2 class="text-lg font-medium mt-6 mb-2">Service source</h2>
   <% if @source_code.present? %>
     <pre class="overflow-auto rounded bg-slate-100 p-4"><code><%= @source_code %></code></pre>
