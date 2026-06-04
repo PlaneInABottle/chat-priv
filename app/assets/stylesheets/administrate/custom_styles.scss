@@ -21,3 +21,89 @@
 .feature-container {
   max-width: 100rem;
 }
+
+.ai-agent-settings-panel {
+  background: $color-white;
+  border: 1px solid $color-border;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba($color-heading, 0.04);
+  overflow: hidden;
+  width: 100%;
+}
+
+.ai-agent-settings-panel__header {
+  align-items: center;
+  background: $color-background-light;
+  border-bottom: 1px solid $color-border-light;
+  display: flex;
+  gap: $space-normal;
+  justify-content: space-between;
+  padding: $space-slab $space-normal;
+}
+
+.ai-agent-settings-panel__title {
+  color: $color-heading;
+  font-size: $font-size-small;
+  font-weight: $font-weight-bold;
+}
+
+.ai-agent-settings-toggle {
+  align-items: center;
+  color: $color-heading;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: $font-size-small;
+  font-weight: $font-weight-medium;
+  gap: $space-small;
+  margin: 0;
+  white-space: nowrap;
+
+  input {
+    height: $space-normal;
+    margin: 0;
+    width: $space-normal;
+  }
+}
+
+.ai-agent-settings-panel__body {
+  align-items: start;
+  display: grid;
+  gap: $space-normal;
+  grid-template-columns: minmax(0, 1fr) 10rem;
+  padding: $space-normal;
+}
+
+.ai-agent-settings-control {
+  min-width: 0;
+
+  label {
+    color: $color-heading;
+    font-size: $font-size-small;
+    font-weight: $font-weight-bold;
+    margin-bottom: $space-smaller;
+  }
+
+  input[type='number'],
+  select {
+    background-color: $color-white;
+    border: 1px solid $color-border;
+    border-radius: 6px;
+    color: $color-heading;
+    min-height: 2.25rem;
+    padding: $space-small $space-slab;
+    width: 100%;
+  }
+}
+
+.ai-agent-settings-control__hint {
+  color: $hint-grey;
+  display: block;
+  font-size: $font-size-mini;
+  margin-top: $space-smaller;
+}
+
+@media (max-width: 62rem) {
+  .ai-agent-settings-panel__body {
+    grid-template-columns: 1fr;
+  }
+}

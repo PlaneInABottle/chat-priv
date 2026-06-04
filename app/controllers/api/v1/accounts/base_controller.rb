@@ -12,4 +12,10 @@ class Api::V1::Accounts::BaseController < Api::BaseController
 
     render json: { error: 'API access is not enabled for this account' }, status: :forbidden
   end
+
+  def ensure_ai_agent_enabled
+    return if Current.account.ai_agent_enabled?
+
+    render json: { error: 'AI Agent is not enabled for this account' }, status: :forbidden
+  end
 end

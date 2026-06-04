@@ -1,7 +1,7 @@
 require 'rails_helper'
 
 RSpec.describe 'Ai Agent Test Conversations API', type: :request do
-  let!(:account) { create(:account) }
+  let!(:account) { create(:account, settings: { ai_agent_enabled: true }) }
   let(:admin) { create(:user, account: account, role: :administrator) }
   let(:agent) { create(:user, account: account, role: :agent) }
   let(:ai_agent) { create(:ai_agent, account: account) }
@@ -54,6 +54,19 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
         json = response.parsed_body
         expect(json.length).to eq(1)
         expect(json.first['id']).to eq(local_conversation.id)
+      end
+    end
+
+    context 'when AI Agent is disabled for the account' do
+      before { account.update!(ai_agent_enabled: false) }
+
+      it 'returns forbidden for an authenticated administrator' do
+        get "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations",
+            headers: admin.create_new_auth_token,
+            as: :json
+
+        expect(response).to have_http_status(:forbidden)
+        expect(response.parsed_body['error']).to eq('AI Agent is not enabled for this account')
       end
     end
 

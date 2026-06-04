@@ -1,6 +1,7 @@
 class Api::V1::Accounts::AiAgentTestConversationsController < Api::V1::Accounts::BaseController
   before_action :current_account
   before_action :check_authorization
+  before_action :ensure_ai_agent_enabled
   before_action :set_ai_agent
   before_action :set_test_conversation, only: [:show, :destroy, :send_message]
 

@@ -50,9 +50,10 @@ help_center:
 captain:
   name: 'Captain'
   description: 'Enable AI-powered conversations with your customers.'
-  enabled: true
+  enabled: <%= (ChatwootHub.pricing_plan != 'community') %>
   icon: 'icon-captain'
   config_key: 'captain'
+  enterprise: true
 
 # ------- Communication Channels ------- #
 live_chat:

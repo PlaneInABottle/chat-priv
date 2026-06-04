@@ -406,6 +406,10 @@ RSpec.describe Account do
       expect(account.ai_agent_conversation_limit).to eq(0)
     end
 
+    it 'is disabled by default' do
+      expect(account.ai_agent_enabled?).to be(false)
+    end
+
     it 'allows explicit model to override default' do
       account.update!(ai_agent_model: 'openai/gpt-4o')
       expect(account.reload.ai_agent_model).to eq('openai/gpt-4o')
@@ -416,21 +420,29 @@ RSpec.describe Account do
       expect(account.reload.ai_agent_conversation_limit).to eq(100)
     end
 
+    it 'casts explicit enabled values to boolean' do
+      account.update!(ai_agent_enabled: 'true')
+      expect(account.reload.ai_agent_enabled?).to be(true)
+    end
+
     it 'returns ai_agent_settings as a hash' do
       expect(account.ai_agent_settings).to eq(
+        enabled: false,
         model: 'deepseek/deepseek-v4-flash',
         conversation_limit: 0
       )
     end
 
     it 'round-trips ai_agent_settings through virtual attribute' do
-      account.ai_agent_settings = { model: 'anthropic/claude-3.5-sonnet', conversation_limit: 50 }
+      account.ai_agent_settings = { enabled: true, model: 'anthropic/claude-3.5-sonnet', conversation_limit: 50 }
       account.save!
       account.reload
 
+      expect(account.ai_agent_enabled?).to be(true)
       expect(account.ai_agent_model).to eq('anthropic/claude-3.5-sonnet')
       expect(account.ai_agent_conversation_limit).to eq(50)
       expect(account.ai_agent_settings).to eq(
+        enabled: true,
         model: 'anthropic/claude-3.5-sonnet',
         conversation_limit: 50
       )
@@ -444,6 +456,7 @@ RSpec.describe Account do
 
       expect(account.settings['auto_resolve_after']).to eq(30)
       expect(account.settings['auto_resolve_message']).to eq('Hello')
+      expect(account.ai_agent_enabled?).to be(false)
       expect(account.ai_agent_model).to eq('openai/gpt-4o-mini')
       expect(account.ai_agent_conversation_limit).to eq(25)
     end

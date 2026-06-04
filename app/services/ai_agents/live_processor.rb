@@ -37,7 +37,7 @@ class AiAgents::LiveProcessor
   end
 
   def eligible_message?
-    ai_agent&.enabled? && eligible_customer_message?
+    ai_agent&.enabled? && ai_agent.account.ai_agent_enabled? && eligible_customer_message?
   end
 
   def eligible_customer_message?

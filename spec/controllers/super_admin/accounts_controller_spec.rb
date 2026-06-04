@@ -191,12 +191,13 @@ RSpec.describe 'Super Admin accounts API', type: :request do
     end
 
     context 'when it is an authenticated user' do
-      it 'persists ai_agent_model and ai_agent_conversation_limit into settings' do
+      it 'persists AI Agent settings into account settings' do
         sign_in(super_admin, scope: :super_admin)
         patch "/super_admin/accounts/#{account.id}", params: {
           account: {
             name: account.name,
             ai_agent_settings: {
+              enabled: 'true',
               model: 'anthropic/claude-3.5-sonnet',
               conversation_limit: 100
             }
@@ -205,6 +206,7 @@ RSpec.describe 'Super Admin accounts API', type: :request do
 
         expect(response).to have_http_status(:redirect)
         account.reload
+        expect(account.ai_agent_enabled?).to be(true)
         expect(account.ai_agent_model).to eq('anthropic/claude-3.5-sonnet')
         expect(account.ai_agent_conversation_limit).to eq(100)
       end
@@ -216,6 +218,7 @@ RSpec.describe 'Super Admin accounts API', type: :request do
           account: {
             name: account.name,
             ai_agent_settings: {
+              enabled: 'false',
               model: 'openai/gpt-4o-mini',
               conversation_limit: 25
             }
@@ -226,6 +229,7 @@ RSpec.describe 'Super Admin accounts API', type: :request do
         account.reload
         expect(account.settings['auto_resolve_after']).to eq(30)
         expect(account.settings['auto_resolve_message']).to eq('Hello')
+        expect(account.ai_agent_enabled?).to be(false)
         expect(account.ai_agent_model).to eq('openai/gpt-4o-mini')
         expect(account.ai_agent_conversation_limit).to eq(25)
       end

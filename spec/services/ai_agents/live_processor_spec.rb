@@ -1,7 +1,7 @@
 require 'rails_helper'
 
 RSpec.describe AiAgents::LiveProcessor do
-  let(:account) { create(:account) }
+  let(:account) { create(:account, settings: { ai_agent_enabled: true }) }
   let!(:vip_label) { create(:label, account: account, title: 'vip') }
   let(:ai_agent) { create(:ai_agent, :with_human_handoff_tool, account: account, enabled: true) }
   let(:inbox) { create(:inbox, account: account) }
@@ -110,6 +110,23 @@ RSpec.describe AiAgents::LiveProcessor do
     expect(adapter).not_to receive(:perform)
 
     expect(described_class.new(message: message, adapter: adapter).perform).to be_nil
+  end
+
+  it 'does not execute when AI Agent is disabled for the account' do
+    account.update!(ai_agent_enabled: false)
+    message = create(:message,
+                     account: account,
+                     inbox: inbox,
+                     conversation: conversation,
+                     message_type: 'incoming',
+                     sender: conversation.contact,
+                     content: 'Hello')
+    outgoing_messages = conversation.messages.where(message_type: 'outgoing', private: false, sender: ai_agent.agent_bot)
+
+    expect(adapter).not_to receive(:perform)
+    expect do
+      described_class.new(message: message, adapter: adapter).perform
+    end.not_to change(outgoing_messages, :count)
   end
 
   it 'does not execute for outgoing bot messages' do

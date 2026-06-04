@@ -21,6 +21,7 @@ module AiAgents
 
     def perform
       return nil unless @ai_agent.enabled?
+      return nil unless @account.ai_agent_enabled?
 
       adapter.perform(messages: normalized_messages, tools: [], tool_choice: 'auto')[:assistant_text]
     rescue StandardError => e

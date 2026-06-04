@@ -37,6 +37,12 @@ class AiAgent < ApplicationRecord
   after_create :create_linked_agent_bot
   before_destroy :destroy_linked_agent_bot
 
+  def conversation_count
+    return 0 if agent_bot_id.blank?
+
+    Message.where(account_id: account_id, sender_type: 'AgentBot', sender_id: agent_bot_id).distinct.count(:conversation_id)
+  end
+
   private
 
   def inbox_ids_conflict
@@ -44,8 +50,7 @@ class AiAgent < ApplicationRecord
     return if target_ids.empty?
 
     conflicts = AgentBotInbox.where.not(agent_bot_id: agent_bot_id)
-                             .where(inbox_id: target_ids)
-                             .exists?
+                             .exists?(inbox_id: target_ids)
 
     errors.add(:inbox_ids, 'already assigned to another agent bot') if conflicts
   end
