@@ -78,7 +78,7 @@ class AiAgents::LiveProcessor
   def latest_boundary_message
     conversation.messages
                 .where(private: false, message_type: :outgoing, sender_type: 'AgentBot', sender_id: ai_agent.agent_bot_id)
-                .order(id: :desc)
+                .reorder(id: :desc)
                 .first
   end
 

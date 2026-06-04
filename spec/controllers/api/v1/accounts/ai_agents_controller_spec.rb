@@ -91,7 +91,7 @@ RSpec.describe 'Ai Agents API', type: :request do
         expect(json['agent_bot']['bot_type']).to eq('ai')
         expect(json['agent_bot']['inbox_ids']).to include(inbox.id)
         expect(json['tools_config']).to include('enabled' => ['human_handoff'])
-        expect(json['available_tools'].map { |tool| tool['key'] }).to match_array(%w[human_handoff ikas_lookup_order])
+        expect(json['available_tools'].map { |tool| tool['key'] }).to match_array(%w[human_handoff ikas_lookup_order ikas_catalog_search])
         expect(json['ikas_integration']).to include('feature_enabled', 'state', 'can_connect')
       end
 

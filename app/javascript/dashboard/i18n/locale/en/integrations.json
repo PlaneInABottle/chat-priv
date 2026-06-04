@@ -396,6 +396,19 @@
       "RECONNECT_REQUIRED": "Your existing ikas connection needs attention. Reconnect with valid credentials or disconnect it.",
       "CONNECTED_STORE": "Connected store: {storeHost}",
       "TOOL_CONTEXT_NOTE": "This page only configures the base account connection. sales_channel_id and other tool-specific settings are intentionally out of scope for v1 in Kozmpath.",
+      "CATALOG": {
+        "TITLE": "Catalog sync",
+        "STATUS": "Status: {status}",
+        "NOT_SYNCED": "not synced",
+        "LAST_SYNCED_AT": "Last synced: {time}",
+        "PRODUCTS": "Products",
+        "CATEGORIES": "Categories",
+        "OPTION_SETS": "Option sets",
+        "ITEMS": "Search items",
+        "SYNC_BUTTON": "Sync catalog",
+        "SYNC_STARTED": "Catalog sync started",
+        "SYNC_ERROR": "There was an error starting catalog sync."
+      },
       "DELETE": {
         "TITLE": "Disconnect ikas",
         "MESSAGE": "Are you sure you want to disconnect the ikas integration?"

@@ -38,6 +38,7 @@ class Integrations::Hook < ApplicationRecord
 
   belongs_to :account
   belongs_to :inbox, optional: true
+  has_many :ikas_catalog_snapshots, dependent: :destroy_async, foreign_key: :integrations_hook_id, inverse_of: :integrations_hook
   has_secure_token :access_token
 
   enum hook_type: { account: 0, inbox: 1 }
