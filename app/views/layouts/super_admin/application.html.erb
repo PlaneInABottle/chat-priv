@@ -19,7 +19,7 @@ By default, it renders:
   <meta name="ROBOTS" content="NOODP">
   <meta name="viewport" content="initial-scale=1">
   <title>
-    <%= content_for(:title) %> - <%= application_title %>
+    <%= content_for(:title) %> - Kozmopath
   </title>
   <%= render "stylesheet" %>
   <%= vite_client_tag %>
@@ -30,7 +30,7 @@ By default, it renders:
   <%= render "icons" %>
   <div class="flex w-full h-full">
     <%= render "navigation" -%>
-    <main class="w-full overflow-auto" role="main">
+    <main class="main-content w-full overflow-auto" role="main">
       <%= render "flashes" -%>
       <%= yield %>
     </main>

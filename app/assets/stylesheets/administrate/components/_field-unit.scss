@@ -1,32 +1,92 @@
 .field-unit {
   @include administrate-clearfix;
-  align-items: center;
+  align-items: flex-start;
   display: flex;
-  margin-bottom: $base-spacing;
+  margin-bottom: 0.75rem;
   position: relative;
   width: 100%;
 }
 
 .field-unit__label {
   float: left;
-  margin-left: 0.625rem;
+  margin-left: 0;
   text-align: right;
-  width: calc(15% - 0.625rem);
+  width: 20%;
+  min-width: 7rem;
+  max-width: 12rem;
+  padding: 0.5rem 1rem 0.5rem 0;
+
+  label {
+    color: $hint-grey;
+    font-size: $font-size-small;
+    font-weight: $font-weight-medium;
+  }
 }
 
 .field-unit__field {
   float: left;
-  margin-left: 1.25rem;
-  max-width: 31.15rem;
+  margin-left: 1rem;
+  max-width: 32rem;
   width: 100%;
+
+  input[type='text'],
+  input[type='email'],
+  input[type='password'],
+  input[type='number'],
+  input[type='search'],
+  input[type='url'],
+  input[type='tel'],
+  select,
+  textarea {
+    background: $white;
+    border: 1px solid $base-border-color;
+    border-radius: 7px;
+    color: $grey-7;
+    font-size: $font-size-small;
+    padding: 0.5rem 0.75rem;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    width: 100%;
+
+    &:hover {
+      border-color: mix($black, $base-border-color, 15%);
+    }
+
+    &:focus {
+      border-color: $action-color;
+      box-shadow: 0 0 0 3px transparentize($action-color, 0.85);
+      outline: none;
+    }
+
+    &:disabled {
+      background: $grey-0;
+      color: $hint-grey;
+      cursor: not-allowed;
+    }
+  }
+
+  select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8.5L1 3.5h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 0.625rem;
+    padding-right: 2rem;
+  }
+
+  textarea {
+    resize: vertical;
+    min-height: 5rem;
+  }
 }
 
 .field-unit--nested {
-  border: $base-border;
-  margin-left: 7.5%;
+  border: 1px solid $base-border-color;
+  border-radius: 7px;
+  margin-left: 0;
   max-width: 37.5rem;
   padding: $small-spacing;
   width: 100%;
+  background: $grey-0;
 
   .field-unit__field {
     width: 100%;

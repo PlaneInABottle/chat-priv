@@ -63,7 +63,7 @@ RSpec.describe 'Super Admin AI Agent Tools', type: :request do
 
     get '/super_admin/ai_agent_tools', params: { account_id: account.id }
 
-    expect(response.body).to include('Account filter', 'Executed', 'Acme')
+    expect(response.body).to include('Account', 'Executed', 'Acme')
   end
 
   it 'keeps settings navigation open for registry pages' do

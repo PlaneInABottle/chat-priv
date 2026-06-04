@@ -1,14 +1,14 @@
 .main-content {
   font-size: $font-size-default;
-  left: 21rem;
-  position: absolute;
-  right: 0;
-  top: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
 }
 
 .main-content__body {
   font-size: $font-size-small;
-  padding: $space-two;
+  padding: $space-two $space-two 2rem;
+  flex: 1;
 
   table {
     font-size: $font-size-small;
@@ -19,17 +19,29 @@
   }
 }
 
+.main-content__body--flush {
+  padding-left: 0;
+  padding-right: 0;
+
+  > .pagination {
+    padding-left: $space-two;
+    padding-right: $space-two;
+  }
+}
+
 .main-content__header {
   align-items: center;
   background-color: $color-white;
   border-bottom: 1px solid $color-border;
   display: flex;
-  min-height: 3.5rem;
-  padding: $space-small $space-normal;
+  flex-shrink: 0;
+  min-height: 3.25rem;
+  padding: $space-small $space-medium;
 }
 
 .main-content__page-title {
-  font-size: $font-size-medium;
-  font-weight: $font-weight-medium;
+  font-size: $font-size-small;
+  font-weight: $font-weight-bold;
+  color: $color-heading;
   margin-right: auto;
 }

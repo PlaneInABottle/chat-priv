@@ -1,84 +1,124 @@
+<% content_for(:title) do %>
+  AI Agent Tools
+<% end %>
+
 <section class="main-content__body">
-  <div class="flex items-center justify-between mb-6">
-    <h1 class="text-2xl font-medium text-n-slate-12">AI Agent Tools</h1>
+  <div class="flex items-center justify-between mb-5">
+    <h1 class="text-lg font-semibold text-slate-900">AI Agent Tools</h1>
     <div class="flex items-center gap-2">
-      <%= link_to 'Prompt preview', super_admin_ai_agent_prompt_preview_path, class: 'button' %>
-      <%= link_to 'View all execution logs', super_admin_ai_agent_tool_executions_path, class: 'button' %>
+      <%= link_to 'Prompt Preview', super_admin_ai_agent_prompt_preview_path, class: 'button button--secondary' %>
+      <%= link_to 'Execution Logs', super_admin_ai_agent_tool_executions_path, class: 'button button--secondary' %>
     </div>
   </div>
-  <%= form_with url: super_admin_ai_agent_tools_path, method: :get, local: true, class: 'mb-6' do %>
-    <label for="account_id" class="font-medium mr-2">Account filter</label>
-    <%= select_tag :account_id, options_for_select([['All accounts', '']] + @account_filter_options, params[:account_id]), onchange: 'this.form.submit()' %>
+  <%= form_with url: super_admin_ai_agent_tools_path, method: :get, local: true, class: 'mb-5' do %>
+    <div class="flex items-center gap-2">
+      <label for="account_id" class="text-sm font-medium text-slate-700">Account</label>
+      <div class="w-60">
+        <%= select_tag :account_id,
+                       options_for_select([['All accounts', '']] + @account_filter_options, params[:account_id]),
+                       onchange: 'this.form.submit()',
+                       class: 'super-admin-select' %>
+      </div>
+    </div>
   <% end %>
   <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
     <% %w[executed error rejected].each do |status| %>
-      <div class="outline outline-1 outline-n-container p-4 rounded-lg shadow-sm">
-        <p class="text-n-slate-11 mb-1"><%= status.titleize %></p>
-        <p class="text-2xl font-medium"><%= @analytics[status] || 0 %></p>
+      <div class="border border-slate-200 p-4 rounded-lg shadow-sm bg-white">
+        <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1"><%= status.titleize %></p>
+        <p class="text-2xl font-semibold text-slate-900"><%= @analytics[status] || 0 %></p>
       </div>
     <% end %>
   </div>
-  <table class="w-full text-left border-collapse">
-    <thead>
-      <tr>
-        <th>Key</th>
-        <th>Name</th>
-        <th>Description</th>
-        <th>Mode</th>
-        <th>Default</th>
-        <th>Integration</th>
-        <th>Terminal</th>
-        <th>Service</th>
-      </tr>
-    </thead>
-    <tbody>
-      <% @tool_definitions.each do |tool| %>
-        <tr>
-          <td><%= link_to tool.key, super_admin_ai_agent_tool_path(tool.key), class: 'text-blue-600 underline' %></td>
-          <td><%= tool.name %></td>
-          <td><%= tool.description %></td>
-          <td><%= tool.mode_support %></td>
-          <td><%= AiAgents::Config::DEFAULT_ENABLED_TOOL_KEYS.include?(tool.key) ? 'Yes' : 'No' %></td>
-          <td><%= tool.requires_integration_app_id.presence || 'None' %></td>
-          <td><%= tool.terminal ? 'Yes' : 'No' %></td>
-          <td><%= tool.service_class %></td>
-        </tr>
-      <% end %>
-    </tbody>
-  </table>
-  <h2 class="text-lg font-medium mt-8 mb-3">Recent executions</h2>
-  <% if @recent_executions.empty? %>
-    <p>No tool executions yet.</p>
-  <% else %>
-    <table class="w-full text-left border-collapse">
+  <div class="border border-slate-200 rounded-lg overflow-hidden bg-white mb-6">
+    <table class="w-full text-left">
       <thead>
         <tr>
-          <th>Account</th>
-          <th>Tool</th>
-          <th>Status</th>
+          <th>Key</th>
+          <th>Name</th>
+          <th>Description</th>
           <th>Mode</th>
-          <th>Conversation</th>
-          <th>Created</th>
+          <th>Default</th>
+          <th>Integration</th>
+          <th>Terminal</th>
+          <th>Service</th>
         </tr>
       </thead>
       <tbody>
-        <% @recent_executions.each do |execution| %>
+        <% @tool_definitions.each do |tool| %>
           <tr>
-            <td><%= execution.account.name %></td>
-            <td><%= execution.tool_key %></td>
-            <td><%= execution.status %></td>
-            <td><%= execution.mode %></td>
+            <td><%= link_to tool.key, super_admin_ai_agent_tool_path(tool.key), class: 'text-woot-500 hover:text-woot-700 font-medium' %></td>
+            <td class="font-medium text-slate-800"><%= tool.name %></td>
+            <td class="text-slate-500"><%= tool.description %></td>
+            <td><%= tool.mode_support %></td>
             <td>
-              <% if execution.conversation %>
-                <%= link_to execution.conversation.display_id, app_account_conversation_url(account_id: execution.account_id, id: execution.conversation.display_id), class: 'text-blue-600 underline' %>
+              <% if AiAgents::Config::DEFAULT_ENABLED_TOOL_KEYS.include?(tool.key) %>
+                <span class="inline-flex items-center text-xs font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded">Yes</span>
               <% else %>
-                None
+                <span class="text-slate-400">No</span>
               <% end %>
             </td>
-            <td><%= l(execution.created_at, format: :short) %></td>
+            <td><%= tool.requires_integration_app_id.presence || 'None' %></td>
+            <td>
+              <% if tool.terminal %>
+                <span class="inline-flex items-center text-xs font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded">Yes</span>
+              <% else %>
+                <span class="text-slate-400">No</span>
+              <% end %>
+            </td>
+            <td class="text-slate-500 font-mono text-xs"><%= tool.service_class %></td>
           </tr>
         <% end %>
       </tbody>
     </table>
+  </div>
+  <h2 class="text-base font-semibold text-slate-900 mb-3">Recent executions</h2>
+  <% if @recent_executions.empty? %>
+    <div class="border border-slate-200 rounded-lg p-8 text-center bg-white">
+      <p class="text-sm text-slate-500">No tool executions yet.</p>
+    </div>
+  <% else %>
+    <div class="border border-slate-200 rounded-lg overflow-hidden bg-white">
+      <table class="w-full text-left">
+        <thead>
+          <tr>
+            <th>Account</th>
+            <th>Tool</th>
+            <th>Status</th>
+            <th>Mode</th>
+            <th>Conversation</th>
+            <th>Created</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @recent_executions.each do |execution| %>
+            <tr>
+              <td class="font-medium text-slate-800"><%= execution.account.name %></td>
+              <td><%= execution.tool_key %></td>
+              <td>
+                <% case execution.status %>
+                <% when 'executed' %>
+                  <span class="inline-flex items-center text-xs font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded"><%= execution.status %></span>
+                <% when 'error' %>
+                  <span class="inline-flex items-center text-xs font-medium text-red-700 bg-red-50 px-2 py-0.5 rounded"><%= execution.status %></span>
+                <% when 'rejected' %>
+                  <span class="inline-flex items-center text-xs font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded"><%= execution.status %></span>
+                <% else %>
+                  <span class="text-slate-500"><%= execution.status %></span>
+                <% end %>
+              </td>
+              <td><%= execution.mode %></td>
+              <td>
+                <% if execution.conversation %>
+                  <%= link_to execution.conversation.display_id, app_account_conversation_url(account_id: execution.account_id, id: execution.conversation.display_id), class: 'text-woot-500 hover:text-woot-700 font-medium' %>
+                <% else %>
+                  <span class="text-slate-400">None</span>
+                <% end %>
+              </td>
+              <td class="text-slate-500"><%= l(execution.created_at, format: :short) %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
   <% end %>
 </section>

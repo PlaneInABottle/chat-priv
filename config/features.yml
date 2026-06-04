@@ -149,7 +149,7 @@
   enabled: false
   premium: true
 - name: chatwoot_v4
-  display_name: Chatwoot V4
+  display_name: Kozmopath V4
   enabled: true
 - name: captain_v1_action_classifier
   display_name: Captain V1 Action Classifier
@@ -157,7 +157,7 @@
   premium: true
   chatwoot_internal: true
 - name: contact_chatwoot_support_team
-  display_name: Contact Chatwoot Support Team
+  display_name: Contact Kozmopath Support Team
   enabled: true
   chatwoot_internal: true
 - name: shopify_integration

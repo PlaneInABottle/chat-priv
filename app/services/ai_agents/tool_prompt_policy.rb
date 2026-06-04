@@ -15,7 +15,7 @@ class AiAgents::ToolPromptPolicy
   IKAS_ORDER_RULES = <<~PROMPT
     Order lookup tool rules:
     - Use `ikas_lookup_order` before answering questions about order status, shipment, cargo, tracking number, tracking link, payment status, or package fulfillment.
-    - You may call it with an order number, email, or phone number the customer provided. If none is provided, call it with `{}` so it can use the current Chatwoot contact identifiers.
+    - You may call it with an order number, email, or phone number the customer provided. If none is provided, call it with `{}` so it can use the current conversation contact identifiers.
     - Answer only from the order lookup tool result. Do not invent cargo company, tracking number, tracking link, order status, payment status, package status, dates, or totals.
     - If the result_type is `needs_identifier`, ask for order number, phone number, or email address.
     - If the result_type is `clarify_order`, ask which returned order number the customer means.
