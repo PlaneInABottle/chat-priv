@@ -10,6 +10,7 @@ class SuperAdmin::AiAgentToolsController < SuperAdmin::ApplicationController
     @tool_definition = AiAgents::ToolRegistry.find(params[:id])
     return head :not_found unless @tool_definition
 
+    @tool_policy = AiAgents::ToolPromptPolicy.new([@tool_definition.key]).instructions
     @source_code = service_source(@tool_definition)
   end
 

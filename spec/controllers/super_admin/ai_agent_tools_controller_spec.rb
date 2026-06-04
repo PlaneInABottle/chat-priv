@@ -29,6 +29,16 @@ RSpec.describe 'Super Admin AI Agent Tools', type: :request do
     expect(response.body).not_to include('<textarea')
   end
 
+  it 'shows tool policy prompt text when a tool has platform rules' do
+    sign_in(super_admin, scope: :super_admin)
+
+    get '/super_admin/ai_agent_tools/ikas_catalog_search'
+
+    expect(response).to have_http_status(:success)
+    expect(response.body).to include('Tool policy prompt', 'Catalog tool rules')
+    expect(response.body).to include('Do not mention a price currency when price.currency is blank')
+  end
+
   it 'returns not found for unknown tools' do
     sign_in(super_admin, scope: :super_admin)
 

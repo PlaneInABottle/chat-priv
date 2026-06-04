@@ -709,6 +709,7 @@ Rails.application.routes.draw do
       end
       resources :ai_agent_tools, only: [:index, :show]
       resources :ai_agent_tool_executions, only: [:index]
+      resource :ai_agent_prompt_preview, only: [:show]
 
       # resources that doesn't appear in primary navigation in super admin
       resources :account_users, only: [:new, :create, :show, :destroy]
