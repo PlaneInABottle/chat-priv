@@ -65,6 +65,27 @@ RSpec.describe AiAgents::ToolExecutor do
     expect(AiAgentToolExecution.last).to have_attributes(status: 'executed', tool_key: 'human_handoff')
   end
 
+  it 'logs test conversation tool executions without a live conversation link' do
+    test_conversation = create(:ai_agent_test_conversation, account: account, ai_agent: ai_agent)
+    test_executor = described_class.new(
+      ai_agent: ai_agent,
+      account: account,
+      mode: :test,
+      context: { conversation: test_conversation }
+    )
+
+    result = test_executor.execute(tool_call(arguments: handoff_args))
+
+    expect(result.status).to eq('executed')
+    expect(AiAgentToolExecution.last).to have_attributes(
+      status: 'executed',
+      mode: 'test',
+      tool_key: 'human_handoff',
+      conversation_id: nil,
+      message_id: nil
+    )
+  end
+
   it 'logs service error results' do
     stub_handoff_service(result: { status: 'error', error_code: 'handoff_failed', raw_response: 'secret' })
 
