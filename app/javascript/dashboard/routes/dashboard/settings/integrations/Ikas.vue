@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useStore } from 'dashboard/composables/store';
 import { useAlert } from 'dashboard/composables';
@@ -19,6 +19,7 @@ const form = ref({
   clientSecret: '',
 });
 const errorMessage = ref('');
+const catalogPollTimer = ref(null);
 
 const syncFormWithResponse = response => {
   form.value.storeUrl = response?.store_url || '';
@@ -47,12 +48,60 @@ const isConnectedState = computed(
 const isSubmitting = computed(
   () => uiFlags.value.isCreatingIkas || uiFlags.value.isUpdatingIkas
 );
+const catalogSync = computed(() => integration.value.catalog_sync || {});
+const isCatalogSyncActive = computed(() =>
+  ['pending', 'syncing'].includes(catalogSync.value.status)
+);
+const isSyncingCatalog = computed(
+  () => uiFlags.value.isSyncingIkasCatalog || isCatalogSyncActive.value
+);
+const catalogCounts = computed(() => [
+  {
+    key: 'products',
+    label: t('INTEGRATION_SETTINGS.IKAS.CATALOG.PRODUCTS'),
+    value: catalogSync.value.products_count || 0,
+  },
+  {
+    key: 'categories',
+    label: t('INTEGRATION_SETTINGS.IKAS.CATALOG.CATEGORIES'),
+    value: catalogSync.value.categories_count || 0,
+  },
+  {
+    key: 'option_sets',
+    label: t('INTEGRATION_SETTINGS.IKAS.CATALOG.OPTION_SETS'),
+    value: catalogSync.value.option_sets_count || 0,
+  },
+  {
+    key: 'items',
+    label: t('INTEGRATION_SETTINGS.IKAS.CATALOG.ITEMS'),
+    value: catalogSync.value.catalog_items_count || 0,
+  },
+]);
 
 const initializeIkasIntegration = async () => {
   await store.dispatch('integrations/get');
   const response = await store.dispatch('integrations/showIkas');
   syncFormWithResponse(response);
   integrationLoaded.value = true;
+};
+
+const stopCatalogPolling = () => {
+  if (catalogPollTimer.value) {
+    clearTimeout(catalogPollTimer.value);
+    catalogPollTimer.value = null;
+  }
+};
+
+const pollCatalogSyncStatus = (remainingAttempts = 20) => {
+  stopCatalogPolling();
+  if (remainingAttempts <= 0) return;
+
+  catalogPollTimer.value = setTimeout(async () => {
+    const response = await store.dispatch('integrations/showIkas');
+    if (['pending', 'syncing'].includes(response?.catalog_sync?.status)) {
+      pollCatalogSyncStatus(remainingAttempts - 1);
+    }
+  }, 3000);
 };
 
 const validateForm = () => {
@@ -88,11 +137,24 @@ const submit = async () => {
       : await store.dispatch('integrations/connectIkas', payload);
 
     syncFormWithResponse(response);
+    pollCatalogSyncStatus();
     useAlert(t('INTEGRATION_SETTINGS.IKAS.SUCCESS'));
   } catch (error) {
     errorMessage.value =
       error?.response?.data?.status_message ||
       t('INTEGRATION_SETTINGS.IKAS.ERRORS.GENERIC');
+  }
+};
+
+const syncCatalog = async () => {
+  try {
+    await store.dispatch('integrations/syncIkasCatalog');
+    pollCatalogSyncStatus();
+    useAlert(t('INTEGRATION_SETTINGS.IKAS.CATALOG.SYNC_STARTED'));
+  } catch (error) {
+    errorMessage.value =
+      error?.response?.data?.status_message ||
+      t('INTEGRATION_SETTINGS.IKAS.CATALOG.SYNC_ERROR');
   }
 };
 
@@ -108,6 +170,10 @@ const disconnect = async () => {
 
 onMounted(() => {
   initializeIkasIntegration();
+});
+
+onUnmounted(() => {
+  stopCatalogPolling();
 });
 </script>
 
@@ -208,6 +274,63 @@ onMounted(() => {
 
         <div class="text-sm text-n-slate-11">
           {{ $t('INTEGRATION_SETTINGS.IKAS.TOOL_CONTEXT_NOTE') }}
+        </div>
+
+        <div
+          v-if="isConnectedState"
+          class="outline outline-1 outline-n-container bg-n-alpha-2 rounded-md p-4 flex flex-col gap-4"
+        >
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 class="text-sm font-medium text-n-slate-12">
+                {{ $t('INTEGRATION_SETTINGS.IKAS.CATALOG.TITLE') }}
+              </h3>
+              <p class="mt-1 text-sm text-n-slate-11">
+                {{
+                  $t('INTEGRATION_SETTINGS.IKAS.CATALOG.STATUS', {
+                    status:
+                      catalogSync.status ||
+                      $t('INTEGRATION_SETTINGS.IKAS.CATALOG.NOT_SYNCED'),
+                  })
+                }}
+              </p>
+              <p
+                v-if="catalogSync.last_synced_at"
+                class="text-xs text-n-slate-10"
+              >
+                {{
+                  $t('INTEGRATION_SETTINGS.IKAS.CATALOG.LAST_SYNCED_AT', {
+                    time: catalogSync.last_synced_at,
+                  })
+                }}
+              </p>
+            </div>
+            <Button
+              :is-loading="isSyncingCatalog"
+              :disabled="isDisabledState || uiFlags.isSyncingIkasCatalog"
+              :label="$t('INTEGRATION_SETTINGS.IKAS.CATALOG.SYNC_BUTTON')"
+              @click="syncCatalog"
+            />
+          </div>
+
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div
+              v-for="count in catalogCounts"
+              :key="count.key"
+              class="rounded-md border border-n-weak p-3"
+            >
+              <p class="text-xs text-n-slate-10">
+                {{ count.label }}
+              </p>
+              <p class="text-base font-semibold text-n-slate-12">
+                {{ count.value }}
+              </p>
+            </div>
+          </div>
+
+          <p v-if="catalogSync.error_message" class="text-sm text-n-ruby-9">
+            {{ catalogSync.error_message }}
+          </p>
         </div>
 
         <div class="flex gap-3">

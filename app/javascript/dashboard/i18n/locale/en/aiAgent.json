@@ -35,7 +35,7 @@
     },
     "TOOLS": {
       "LABEL": "Built-in Tools",
-      "HELP": "Enable the allowlisted tools available to this AI agent in simulator mode.",
+      "HELP": "Enable the allowlisted tools available to this AI agent.",
       "HUMAN_HANDOFF": {
         "LABEL": "Human handoff",
         "HELP": "Allow the AI agent to hand conversations to a human and limit which existing labels it may apply.",
@@ -47,9 +47,15 @@
       },
       "IKAS_LOOKUP_ORDER": {
         "LABEL": "ikas lookup order",
-        "HELP": "Reserved for future contract-verified order lookups.",
-        "CONNECTED": "ikas integration is connected, but execution remains gated in this slice.",
+        "HELP": "Allow the AI agent to look up connected ikas order, package, payment, cargo, and tracking status from order number, phone, email, or the conversation contact.",
+        "CONNECTED": "ikas order lookup is ready for order and cargo questions.",
         "UNAVAILABLE": "ikas lookup order is unavailable (state: {state})."
+      },
+      "IKAS_CATALOG_SEARCH": {
+        "LABEL": "ikas catalog search",
+        "HELP": "Allow the AI agent to search the connected seller catalog before answering product, stock, size, dimension, color, category, weight, volume, and organic product questions.",
+        "READY": "ikas catalog is synced and ready for catalog answers.",
+        "UNAVAILABLE": "ikas catalog search is unavailable (connection: {state}, catalog: {catalogStatus})."
       }
     },
     "USAGE": {

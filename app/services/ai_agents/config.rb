@@ -4,6 +4,7 @@ module AiAgents
   class Config
     HUMAN_HANDOFF_TOOL = 'human_handoff'.freeze
     IKAS_LOOKUP_ORDER_TOOL = 'ikas_lookup_order'.freeze
+    IKAS_CATALOG_SEARCH_TOOL = 'ikas_catalog_search'.freeze
     TOOLS_KEY = 'tools'.freeze
     ENABLED_KEY = 'enabled'.freeze
     DEFAULT_ENABLED_TOOL_KEYS = [HUMAN_HANDOFF_TOOL].freeze
@@ -50,7 +51,8 @@ module AiAgents
       {
         ENABLED_KEY => enabled_tool_keys,
         HUMAN_HANDOFF_TOOL => human_handoff_settings,
-        IKAS_LOOKUP_ORDER_TOOL => ikas_lookup_order_settings
+        IKAS_LOOKUP_ORDER_TOOL => ikas_lookup_order_settings,
+        IKAS_CATALOG_SEARCH_TOOL => ikas_catalog_search_settings
       }
     end
 
@@ -67,7 +69,8 @@ module AiAgents
       {
         ENABLED_KEY => enabled_tool_keys,
         HUMAN_HANDOFF_TOOL => human_handoff_settings,
-        IKAS_LOOKUP_ORDER_TOOL => ikas_lookup_order_settings
+        IKAS_LOOKUP_ORDER_TOOL => ikas_lookup_order_settings,
+        IKAS_CATALOG_SEARCH_TOOL => ikas_catalog_search_settings
       }
     end
 
@@ -95,6 +98,11 @@ module AiAgents
       }
     end
 
+    def ikas_catalog_search_settings
+      settings = tools_config&.dig(IKAS_CATALOG_SEARCH_TOOL)
+      settings.is_a?(Hash) ? settings.deep_stringify_keys : {}
+    end
+
     def validate
       return [] if config.blank?
       return ['config must be a JSON object'] unless config.is_a?(Hash)
@@ -106,6 +114,7 @@ module AiAgents
         messages.concat(validate_tool_keys)
         messages.concat(validate_human_handoff_settings)
         messages.concat(validate_ikas_lookup_order_settings)
+        messages.concat(validate_ikas_catalog_search_settings)
       end
     end
 
@@ -146,6 +155,17 @@ module AiAgents
       return [] unless settings.key?('enabled') && !boolean?(settings['enabled'])
 
       ['config.tools.ikas_lookup_order.enabled must be true or false']
+    end
+
+    def validate_ikas_catalog_search_settings
+      settings = tools_config[IKAS_CATALOG_SEARCH_TOOL]
+      return [] if settings.nil?
+      return ['config.tools.ikas_catalog_search must be an object'] unless settings.is_a?(Hash)
+
+      unknown_keys = settings.keys
+      return [] if unknown_keys.empty?
+
+      ["config.tools.ikas_catalog_search contains unknown keys: #{unknown_keys.join(', ')}"]
     end
 
     def allowed_human_handoff_settings_keys

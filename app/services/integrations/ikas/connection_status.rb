@@ -7,15 +7,15 @@ class Integrations::Ikas::ConnectionStatus
 
   def payload
     {
-      state:,
+      state: state,
       hook: primary_hook,
       hooks_exist: hooks.exists?,
       store_host: primary_hook&.reference_id,
       client_id: primary_hook&.settings&.[]('client_id'),
       last_validated_at: primary_hook&.settings&.[]('last_validated_at'),
-      last_validation_error_code:,
+      last_validation_error_code: last_validation_error_code,
       encryption_available: encryption_available?,
-      can_connect:,
+      can_connect: can_connect,
       can_disconnect: hooks.exists?
     }
   end
@@ -33,9 +33,9 @@ class Integrations::Ikas::ConnectionStatus
   end
 
   def state
-    return 'reconnect_required' if duplicate_hooks?
-    return 'disabled' if primary_hook.blank? && !encryption_available?
+    return 'disabled' unless encryption_available?
     return 'not_connected' if primary_hook.blank?
+    return 'reconnect_required' if duplicate_hooks?
     return 'reconnect_required' if malformed_hook?
 
     primary_hook.settings['validation_state'] == 'reconnect_required' ? 'reconnect_required' : 'connected'
@@ -65,6 +65,12 @@ class Integrations::Ikas::ConnectionStatus
   end
 
   def malformed_hook?
-    primary_hook.access_token.blank? || primary_hook.reference_id.blank? || primary_hook.settings['client_id'].blank?
+    unreadable_or_blank_access_token? || primary_hook.reference_id.blank? || primary_hook.settings['client_id'].blank?
+  end
+
+  def unreadable_or_blank_access_token?
+    primary_hook.access_token.blank?
+  rescue ActiveRecord::Encryption::Errors::Decryption
+    true
   end
 end

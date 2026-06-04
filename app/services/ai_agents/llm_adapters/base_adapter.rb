@@ -17,7 +17,14 @@ module AiAgents
       attr_reader :ai_agent, :account
 
       def system_prompt
-        AiAgents::ResponseService::SYSTEM_PROMPT_TEMPLATE % { prompt: ai_agent.prompt }
+        base_prompt = format(AiAgents::ResponseService::SYSTEM_PROMPT_TEMPLATE, prompt: ai_agent.prompt)
+        tool_policy = AiAgents::ToolPromptPolicy.new(tool_config.enabled_tool_keys).instructions
+
+        [base_prompt, tool_policy].compact.join("\n")
+      end
+
+      def tool_config
+        @tool_config ||= AiAgents::Config.new(ai_agent.config, allow_legacy_human_handoff_settings: true)
       end
     end
   end

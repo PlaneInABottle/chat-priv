@@ -20,6 +20,7 @@ const state = {
     isCreatingIkas: false,
     isUpdatingIkas: false,
     isDeletingIkas: false,
+    isSyncingIkasCatalog: false,
   },
 };
 
@@ -123,6 +124,21 @@ export const actions = {
       return response.data;
     } finally {
       commit(types.default.SET_INTEGRATIONS_UI_FLAG, { isUpdatingIkas: false });
+    }
+  },
+
+  syncIkasCatalog: async ({ commit }) => {
+    commit(types.default.SET_INTEGRATIONS_UI_FLAG, {
+      isSyncingIkasCatalog: true,
+    });
+    try {
+      const response = await IntegrationsAPI.syncIkasCatalog();
+      commit(types.default.ADD_INTEGRATION, response.data);
+      return response.data;
+    } finally {
+      commit(types.default.SET_INTEGRATIONS_UI_FLAG, {
+        isSyncingIkasCatalog: false,
+      });
     }
   },
 

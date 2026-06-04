@@ -51,6 +51,7 @@ const normalizedFilters = computed(() => ({
 const toolIconMap = {
   human_handoff: 'i-lucide-user-round-plus',
   ikas_lookup_order: 'i-lucide-package-search',
+  ikas_catalog_search: 'i-lucide-search',
 };
 
 const statusClassMap = {

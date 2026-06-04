@@ -53,6 +53,10 @@ class IntegrationsAPI extends ApiClient {
     });
   }
 
+  syncIkasCatalog() {
+    return axios.post(`${this.baseUrl()}/integrations/ikas/catalog_sync`);
+  }
+
   deleteIkas() {
     return axios.delete(`${this.baseUrl()}/integrations/ikas`);
   }

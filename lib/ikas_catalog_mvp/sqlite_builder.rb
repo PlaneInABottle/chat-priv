@@ -1,0 +1,218 @@
+# frozen_string_literal: true
+
+require 'fileutils'
+require 'sqlite3'
+
+module IkasCatalogMvp
+  class SqliteBuilder
+    def initialize(snapshot_dir:, sqlite_path: nil)
+      @snapshot_dir = Pathname.new(snapshot_dir)
+      @sqlite_path = Pathname.new(sqlite_path || @snapshot_dir.join('catalog.sqlite3'))
+    end
+
+    def build
+      FileUtils.mkdir_p(sqlite_path.dirname)
+      FileUtils.rm_f(sqlite_path)
+      db.execute_batch(schema_sql)
+      insert_raw_rows
+      insert_normalized_rows
+      { 'sqlite_path' => sqlite_path.to_s, 'stats' => stats }
+    ensure
+      @db&.close
+    end
+
+    private
+
+    attr_reader :snapshot_dir, :sqlite_path
+
+    def raw_dir
+      snapshot_dir.join('raw')
+    end
+
+    def db
+      @db ||= SQLite3::Database.new(sqlite_path.to_s).tap { |database| database.results_as_hash = true }
+    end
+
+    def schema_sql
+      <<~SQL
+        CREATE TABLE raw_categories (id TEXT PRIMARY KEY, parent_id TEXT, name TEXT, raw_json TEXT NOT NULL);
+        CREATE TABLE raw_variant_types (id TEXT PRIMARY KEY, name TEXT, raw_json TEXT NOT NULL);
+        CREATE TABLE raw_product_attributes (id TEXT PRIMARY KEY, name TEXT, type TEXT, raw_json TEXT NOT NULL);
+        CREATE TABLE raw_product_option_sets (id TEXT PRIMARY KEY, name TEXT, raw_json TEXT NOT NULL);
+        CREATE TABLE raw_products (id TEXT PRIMARY KEY, name TEXT, raw_json TEXT NOT NULL);
+        CREATE TABLE catalog_groups (
+          group_id TEXT PRIMARY KEY,
+          product_id TEXT NOT NULL,
+          display_name TEXT NOT NULL,
+          primary_category_id TEXT,
+          item_count INTEGER NOT NULL,
+          in_stock_count INTEGER NOT NULL,
+          min_price_amount REAL,
+          max_price_amount REAL,
+          currency TEXT,
+          search_text TEXT,
+          raw_json TEXT NOT NULL
+        );
+        CREATE TABLE catalog_items (
+          item_id TEXT PRIMARY KEY,
+          group_id TEXT NOT NULL,
+          product_id TEXT NOT NULL,
+          variant_id TEXT,
+          entity_type TEXT NOT NULL,
+          display_name TEXT NOT NULL,
+          display_subtitle TEXT,
+          primary_category_id TEXT,
+          price_amount REAL,
+          currency TEXT,
+          stock_quantity REAL,
+          in_stock INTEGER NOT NULL,
+          sellable INTEGER NOT NULL,
+          image_id TEXT,
+          search_text TEXT,
+          search_text_folded TEXT,
+          raw_json TEXT NOT NULL
+        );
+        CREATE TABLE catalog_item_categories (item_id TEXT NOT NULL, category_id TEXT NOT NULL);
+        CREATE TABLE catalog_group_categories (group_id TEXT NOT NULL, category_id TEXT NOT NULL);
+        CREATE TABLE catalog_facets (
+          item_id TEXT NOT NULL,
+          key TEXT NOT NULL,
+          key_folded TEXT NOT NULL,
+          value TEXT NOT NULL,
+          value_folded TEXT NOT NULL,
+          source TEXT NOT NULL
+        );
+        CREATE TABLE catalog_facts (
+          item_id TEXT NOT NULL,
+          type TEXT NOT NULL,
+          key TEXT,
+          value_text TEXT,
+          value_folded TEXT,
+          numeric_value REAL,
+          numeric_value_2 REAL,
+          unit TEXT,
+          source TEXT NOT NULL,
+          confidence TEXT NOT NULL,
+          raw TEXT
+        );
+        CREATE INDEX index_catalog_items_on_search ON catalog_items(search_text_folded);
+        CREATE INDEX index_catalog_items_on_group ON catalog_items(group_id);
+        CREATE INDEX index_catalog_item_categories_on_category ON catalog_item_categories(category_id, item_id);
+        CREATE INDEX index_catalog_group_categories_on_category ON catalog_group_categories(category_id, group_id);
+        CREATE INDEX index_catalog_facets_on_key_value ON catalog_facets(key_folded, value_folded, item_id);
+        CREATE INDEX index_catalog_facts_on_type ON catalog_facts(type, item_id);
+        CREATE INDEX index_catalog_facts_on_numeric ON catalog_facts(type, numeric_value, numeric_value_2, unit, item_id);
+      SQL
+    end
+
+    def insert_raw_rows
+      insert_raw_categories
+      insert_raw_variant_types
+      insert_raw_product_attributes
+      insert_raw_product_option_sets
+      insert_raw_products
+    end
+
+    def insert_raw_categories
+      each_jsonl('categories') do |row|
+        db.execute('INSERT INTO raw_categories (id, parent_id, name, raw_json) VALUES (?, ?, ?, ?)', [row['id'], row['parentId'], row['name'], Text.json(row)])
+      end
+    end
+
+    def insert_raw_variant_types
+      each_jsonl('variant_types') do |row|
+        db.execute('INSERT INTO raw_variant_types (id, name, raw_json) VALUES (?, ?, ?)', [row['id'], row['name'], Text.json(row)])
+      end
+    end
+
+    def insert_raw_product_attributes
+      each_jsonl('product_attributes') do |row|
+        db.execute('INSERT INTO raw_product_attributes (id, name, type, raw_json) VALUES (?, ?, ?, ?)', [row['id'], row['name'], row['type'], Text.json(row)])
+      end
+    end
+
+    def insert_raw_product_option_sets
+      each_jsonl('product_option_sets') do |row|
+        db.execute('INSERT INTO raw_product_option_sets (id, name, raw_json) VALUES (?, ?, ?)', [row['id'], row['name'], Text.json(row)])
+      end
+    end
+
+    def insert_raw_products
+      each_jsonl('products') do |row|
+        db.execute('INSERT INTO raw_products (id, name, raw_json) VALUES (?, ?, ?)', [row['id'], row['name'], Text.json(row)])
+      end
+    end
+
+    def insert_normalized_rows
+      normalizer = Normalizer.new(
+        categories: load_jsonl('categories'),
+        variant_types: load_jsonl('variant_types'),
+        product_attributes: load_jsonl('product_attributes'),
+        product_option_sets: load_jsonl('product_option_sets')
+      )
+
+      each_jsonl('products') do |product|
+        normalized = normalizer.normalize_product(product)
+        insert_group(normalized.fetch(:group))
+        normalized.fetch(:items).each { |item| insert_item(item) }
+        normalized.fetch(:categories).each { |row| insert_item_category(row) }
+        normalized.fetch(:group_categories).each { |row| insert_group_category(row) }
+        normalized.fetch(:facets).each { |row| insert_facet(row) }
+        normalized.fetch(:facts).each { |row| insert_fact(row) }
+      end
+    end
+
+    def insert_group(row)
+      db.execute(
+        'INSERT INTO catalog_groups (group_id, product_id, display_name, primary_category_id, item_count, in_stock_count, min_price_amount, max_price_amount, currency, search_text, raw_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        row.values_at('group_id', 'product_id', 'display_name', 'primary_category_id', 'item_count', 'in_stock_count', 'min_price_amount', 'max_price_amount', 'currency', 'search_text', 'raw_json')
+      )
+    end
+
+    def insert_item(row)
+      db.execute(
+        'INSERT INTO catalog_items (item_id, group_id, product_id, variant_id, entity_type, display_name, display_subtitle, primary_category_id, price_amount, currency, stock_quantity, in_stock, sellable, image_id, search_text, search_text_folded, raw_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        row.values_at('item_id', 'group_id', 'product_id', 'variant_id', 'entity_type', 'display_name', 'display_subtitle', 'primary_category_id', 'price_amount', 'currency', 'stock_quantity', 'in_stock', 'sellable', 'image_id', 'search_text', 'search_text_folded', 'raw_json')
+      )
+    end
+
+    def insert_item_category(row)
+      db.execute('INSERT INTO catalog_item_categories (item_id, category_id) VALUES (?, ?)', row.values_at('item_id', 'category_id'))
+    end
+
+    def insert_group_category(row)
+      db.execute('INSERT INTO catalog_group_categories (group_id, category_id) VALUES (?, ?)', row.values_at('group_id', 'category_id'))
+    end
+
+    def insert_facet(row)
+      db.execute(
+        'INSERT INTO catalog_facets (item_id, key, key_folded, value, value_folded, source) VALUES (?, ?, ?, ?, ?, ?)',
+        [row['item_id'], row['key'], Text.fold(row['key']), row['value'], Text.fold(row['value']), row['source']]
+      )
+    end
+
+    def insert_fact(row)
+      db.execute(
+        'INSERT INTO catalog_facts (item_id, type, key, value_text, value_folded, numeric_value, numeric_value_2, unit, source, confidence, raw) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        row.values_at('item_id', 'type', 'key', 'value_text', 'value_folded', 'numeric_value', 'numeric_value_2', 'unit', 'source', 'confidence', 'raw')
+      )
+    end
+
+    def stats
+      %w[raw_products catalog_groups catalog_items catalog_facets catalog_facts].to_h do |table|
+        [table, db.get_first_value("SELECT COUNT(*) FROM #{table}")]
+      end
+    end
+
+    def load_jsonl(name)
+      path = raw_dir.join("#{name}.jsonl")
+      return [] unless path.exist?
+
+      path.readlines(chomp: true).reject(&:empty?).map { |line| JSON.parse(line) }
+    end
+
+    def each_jsonl(name)
+      load_jsonl(name).each { |row| yield row }
+    end
+  end
+end
