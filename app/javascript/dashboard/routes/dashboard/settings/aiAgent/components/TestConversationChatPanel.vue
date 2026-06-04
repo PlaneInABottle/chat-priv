@@ -37,6 +37,20 @@ const isInputDisabled = computed(() => {
 
 const isHandoffPreview = message => message?.terminal_action === 'handoff';
 
+const toolEvents = message => message?.tool_events || [];
+
+const hasToolEvents = message => toolEvents(message).length > 0;
+
+const toolEventSummary = event => {
+  const query = event?.args?.query;
+  const orderIdentifier = event?.args?.order_identifier;
+  const resultType = event?.result?.result_type;
+  const errorCode = event?.result?.error_code || event?.error_code;
+  return [query, orderIdentifier, resultType, errorCode]
+    .filter(Boolean)
+    .join(' · ');
+};
+
 const handoffPreviewSummary = message => {
   return (
     message?.tool_result?.customer_message ||
@@ -162,6 +176,28 @@ const handleKeyup = event => {
             <template v-else>
               {{ msg.content }}
             </template>
+
+            <div
+              v-if="hasToolEvents(msg)"
+              class="mt-3 space-y-1 border-t border-n-slate-6 pt-2 text-xs text-n-slate-11"
+            >
+              <p class="font-medium text-n-slate-12">
+                {{ t('AI_AGENT.TEST_CONVERSATIONS.TOOL_CALLS') }}
+              </p>
+              <div
+                v-for="event in toolEvents(msg)"
+                :key="event.tool_call_id || event.tool"
+                class="rounded-lg bg-n-alpha-black1 px-2 py-1"
+              >
+                <span class="font-medium text-n-slate-12">
+                  {{ event.tool }}
+                </span>
+                <span v-if="event.status"> · {{ event.status }}</span>
+                <span v-if="toolEventSummary(event)">
+                  · {{ toolEventSummary(event) }}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
