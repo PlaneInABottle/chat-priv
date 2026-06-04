@@ -27,7 +27,7 @@ class AiAgents::ToolRegistry
 
   IKAS_LOOKUP_ORDER_DESCRIPTION = [
     'Look up order and cargo status from the connected ikas store using an order number,',
-    'customer email, customer phone, or the current Chatwoot contact identifiers.'
+    'customer email, customer phone, or the current conversation contact identifiers.'
   ].join(' ').freeze
 
   IKAS_LOOKUP_ORDER_INPUT_SCHEMA = {

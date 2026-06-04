@@ -12,43 +12,46 @@ Used by both account and user show pages.
 %>
 
 <section class="main-content__body">
-  <% account_user_page = Administrate::Page::Form.new(AccountUserDashboard.new, AccountUser.new) %>
-  <%= form_for([namespace, account_user_page.resource], html: { class: "form" }) do |f| %>
-    <% if account_user_page.resource.errors.any? %>
-      <div id="error_explanation">
-        <h2>
-          <%= t(
-            "administrate.form.errors",
-            pluralized_errors: pluralize(
-              account_user_page.resource.errors.count,
-              t("administrate.form.error")
-            ),
-            resource_name: display_resource_name(account_user_page.resource_name)
-          ) %>
-        </h2>
+  <div class="sa-card">
+    <h3 class="sa-section-title mb-4">Add user to account</h3>
+    <% account_user_page = Administrate::Page::Form.new(AccountUserDashboard.new, AccountUser.new) %>
+    <%= form_for([namespace, account_user_page.resource], html: { class: "form" }) do |f| %>
+      <% if account_user_page.resource.errors.any? %>
+        <div id="error_explanation" class="mb-4">
+          <h2 class="text-sm font-semibold text-red-700 mb-2">
+            <%= t(
+              "administrate.form.errors",
+              pluralized_errors: pluralize(
+                account_user_page.resource.errors.count,
+                t("administrate.form.error")
+              ),
+              resource_name: display_resource_name(account_user_page.resource_name)
+            ) %>
+          </h2>
 
-        <ul>
-          <% account_user_page.resource.errors.full_messages.each do |message| %>
-            <li class="flash-error"><%= message %></li>
+          <ul>
+            <% account_user_page.resource.errors.full_messages.each do |message| %>
+              <li class="text-sm text-red-600"><%= message %></li>
+            <% end %>
+          </ul>
+        </div>
+      <% end %>
+
+      <% account_user_page.attributes.each do |title, attributes| -%>
+        <% attributes.each do |attribute| %>
+          <% if attribute.name == resource_type %>
+            <%= f.hidden_field("#{resource_type}_id", value: page.resource.id) %>
+          <% else %>
+            <div class="field-unit field-unit--<%= attribute.html_class %> field-unit--<%= requireness(attribute) %>">
+              <%= render_field attribute, f: f %>
+            </div>
           <% end %>
-        </ul>
+        <% end %>
+      <% end -%>
+
+      <div class="form-actions">
+        <%= f.submit %>
       </div>
     <% end %>
-
-    <% account_user_page.attributes.each do |title, attributes| -%>
-      <% attributes.each do |attribute| %>
-        <% if attribute.name == resource_type %>
-          <%= f.hidden_field("#{resource_type}_id", value: page.resource.id) %>
-        <% else %>
-          <div class="field-unit field-unit--<%= attribute.html_class %> field-unit--<%= requireness(attribute) %>">
-            <%= render_field attribute, f: f %>
-          </div>
-        <% end %>
-      <% end %>
-    <% end -%>
-
-    <div class="form-actions">
-      <%= f.submit %>
-    </div>
-  <% end %>
+  </div>
 </section>

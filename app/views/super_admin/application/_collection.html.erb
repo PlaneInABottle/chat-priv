@@ -15,7 +15,7 @@ to display a collection of resources in an HTML table.
   By default, the number of resources is limited by pagination
   or by a hard limit to prevent excessive page load times
 
-[1]: http://www.rubydoc.info/gems/administrate/Administrate/Page/Collection
+[1]: http://www.rubydoc.info/gems/administrate/Administrate/Page::Collection
 %>
 
 <table aria-labelledby="<%= table_title %>">
@@ -65,6 +65,7 @@ to display a collection of resources in an HTML table.
             <% if authorized_action? resource, :show -%>
               <a href="<%= polymorphic_path([namespace, resource]) -%>"
                  class="action-show"
+                 tabindex="-1"
                  >
                 <%= render_field attribute %>
               </a>
