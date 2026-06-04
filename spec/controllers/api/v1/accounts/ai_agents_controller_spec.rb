@@ -1,7 +1,7 @@
 require 'rails_helper'
 
 RSpec.describe 'Ai Agents API', type: :request do
-  let!(:account) { create(:account) }
+  let!(:account) { create(:account, settings: { ai_agent_enabled: true }) }
   let(:admin) { create(:user, account: account, role: :administrator) }
   let(:agent_user) { create(:user, account: account, role: :agent) }
 
@@ -28,6 +28,8 @@ RSpec.describe 'Ai Agents API', type: :request do
 
       it 'returns array of ai agents' do
         ai_agent = create(:ai_agent, account: account)
+        conversation = create(:conversation, account: account)
+        create(:message, account: account, conversation: conversation, inbox: conversation.inbox, sender: ai_agent.agent_bot, message_type: :outgoing)
 
         get "/api/v1/accounts/#{account.id}/ai_agents", headers: admin.create_new_auth_token, as: :json
 
@@ -36,6 +38,7 @@ RSpec.describe 'Ai Agents API', type: :request do
         expect(json.length).to eq(1)
         expect(json.first['id']).to eq(ai_agent.id)
         expect(json.first['name']).to eq(ai_agent.name)
+        expect(json.first['conversation_count']).to eq(1)
         expect(json.first['conversation_limit']).to eq(0)
         expect(json.first['ai_agent_model']).to eq('deepseek/deepseek-v4-flash')
       end
@@ -51,6 +54,17 @@ RSpec.describe 'Ai Agents API', type: :request do
         expect(json.length).to eq(2)
         expect(json.first['id']).to eq(older_agent.id)
         expect(json.last['id']).to eq(newer_agent.id)
+      end
+    end
+
+    context 'when AI Agent is disabled for the account' do
+      before { account.update!(ai_agent_enabled: false) }
+
+      it 'returns forbidden for an authenticated administrator' do
+        get "/api/v1/accounts/#{account.id}/ai_agents", headers: admin.create_new_auth_token, as: :json
+
+        expect(response).to have_http_status(:forbidden)
+        expect(response.parsed_body['error']).to eq('AI Agent is not enabled for this account')
       end
     end
 
@@ -77,7 +91,12 @@ RSpec.describe 'Ai Agents API', type: :request do
     context 'when it is an authenticated administrator' do
       it 'returns the ai agent with nested bot and inboxes' do
         inbox = create(:inbox, account: account)
+        first_conversation = create(:conversation, account: account, inbox: inbox)
+        second_conversation = create(:conversation, account: account, inbox: inbox)
         AgentBotInbox.create!(agent_bot: ai_agent.agent_bot, inbox: inbox, account: account)
+        create(:message, account: account, conversation: first_conversation, inbox: inbox, sender: ai_agent.agent_bot, message_type: :outgoing)
+        create(:message, account: account, conversation: first_conversation, inbox: inbox, sender: ai_agent.agent_bot, message_type: :outgoing)
+        create(:message, account: account, conversation: second_conversation, inbox: inbox, sender: ai_agent.agent_bot, message_type: :outgoing)
 
         get "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}", headers: admin.create_new_auth_token, as: :json
 
@@ -86,6 +105,7 @@ RSpec.describe 'Ai Agents API', type: :request do
         expect(json['id']).to eq(ai_agent.id)
         expect(json['name']).to eq(ai_agent.name)
         expect(json['model']).to eq('deepseek/deepseek-v4-flash')
+        expect(json['conversation_count']).to eq(2)
         expect(json['conversation_limit']).to eq(0)
         expect(json['agent_bot']).to be_present
         expect(json['agent_bot']['bot_type']).to eq('ai')

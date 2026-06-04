@@ -198,6 +198,17 @@ RSpec.describe 'Accounts API', type: :request do
         expect(response.body).to include(account.support_email)
         expect(response.body).to include(account.locale)
       end
+
+      it 'exposes AI Agent as a feature from account settings' do
+        account.update!(ai_agent_enabled: true)
+
+        get "/api/v1/accounts/#{account.id}",
+            headers: admin.create_new_auth_token,
+            as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(response.parsed_body.dig('features', 'ai_agent')).to be(true)
+      end
     end
   end
 

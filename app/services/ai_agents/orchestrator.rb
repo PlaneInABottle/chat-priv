@@ -17,6 +17,7 @@ module AiAgents
 
     def perform
       return failure_result unless ai_agent.enabled?
+      return failure_result unless ai_agent.account.ai_agent_enabled?
       return failure_result unless config.valid?
 
       first_response = adapter.perform(

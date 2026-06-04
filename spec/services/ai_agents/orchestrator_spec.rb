@@ -1,7 +1,7 @@
 require 'rails_helper'
 
 RSpec.describe AiAgents::Orchestrator do
-  let(:account) { create(:account) }
+  let(:account) { create(:account, settings: { ai_agent_enabled: true }) }
   let!(:vip_label) { create(:label, account: account, title: 'vip') }
   let(:ai_agent) do
     create(:ai_agent, :with_human_handoff_tool, account: account, enabled: true)
@@ -11,6 +11,16 @@ RSpec.describe AiAgents::Orchestrator do
     create(:message, account: account, inbox: conversation.inbox, conversation: conversation, message_type: 'incoming', sender: conversation.contact)
   end
   let(:adapter) { instance_double(AiAgents::LlmAdapters::OpenAiCompatibleAdapter) }
+
+  it 'does not call the adapter when AI Agent is disabled for the account' do
+    account.update!(ai_agent_enabled: false)
+
+    expect(adapter).not_to receive(:perform)
+
+    result = described_class.new(ai_agent: ai_agent, messages: [{ role: 'user', content: 'Hi' }], mode: :test, adapter: adapter).perform
+
+    expect(result).to eq(assistant_message: nil, tool_events: [], terminal_action: nil)
+  end
 
   it 'returns assistant text for text-only turns' do
     allow(adapter).to receive(:perform).and_return({ assistant_text: 'Hello there', tool_calls: [], finish_reason: 'stop' })
