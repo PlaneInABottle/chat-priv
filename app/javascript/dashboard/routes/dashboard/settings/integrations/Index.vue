@@ -13,9 +13,12 @@ const { replaceInstallationName } = useBranding();
 
 const searchQuery = ref('');
 const uiFlags = getters['integrations/getUIFlags'];
+const DEFAULT_VISIBLE_INTEGRATION_IDS = ['ikas'];
 
-const integrationList = computed(
-  () => getters['integrations/getAppIntegrations'].value
+const integrationList = computed(() =>
+  getters['integrations/getAppIntegrations'].value.filter(integration =>
+    DEFAULT_VISIBLE_INTEGRATION_IDS.includes(integration.id)
+  )
 );
 
 const filteredIntegrationList = computed(() => {
