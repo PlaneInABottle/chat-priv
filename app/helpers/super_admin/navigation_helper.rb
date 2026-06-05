@@ -4,6 +4,7 @@ module SuperAdmin::NavigationHelper
       super_admin/settings
       super_admin/app_configs
       super_admin/ai_agent_tools
+      super_admin/ai_agent_llm_calls
       super_admin/ai_agent_tool_executions
       super_admin/ai_agent_prompt_previews
     ]

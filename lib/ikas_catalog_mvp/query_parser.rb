@@ -5,9 +5,13 @@ module IkasCatalogMvp
     SIZE_VALUES = %w[xxs xs s m l xl xxl xxxl].freeze
     INTENT_TOKENS = %w[
       ariyorum arastiriyorum bakiyorum istiyorum lazim gerekiyor
-      looking look need want show browse
+      verir verebilir ver misin musun
+      looking look need want show browse give
     ].freeze
-    NOISE_TOKENS = %w[icin for olan var mi varmidir urun product].freeze
+    NOISE_TOKENS = %w[
+      icin for olan var mi varmidir urun product
+      ne nedir hangi hangisi link linki url adres baglanti
+    ].freeze
     ORGANIC_TOKENS = %w[organic organik natural naturel dogal].freeze
     SIZE_ALIASES = {
       'small' => 's',
@@ -17,6 +21,10 @@ module IkasCatalogMvp
 
     def initialize(facet_vocabulary: {})
       @facet_vocabulary = facet_vocabulary
+    end
+
+    def self.terms_for(query, facet_vocabulary: {})
+      new(facet_vocabulary: facet_vocabulary).parse(query).fetch('terms')
     end
 
     def parse(query)

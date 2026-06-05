@@ -67,6 +67,20 @@ module IkasCatalogMvp
       }
     GRAPHQL
 
+    LIST_STOREFRONTS_QUERY = <<~GRAPHQL.freeze
+      query IkasCatalogMvpStorefronts {
+        listStorefront {
+          id
+          name
+          type
+          status
+          salesChannelId
+          domains { id name isDefault redirectDomainName }
+          routings { id domain path locale currencyCode currencySymbol countryCodes }
+        }
+      }
+    GRAPHQL
+
     LIST_PRODUCTS_QUERY = <<~GRAPHQL.freeze
       query IkasCatalogMvpProducts($page: Int!, $limit: Int!) {
         listProduct(pagination: { page: $page, limit: $limit }) {
@@ -81,6 +95,7 @@ module IkasCatalogMvp
             shortDescription
             type
             productOptionSetId
+            metaData { id slug canonicals redirectTo targetId targetType }
             categoryIds
             salesChannelIds
             hiddenSalesChannelIds
@@ -143,6 +158,10 @@ module IkasCatalogMvp
 
     def product_option_sets
       execute_graphql(LIST_PRODUCT_OPTION_SETS_QUERY).fetch('listProductOptionSet')
+    end
+
+    def storefronts
+      execute_graphql(LIST_STOREFRONTS_QUERY).fetch('listStorefront')
     end
 
     def products

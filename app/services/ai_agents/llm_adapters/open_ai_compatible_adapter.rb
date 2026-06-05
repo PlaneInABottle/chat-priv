@@ -27,7 +27,7 @@ module AiAgents
         {
           model: account.ai_agent_model,
           messages: build_messages(messages),
-          temperature: 0.7,
+          temperature: 0.2,
           max_tokens: 1024,
           tools: tools,
           tool_choice: tool_choice

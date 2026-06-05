@@ -17,4 +17,4 @@ Use this skill for real local customer-message AI-agent verification only.
 - Defer repo command entrypoints to `chatwoot-dev-runbook`.
 - Defer generic API/UI verification workflow to `ai-native-workflow`.
 - Defer browser mechanics and snapshot discipline to `agent-browser`.
-- Do not use this skill to promise live persistence of ordinary non-handoff AI text replies; treat that as unproven unless the current session directly shows it.
+- Normal non-handoff AI text replies should persist as public AgentBot messages on the current live path; still verify each run through the public API, UI, or datastore before claiming behavior.

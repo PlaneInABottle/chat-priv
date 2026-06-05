@@ -18,6 +18,10 @@ as defined by the routes in the `admin/` namespace
     agent_bots: 'icon-robot-line',
     platform_banners: 'icon-megaphone-line',
   }
+  hidden_resources = %w[
+    account_users access_tokens installation_configs dashboard devise/sessions app_configs instance_statuses settings
+    push_diagnostics ai_agent_tools ai_agent_llm_calls ai_agent_tool_executions ai_agent_prompt_previews
+  ]
 %>
 
 <div class="w-56 flex-shrink-0 justify-between h-full flex flex-col bg-white" role="navigation">
@@ -33,7 +37,7 @@ as defined by the routes in the `admin/` namespace
     <ul class="mt-3 mb-4">
       <%= render partial: "nav_item", locals: { icon: 'icon-grid-line', url: super_admin_root_url, label: 'Dashboard' } %>
       <% Administrate::Namespace.new(namespace).resources.each do |resource| %>
-        <% next if ["account_users", "access_tokens", "installation_configs", "dashboard", "devise/sessions", "app_configs", "instance_statuses", "settings", "push_diagnostics", "ai_agent_tools", "ai_agent_tool_executions", "ai_agent_prompt_previews"].include?  resource.resource %>
+        <% next if hidden_resources.include? resource.resource %>
         <% next if resource.resource == "platform_banners" && !ChatwootApp.chatwoot_cloud? %>
         <%= render partial: "nav_item", locals: {
             icon: sidebar_icons[resource.resource.to_sym],
