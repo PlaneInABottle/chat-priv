@@ -14,6 +14,7 @@ end
 require_relative 'ikas_catalog_mvp/text'
 require_relative 'ikas_catalog_mvp/catalog_client'
 require_relative 'ikas_catalog_mvp/raw_sync'
+require_relative 'ikas_catalog_mvp/product_link_builder'
 require_relative 'ikas_catalog_mvp/normalizer'
 require_relative 'ikas_catalog_mvp/sqlite_builder'
 require_relative 'ikas_catalog_mvp/query_parser'

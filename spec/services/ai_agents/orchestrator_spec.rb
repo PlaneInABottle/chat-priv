@@ -25,10 +25,32 @@ RSpec.describe AiAgents::Orchestrator do
   it 'returns assistant text for text-only turns' do
     allow(adapter).to receive(:perform).and_return({ assistant_text: 'Hello there', tool_calls: [], finish_reason: 'stop' })
 
-    result = described_class.new(ai_agent: ai_agent, messages: [{ role: 'user', content: 'Hi' }], mode: :test, adapter: adapter).perform
+    result = nil
+    expect do
+      result = described_class.new(ai_agent: ai_agent, messages: [{ role: 'user', content: 'Hi' }], mode: :test, adapter: adapter).perform
+    end.to change(AiAgentLlmCall, :count).by(1)
 
     expect(result[:assistant_message]['content']).to eq('Hello there')
     expect(result[:tool_events]).to eq([])
+    expect(AiAgentLlmCall.last.request_messages.last).to eq('role' => 'user', 'content' => 'Hi')
+    expect(AiAgentLlmCall.last.response).to include('assistant_text' => 'Hello there', 'finish_reason' => 'stop')
+  end
+
+  it 'retries once when the provider returns an empty response without tool calls' do
+    allow(adapter).to receive(:perform).and_return(
+      { assistant_text: nil, tool_calls: [], finish_reason: 'stop' },
+      { assistant_text: 'Retry answer', tool_calls: [], finish_reason: 'stop' }
+    )
+
+    result = nil
+    expect do
+      result = described_class.new(ai_agent: ai_agent, messages: [{ role: 'user', content: 'Hi' }], mode: :test, adapter: adapter).perform
+    end.to change(AiAgentLlmCall, :count).by(2)
+
+    expect(result[:assistant_message]['content']).to eq('Retry answer')
+    expect(adapter).to have_received(:perform).twice
+    expect(AiAgentLlmCall.last.step).to eq('initial_retry')
+    expect(AiAgentLlmCall.last.request_messages.last['content']).to include('previous AI response was empty')
   end
 
   it 'tolerates legacy human handoff config keys when generating responses' do
@@ -105,5 +127,70 @@ RSpec.describe AiAgents::Orchestrator do
 
     expect(result[:assistant_message]['content']).to include('could not complete')
     expect(result[:tool_events].first['error_code']).to eq('multiple_tool_calls')
+  end
+
+  it 'redacts customer identifiers before the order lookup follow-up LLM call' do
+    ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_lookup_order'] } })
+    tool_execution = AiAgents::ToolExecutor::Result.new(
+      status: 'executed',
+      tool_event: { 'tool' => 'ikas_lookup_order', 'status' => 'ok' },
+      tool_result: { status: 'ok', result_type: 'no_match', orders: [] }
+    )
+    executor = instance_double(AiAgents::ToolExecutor, execute: tool_execution)
+    allow(AiAgents::ToolExecutor).to receive(:new).and_return(executor)
+    calls = []
+    allow(adapter).to receive(:perform) do |payload|
+      calls << payload
+      if calls.one?
+        {
+          assistant_text: nil,
+          tool_calls: [{ id: 'call_1', type: 'function', name: 'ikas_lookup_order', arguments: '{}' }],
+          finish_reason: 'tool_calls'
+        }
+      else
+        { assistant_text: 'No matching order found.', tool_calls: [], finish_reason: 'stop' }
+      end
+    end
+
+    described_class.new(
+      ai_agent: ai_agent.reload,
+      messages: [{ role: 'user', content: 'siparis TEST-12345 test@example.com +90 555 123 45 67' }],
+      mode: :live,
+      conversation: conversation,
+      trigger_message: trigger_message,
+      adapter: adapter
+    ).perform
+
+    follow_up_user_message = calls.second.fetch(:messages).find { |message| message[:role] == 'user' }
+    expect(follow_up_user_message[:content]).to include('[email redacted]', '[phone redacted]', 'TEST-12345')
+    expect(follow_up_user_message[:content]).not_to include('test@example.com', '+90 555 123 45 67')
+  end
+
+  it 'answers catalog needs_scope without a follow-up LLM call' do
+    ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'] } })
+    tool_execution = AiAgents::ToolExecutor::Result.new(
+      status: 'executed',
+      tool_event: { 'tool' => 'ikas_catalog_search', 'status' => 'ok' },
+      tool_result: { status: 'ok', result_type: 'needs_scope', candidates: [] }
+    )
+    executor = instance_double(AiAgents::ToolExecutor, execute: tool_execution)
+    allow(AiAgents::ToolExecutor).to receive(:new).and_return(executor)
+    allow(adapter).to receive(:perform).and_return({
+      assistant_text: nil,
+      tool_calls: [{ id: 'call_1', type: 'function', name: 'ikas_catalog_search', arguments: { query: '70x80' }.to_json }],
+      finish_reason: 'tool_calls'
+    })
+
+    result = described_class.new(
+      ai_agent: ai_agent.reload,
+      messages: [{ role: 'user', content: '70x80' }],
+      mode: :live,
+      conversation: conversation,
+      trigger_message: trigger_message,
+      adapter: adapter
+    ).perform
+
+    expect(result[:assistant_message]['content']).to eq('Hangi ürün veya kategori için bu ölçüyü soruyorsunuz?')
+    expect(adapter).to have_received(:perform).once
   end
 end

@@ -144,8 +144,9 @@ class Api::V1::Accounts::Integrations::IkasController < Api::V1::Accounts::BaseC
     return { status: 'not_connected' } if payload_hook.blank?
 
     latest = payload_hook.ikas_catalog_snapshots.order(created_at: :desc, id: :desc).first
-    completed = payload_hook.ikas_catalog_snapshots.latest_completed.first
+    completed = payload_hook.ikas_catalog_snapshots.storefront_catalog.latest_completed.first
     counts = completed&.counts || {}
+    metadata = completed&.metadata || {}
 
     {
       status: latest&.status || 'not_synced',
@@ -153,9 +154,16 @@ class Api::V1::Accounts::Integrations::IkasController < Api::V1::Accounts::BaseC
       started_at: latest&.started_at&.iso8601,
       completed_at: latest&.completed_at&.iso8601,
       products_count: counts['products'].to_i,
+      products_fetched_count: counts['products_fetched'].to_i,
+      products_skipped_count: counts['products_skipped'].to_i,
+      products_with_links_count: counts['products_with_links'].to_i,
+      storefronts_count: counts['storefronts'].to_i,
+      storefronts_fetched_count: counts['storefronts_fetched'].to_i,
       categories_count: counts['categories'].to_i,
       option_sets_count: counts['product_option_sets'].to_i,
       catalog_items_count: counts['catalog_items'].to_i,
+      catalog_scope: metadata['catalog_scope'],
+      storefronts: metadata['storefronts'] || [],
       error_message: latest&.failed? ? latest.error_message : nil
     }
   end

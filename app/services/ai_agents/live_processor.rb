@@ -1,5 +1,6 @@
 class AiAgents::LiveProcessor
   HANDOFF_COMPLETED_KEY = 'ai_handoff_completed'.freeze
+  HISTORY_MESSAGE_LIMIT = 12
 
   def initialize(message:, adapter: nil)
     @message = message
@@ -54,7 +55,7 @@ class AiAgents::LiveProcessor
   end
 
   def orchestrator_messages
-    pending_messages.map do |entry|
+    recent_messages.map do |entry|
       {
         role: entry.message_type == 'incoming' ? 'user' : 'assistant',
         content: entry.content_for_llm
@@ -62,24 +63,15 @@ class AiAgents::LiveProcessor
     end
   end
 
-  def pending_messages
+  def recent_messages
     conversation.messages
-                .where(private: false, message_type: :incoming)
-                .where('id > ?', latest_ai_boundary_id)
+                .where(private: false, message_type: %i[incoming outgoing])
                 .where(id: ..message.id)
-                .order(:id)
-                .reject { |entry| entry.content_for_llm.blank? }
-  end
-
-  def latest_ai_boundary_id
-    latest_boundary_message&.id || 0
-  end
-
-  def latest_boundary_message
-    conversation.messages
-                .where(private: false, message_type: :outgoing, sender_type: 'AgentBot', sender_id: ai_agent.agent_bot_id)
                 .reorder(id: :desc)
-                .first
+                .limit(HISTORY_MESSAGE_LIMIT)
+                .to_a
+                .reverse
+                .reject { |entry| entry.content_for_llm.blank? }
   end
 
   def post_assistant_message!(assistant_message)

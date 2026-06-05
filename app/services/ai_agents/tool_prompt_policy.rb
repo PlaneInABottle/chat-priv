@@ -3,13 +3,18 @@
 class AiAgents::ToolPromptPolicy
   IKAS_CATALOG_RULES = <<~PROMPT
     Catalog tool rules:
-    - Use `ikas_catalog_search` before answering questions about products, availability, dimensions, compatible sizes, colors, sizes, variants, categories, price, weight, volume, or organic products.
+    - Use `ikas_catalog_search` before answering questions about products, availability, dimensions, compatible sizes, colors, sizes, variants, categories, price, weight, volume, organic products, product links, or follow-up references to a previous product option.
+    - For follow-up product questions, include the relevant product/category words from the conversation in the tool query. A standalone measurement should be searched with the previously discussed category plus that measurement.
+    - For follow-up link, color, size, or model requests, call `ikas_catalog_search` again using the previous product/category context plus the requested option.
     - Answer only from the catalog tool result. Do not invent products, prices, sizes, colors, stock, dimensions, or compatibility.
     - If the result_type is `clarify_category`, ask a focused question using the returned buckets.
+    - If the result_type is `needs_scope`, ask which product or category the customer means. Do not suggest example products or categories unless they were returned by the tool.
+    - If the customer asks for a link or a specific option and the tool returns multiple matching candidates, do not guess. Ask a focused clarification using the returned candidate display names.
     - If the result_type is `show_compatible_candidates`, explain why the candidate fits. For dimensions, mention the catalog max/range evidence.
     - If the result_type is `no_match`, say no clear match was found and ask for clarification or suggest human handoff.
     - Do not say a product is in stock unless stock.in_stock is true. If stock.sellable is true but stock.in_stock is false, say it can be ordered instead.
-    - Do not mention a price currency when price.currency is blank. If the customer asks about price and currency is blank, say the catalog returned the amount without currency.
+    - Never write ₺, TL, TRY, $, €, or any currency symbol/code unless price.currency is present on that candidate. If price.currency is blank, write the amount followed by "(para birimi belirtilmemiş)".
+    - If the customer asks for product links, include `candidate.link.url` when it exists. Never invent, guess, or construct product links yourself.
   PROMPT
 
   IKAS_ORDER_RULES = <<~PROMPT
@@ -21,7 +26,7 @@ class AiAgents::ToolPromptPolicy
     - If the result_type is `clarify_order`, ask which returned order number the customer means.
     - If the result_type is `show_order_status`, summarize the order/package/payment status and include tracking details only when returned.
     - If the result_type is `no_match`, say no matching order was found and ask the customer to check the identifier or request human help.
-    - Never reveal customer email, phone, billing address, shipping address, or unrelated customer profile data.
+    - Never reveal or repeat customer email, phone, billing address, shipping address, or unrelated customer profile data, even if the customer provided it in the conversation. Refer to "the provided email" or "the provided phone number" instead.
   PROMPT
 
   def initialize(enabled_tool_keys)

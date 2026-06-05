@@ -53,13 +53,17 @@ class AiAgents::ToolRegistry
   IKAS_CATALOG_SEARCH_DESCRIPTION = [
     'Search the connected ikas catalog before answering customer questions about product availability,',
     'dimensions, compatible sizes, colors, sizes, variants, categories, price, weight, volume,',
-    'organic products, or related product selection.'
+    'organic products, product links, related product selection, or follow-up references to a',
+    'previously discussed product option such as a color, size, model, or "that one".'
   ].join(' ').freeze
 
   IKAS_CATALOG_SEARCH_INPUT_SCHEMA = {
     type: 'object',
     properties: {
-      query: { type: 'string', description: 'The customer message or product request to search in the connected seller catalog.' },
+      query: {
+        type: 'string',
+        description: 'The customer message or product request to search in the connected seller catalog. For follow-ups, include the previous product/category context and the requested option.'
+      },
       limit: { type: 'integer', minimum: 1, maximum: 20, default: 8 }
     },
     required: ['query'],

@@ -28,6 +28,7 @@ RSpec.describe Integrations::Ikas::CatalogSearchService do
       write_jsonl(raw_dir, 'variant_types', variant_types)
       write_jsonl(raw_dir, 'product_attributes', product_attributes)
       write_jsonl(raw_dir, 'product_option_sets', product_option_sets)
+      write_jsonl(raw_dir, 'storefronts', storefronts)
       write_jsonl(raw_dir, 'products', products)
       sqlite_path = File.join(dir, 'catalog.sqlite3')
       Integrations::Ikas::Catalog::SqliteBuilder.new(snapshot_dir: dir, sqlite_path: sqlite_path).build
@@ -80,6 +81,20 @@ RSpec.describe Integrations::Ikas::CatalogSearchService do
     ]
   end
 
+  def storefronts
+    [
+      {
+        'id' => 'storefront-public',
+        'name' => 'Public Storefront',
+        'type' => 'STOREFRONT',
+        'status' => 'READY',
+        'salesChannelId' => 'sales-channel-public',
+        'domains' => [{ 'id' => 'domain-public', 'name' => 'store.example.com', 'isDefault' => true }],
+        'routings' => []
+      }
+    ]
+  end
+
   def products
     [
       product('sineklik', 'Pencere Kedi Sinekliği', ['sineklik-kedi'], option_set_id: 'sineklik-option-set'),
@@ -108,6 +123,9 @@ RSpec.describe Integrations::Ikas::CatalogSearchService do
       'name' => name,
       'categoryIds' => category_ids,
       'productOptionSetId' => options[:option_set_id],
+      'salesChannelIds' => ['sales-channel-public'],
+      'hiddenSalesChannelIds' => [],
+      'metaData' => { 'slug' => id, 'canonicals' => [] },
       'attributes' => options[:attributes] || [],
       'variants' => [
         {
@@ -130,7 +148,8 @@ RSpec.describe Integrations::Ikas::CatalogSearchService do
       store_host: snapshot_hook.reference_id,
       sqlite_path: sqlite_path,
       status: :completed,
-      completed_at: completed_at
+      completed_at: completed_at,
+      metadata: { 'engine' => 'ikas_catalog_sqlite_v2', 'catalog_scope' => 'storefront_public' }
     )
   end
 
@@ -151,6 +170,17 @@ RSpec.describe Integrations::Ikas::CatalogSearchService do
       expect(result[:result_type]).to eq('show_compatible_candidates')
       expect(result[:candidates].first[:stock]).to include(in_stock: true, sellable: true)
       expect(result[:catalog]).to include(store_host: 'test-store.myikas.com')
+    end
+  end
+
+  it 'applies context query text to dimension-only follow-up searches' do
+    build_catalog do |sqlite_path|
+      create_snapshot(sqlite_path)
+
+      result = described_class.new(account: account, query_text: '70x90', context_query_text: 'sineklik').call
+
+      expect(result[:query]).to eq('sineklik 70x90')
+      expect(result[:candidates].first[:product_id]).to eq('p-sineklik')
     end
   end
 

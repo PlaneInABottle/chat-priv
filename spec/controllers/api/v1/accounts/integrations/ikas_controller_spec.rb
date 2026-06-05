@@ -76,6 +76,49 @@ RSpec.describe 'Ikas Integration API', type: :request do
       expect(response.parsed_body['last_validation_error_code']).to eq('duplicate_hook')
     end
 
+    it 'returns storefront-scoped catalog sync counts' do
+      hook = create(:integrations_hook, :ikas, account: account)
+      allow(Chatwoot).to receive(:encryption_configured?).and_return(true)
+
+      create(
+        :ikas_catalog_snapshot,
+        account: account,
+        integrations_hook: hook,
+        status: :completed,
+        completed_at: Time.current,
+        counts: {
+          'products' => 144,
+          'products_fetched' => 343,
+          'products_skipped' => 199,
+          'products_with_links' => 144,
+          'storefronts' => 1,
+          'storefronts_fetched' => 2,
+          'categories' => 95,
+          'product_option_sets' => 44,
+          'catalog_items' => 161
+        },
+        metadata: {
+          'engine' => 'ikas_catalog_sqlite_v2',
+          'catalog_scope' => 'storefront_public',
+          'storefronts' => [{ 'domain' => 'kamatas.com', 'type' => 'STOREFRONT' }]
+        }
+      )
+
+      get "/api/v1/accounts/#{account.id}/integrations/ikas", headers: admin.create_new_auth_token, as: :json
+
+      catalog_sync = response.parsed_body['catalog_sync']
+      expect(catalog_sync).to include(
+        'products_count' => 144,
+        'products_fetched_count' => 343,
+        'products_skipped_count' => 199,
+        'products_with_links_count' => 144,
+        'storefronts_count' => 1,
+        'storefronts_fetched_count' => 2,
+        'catalog_scope' => 'storefront_public'
+      )
+      expect(catalog_sync['storefronts'].first['domain']).to eq('kamatas.com')
+    end
+
     it 'rejects non-admin users' do
       get "/api/v1/accounts/#{account.id}/integrations/ikas", headers: agent.create_new_auth_token, as: :json
 

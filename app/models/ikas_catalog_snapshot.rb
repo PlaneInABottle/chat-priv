@@ -16,6 +16,7 @@ class IkasCatalogSnapshot < ApplicationRecord
 
   scope :latest_completed, -> { completed.order(completed_at: :desc, id: :desc) }
   scope :for_hook, ->(hook) { where(integrations_hook: hook) }
+  scope :storefront_catalog, -> { where("metadata ->> 'engine' = ?", 'ikas_catalog_sqlite_v2') }
 
   def sqlite_exists?
     sqlite_path.present? && File.exist?(sqlite_path)

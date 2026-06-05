@@ -62,6 +62,26 @@ const catalogCounts = computed(() => [
     value: catalogSync.value.products_count || 0,
   },
   {
+    key: 'products_fetched',
+    label: t('INTEGRATION_SETTINGS.IKAS.CATALOG.PRODUCTS_FETCHED'),
+    value: catalogSync.value.products_fetched_count || 0,
+  },
+  {
+    key: 'products_skipped',
+    label: t('INTEGRATION_SETTINGS.IKAS.CATALOG.PRODUCTS_SKIPPED'),
+    value: catalogSync.value.products_skipped_count || 0,
+  },
+  {
+    key: 'products_with_links',
+    label: t('INTEGRATION_SETTINGS.IKAS.CATALOG.PRODUCTS_WITH_LINKS'),
+    value: catalogSync.value.products_with_links_count || 0,
+  },
+  {
+    key: 'storefronts',
+    label: t('INTEGRATION_SETTINGS.IKAS.CATALOG.STOREFRONTS'),
+    value: catalogSync.value.storefronts_count || 0,
+  },
+  {
     key: 'categories',
     label: t('INTEGRATION_SETTINGS.IKAS.CATALOG.CATEGORIES'),
     value: catalogSync.value.categories_count || 0,
@@ -77,6 +97,12 @@ const catalogCounts = computed(() => [
     value: catalogSync.value.catalog_items_count || 0,
   },
 ]);
+const catalogStorefrontDomains = computed(() =>
+  (catalogSync.value.storefronts || [])
+    .map(storefront => storefront.domain)
+    .filter(Boolean)
+    .join(', ')
+);
 
 const initializeIkasIntegration = async () => {
   await store.dispatch('integrations/get');
@@ -301,6 +327,16 @@ onUnmounted(() => {
                 {{
                   $t('INTEGRATION_SETTINGS.IKAS.CATALOG.LAST_SYNCED_AT', {
                     time: catalogSync.last_synced_at,
+                  })
+                }}
+              </p>
+              <p class="text-xs text-n-slate-10">
+                {{ $t('INTEGRATION_SETTINGS.IKAS.CATALOG.SCOPE') }}
+              </p>
+              <p v-if="catalogStorefrontDomains" class="text-xs text-n-slate-10">
+                {{
+                  $t('INTEGRATION_SETTINGS.IKAS.CATALOG.STOREFRONT_DOMAINS', {
+                    domains: catalogStorefrontDomains,
                   })
                 }}
               </p>
