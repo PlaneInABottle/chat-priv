@@ -92,15 +92,15 @@ RSpec.describe Integrations::App do
     context 'when the app is ikas' do
       let(:app_name) { 'ikas' }
 
-      it 'returns true regardless of account feature flag' do
+      it 'returns true by default' do
         expect(app.active?(account)).to be true
       end
 
-      it 'returns true if the ikas integration feature is enabled' do
-        account.enable_features('ikas_integration')
+      it 'returns false if the ikas integration feature is disabled' do
+        account.disable_features('ikas_integration')
         account.save!
 
-        expect(app.active?(account)).to be true
+        expect(app.active?(account)).to be false
       end
     end
 
