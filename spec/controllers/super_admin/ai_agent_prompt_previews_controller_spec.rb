@@ -47,6 +47,28 @@ RSpec.describe 'Super Admin AI Agent Prompt Preview', type: :request do
     expect(response.body).to include('Never write ₺, TL, TRY, $, €, or any currency symbol/code unless price.currency is present')
   end
 
+  it 'labels tools without integration gates clearly' do
+    account = create(:account, name: 'Acme')
+    ai_agent = create(
+      :ai_agent,
+      account: account,
+      name: 'Support Bot',
+      enabled: true,
+      config: {
+        'tools' => {
+          'enabled' => %w[human_handoff]
+        }
+      }
+    )
+    sign_in(super_admin, scope: :super_admin)
+
+    get '/super_admin/ai_agent_prompt_preview', params: { account_id: account.id, ai_agent_id: ai_agent.id }
+
+    expect(response).to have_http_status(:success)
+    expect(response.body).to include('human_handoff', 'No integration required')
+    expect(response.body).not_to include('Not required')
+  end
+
   it 'does not preview an AI agent from another account' do
     account = create(:account, name: 'Acme')
     other_agent = create(:ai_agent, name: 'Other Account Bot', prompt: 'Do not show this prompt.')
