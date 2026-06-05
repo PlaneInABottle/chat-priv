@@ -7,9 +7,6 @@ for all resources in the admin dashboard,
 as defined by the routes in the `admin/` namespace
 %>
 
-<%= vite_client_tag %>
-<%= vite_javascript_tag 'superadmin_pages' %>
-
 <%
   sidebar_icons = {
     accounts: 'icon-building-4-line',
@@ -27,7 +24,11 @@ as defined by the routes in the `admin/` namespace
 <div class="w-56 flex-shrink-0 justify-between h-full flex flex-col bg-white" role="navigation">
   <div>
     <div class="flex mx-4 mb-5 border-slate-100 border-b py-5">
-      <%= link_to image_tag('/brand-assets/logo_thumbnail.svg', alt: 'Kozmopath Admin Dashboard', class: 'h-9'), super_admin_root_url %>
+      <%= link_to image_tag('/brand-assets/logo_thumbnail.svg',
+                            alt: 'Kozmopath Admin Dashboard',
+                            width: 36,
+                            height: 36,
+                            class: 'block h-9 w-9 flex-shrink-0'), super_admin_root_url %>
       <div class="flex flex-col ml-2.5 justify-center">
         <div class="text-sm font-semibold text-slate-800 leading-tight">Kozmopath <%= Chatwoot.config[:version] %></div>
         <div class="text-xs text-slate-400 mt-0.5">Super Admin</div>
