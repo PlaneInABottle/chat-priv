@@ -40,7 +40,7 @@ RSpec.describe 'Ai Agents API', type: :request do
         expect(json.first['name']).to eq(ai_agent.name)
         expect(json.first['conversation_count']).to eq(1)
         expect(json.first['conversation_limit']).to eq(0)
-        expect(json.first['ai_agent_model']).to eq('deepseek/deepseek-v4-flash')
+        expect(json.first).not_to have_key('ai_agent_model')
       end
 
       it 'returns agents sorted by created_at ascending' do
@@ -104,7 +104,7 @@ RSpec.describe 'Ai Agents API', type: :request do
         json = response.parsed_body
         expect(json['id']).to eq(ai_agent.id)
         expect(json['name']).to eq(ai_agent.name)
-        expect(json['model']).to eq('deepseek/deepseek-v4-flash')
+        expect(json).not_to have_key('model')
         expect(json['conversation_count']).to eq(2)
         expect(json['conversation_limit']).to eq(0)
         expect(json['agent_bot']).to be_present
