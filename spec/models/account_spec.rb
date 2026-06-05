@@ -344,6 +344,10 @@ RSpec.describe Account do
       expect(account.ai_agent_conversation_limit).to eq(0)
     end
 
+    it 'returns default conversation reuse window when absent' do
+      expect(account.ai_agent_conversation_reuse_window_hours).to eq(24)
+    end
+
     it 'is disabled by default' do
       expect(account.ai_agent_enabled?).to be(false)
     end
@@ -358,6 +362,11 @@ RSpec.describe Account do
       expect(account.reload.ai_agent_conversation_limit).to eq(100)
     end
 
+    it 'allows explicit conversation reuse window to override default' do
+      account.update!(ai_agent_conversation_reuse_window_hours: 48)
+      expect(account.reload.ai_agent_conversation_reuse_window_hours).to eq(48)
+    end
+
     it 'casts explicit enabled values to boolean' do
       account.update!(ai_agent_enabled: 'true')
       expect(account.reload.ai_agent_enabled?).to be(true)
@@ -367,22 +376,25 @@ RSpec.describe Account do
       expect(account.ai_agent_settings).to eq(
         enabled: false,
         model: 'deepseek/deepseek-v4-flash',
-        conversation_limit: 0
+        conversation_limit: 0,
+        conversation_reuse_window_hours: 24
       )
     end
 
     it 'round-trips ai_agent_settings through virtual attribute' do
-      account.ai_agent_settings = { enabled: true, model: 'anthropic/claude-3.5-sonnet', conversation_limit: 50 }
+      account.ai_agent_settings = { enabled: true, model: 'anthropic/claude-3.5-sonnet', conversation_limit: 50, conversation_reuse_window_hours: 48 }
       account.save!
       account.reload
 
       expect(account.ai_agent_enabled?).to be(true)
       expect(account.ai_agent_model).to eq('anthropic/claude-3.5-sonnet')
       expect(account.ai_agent_conversation_limit).to eq(50)
+      expect(account.ai_agent_conversation_reuse_window_hours).to eq(48)
       expect(account.ai_agent_settings).to eq(
         enabled: true,
         model: 'anthropic/claude-3.5-sonnet',
-        conversation_limit: 50
+        conversation_limit: 50,
+        conversation_reuse_window_hours: 48
       )
     end
 
@@ -397,6 +409,7 @@ RSpec.describe Account do
       expect(account.ai_agent_enabled?).to be(false)
       expect(account.ai_agent_model).to eq('openai/gpt-4o-mini')
       expect(account.ai_agent_conversation_limit).to eq(25)
+      expect(account.ai_agent_conversation_reuse_window_hours).to eq(24)
     end
   end
 

@@ -11,11 +11,11 @@ import Button from 'dashboard/components-next/button/Button.vue';
 import Switch from 'dashboard/components-next/switch/Switch.vue';
 import TagMultiSelectComboBox from 'dashboard/components-next/combobox/TagMultiSelectComboBox.vue';
 import Avatar from 'dashboard/components-next/avatar/Avatar.vue';
-import Icon from 'dashboard/components-next/icon/Icon.vue';
 import TestConversationLayout from './components/TestConversationLayout.vue';
 import TabBar from 'dashboard/components-next/tabbar/TabBar.vue';
 import AiAgentToolLogs from './components/AiAgentToolLogs.vue';
 import AiAgentPromptEditor from './components/AiAgentPromptEditor.vue';
+import AiAgentUsageSummary from './components/AiAgentUsageSummary.vue';
 
 const defaultToolsState = () => ({
   enabled: [],
@@ -53,6 +53,7 @@ const router = useRouter();
 const agentId = computed(() => Number(route.params.id));
 
 const aiAgent = useMapGetter('aiAgent/getAiAgent');
+const usage = useMapGetter('aiAgent/getUsage');
 const uiFlags = useMapGetter('aiAgent/getUIFlags');
 const inboxes = useMapGetter('inboxes/getInboxes');
 const labels = useMapGetter('labels/getLabels');
@@ -121,24 +122,6 @@ const inboxList = computed(() => {
     conflicting: false,
     owner_name: null,
   }));
-});
-
-const usageUsed = computed(() => {
-  return aiAgent.value?.conversation_count || 0;
-});
-
-const usageLimit = computed(() => {
-  return aiAgent.value?.conversation_limit || null;
-});
-
-const usageDisplay = computed(() => {
-  if (usageLimit.value) {
-    return t('AI_AGENT.USAGE.COUNT', {
-      used: usageUsed.value,
-      limit: usageLimit.value,
-    });
-  }
-  return t('AI_AGENT.USAGE.UNLIMITED', { used: usageUsed.value });
 });
 
 const hasPersistedPrompt = computed(() => {
@@ -302,6 +285,7 @@ async function loadAgentDetail(aiAgentId) {
   if (!aiAgentId) return;
 
   await store.dispatch('labels/get');
+  await store.dispatch('aiAgent/getUsage');
   await store.dispatch('aiAgent/show', aiAgentId);
   store.dispatch('aiAgentTestConversations/reset');
   await store.dispatch('aiAgentTestConversations/get', {
@@ -429,6 +413,7 @@ watch(agentId, async (newAgentId, oldAgentId) => {
     </template>
     <template #body>
       <div class="flex flex-col gap-8">
+        <AiAgentUsageSummary :usage="usage" />
         <TabBar
           :tabs="tabs"
           :initial-active-tab="activeTabIndex"
@@ -619,30 +604,6 @@ watch(agentId, async (newAgentId, oldAgentId) => {
                     }}
                   </template>
                 </p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Usage Counter -->
-          <div>
-            <h3 class="mb-2 text-sm font-medium text-n-slate-12">
-              {{ t('AI_AGENT.USAGE.LABEL') }}
-            </h3>
-            <div
-              class="flex items-center gap-3 p-4 rounded-lg border border-n-weak dark:border-n-weak bg-n-alpha-black1"
-            >
-              <div
-                class="flex items-center justify-center w-10 h-10 rounded-full bg-n-blue-3"
-              >
-                <Icon
-                  icon="i-lucide-message-square"
-                  class="text-n-brand size-5"
-                />
-              </div>
-              <div class="flex flex-col">
-                <span class="text-lg font-semibold text-n-slate-12">
-                  {{ usageDisplay }}
-                </span>
               </div>
             </div>
           </div>

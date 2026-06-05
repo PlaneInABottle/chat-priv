@@ -3,17 +3,18 @@
 # Table name: ai_agents
 #
 #  id           :bigint           not null, primary key
-#  account_id   :bigint           not null
-#  agent_bot_id :bigint
+#  config       :jsonb
+#  enabled      :boolean          default(FALSE), not null
+#  name         :string           default("AI Asistan"), not null
 #  prompt       :text             default("")
-#  enabled      :boolean          default(FALSE)
-#  config       :jsonb            default({})
 #  created_at   :datetime         not null
 #  updated_at   :datetime         not null
+#  account_id   :bigint           not null
+#  agent_bot_id :bigint
 #
 # Indexes
 #
-#  index_ai_agents_on_account_id    (account_id) UNIQUE
+#  index_ai_agents_on_account_id    (account_id)
 #  index_ai_agents_on_agent_bot_id  (agent_bot_id) UNIQUE
 #
 # Foreign Keys
@@ -27,6 +28,7 @@ class AiAgent < ApplicationRecord
   has_many :llm_calls, class_name: 'AiAgentLlmCall', dependent: :destroy
   has_many :tool_executions, class_name: 'AiAgentToolExecution', dependent: :destroy
   has_many :test_conversations, class_name: 'AiAgentTestConversation', dependent: :destroy
+  has_many :usage_events, class_name: 'AiAgentUsageEvent', dependent: :destroy
 
   validates :name, presence: true
   validates :prompt, length: { maximum: 50_000 }
@@ -37,12 +39,6 @@ class AiAgent < ApplicationRecord
 
   after_create :create_linked_agent_bot
   before_destroy :destroy_linked_agent_bot
-
-  def conversation_count
-    return 0 if agent_bot_id.blank?
-
-    Message.where(account_id: account_id, sender_type: 'AgentBot', sender_id: agent_bot_id).distinct.count(:conversation_id)
-  end
 
   private
 

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_06_05_120000) do
+ActiveRecord::Schema[7.1].define(version: 2026_06_05_123000) do
   # These extensions should be enabled to support this database
   enable_extension "pg_stat_statements"
   enable_extension "pg_trgm"
@@ -212,6 +212,30 @@ ActiveRecord::Schema[7.1].define(version: 2026_06_05_120000) do
     t.index ["conversation_id"], name: "index_ai_agent_tool_executions_on_conversation_id"
     t.index ["message_id"], name: "index_ai_agent_tool_executions_on_message_id"
     t.index ["tool_key"], name: "index_ai_agent_tool_executions_on_tool_key"
+  end
+
+  create_table "ai_agent_usage_events", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "ai_agent_id", null: false
+    t.bigint "contact_id"
+    t.bigint "conversation_id"
+    t.bigint "message_id"
+    t.integer "period", default: 0, null: false
+    t.datetime "period_start_at", null: false
+    t.datetime "period_end_at", null: false
+    t.datetime "window_started_at", null: false
+    t.datetime "window_ends_at", null: false
+    t.integer "status", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "contact_id", "window_ends_at"], name: "idx_ai_agent_usage_events_on_account_contact_window"
+    t.index ["account_id", "period", "period_start_at", "status"], name: "idx_ai_agent_usage_events_on_account_period_status"
+    t.index ["account_id"], name: "index_ai_agent_usage_events_on_account_id"
+    t.index ["ai_agent_id"], name: "index_ai_agent_usage_events_on_ai_agent_id"
+    t.index ["contact_id"], name: "index_ai_agent_usage_events_on_contact_id"
+    t.index ["conversation_id", "created_at"], name: "idx_ai_agent_usage_events_on_conversation_created_at"
+    t.index ["conversation_id"], name: "index_ai_agent_usage_events_on_conversation_id"
+    t.index ["message_id"], name: "index_ai_agent_usage_events_on_message_id"
   end
 
   create_table "ai_agents", force: :cascade do |t|
@@ -1433,6 +1457,11 @@ ActiveRecord::Schema[7.1].define(version: 2026_06_05_120000) do
   add_foreign_key "ai_agent_tool_executions", "ai_agents", on_delete: :cascade
   add_foreign_key "ai_agent_tool_executions", "conversations", on_delete: :nullify
   add_foreign_key "ai_agent_tool_executions", "messages", on_delete: :nullify
+  add_foreign_key "ai_agent_usage_events", "accounts", on_delete: :cascade
+  add_foreign_key "ai_agent_usage_events", "ai_agents", on_delete: :cascade
+  add_foreign_key "ai_agent_usage_events", "contacts", on_delete: :nullify
+  add_foreign_key "ai_agent_usage_events", "conversations", on_delete: :nullify
+  add_foreign_key "ai_agent_usage_events", "messages", on_delete: :nullify
   add_foreign_key "ai_agents", "accounts", on_delete: :cascade
   add_foreign_key "ai_agents", "agent_bots", on_delete: :nullify
   add_foreign_key "ikas_catalog_snapshots", "accounts", on_delete: :cascade

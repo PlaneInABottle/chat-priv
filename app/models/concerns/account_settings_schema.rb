@@ -15,6 +15,7 @@ module AccountSettingsSchema
         'ai_agent_enabled': { 'type': %w[boolean string null] },
         'ai_agent_model': { 'type': %w[string null] },
         'ai_agent_conversation_limit': { 'type': %w[integer string null] },
+        'ai_agent_conversation_reuse_window_hours': { 'type': %w[integer string null] },
         'conversation_required_attributes': {
           'type': %w[array null],
           'items': { 'type': 'string' }

@@ -91,7 +91,8 @@ RSpec.describe 'Super Admin accounts API', type: :request do
             ai_agent_settings: {
               enabled: 'true',
               model: 'anthropic/claude-3.5-sonnet',
-              conversation_limit: 100
+              conversation_limit: 100,
+              conversation_reuse_window_hours: 48
             }
           }
         }
@@ -101,6 +102,7 @@ RSpec.describe 'Super Admin accounts API', type: :request do
         expect(account.ai_agent_enabled?).to be(true)
         expect(account.ai_agent_model).to eq('anthropic/claude-3.5-sonnet')
         expect(account.ai_agent_conversation_limit).to eq(100)
+        expect(account.ai_agent_conversation_reuse_window_hours).to eq(48)
       end
 
       it 'does not wipe existing settings keys when updating AI settings' do
@@ -112,7 +114,8 @@ RSpec.describe 'Super Admin accounts API', type: :request do
             ai_agent_settings: {
               enabled: 'false',
               model: 'openai/gpt-4o-mini',
-              conversation_limit: 25
+              conversation_limit: 25,
+              conversation_reuse_window_hours: 12
             }
           }
         }
@@ -124,6 +127,7 @@ RSpec.describe 'Super Admin accounts API', type: :request do
         expect(account.ai_agent_enabled?).to be(false)
         expect(account.ai_agent_model).to eq('openai/gpt-4o-mini')
         expect(account.ai_agent_conversation_limit).to eq(25)
+        expect(account.ai_agent_conversation_reuse_window_hours).to eq(12)
       end
     end
   end

@@ -9,6 +9,10 @@ class AiAgentAPI extends ApiClient {
   getToolExecutions(id, params = {}) {
     return axios.get(`${this.url}/${id}/tool_executions`, { params });
   }
+
+  getUsage() {
+    return axios.get(`${this.baseUrl()}/ai_agent_usage`);
+  }
 }
 
 export default new AiAgentAPI();
