@@ -47,12 +47,18 @@ help_center:
   description: 'Allow agents to create help center articles and publish them in a portal.'
   enabled: true
   icon: 'icon-book-2-line'
+ai_agents:
+  name: 'AI Agents'
+  description: 'Configure Kozmopath AI Agent provider settings and global instructions.'
+  enabled: true
+  icon: 'icon-bot'
+  config_key: 'ai_agents'
 captain:
   name: 'Captain'
   description: 'Enable AI-powered conversations with your customers.'
-  enabled: <%= (ChatwootHub.pricing_plan != 'community') %>
+  enabled: false
+  hidden: true
   icon: 'icon-captain'
-  config_key: 'captain'
   enterprise: true
 
 # ------- Communication Channels ------- #

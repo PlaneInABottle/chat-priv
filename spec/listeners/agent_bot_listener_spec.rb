@@ -173,7 +173,10 @@ describe AgentBotListener do
       create(:agent_bot_inbox, inbox: inbox, agent_bot: agent_bot)
 
       expect(AgentBots::WebhookJob).to receive(:perform_later).with(agent_bot.outgoing_url,
-                                                                    incoming_message.webhook_data.merge(event: 'message_updated')).once
+                                                                    incoming_message.webhook_data.merge(event: 'message_updated'),
+                                                                    :agent_bot_webhook,
+                                                                    secret: agent_bot.secret,
+                                                                    delivery_id: kind_of(String)).once
 
       listener.message_updated(event)
     end

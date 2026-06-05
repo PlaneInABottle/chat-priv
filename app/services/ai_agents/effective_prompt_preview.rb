@@ -22,15 +22,23 @@ class AiAgents::EffectivePromptPreview
   end
 
   def base_prompt
-    format(AiAgents::ResponseService::SYSTEM_PROMPT_TEMPLATE, prompt: ai_agent.prompt)
+    prompt_composer.base_prompt
+  end
+
+  def global_instructions_prompt
+    prompt_composer.global_instructions_prompt
+  end
+
+  def agent_prompt
+    prompt_composer.agent_prompt
   end
 
   def tool_policy_prompt
-    AiAgents::ToolPromptPolicy.new(enabled_tool_keys).instructions
+    prompt_composer.tool_policy_prompt
   end
 
   def effective_system_prompt
-    [base_prompt, tool_policy_prompt].compact.join("\n")
+    prompt_composer.effective_system_prompt
   end
 
   def integration_gates
@@ -41,6 +49,10 @@ class AiAgents::EffectivePromptPreview
 
   def tool_config
     @tool_config ||= AiAgents::Config.new(ai_agent.config, allow_legacy_human_handoff_settings: true)
+  end
+
+  def prompt_composer
+    @prompt_composer ||= AiAgents::PromptComposer.new(ai_agent: ai_agent)
   end
 
   def integration_gate_for(definition)

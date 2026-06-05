@@ -13,13 +13,17 @@ RSpec.describe AiAgents::LlmAdapters::OpenAiCompatibleAdapter do
     allow(http).to receive(:read_timeout=)
     allow(Net::HTTP::Post).to receive(:new).and_return(request)
     allow(request).to receive(:body=)
+    allow(AiAgents::Settings).to receive(:llm_endpoint).and_return('https://example.test/v1/chat/completions')
+    allow(AiAgents::Settings).to receive(:llm_api_key).and_return('test-key')
+    allow(AiAgents::Settings).to receive(:llm_timeout_seconds).and_return(20)
   end
 
   it 'normalizes a text-only response' do
-    allow(http).to receive(:request).and_return(double(body: {
+    response_payload = {
       'choices' => [{ 'finish_reason' => 'stop', 'message' => { 'content' => 'Hello' } }],
       'usage' => { 'total_tokens' => 12 }
-    }.to_json))
+    }
+    allow(http).to receive(:request).and_return(http_response(response_payload))
 
     result = adapter.perform(messages: [{ role: 'user', content: 'Hi' }], tools: [], tool_choice: 'auto')
 
@@ -29,7 +33,7 @@ RSpec.describe AiAgents::LlmAdapters::OpenAiCompatibleAdapter do
   end
 
   it 'normalizes a single tool call response' do
-    allow(http).to receive(:request).and_return(double(body: {
+    response_payload = {
       'choices' => [{
         'finish_reason' => 'tool_calls',
         'message' => {
@@ -41,12 +45,44 @@ RSpec.describe AiAgents::LlmAdapters::OpenAiCompatibleAdapter do
           }]
         }
       }]
-    }.to_json))
+    }
+    allow(http).to receive(:request).and_return(http_response(response_payload))
 
     result = adapter.perform(messages: [{ role: 'user', content: 'Hi' }], tools: [], tool_choice: 'auto')
 
-    expect(result[:tool_calls]).to eq([
-      { id: 'call_1', type: 'function', name: 'human_handoff', arguments: '{"reason":"Need help","internal_note":"Escalate"}' }
-    ])
+    expect(result[:tool_calls]).to eq(
+      [
+        {
+          id: 'call_1',
+          type: 'function',
+          name: 'human_handoff',
+          arguments: '{"reason":"Need help","internal_note":"Escalate"}'
+        }
+      ]
+    )
+  end
+
+  it 'sends the composed effective system prompt' do
+    InstallationConfig.where(name: 'AI_AGENT_GLOBAL_INSTRUCTIONS').first_or_initialize.tap do |config|
+      config.value = 'Use Turkish by default.'
+      config.locked = false
+      config.save!
+    end
+    ai_agent.update!(prompt: 'Only use verified sources.')
+    response_payload = {
+      'choices' => [{ 'finish_reason' => 'stop', 'message' => { 'content' => 'Merhaba' } }]
+    }
+    allow(http).to receive(:request).and_return(http_response(response_payload))
+
+    expect(request).to receive(:body=) do |body|
+      system_message = JSON.parse(body).fetch('messages').first
+      expect(system_message.fetch('content')).to include('Use Turkish by default.', 'Only use verified sources.')
+    end
+
+    adapter.perform(messages: [{ role: 'user', content: 'Hi' }], tools: [], tool_choice: 'auto')
+  end
+
+  def http_response(payload)
+    instance_double(Net::HTTPResponse, body: payload.to_json)
   end
 end

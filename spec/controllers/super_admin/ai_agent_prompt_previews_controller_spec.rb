@@ -21,6 +21,7 @@ RSpec.describe 'Super Admin AI Agent Prompt Preview', type: :request do
   end
 
   it 'renders the effective prompt, enabled tools, and integration gates for the selected agent' do
+    upsert_config('AI_AGENT_GLOBAL_INSTRUCTIONS', 'Use Turkish for Turkish customer messages.')
     account = create(:account, name: 'Acme', settings: { 'ai_agent_model' => 'openai/gpt-4o-mini' })
     ai_agent = create(
       :ai_agent,
@@ -41,6 +42,7 @@ RSpec.describe 'Super Admin AI Agent Prompt Preview', type: :request do
     expect(response).to have_http_status(:success)
     expect(response.body).to include('Catalog Bot', 'openai/gpt-4o-mini', 'Effective system prompt')
     expect(response.body).to include('ikas_catalog_search', 'ikas_lookup_order', 'Tool policy prompt')
+    expect(response.body).to include('Global AI instructions', 'Use Turkish for Turkish customer messages.')
     expect(response.body).to include('Only answer from product and order tools.')
     expect(response.body).to include('Never write ₺, TL, TRY, $, €, or any currency symbol/code unless price.currency is present')
   end
@@ -74,5 +76,13 @@ RSpec.describe 'Super Admin AI Agent Prompt Preview', type: :request do
     helper_context.params = { controller: 'super_admin/ai_agent_prompt_previews' }
 
     expect(helper_context.settings_open?).to be(true)
+  end
+
+  def upsert_config(name, value)
+    InstallationConfig.where(name: name).first_or_initialize.tap do |config|
+      config.value = value
+      config.locked = false
+      config.save!
+    end
   end
 end
