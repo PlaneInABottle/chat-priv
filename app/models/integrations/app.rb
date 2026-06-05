@@ -2,15 +2,6 @@ class Integrations::App
   include Linear::IntegrationHelper
   attr_accessor :params
 
-  HIDDEN_ACCOUNT_INTEGRATION_IDS = %w[
-    webhook
-    dashboard_apps
-    openai
-    dialogflow
-    google_translate
-    dyte
-  ].freeze
-
   def initialize(params)
     @params = params
   end
@@ -59,7 +50,7 @@ class Integrations::App
 
   def active?(account)
     return true if params[:id] == 'ikas'
-    return false if hidden_in_account_integrations?
+    return false if params[:visible] == false
 
     flag = params[:feature_flag]
     return false unless flag.blank? || account.feature_enabled?(flag)
@@ -71,8 +62,6 @@ class Integrations::App
       account.feature_enabled?('linear_integration') && GlobalConfigService.load('LINEAR_CLIENT_ID', nil).present?
     when 'shopify'
       shopify_enabled?(account)
-    when 'ikas'
-      ikas_enabled?(account)
     when 'leadsquared'
       account.feature_enabled?('crm_integration')
     when 'notion'
@@ -142,13 +131,5 @@ class Integrations::App
 
   def notion_enabled?(account)
     account.feature_enabled?('notion_integration') && GlobalConfigService.load('NOTION_CLIENT_ID', nil).present?
-  end
-
-  def ikas_enabled?(account)
-    account.feature_enabled?('ikas_integration')
-  end
-
-  def hidden_in_account_integrations?
-    HIDDEN_ACCOUNT_INTEGRATION_IDS.include?(params[:id])
   end
 end
