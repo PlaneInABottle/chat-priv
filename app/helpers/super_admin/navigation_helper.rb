@@ -12,7 +12,7 @@ module SuperAdmin::NavigationHelper
 
   def settings_pages
     features = SuperAdmin::FeaturesHelper.available_features.select do |_feature, attrs|
-      attrs['config_key'].present? && attrs['enabled']
+      attrs['config_key'].present? && attrs['enabled'] && !attrs['hidden']
     end
 
     # Add general at the beginning

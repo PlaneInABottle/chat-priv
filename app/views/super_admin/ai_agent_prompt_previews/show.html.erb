@@ -130,8 +130,8 @@
 
     <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-5">
       <div class="border border-slate-200 rounded-lg p-4 bg-white">
-        <h2 class="text-base font-semibold text-slate-900 mb-2">Agent prompt</h2>
-        <pre class="max-h-80 overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 border border-slate-200 p-3 text-xs"><code><%= @preview.ai_agent.prompt.presence || 'No agent prompt configured.' %></code></pre>
+        <h2 class="text-base font-semibold text-slate-900 mb-2">Global AI instructions</h2>
+        <pre class="max-h-80 overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 border border-slate-200 p-3 text-xs"><code><%= @preview.global_instructions_prompt.presence || 'No global AI instructions configured.' %></code></pre>
       </div>
       <div class="border border-slate-200 rounded-lg p-4 bg-white">
         <h2 class="text-base font-semibold text-slate-900 mb-2">Tool policy prompt</h2>
@@ -142,6 +142,11 @@
     <div class="border border-slate-200 rounded-lg p-4 mb-5 bg-white">
       <h2 class="text-base font-semibold text-slate-900 mb-2">Base system prompt</h2>
       <pre class="max-h-96 overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 border border-slate-200 p-3 text-xs"><code><%= @preview.base_prompt %></code></pre>
+    </div>
+
+    <div class="border border-slate-200 rounded-lg p-4 mb-5 bg-white">
+      <h2 class="text-base font-semibold text-slate-900 mb-2">Agent prompt</h2>
+      <pre class="max-h-96 overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 border border-slate-200 p-3 text-xs"><code><%= @preview.agent_prompt.presence || 'No agent prompt configured.' %></code></pre>
     </div>
 
     <div class="border border-slate-200 rounded-lg p-4 bg-white">
