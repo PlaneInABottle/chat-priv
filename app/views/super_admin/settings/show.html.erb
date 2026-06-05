@@ -121,6 +121,7 @@
         <p class="text-slate-500 mb-0 text-sm">Review exact AI request messages, tool schemas, responses, and usage.</p>
       </a>
       <% SuperAdmin::FeaturesHelper.available_features.each do |feature, attrs| %>
+        <% next if attrs[:hidden] %>
         <div class="group border border-slate-200 p-4 rounded-lg relative shadow-sm hover:border-slate-300 hover:shadow transition-all">
           <span class="<%= attrs[:enabled] ? 'bg-green-500 text-white': 'bg-slate-300 text-slate-700' %> absolute rounded-full p-1 inline-flex right-3 top-3">
             <svg width="12" height="12"><use xlink:href="<%= attrs[:enabled] ? '#icon-tick-line': '#icon-lock-line' %>" /></svg>
