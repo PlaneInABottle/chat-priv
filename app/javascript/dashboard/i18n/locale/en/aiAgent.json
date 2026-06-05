@@ -29,10 +29,6 @@
       "NONE": "No inboxes available",
       "ASSIGNED_TO": "Assigned to {owner}"
     },
-    "MODEL": {
-      "LABEL": "AI Model",
-      "HELP": "The model is configured by your administrator"
-    },
     "TOOLS": {
       "LABEL": "Built-in Tools",
       "HELP": "Enable the allowlisted tools available to this AI agent.",
