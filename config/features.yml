@@ -133,24 +133,6 @@
 - name: linear_integration
   display_name: Linear Integration
   enabled: false
-- name: webhook_integration
-  display_name: Webhook Integration
-  enabled: false
-- name: dashboard_apps_integration
-  display_name: Dashboard Apps Integration
-  enabled: false
-- name: openai_integration
-  display_name: OpenAI Integration
-  enabled: false
-- name: dialogflow_integration
-  display_name: Dialogflow Integration
-  enabled: false
-- name: google_translate_integration
-  display_name: Google Translate Integration
-  enabled: false
-- name: dyte_integration
-  display_name: Dyte Integration
-  enabled: false
 - name: captain_integration
   display_name: Captain
   enabled: false
