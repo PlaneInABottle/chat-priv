@@ -92,8 +92,8 @@ RSpec.describe Integrations::App do
     context 'when the app is ikas' do
       let(:app_name) { 'ikas' }
 
-      it 'returns false if the ikas integration feature is disabled' do
-        expect(app.active?(account)).to be false
+      it 'returns true regardless of account feature flag' do
+        expect(app.active?(account)).to be true
       end
 
       it 'returns true if the ikas integration feature is enabled' do
@@ -107,8 +107,8 @@ RSpec.describe Integrations::App do
     context 'when other apps are queried' do
       let(:app_name) { 'webhook' }
 
-      it 'returns true' do
-        expect(app.active?(account)).to be true
+      it 'returns false' do
+        expect(app.active?(account)).to be false
       end
     end
   end

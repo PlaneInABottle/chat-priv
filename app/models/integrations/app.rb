@@ -2,6 +2,15 @@ class Integrations::App
   include Linear::IntegrationHelper
   attr_accessor :params
 
+  HIDDEN_ACCOUNT_INTEGRATION_IDS = %w[
+    webhook
+    dashboard_apps
+    openai
+    dialogflow
+    google_translate
+    dyte
+  ].freeze
+
   def initialize(params)
     @params = params
   end
@@ -49,6 +58,9 @@ class Integrations::App
   end
 
   def active?(account)
+    return true if params[:id] == 'ikas'
+    return false if hidden_in_account_integrations?
+
     flag = params[:feature_flag]
     return false unless flag.blank? || account.feature_enabled?(flag)
 
@@ -134,5 +146,9 @@ class Integrations::App
 
   def ikas_enabled?(account)
     account.feature_enabled?('ikas_integration')
+  end
+
+  def hidden_in_account_integrations?
+    HIDDEN_ACCOUNT_INTEGRATION_IDS.include?(params[:id])
   end
 end
