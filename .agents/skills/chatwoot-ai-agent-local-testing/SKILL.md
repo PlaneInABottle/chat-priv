@@ -1,6 +1,6 @@
 ---
 name: chatwoot-ai-agent-local-testing
-description: Verify Chatwoot OSS AI-agent behavior against real local customer messages by binding a valid AI agent to a real inbox, sending public inbox API traffic, and checking live handoff outcomes. Use when you need a truthful local demo or investigation of inbox-bound AI-agent behavior, especially to prove human handoff on inbox 617 and to confirm whether normal non-handoff replies do or do not appear in the real conversation thread.
+description: Verify Chatwoot OSS AI-agent behavior against real local customer messages by binding a valid AI agent to a real inbox, sending public inbox API traffic, and checking live replies, handoff outcomes, tool usage, or AI usage-limit accounting. Use when you need a truthful local demo or investigation of inbox-bound AI-agent behavior, especially to prove human handoff or quota behavior on inbox 617 and to confirm what appears in the real conversation thread.
 ---
 
 # Chatwoot AI Agent Local Testing
