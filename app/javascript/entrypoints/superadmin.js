@@ -1,5 +1,3 @@
-import '../dashboard/assets/scss/super_admin/index.scss';
-
 const initializeAccountSuspensionForm = () => {
   const form = document.querySelector('[data-account-suspension-form]');
   if (!form) return;

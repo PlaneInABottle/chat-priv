@@ -22,6 +22,7 @@ By default, it renders:
     <%= content_for(:title) %> - Kozmopath
   </title>
   <%= render "stylesheet" %>
+  <%= vite_stylesheet_tag 'superadmin.scss' %>
   <%= vite_client_tag %>
   <%= vite_javascript_tag 'superadmin' %>
   <%= csrf_meta_tags %>
