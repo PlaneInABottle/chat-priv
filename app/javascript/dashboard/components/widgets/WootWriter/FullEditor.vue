@@ -26,6 +26,7 @@ import { collapseSelection } from 'dashboard/helper/editorHelper';
 import { useAlert } from 'dashboard/composables';
 import { useUISettings } from 'dashboard/composables/useUISettings';
 import keyboardEventListenerMixins from 'shared/mixins/keyboardEventListenerMixins';
+import { exitEmptyListItem } from './listKeymap';
 import SlashCommandMenu from './SlashCommandMenu.vue';
 
 const MAXIMUM_FILE_UPLOAD_SIZE = 4; // in MB
@@ -62,6 +63,7 @@ export default {
     editorId: { type: String, default: '' },
     placeholder: { type: String, default: '' },
     enabledMenuOptions: { type: Array, default: () => [] },
+    allowImageUpload: { type: Boolean, default: true },
     autofocus: {
       type: Boolean,
       default: true,
@@ -79,7 +81,9 @@ export default {
   data() {
     return {
       plugins: [
-        imagePastePlugin(this.handleImageUpload),
+        ...(this.allowImageUpload
+          ? [imagePastePlugin(this.handleImageUpload)]
+          : []),
         this.createSlashPlugin(),
         embedPreviewPlugin(markdownEmbeds),
         trailingParagraphPlugin(),
@@ -247,6 +251,33 @@ export default {
         editorView.focus();
       }
     },
+    deleteSelectedListItemTextAndExit() {
+      if (!editorView) return false;
+
+      const { state: editorState } = editorView;
+      const { selection, schema } = editorState;
+      const { list_item: listItem, paragraph } = schema.nodes;
+      const { empty, $from, $to } = selection;
+
+      if (
+        empty ||
+        !listItem ||
+        !paragraph ||
+        !$from.sameParent($to) ||
+        $from.parent.type !== paragraph ||
+        $from.depth < 2 ||
+        $from.node($from.depth - 1).type !== listItem ||
+        $from.parentOffset !== 0 ||
+        $to.parentOffset !== $from.parent.content.size
+      ) {
+        return false;
+      }
+
+      editorView.dispatch(editorState.tr.deleteSelection());
+      exitEmptyListItem(editorView.state, editorView.dispatch);
+      editorView.focus();
+      return true;
+    },
     contentFromEditor() {
       if (editorView) {
         return ArticleMarkdownSerializer.serialize(editorView.state.doc);
@@ -254,6 +285,7 @@ export default {
       return '';
     },
     openFileBrowser() {
+      if (!this.allowImageUpload) return;
       this.$refs.imageUploadInput.click();
     },
     async handleImageUpload(url) {
@@ -351,6 +383,7 @@ export default {
           blur: this.onBlur,
           keydown: this.onKeydown,
           paste: (view, event) => {
+            if (!this.allowImageUpload) return false;
             const data = event.clipboardData.files;
             if (data.length > 0) {
               data.forEach(file => {
@@ -361,6 +394,7 @@ export default {
               });
               event.preventDefault();
             }
+            return false;
           },
         },
       });
@@ -390,6 +424,20 @@ export default {
           return true;
         }
         collapseSelection(editorView);
+        return true;
+      }
+      if (
+        ['Backspace', 'Delete'].includes(event.key) &&
+        this.deleteSelectedListItemTextAndExit()
+      ) {
+        event.preventDefault();
+        return true;
+      }
+      if (
+        event.key === 'Backspace' &&
+        exitEmptyListItem(state, editorView.dispatch)
+      ) {
+        event.preventDefault();
         return true;
       }
       return false;
@@ -470,6 +518,7 @@ export default {
         @select-action="executeSlashCommand"
       />
       <input
+        v-if="allowImageUpload"
         ref="imageUploadInput"
         type="file"
         accept="image/png, image/jpeg, image/jpg, image/gif, image/webp"
