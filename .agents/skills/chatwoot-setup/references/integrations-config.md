@@ -20,7 +20,8 @@ openai:
 ```
 
 - `Integrations::App#active?` treats `visible: false` as hidden.
-- Current product default is to show only `ikas` in the account integrations index. The dashboard index also filters to `ikas` as a defensive UI guard.
+- Current product default is to show only `ikas` in the account integrations index.
+- Hidden integrations should also be rejected by the account integration `show` endpoint and should not have dedicated dashboard settings routes.
 
 ## Feature flags vs visibility
 

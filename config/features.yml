@@ -159,7 +159,7 @@
   chatwoot_internal: true
 - name: ikas_integration
   display_name: ikas Integration
-  enabled: false
+  enabled: true
 - name: search_with_gin
   display_name: Search messages with GIN
   enabled: false

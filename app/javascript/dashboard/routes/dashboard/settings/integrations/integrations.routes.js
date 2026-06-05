@@ -3,8 +3,6 @@ import { frontendURL } from '../../../../helper/URLHelper';
 import SettingsWrapper from '../SettingsWrapper.vue';
 import IntegrationHooks from './IntegrationHooks.vue';
 import Index from './Index.vue';
-import Webhook from './Webhooks/Index.vue';
-import DashboardApps from './DashboardApps/Index.vue';
 import Slack from './Slack.vue';
 import Linear from './Linear.vue';
 import Notion from './Notion.vue';
@@ -22,24 +20,6 @@ export default {
           path: '',
           name: 'settings_applications',
           component: Index,
-          meta: {
-            featureFlag: FEATURE_FLAGS.INTEGRATIONS,
-            permissions: ['administrator'],
-          },
-        },
-        {
-          path: 'dashboard_apps',
-          component: DashboardApps,
-          name: 'settings_integrations_dashboard_apps',
-          meta: {
-            featureFlag: FEATURE_FLAGS.INTEGRATIONS,
-            permissions: ['administrator'],
-          },
-        },
-        {
-          path: 'webhook',
-          component: Webhook,
-          name: 'settings_integrations_webhook',
           meta: {
             featureFlag: FEATURE_FLAGS.INTEGRATIONS,
             permissions: ['administrator'],

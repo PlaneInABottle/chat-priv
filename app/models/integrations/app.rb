@@ -49,7 +49,6 @@ class Integrations::App
   end
 
   def active?(account)
-    return true if params[:id] == 'ikas'
     return false if params[:visible] == false
 
     flag = params[:feature_flag]

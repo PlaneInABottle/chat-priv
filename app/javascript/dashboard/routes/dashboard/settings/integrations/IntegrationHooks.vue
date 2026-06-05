@@ -76,8 +76,12 @@ export default {
       return this.$t('INTEGRATION_APPS.DELETE.CANCEL_BUTTON_TEXT');
     },
   },
-  mounted() {
-    this.$store.dispatch('integrations/get');
+  async mounted() {
+    await this.$store.dispatch('integrations/get');
+
+    if (isEmptyObject(this.integration)) {
+      this.$router.replace({ name: 'settings_applications' });
+    }
   },
   methods: {
     openAddHookModal() {
