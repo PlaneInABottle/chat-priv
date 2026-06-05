@@ -2,12 +2,10 @@ import 'chart.js';
 import { createApp, h } from 'vue';
 import VueDOMPurifyHTML from 'vue-dompurify-html';
 
-import PlaygroundIndex from '../superadmin_pages/views/playground/Index.vue';
 import DashboardIndex from '../superadmin_pages/views/dashboard/Index.vue';
 import AiAgentToolExecutionsIndex from '../superadmin_pages/views/ai_agent_tool_executions/Index.vue';
 
 const ComponentMapping = {
-  PlaygroundIndex: PlaygroundIndex,
   DashboardIndex: DashboardIndex,
   AiAgentToolExecutionsIndex: AiAgentToolExecutionsIndex,
 };
