@@ -27,6 +27,7 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
       write_jsonl(raw_dir, 'variant_types', variant_types)
       write_jsonl(raw_dir, 'product_attributes', product_attributes)
       write_jsonl(raw_dir, 'product_option_sets', product_option_sets)
+      write_jsonl(raw_dir, 'storefronts', storefronts)
       write_jsonl(raw_dir, 'products', products)
   end
 
@@ -39,7 +40,11 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
       { 'id' => 'honey', 'name' => 'Honey', 'parentId' => nil },
       { 'id' => 'curtains', 'name' => 'Perdeler', 'parentId' => nil },
       { 'id' => 'blackout', 'name' => 'Blackout', 'parentId' => 'curtains' },
-      { 'id' => 'balcony', 'name' => 'Balkon Ürünleri', 'parentId' => nil }
+      { 'id' => 'balcony', 'name' => 'Balkon Ürünleri', 'parentId' => nil },
+      { 'id' => 'panel-root', 'name' => 'Panel Ürünleri', 'parentId' => nil },
+      { 'id' => 'panel-cases', 'name' => 'Panel Kasaları', 'parentId' => 'panel-root' },
+      { 'id' => 'panel-window-cases', 'name' => 'Pencere Kasaları', 'parentId' => 'panel-cases' },
+      { 'id' => 'panel-cased-accessories', 'name' => 'Panel Kasalı Aksesuarlar', 'parentId' => 'panel-root' }
     ]
   end
 
@@ -80,6 +85,29 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
     ]
   end
 
+  def storefronts
+    [
+      {
+        'id' => 'storefront-public',
+        'name' => 'Public Storefront',
+        'type' => 'STOREFRONT',
+        'status' => 'READY',
+        'salesChannelId' => 'sales-channel-public',
+        'domains' => [{ 'id' => 'domain-public', 'name' => 'store.example.com', 'isDefault' => true }],
+        'routings' => []
+      },
+      {
+        'id' => 'storefront-b2b',
+        'name' => 'B2B Storefront',
+        'type' => 'B2B',
+        'status' => 'READY',
+        'salesChannelId' => 'sales-channel-b2b',
+        'domains' => [{ 'id' => 'domain-b2b', 'name' => 'b2b.example.com', 'isDefault' => true }],
+        'routings' => []
+      }
+    ]
+  end
+
   def products
     [
       sineklik_product,
@@ -89,9 +117,24 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
       blackout_curtain_product,
       option_set_sineklik_product,
       kedi_pencere_sineklik_product,
+      panel_window_case_product,
+      panel_cased_accessory_product,
       *extra_kedi_sineklik_products,
-      false_range_sineklik_product
-    ]
+      false_range_sineklik_product,
+      b2b_only_product
+    ].map { |product| product.fetch('id') == 'p-b2b-only' ? product : storefront_product(product) }
+  end
+
+  def storefront_product(product)
+    product.merge(
+      'salesChannelIds' => ['sales-channel-public'],
+      'hiddenSalesChannelIds' => [],
+      'metaData' => {
+        'id' => "meta-#{product.fetch('id')}",
+        'slug' => product.fetch('id'),
+        'canonicals' => []
+      }
+    )
   end
 
   def sineklik_product
@@ -162,6 +205,30 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
     }
   end
 
+  def panel_window_case_product
+    {
+      'id' => 'p-panel-window-case',
+      'name' => 'Panel Window Case',
+      'categoryIds' => ['panel-window-cases'],
+      'attributes' => [],
+      'variants' => [
+        variant('v-panel-window-case', price: 30.0, stocks: 4)
+      ]
+    }
+  end
+
+  def panel_cased_accessory_product
+    {
+      'id' => 'p-panel-cased-accessory',
+      'name' => 'Panel Cased Accessory',
+      'categoryIds' => ['panel-cased-accessories'],
+      'attributes' => [],
+      'variants' => [
+        variant('v-panel-cased-accessory', price: 10.0, stocks: 4)
+      ]
+    }
+  end
+
   def option_set_sineklik_product
     {
       'id' => 'p-option-set-sineklik',
@@ -215,6 +282,21 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
     }
   end
 
+  def b2b_only_product
+    {
+      'id' => 'p-b2b-only',
+      'name' => 'B2B Only Sineklik',
+      'categoryIds' => ['sineklik-akordiyon'],
+      'salesChannelIds' => ['sales-channel-b2b'],
+      'hiddenSalesChannelIds' => [],
+      'metaData' => { 'slug' => 'b2b-only-sineklik', 'canonicals' => [] },
+      'attributes' => [{ 'productAttributeId' => 'measurement-attr', 'value' => 'Max 80x100 cm' }],
+      'variants' => [
+        variant('v-b2b-only', price: 1.0, stocks: 10)
+      ]
+    }
+  end
+
   def variant(id, price:, stocks:, variant_values: [])
     {
       'id' => id,
@@ -236,6 +318,17 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
     end
   end
 
+  it 'prefers the deeper noun category instead of a broad parent when short fuzzy matches would overreach' do
+    with_snapshot do |sqlite_path|
+      payload = described_class.new(sqlite_path: sqlite_path).query('panel kasası')
+      product_ids = payload.fetch('candidates').map { |candidate| candidate.fetch('product_id') }
+
+      expect(payload.fetch('matched_scope').fetch('id')).to eq('panel-cases')
+      expect(product_ids).to include('p-panel-window-case')
+      expect(product_ids).not_to include('p-panel-cased-accessory')
+    end
+  end
+
   it 'matches customer dimensions against product max dimensions' do
     with_snapshot do |sqlite_path|
       payload = described_class.new(sqlite_path: sqlite_path).query('70x90 sineklik')
@@ -243,6 +336,43 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
 
       expect(payload.fetch('result_type')).to eq('show_compatible_candidates')
       expect(candidate.fetch('match_reasons')).to include('requested dimensions fit product max dimensions')
+      expect(candidate.dig('link', 'url')).to eq('https://store.example.com/p-sineklik-akordiyon')
+    end
+  end
+
+  it 'requires conversation context for dimension-only follow-up queries' do
+    with_snapshot do |sqlite_path|
+      engine = described_class.new(sqlite_path: sqlite_path)
+
+      expect(engine.context_required_for?('70x80')).to be(true)
+      expect(engine.context_required_for?('70x80 link fiyat')).to be(true)
+      expect(engine.context_required_for?('akordiyon sineklik 70x80')).to be(false)
+      expect(engine.context_required_for?('blackout perde 70x80')).to be(false)
+    end
+  end
+
+  it 'asks for product scope instead of searching all dimension-compatible products' do
+    with_snapshot do |sqlite_path|
+      payload = described_class.new(sqlite_path: sqlite_path).query('70x80')
+
+      expect(payload.fetch('result_type')).to eq('needs_scope')
+      expect(payload.fetch('next_action')).to eq('ask_customer_which_product_or_category')
+      expect(payload.fetch('candidates')).to eq([])
+    end
+  end
+
+  it 'uses the latest catalog-scoped context without carrying old constraints' do
+    with_snapshot do |sqlite_path|
+      payload = described_class.new(sqlite_path: sqlite_path).query(
+        '70x80',
+        context_texts: ['sineklik var mi', 'akordiyon sineklikler', '70x100 olsun link ve fiyat verir misin']
+      )
+      product_ids = payload.fetch('candidates').map { |candidate| candidate.fetch('product_id') }
+
+      expect(payload.fetch('query')).to eq('akordiyon sineklikler 70x80')
+      expect(payload.fetch('result_type')).to eq('show_compatible_candidates')
+      expect(product_ids).to include('p-sineklik-akordiyon')
+      expect(payload.fetch('query')).not_to include('70x100')
     end
   end
 
@@ -253,6 +383,7 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
       expect(payload.fetch('result_type')).to eq('show_candidates')
       expect(payload.fetch('candidates').first.fetch('variant_id')).to eq('v-shirt-black-m')
       expect(payload.fetch('candidates').first.fetch('match_reasons')).to include('matched size', 'matched color')
+      expect(payload.dig('candidates', 0, 'link', 'url')).to include('%22Size%22=M', '%22Color%22=Black')
     end
   end
 
@@ -310,6 +441,15 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
 
       product_ids = payload.fetch('candidates').map { |candidate| candidate.fetch('product_id') }
       expect(product_ids).not_to include('p-false-range-sineklik')
+    end
+  end
+
+  it 'does not index products that are not visible on a public storefront' do
+    with_snapshot do |sqlite_path|
+      payload = described_class.new(sqlite_path: sqlite_path).query('b2b only sineklik', limit: 10)
+      product_ids = payload.fetch('candidates').map { |candidate| candidate.fetch('product_id') }
+
+      expect(product_ids).not_to include('p-b2b-only')
     end
   end
 

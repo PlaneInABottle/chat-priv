@@ -188,22 +188,8 @@ class AiAgents::ToolExecutor
     sanitized = args.deep_dup
     return sanitized unless definition&.key == AiAgents::Config::IKAS_LOOKUP_ORDER_TOOL
 
-    sanitized['email'] = mask_email(sanitized['email']) if sanitized['email'].present?
-    sanitized['phone'] = mask_phone(sanitized['phone']) if sanitized['phone'].present?
+    sanitized['email'] = AiAgents::PrivacyRedactor.mask_email(sanitized['email']) if sanitized['email'].present?
+    sanitized['phone'] = AiAgents::PrivacyRedactor.mask_phone(sanitized['phone']) if sanitized['phone'].present?
     sanitized
-  end
-
-  def mask_email(value)
-    local, domain = value.to_s.split('@', 2)
-    return '[redacted]' if local.blank? || domain.blank?
-
-    "#{local.first}***@#{domain}"
-  end
-
-  def mask_phone(value)
-    digits = value.to_s.delete('^0-9')
-    return '[redacted]' if digits.length < 4
-
-    "***#{digits.last(4)}"
   end
 end

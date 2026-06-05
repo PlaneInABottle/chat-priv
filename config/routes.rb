@@ -742,6 +742,7 @@ Rails.application.routes.draw do
         get :refresh, on: :collection
       end
       resources :ai_agent_tools, only: [:index, :show]
+      resources :ai_agent_llm_calls, only: [:index]
       resources :ai_agent_tool_executions, only: [:index]
       resource :ai_agent_prompt_preview, only: [:show]
 

@@ -171,6 +171,35 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_18_000000) do
     t.index ["user_id"], name: "index_agent_sessions_on_user_id"
   end
 
+  create_table "ai_agent_llm_calls", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "ai_agent_id", null: false
+    t.bigint "conversation_id"
+    t.bigint "message_id"
+    t.string "model"
+    t.string "step", null: false
+    t.integer "mode", null: false
+    t.integer "status", null: false
+    t.jsonb "request_messages", default: [], null: false
+    t.jsonb "request_tool_names", default: [], null: false
+    t.jsonb "response", default: {}, null: false
+    t.jsonb "usage", default: {}, null: false
+    t.string "finish_reason"
+    t.string "error_code"
+    t.text "error_message"
+    t.integer "duration_ms"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "created_at"], name: "index_ai_agent_llm_calls_on_account_id_and_created_at"
+    t.index ["account_id"], name: "index_ai_agent_llm_calls_on_account_id"
+    t.index ["ai_agent_id", "created_at"], name: "index_ai_agent_llm_calls_on_ai_agent_id_and_created_at"
+    t.index ["ai_agent_id"], name: "index_ai_agent_llm_calls_on_ai_agent_id"
+    t.index ["conversation_id", "created_at"], name: "index_ai_agent_llm_calls_on_conversation_id_and_created_at"
+    t.index ["conversation_id"], name: "index_ai_agent_llm_calls_on_conversation_id"
+    t.index ["message_id"], name: "index_ai_agent_llm_calls_on_message_id"
+    t.index ["status"], name: "index_ai_agent_llm_calls_on_status"
+  end
+
   create_table "ai_agent_test_conversations", force: :cascade do |t|
     t.bigint "account_id", null: false
     t.bigint "ai_agent_id", null: false
@@ -605,8 +634,8 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_18_000000) do
     t.boolean "smtp_enable_ssl_tls", default: false
     t.jsonb "provider_config", default: {}
     t.string "provider"
-    t.string "imap_authentication", default: "plain"
     t.boolean "verified_for_sending", default: false, null: false
+    t.string "imap_authentication", default: "plain"
     t.index ["email"], name: "index_channel_email_on_email", unique: true
     t.index ["forward_to_email"], name: "index_channel_email_on_forward_to_email", unique: true
   end
@@ -1573,6 +1602,10 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_18_000000) do
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "ai_agent_llm_calls", "accounts", on_delete: :cascade
+  add_foreign_key "ai_agent_llm_calls", "ai_agents", on_delete: :cascade
+  add_foreign_key "ai_agent_llm_calls", "conversations", on_delete: :nullify
+  add_foreign_key "ai_agent_llm_calls", "messages", on_delete: :nullify
   add_foreign_key "ai_agent_tool_executions", "accounts", on_delete: :cascade
   add_foreign_key "ai_agent_tool_executions", "ai_agents", on_delete: :cascade
   add_foreign_key "ai_agent_tool_executions", "conversations", on_delete: :nullify

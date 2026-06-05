@@ -80,9 +80,16 @@ class Integrations::Ikas::Catalog::SyncRunner
   def counts_for(manifest, build_result)
     raw_counts = manifest.fetch('counts', {})
     stats = build_result.fetch('stats', {})
+    indexed_products = stats['raw_products'].to_i
+    fetched_products = raw_counts['products'].to_i
 
     {
-      'products' => raw_counts['products'].to_i,
+      'products' => indexed_products,
+      'products_fetched' => fetched_products,
+      'products_skipped' => [fetched_products - indexed_products, 0].max,
+      'products_with_links' => stats['products_with_links'].to_i,
+      'storefronts' => Array(build_result['storefronts']).length,
+      'storefronts_fetched' => raw_counts['storefronts'].to_i,
       'categories' => raw_counts['categories'].to_i,
       'variant_types' => raw_counts['variant_types'].to_i,
       'product_attributes' => raw_counts['product_attributes'].to_i,
@@ -95,7 +102,9 @@ class Integrations::Ikas::Catalog::SyncRunner
 
   def metadata_for(manifest, build_result)
     {
-      'engine' => 'ikas_catalog_sqlite_v1',
+      'engine' => 'ikas_catalog_sqlite_v2',
+      'catalog_scope' => 'storefront_public',
+      'storefronts' => build_result['storefronts'],
       'raw_run_id' => manifest['run_id'],
       'raw_started_at' => manifest['started_at'],
       'raw_completed_at' => manifest['completed_at'],

@@ -47,7 +47,7 @@
 - Re-fetch the AI agent after update and confirm `agent_bot.inbox_ids` contains the target inbox.
 - Confirm the binding row exists in `agent_bot_inboxes` for the target inbox before sending messages.
 - For a normal message, verify the incoming customer message exists and that `AgentBots::AiResponseJob` ran before claiming any AI activity.
-- If no outgoing assistant thread message appears for the normal message, report that truthfully.
+- For a normal message, verify the outgoing public AgentBot reply appears before claiming success.
 - For a handoff message, verify all of the following when present:
   - outgoing customer-facing bot handoff message
   - outgoing private note from the agent bot
@@ -59,8 +59,8 @@
 ## Truthful caveat about normal replies
 
 - Live handoff behavior is demonstrably persisted today: the handoff tool can create a visible bot message, a private note, labels, and `ai_handoff_*` conversation attributes.
-- Normal non-handoff AI text replies are not clearly proven to persist into the real conversation thread on the current live path.
-- If you try a normal question first, report only what the UI and datastore actually show. Do not promise a visible assistant thread reply unless the session directly proves it.
+- Normal non-handoff AI text replies are also expected to persist as public AgentBot messages on the current live path.
+- Still report only what the public API, UI, and datastore show for the current session; do not infer success without direct evidence.
 
 ## Browser verification focus
 

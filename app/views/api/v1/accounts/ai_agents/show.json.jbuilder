@@ -21,7 +21,7 @@ json.ikas_integration do
   json.can_connect ikas_summary[:can_connect]
   if ikas_summary[:hook].present?
     latest_snapshot = ikas_summary[:hook].ikas_catalog_snapshots.order(created_at: :desc, id: :desc).first
-    completed_snapshot = ikas_summary[:hook].ikas_catalog_snapshots.latest_completed.first
+    completed_snapshot = ikas_summary[:hook].ikas_catalog_snapshots.storefront_catalog.latest_completed.first
     json.catalog_sync do
       json.status latest_snapshot&.status || 'not_synced'
       json.last_synced_at completed_snapshot&.completed_at&.iso8601

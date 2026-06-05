@@ -9,11 +9,16 @@ module IkasCatalogMvp
     SIZE_KEYS = %w[size beden numara].freeze
     ORGANIC_TERMS = %w[organic organik natural naturel dogal dogadan].freeze
 
-    def initialize(categories:, variant_types:, product_attributes:, product_option_sets: [])
+    def initialize(categories:, variant_types:, product_attributes:, product_option_sets: [], storefronts: [])
       @categories = Array(categories)
       @variant_types = Array(variant_types)
       @product_attributes = Array(product_attributes)
       @product_option_sets = Array(product_option_sets)
+      @product_link_builder = ProductLinkBuilder.new(storefronts: storefronts)
+    end
+
+    def product_visible?(product)
+      product_link_builder.product_visible?(product)
     end
 
     def normalize_product(product)
@@ -30,7 +35,7 @@ module IkasCatalogMvp
 
     private
 
-    attr_reader :categories, :variant_types, :product_attributes, :product_option_sets
+    attr_reader :categories, :variant_types, :product_attributes, :product_option_sets, :product_link_builder
 
     def normalized_items(product)
       variants = Array(product['variants']).select { |variant| variant['isActive'] != false }
@@ -64,7 +69,7 @@ module IkasCatalogMvp
         'search_text' => search_text,
         'search_text_folded' => Text.fold(search_text),
         'raw_json' => Text.json(variant || product)
-      }
+      }.merge(product_link_builder.link_fields_for(product, option_facets: variant_facets))
       item['facets'] = facets.map { |facet| facet.merge('item_id' => item.fetch('item_id')) }
       item['facts'] = facts_for(product, variant, item, facets)
       item
@@ -84,7 +89,7 @@ module IkasCatalogMvp
         'currency' => items.filter_map { |item| item['currency'] }.first,
         'search_text' => Text.fold(search_text_for(product, preferred_name(product), [])),
         'raw_json' => Text.json(product)
-      }
+      }.merge(product_link_builder.link_fields_for(product))
     end
 
     def facts_for(product, variant, item, facets)

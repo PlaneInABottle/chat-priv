@@ -10,10 +10,13 @@ module IkasCatalogMvp
       @sqlite_path = sqlite_path
     end
 
-    def query(text, limit: DEFAULT_LIMIT)
+    def query(text, limit: DEFAULT_LIMIT, context_texts: [])
       with_db do |db|
-        parsed = QueryParser.new(facet_vocabulary: facet_vocabulary(db)).parse(text)
-        return unsupported_payload(text, parsed) if parsed.fetch('unsupported_constraints').any?
+        plan = query_plan_for(db, text, context_texts)
+        return needs_scope_payload(text, plan.fetch('parsed')) if plan.fetch('needs_scope')
+
+        parsed = plan.fetch('parsed')
+        return unsupported_payload(plan.fetch('query'), parsed) if parsed.fetch('unsupported_constraints').any?
 
         root = matched_root(db, parsed.fetch('terms'))
         buckets = root ? type_buckets(db, root.fetch('id')) : []
@@ -27,13 +30,68 @@ module IkasCatalogMvp
                          .sort_by { |candidate| candidate_sort_key(candidate, parsed.fetch('terms')) }
                          .first(limit)
 
-        result_payload(text, parsed, root, candidates)
+        result_payload(plan.fetch('query'), parsed, root, candidates)
+      end
+    end
+
+    def context_required_for?(text)
+      with_db do |db|
+        parsed = query_parser(db).parse(text)
+        scope_required?(db, parsed)
       end
     end
 
     private
 
     attr_reader :sqlite_path
+
+    def query_parser(db)
+      QueryParser.new(facet_vocabulary: facet_vocabulary(db))
+    end
+
+    def query_plan_for(db, text, context_texts)
+      parsed = query_parser(db).parse(text)
+      return { 'query' => text, 'parsed' => parsed, 'needs_scope' => false } unless scope_required?(db, parsed)
+
+      context_terms = latest_context_scope_terms(db, context_texts)
+      return { 'query' => text, 'parsed' => parsed, 'needs_scope' => true } if context_terms.empty?
+
+      query = scoped_constraint_query(context_terms, parsed)
+      { 'query' => query, 'parsed' => query_parser(db).parse(query), 'needs_scope' => false }
+    end
+
+    def needs_scope_payload(text, parsed)
+      {
+        'result_type' => 'needs_scope',
+        'query' => text,
+        'parsed' => parsed,
+        'candidates' => [],
+        'warnings' => ['query_missing_catalog_scope'],
+        'next_action' => 'ask_customer_which_product_or_category'
+      }
+    end
+
+    def scope_required?(db, parsed)
+      parsed.fetch('constraints').any? && scope_terms_for(db, parsed).empty?
+    end
+
+    def latest_context_scope_terms(db, context_texts)
+      Array(context_texts).reverse_each do |context_text|
+        terms = scope_terms_for(db, query_parser(db).parse(context_text), include_item_scope: false)
+        terms = terms.select { |term| Text.fold(term).length >= 3 }
+        return terms if terms.any?
+      end
+      []
+    end
+
+    def scope_terms_for(db, parsed, include_item_scope: true)
+      parsed.fetch('terms').select { |term| catalog_scope_term?(db, term, include_item_scope: include_item_scope) }
+    end
+
+    def scoped_constraint_query(scope_terms, parsed)
+      constraint_text = parsed.fetch('constraints').filter_map { |constraint| constraint['raw'] }.join(' ')
+      [scope_terms.join(' '), constraint_text].reject { |value| value.to_s.empty? }.join(' ').split.join(' ')
+    end
 
     def clarification_needed?(parsed, buckets)
       parsed.fetch('constraints').empty? && buckets.length > 1
@@ -102,7 +160,7 @@ module IkasCatalogMvp
         FROM catalog_items i
         #{join_sql}
         WHERE #{where_sql}
-        ORDER BY i.sellable DESC, i.in_stock DESC, i.price_amount IS NULL ASC, i.price_amount ASC, i.display_name ASC
+        ORDER BY i.sellable DESC, i.price_amount IS NULL ASC, i.price_amount ASC, i.in_stock DESC, i.display_name ASC
         LIMIT ?
       SQL
     end
@@ -119,7 +177,7 @@ module IkasCatalogMvp
         match_kind = 'compatible' if match.fetch('kind') == 'compatible'
       end
 
-      {
+      candidate = {
         'item_id' => row.fetch('item_id'),
         'product_id' => row.fetch('product_id'),
         'variant_id' => row['variant_id'],
@@ -136,6 +194,17 @@ module IkasCatalogMvp
         'match_reasons' => reasons_for(evidence, constraints),
         'evidence' => evidence
       }
+      candidate['link'] = link_for(row) if row['product_url'].to_s != ''
+      candidate
+    end
+
+    def link_for(row)
+      {
+        'url' => row['product_url'],
+        'source' => row['product_url_source'],
+        'slug' => row['product_slug'],
+        'storefront_domain' => row['storefront_domain']
+      }.compact
     end
 
     def match_constraint(db, item_id, constraint)
@@ -271,15 +340,16 @@ module IkasCatalogMvp
         visible_term_miss_count(candidate.fetch('display_name'), terms),
         candidate.fetch('match_kind') == 'exact' ? 0 : 1,
         candidate.dig('stock', 'sellable') ? 0 : 1,
-        candidate.dig('stock', 'in_stock') ? 0 : 1,
+        candidate.dig('price', 'amount').nil? ? 1 : 0,
         candidate.dig('price', 'amount') || Float::INFINITY,
+        candidate.dig('stock', 'in_stock') ? 0 : 1,
         candidate.fetch('display_name')
       ]
     end
 
     def visible_term_miss_count(display_name, terms)
-      visible_tokens = Text.tokens(display_name).map { |token| category_canonical_token(token) }
-      terms.count { |term| !visible_tokens.include?(category_canonical_token(term)) }
+      visible_tokens = Text.tokens(display_name)
+      terms.count { |term| visible_tokens.none? { |visible_token| category_token_match?(term, visible_token) } }
     end
 
     def facet_vocabulary(db)
@@ -318,19 +388,95 @@ module IkasCatalogMvp
     end
 
     def category_token_match?(left, right)
-      category_canonical_token(left) == category_canonical_token(right)
+      left_variants = category_token_variants(left)
+      right_variants = category_token_variants(right)
+      return true if (left_variants & right_variants).any?
+
+      left_variants.any? do |left_token|
+        right_variants.any? { |right_token| similar_category_token?(left_token, right_token) }
+      end
     end
 
-    def category_canonical_token(value)
+    def catalog_scope_term?(db, term, include_item_scope: true)
+      category_scope_term?(db, term) || (include_item_scope && selective_item_scope_term?(db, term))
+    end
+
+    def category_scope_term?(db, term)
+      db.execute('SELECT id FROM raw_categories').any? do |row|
+        category_path_tokens(db, row.fetch('id')).any? { |word| category_token_match?(term, word) }
+      end
+    end
+
+    def selective_item_scope_term?(db, term)
+      total = db.get_first_value('SELECT COUNT(DISTINCT group_id) FROM catalog_items').to_i
+      return false if total.zero?
+
+      matches = db.get_first_value(
+        'SELECT COUNT(DISTINCT group_id) FROM catalog_items WHERE search_text_folded LIKE ?',
+        ["%#{Text.fold(term)}%"]
+      ).to_i
+      matches.positive? && matches <= [(total * 0.2).ceil, 5].max
+    end
+
+    def category_token_variants(value)
       token = Text.fold(value)
-      return 'akordiyon' if token == 'akordeon'
-      return 'sineklik' if token.start_with?('sineklik') || token.start_with?('sineklig')
-      return 'perde' if token.start_with?('perde')
-      return 'pencere' if token.start_with?('pencere')
-      return 'kapi' if token.start_with?('kapi')
-      return 'kedi' if token.start_with?('kedi')
+      return [] if token.empty?
+
+      stemmed_category_tokens(token).flat_map { |candidate| softened_turkish_final_variants(candidate) }
+                                   .uniq
+    end
+
+    def stemmed_category_tokens(token)
+      candidates = [token, singular_category_token(token)]
+      suffixes = %w[leri lari ler lar nden ndan den dan nin nun in un si su yi yu ye ya de da i u a e]
+      suffixes.each do |suffix|
+        next unless token.end_with?(suffix)
+
+        stem = token.delete_suffix(suffix)
+        candidates << singular_category_token(stem) if stem.length >= 3
+      end
+      candidates.reject(&:empty?).uniq
+    end
+
+    def softened_turkish_final_variants(token)
+      variants = [token]
+      final_map = { 'b' => 'p', 'd' => 't', 'g' => 'k' }
+      replacement = final_map[token[-1]]
+      variants << "#{token[0...-1]}#{replacement}" if replacement && token.length > 3
+      variants
+    end
+
+    def singular_category_token(token)
+      return token.delete_suffix('ler') if token.length > 5 && token.end_with?('ler')
+      return token.delete_suffix('lar') if token.length > 5 && token.end_with?('lar')
+      return token.delete_suffix('s') if token.length > 3 && token.end_with?('s') && !token.end_with?('ss')
 
       token
+    end
+
+    def similar_category_token?(left, right)
+      min_length = [left.length, right.length].min
+      return false if min_length < 7
+
+      distance = levenshtein_distance(left, right)
+      distance <= 2
+    end
+
+    def levenshtein_distance(left, right)
+      previous = (0..right.length).to_a
+      left.chars.each_with_index do |left_char, left_index|
+        current = [left_index + 1]
+        right.chars.each_with_index do |right_char, right_index|
+          cost = left_char == right_char ? 0 : 1
+          current << [
+            current[right_index] + 1,
+            previous[right_index + 1] + 1,
+            previous[right_index] + cost
+          ].min
+        end
+        previous = current
+      end
+      previous.last
     end
 
     def common_ancestor_for(db, categories)

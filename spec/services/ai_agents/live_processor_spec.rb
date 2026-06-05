@@ -57,11 +57,11 @@ RSpec.describe AiAgents::LiveProcessor do
     expect(conversation.messages.where(message_type: 'outgoing', private: false, sender: ai_agent.agent_bot).last.content).to eq('Hi there')
   end
 
-  it 'passes pending incoming messages after the latest AI boundary ordered by id' do
+  it 'passes recent public conversation messages ordered by id' do
     create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming', sender: conversation.contact,
                      content: 'Old')
-    create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'outgoing', sender: ai_agent.agent_bot,
-                     content: 'Boundary')
+    boundary = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'outgoing', sender: ai_agent.agent_bot,
+                                content: 'Boundary')
     first = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming', sender: conversation.contact,
                              content: 'One')
     second = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming', sender: conversation.contact,
@@ -73,29 +73,36 @@ RSpec.describe AiAgents::LiveProcessor do
     described_class.new(message: second, adapter: adapter).perform
 
     expect(adapter).to have_received(:perform).with(hash_including(messages: [
+                                                                     { role: 'user', content: 'Old' },
+                                                                     { role: 'assistant', content: boundary.content },
                                                                      { role: 'user', content: first.content },
                                                                      { role: 'user', content: second.content }
                                                                    ]))
   end
 
-  it 'uses the latest AgentBot boundary when multiple AI replies exist' do
-    create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming', sender: conversation.contact,
-                     content: 'Old one')
+  it 'keeps recent AI replies in context for follow-up customer messages' do
+    create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming',
+                     sender: conversation.contact, content: '70x80')
     create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'outgoing', sender: ai_agent.agent_bot,
-                     content: 'First boundary')
-    create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming', sender: conversation.contact,
-                     content: 'Old two')
-    create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'outgoing', sender: ai_agent.agent_bot,
-                     content: 'Latest boundary')
+                     content: 'Akordeon Pencere Sineklik Beyaz is one option.')
     latest = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming', sender: conversation.contact,
-                              content: 'Current question')
+                              content: 'beyaz olanin linki var mi')
     allow(adapter).to receive(:perform).and_return({ assistant_text: 'Done', tool_calls: [], finish_reason: 'stop' })
 
     described_class.new(message: latest, adapter: adapter).perform
 
     expect(adapter).to have_received(:perform).with(hash_including(messages: [
+                                                                     { role: 'user', content: '70x80' },
+                                                                     { role: 'assistant',
+                                                                       content: 'Akordeon Pencere Sineklik Beyaz is one option.' },
                                                                      { role: 'user', content: latest.content }
                                                                    ]))
+    expect(AiAgentLlmCall.last.request_messages.last(3)).to eq([
+                                                                 { 'role' => 'user', 'content' => '70x80' },
+                                                                 { 'role' => 'assistant',
+                                                                   'content' => 'Akordeon Pencere Sineklik Beyaz is one option.' },
+                                                                 { 'role' => 'user', 'content' => latest.content }
+                                                               ])
   end
 
   it 'does not execute for private notes' do

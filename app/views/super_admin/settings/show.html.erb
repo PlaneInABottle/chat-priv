@@ -111,6 +111,15 @@
         </div>
         <p class="text-slate-500 mb-0 text-sm">Inspect effective AI agent prompts, enabled tools, and integration gates.</p>
       </a>
+      <a class="group border border-slate-200 p-4 rounded-lg relative shadow-sm no-underline hover:border-slate-300 hover:shadow transition-all" href="<%= super_admin_ai_agent_llm_calls_path %>">
+        <div class="flex items-center justify-center w-9 h-9 mb-3 border border-slate-200 text-slate-600 rounded-lg">
+          <svg width="18" height="18"><use xlink:href="#icon-bot" /></svg>
+        </div>
+        <div class="flex items-center justify-between mb-1 mt-3">
+          <h3 class="text-slate-900 font-semibold text-sm">AI LLM Calls</h3>
+        </div>
+        <p class="text-slate-500 mb-0 text-sm">Review exact AI request messages, tool schemas, responses, and usage.</p>
+      </a>
       <% SuperAdmin::FeaturesHelper.available_features.each do |feature, attrs| %>
         <div class="group border border-slate-200 p-4 rounded-lg relative shadow-sm hover:border-slate-300 hover:shadow transition-all">
           <span class="<%= attrs[:enabled] ? 'bg-green-500 text-white': 'bg-slate-300 text-slate-700' %> absolute rounded-full p-1 inline-flex right-3 top-3">

@@ -21,7 +21,7 @@ RSpec.describe AiAgents::EffectivePromptPreview do
       expect(preview.tool_policy_prompt).to include('Catalog tool rules')
       expect(preview.effective_system_prompt).to include(
         'Only answer from verified catalog evidence.',
-        'Do not mention a price currency when price.currency is blank'
+        'Never write ₺, TL, TRY, $, €, or any currency symbol/code unless price.currency is present'
       )
     end
   end

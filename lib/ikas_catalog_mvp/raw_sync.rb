@@ -11,6 +11,7 @@ module IkasCatalogMvp
       'variant_types' => :variant_types,
       'product_attributes' => :product_attributes,
       'product_option_sets' => :product_option_sets,
+      'storefronts' => :storefronts,
       'products' => :products
     }.freeze
 

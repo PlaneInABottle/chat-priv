@@ -5,6 +5,20 @@ require 'sqlite3'
 
 module IkasCatalogMvp
   class SqliteBuilder
+    GROUP_COLUMNS = %w[
+      group_id product_id display_name primary_category_id product_url product_slug product_url_source
+      storefront_id storefront_domain storefront_sales_channel_id item_count in_stock_count min_price_amount
+      max_price_amount currency search_text raw_json
+    ].freeze
+    ITEM_COLUMNS = %w[
+      item_id group_id product_id variant_id entity_type display_name display_subtitle primary_category_id product_url
+      product_slug product_url_source storefront_id storefront_domain storefront_sales_channel_id price_amount currency
+      stock_quantity in_stock sellable image_id search_text search_text_folded raw_json
+    ].freeze
+    FACT_COLUMNS = %w[
+      item_id type key value_text value_folded numeric_value numeric_value_2 unit source confidence raw
+    ].freeze
+
     def initialize(snapshot_dir:, sqlite_path: nil)
       @snapshot_dir = Pathname.new(snapshot_dir)
       @sqlite_path = Pathname.new(sqlite_path || @snapshot_dir.join('catalog.sqlite3'))
@@ -13,10 +27,11 @@ module IkasCatalogMvp
     def build
       FileUtils.mkdir_p(sqlite_path.dirname)
       FileUtils.rm_f(sqlite_path)
+      validate_storefront_scope!
       db.execute_batch(schema_sql)
       insert_raw_rows
       insert_normalized_rows
-      { 'sqlite_path' => sqlite_path.to_s, 'stats' => stats }
+      { 'sqlite_path' => sqlite_path.to_s, 'stats' => stats, 'storefronts' => link_builder.eligible_storefronts }
     ensure
       @db&.close
     end
@@ -39,12 +54,27 @@ module IkasCatalogMvp
         CREATE TABLE raw_variant_types (id TEXT PRIMARY KEY, name TEXT, raw_json TEXT NOT NULL);
         CREATE TABLE raw_product_attributes (id TEXT PRIMARY KEY, name TEXT, type TEXT, raw_json TEXT NOT NULL);
         CREATE TABLE raw_product_option_sets (id TEXT PRIMARY KEY, name TEXT, raw_json TEXT NOT NULL);
+        CREATE TABLE raw_storefronts (
+          id TEXT PRIMARY KEY,
+          name TEXT,
+          type TEXT,
+          status TEXT,
+          sales_channel_id TEXT,
+          domain TEXT,
+          raw_json TEXT NOT NULL
+        );
         CREATE TABLE raw_products (id TEXT PRIMARY KEY, name TEXT, raw_json TEXT NOT NULL);
         CREATE TABLE catalog_groups (
           group_id TEXT PRIMARY KEY,
           product_id TEXT NOT NULL,
           display_name TEXT NOT NULL,
           primary_category_id TEXT,
+          product_url TEXT,
+          product_slug TEXT,
+          product_url_source TEXT,
+          storefront_id TEXT,
+          storefront_domain TEXT,
+          storefront_sales_channel_id TEXT,
           item_count INTEGER NOT NULL,
           in_stock_count INTEGER NOT NULL,
           min_price_amount REAL,
@@ -62,6 +92,12 @@ module IkasCatalogMvp
           display_name TEXT NOT NULL,
           display_subtitle TEXT,
           primary_category_id TEXT,
+          product_url TEXT,
+          product_slug TEXT,
+          product_url_source TEXT,
+          storefront_id TEXT,
+          storefront_domain TEXT,
+          storefront_sales_channel_id TEXT,
           price_amount REAL,
           currency TEXT,
           stock_quantity REAL,
@@ -110,12 +146,16 @@ module IkasCatalogMvp
       insert_raw_variant_types
       insert_raw_product_attributes
       insert_raw_product_option_sets
+      insert_raw_storefronts
       insert_raw_products
     end
 
     def insert_raw_categories
       each_jsonl('categories') do |row|
-        db.execute('INSERT INTO raw_categories (id, parent_id, name, raw_json) VALUES (?, ?, ?, ?)', [row['id'], row['parentId'], row['name'], Text.json(row)])
+        db.execute(
+          'INSERT INTO raw_categories (id, parent_id, name, raw_json) VALUES (?, ?, ?, ?)',
+          [row['id'], row['parentId'], row['name'], Text.json(row)]
+        )
       end
     end
 
@@ -127,7 +167,10 @@ module IkasCatalogMvp
 
     def insert_raw_product_attributes
       each_jsonl('product_attributes') do |row|
-        db.execute('INSERT INTO raw_product_attributes (id, name, type, raw_json) VALUES (?, ?, ?, ?)', [row['id'], row['name'], row['type'], Text.json(row)])
+        db.execute(
+          'INSERT INTO raw_product_attributes (id, name, type, raw_json) VALUES (?, ?, ?, ?)',
+          [row['id'], row['name'], row['type'], Text.json(row)]
+        )
       end
     end
 
@@ -137,8 +180,20 @@ module IkasCatalogMvp
       end
     end
 
+    def insert_raw_storefronts
+      each_jsonl('storefronts') do |row|
+        link_storefront = link_builder.eligible_storefronts.find { |storefront| storefront.fetch('id') == row['id'] }
+        db.execute(
+          'INSERT INTO raw_storefronts (id, name, type, status, sales_channel_id, domain, raw_json) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [row['id'], row['name'], row['type'], row['status'], row['salesChannelId'], link_storefront&.fetch('domain', nil), Text.json(row)]
+        )
+      end
+    end
+
     def insert_raw_products
       each_jsonl('products') do |row|
+        next unless link_builder.product_visible?(row)
+
         db.execute('INSERT INTO raw_products (id, name, raw_json) VALUES (?, ?, ?)', [row['id'], row['name'], Text.json(row)])
       end
     end
@@ -148,10 +203,13 @@ module IkasCatalogMvp
         categories: load_jsonl('categories'),
         variant_types: load_jsonl('variant_types'),
         product_attributes: load_jsonl('product_attributes'),
-        product_option_sets: load_jsonl('product_option_sets')
+        product_option_sets: load_jsonl('product_option_sets'),
+        storefronts: load_jsonl('storefronts')
       )
 
       each_jsonl('products') do |product|
+        next unless normalizer.product_visible?(product)
+
         normalized = normalizer.normalize_product(product)
         insert_group(normalized.fetch(:group))
         normalized.fetch(:items).each { |item| insert_item(item) }
@@ -163,17 +221,11 @@ module IkasCatalogMvp
     end
 
     def insert_group(row)
-      db.execute(
-        'INSERT INTO catalog_groups (group_id, product_id, display_name, primary_category_id, item_count, in_stock_count, min_price_amount, max_price_amount, currency, search_text, raw_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        row.values_at('group_id', 'product_id', 'display_name', 'primary_category_id', 'item_count', 'in_stock_count', 'min_price_amount', 'max_price_amount', 'currency', 'search_text', 'raw_json')
-      )
+      insert_hash_row('catalog_groups', GROUP_COLUMNS, row)
     end
 
     def insert_item(row)
-      db.execute(
-        'INSERT INTO catalog_items (item_id, group_id, product_id, variant_id, entity_type, display_name, display_subtitle, primary_category_id, price_amount, currency, stock_quantity, in_stock, sellable, image_id, search_text, search_text_folded, raw_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        row.values_at('item_id', 'group_id', 'product_id', 'variant_id', 'entity_type', 'display_name', 'display_subtitle', 'primary_category_id', 'price_amount', 'currency', 'stock_quantity', 'in_stock', 'sellable', 'image_id', 'search_text', 'search_text_folded', 'raw_json')
-      )
+      insert_hash_row('catalog_items', ITEM_COLUMNS, row)
     end
 
     def insert_item_category(row)
@@ -192,16 +244,22 @@ module IkasCatalogMvp
     end
 
     def insert_fact(row)
+      insert_hash_row('catalog_facts', FACT_COLUMNS, row)
+    end
+
+    def insert_hash_row(table, columns, row)
       db.execute(
-        'INSERT INTO catalog_facts (item_id, type, key, value_text, value_folded, numeric_value, numeric_value_2, unit, source, confidence, raw) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        row.values_at('item_id', 'type', 'key', 'value_text', 'value_folded', 'numeric_value', 'numeric_value_2', 'unit', 'source', 'confidence', 'raw')
+        "INSERT INTO #{table} (#{columns.join(', ')}) VALUES (#{Array.new(columns.length, '?').join(', ')})",
+        columns.map { |column| row[column] }
       )
     end
 
     def stats
-      %w[raw_products catalog_groups catalog_items catalog_facets catalog_facts].to_h do |table|
+      %w[raw_products raw_storefronts catalog_groups catalog_items catalog_facets catalog_facts].to_h do |table|
         [table, db.get_first_value("SELECT COUNT(*) FROM #{table}")]
-      end
+      end.merge(
+        'products_with_links' => db.get_first_value('SELECT COUNT(DISTINCT product_id) FROM catalog_groups WHERE product_url IS NOT NULL').to_i
+      )
     end
 
     def load_jsonl(name)
@@ -213,6 +271,16 @@ module IkasCatalogMvp
 
     def each_jsonl(name)
       load_jsonl(name).each { |row| yield row }
+    end
+
+    def validate_storefront_scope!
+      return if link_builder.eligible_storefronts.any?
+
+      raise Error, 'No READY public Ikas storefront found for catalog sync.'
+    end
+
+    def link_builder
+      @link_builder ||= ProductLinkBuilder.new(storefronts: load_jsonl('storefronts'))
     end
   end
 end
