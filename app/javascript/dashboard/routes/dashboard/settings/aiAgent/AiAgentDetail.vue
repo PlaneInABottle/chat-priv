@@ -519,30 +519,6 @@ watch(agentId, async (newAgentId, oldAgentId) => {
             </div>
           </div>
 
-          <!-- Model Display -->
-          <div>
-            <h3 class="mb-2 text-sm font-medium text-n-slate-12">
-              {{ t('AI_AGENT.MODEL.LABEL') }}
-            </h3>
-            <div
-              class="flex items-center gap-3 p-4 rounded-lg border border-n-weak dark:border-n-weak bg-n-alpha-black1"
-            >
-              <div
-                class="flex items-center justify-center w-10 h-10 rounded-full bg-n-purple-3"
-              >
-                <Icon icon="i-lucide-brain" class="text-n-purple-9 size-5" />
-              </div>
-              <div class="flex flex-col">
-                <span class="text-sm font-semibold text-n-slate-12">
-                  {{ aiAgent?.model || '—' }}
-                </span>
-                <span class="text-xs text-n-slate-11">
-                  {{ t('AI_AGENT.MODEL.HELP') }}
-                </span>
-              </div>
-            </div>
-          </div>
-
           <div>
             <h3 class="mb-2 text-sm font-medium text-n-slate-12">
               {{ t('AI_AGENT.TOOLS.LABEL') }}
