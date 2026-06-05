@@ -32,8 +32,6 @@ json.ikas_integration do
   end
 end
 json.account_ai_agent_enabled @ai_agent.account.ai_agent_enabled?
-json.conversation_count @ai_agent.conversation_count
-json.conversation_limit @ai_agent.account.ai_agent_conversation_limit
 json.created_at @ai_agent.created_at
 json.updated_at @ai_agent.updated_at
 

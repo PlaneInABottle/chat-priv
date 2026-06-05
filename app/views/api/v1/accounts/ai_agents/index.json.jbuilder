@@ -16,7 +16,5 @@ json.array! @ai_agents do |ai_agent|
     end
   end
 
-  json.conversation_limit ai_agent.account.ai_agent_conversation_limit
-  json.conversation_count ai_agent.conversation_count
   json.account_ai_agent_enabled ai_agent.account.ai_agent_enabled?
 end

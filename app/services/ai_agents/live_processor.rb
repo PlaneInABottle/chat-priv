@@ -11,6 +11,9 @@ class AiAgents::LiveProcessor
     return unless eligible_message?
     return if handoff_completed?
 
+    usage_result = usage_limiter.reserve!
+    return handle_usage_exhausted!(usage_result) if usage_result.exhausted?
+
     result = AiAgents::Orchestrator.new(
       ai_agent: ai_agent,
       messages: orchestrator_messages,
@@ -20,9 +23,17 @@ class AiAgents::LiveProcessor
       adapter: adapter
     ).perform
 
-    post_assistant_message!(result[:assistant_message]) unless handoff_result?(result)
+    if handoff_result?(result)
+      consume_usage!(usage_result, result)
+    else
+      post_assistant_message!(result[:assistant_message])
+      consume_usage!(usage_result, result)
+    end
 
     handoff_result?(result)
+  rescue StandardError
+    usage_limiter.release!(usage_result&.event) if usage_result&.reserved?
+    raise
   end
 
   private
@@ -78,6 +89,25 @@ class AiAgents::LiveProcessor
     return if assistant_message.blank?
 
     Messages::MessageBuilder.new(nil, conversation.reload, assistant_message_params(assistant_message)).perform
+  end
+
+  def usage_limiter
+    @usage_limiter ||= AiAgents::Usage::Limiter.new(ai_agent: ai_agent, message: message)
+  end
+
+  def handle_usage_exhausted!(usage_result)
+    usage_limiter.exhausted_handoff!(summary: usage_result.summary)
+    true
+  end
+
+  def consume_usage!(usage_result, result)
+    return unless usage_result&.event
+
+    if result[:assistant_message].present? || handoff_result?(result)
+      usage_limiter.consume!(usage_result.event)
+    elsif usage_result.reserved?
+      usage_limiter.release!(usage_result.event)
+    end
   end
 
   def assistant_message_params(assistant_message)

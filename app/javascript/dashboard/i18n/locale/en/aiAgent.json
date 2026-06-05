@@ -54,10 +54,27 @@
         "UNAVAILABLE": "ikas catalog search is unavailable (connection: {state}, catalog: {catalogStatus})."
       }
     },
-    "USAGE": {
-      "LABEL": "Conversation Usage",
-      "COUNT": "{used} of {limit} conversations",
-      "UNLIMITED": "{used} conversations"
+    "USAGE_REPORT": {
+      "TITLE": "AI usage",
+      "HELP": "Monthly AI conversation usage for this account.",
+      "EXHAUSTED_HELP": "AI replies are paused until the monthly limit resets. New customer messages are routed to humans.",
+      "LOADING": "Loading...",
+      "UNLIMITED_REMAINING": "Unlimited",
+      "UNLIMITED_USED": "{used} used",
+      "REMAINING": "{count} left",
+      "USED_OF_LIMIT": "{used} of {limit} used",
+      "RESET_AT": "Resets",
+      "REUSE_WINDOW": "Same customer window",
+      "HOURS": "{count} hours",
+      "AI_REPLIES": "AI replies",
+      "HANDOFFS": "Handoffs",
+      "COUNTED_CONVERSATIONS": "{count} counted conversations",
+      "TOOL_CALLS": "{count} tool calls",
+      "RECENT_CONVERSATIONS": "Recent counted conversations",
+      "UNKNOWN_CONTACT": "Unknown contact",
+      "CONVERSATION_LABEL": "Conversation #{id}",
+      "COUNTED_AT": "Counted {time}",
+      "REUSE_UNTIL": "Reuse until {time}"
     },
     "TEST_CONVERSATIONS": {
       "TITLE": "Test Conversations",
