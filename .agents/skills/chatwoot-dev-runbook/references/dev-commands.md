@@ -47,6 +47,14 @@ bundle exec rspec spec/path/to/file_spec.rb:LINE
 pnpm ruby:prettier
 ```
 
+For local RSpec runs that need the repo's native test env wrapper, use:
+
+```bash
+RAILS_ENV=test POSTGRES_DATABASE=chatwoot_test .agents/skills/chatwoot-ai-native-test/scripts/with-chatwoot-env.sh rbenv exec bundle exec rspec spec/path/to/file_spec.rb
+```
+
+Use `rbenv exec ruby -c` for syntax checks; the system Ruby may reject syntax supported by the repo Ruby.
+
 ## Build and storybook-style entrypoints
 
 ```bash
