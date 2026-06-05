@@ -24,12 +24,21 @@
       </div>
 
       <div class="ai-agent-settings-control">
-        <%= label_tag 'account_ai_agent_settings_conversation_limit', 'Conversation Limit' %>
+        <%= label_tag 'account_ai_agent_settings_conversation_limit', 'Monthly Conversation Limit' %>
         <%= number_field_tag "#{field.html_name}[conversation_limit]",
                              field.resource.ai_agent_conversation_limit,
                              id: 'account_ai_agent_settings_conversation_limit',
                              min: 0 %>
         <span class="ai-agent-settings-control__hint">0 = unlimited</span>
+      </div>
+
+      <div class="ai-agent-settings-control">
+        <%= label_tag 'account_ai_agent_settings_conversation_reuse_window_hours', 'Same Customer Reuse Window' %>
+        <%= number_field_tag "#{field.html_name}[conversation_reuse_window_hours]",
+                             field.resource.ai_agent_conversation_reuse_window_hours,
+                             id: 'account_ai_agent_settings_conversation_reuse_window_hours',
+                             min: 1 %>
+        <span class="ai-agent-settings-control__hint">Hours. New AI conversations from the same contact inside this window count once.</span>
       </div>
     </div>
   </div>

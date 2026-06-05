@@ -89,6 +89,7 @@ Rails.application.routes.draw do
             end
           end
           resource :saml_settings, only: [:show, :create, :update, :destroy]
+          resource :ai_agent_usage, only: [:show], controller: 'ai_agent_usage'
           resources :ai_agents, only: [:index, :show, :create, :update, :destroy] do
             resources :tool_executions, only: [:index], controller: 'ai_agent_tool_executions'
             resources :test_conversations, only: [:index, :create, :show, :destroy], controller: 'ai_agent_test_conversations' do

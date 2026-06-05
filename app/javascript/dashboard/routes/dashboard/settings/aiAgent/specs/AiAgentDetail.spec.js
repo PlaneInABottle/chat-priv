@@ -79,6 +79,16 @@ const createVuexStore = ({
   aiAgentRecords,
   updateResult,
   labels = [],
+  usage = {
+    limit: 10,
+    used: 2,
+    remaining: 8,
+    unlimited: false,
+    status: 'ok',
+    reset_at: '2026-07-01T00:00:00Z',
+    reuse_window_hours: 24,
+    metrics: {},
+  },
 } = {}) => {
   const recordsById = aiAgentRecords || {
     1: aiAgentRecord || buildAiAgent(),
@@ -102,6 +112,7 @@ const createVuexStore = ({
     }),
     reset: vi.fn(),
     get: vi.fn().mockResolvedValue([]),
+    getUsage: vi.fn().mockResolvedValue(usage),
   };
 
   const store = createStore({
@@ -109,9 +120,11 @@ const createVuexStore = ({
       aiAgentRecord: recordsById[1],
       inboxes: [],
       labels,
+      usage,
     },
     getters: {
       'aiAgent/getAiAgent': state => state.aiAgentRecord,
+      'aiAgent/getUsage': state => state.usage,
       'aiAgent/getUIFlags': () => ({ isFetching: false }),
       'inboxes/getInboxes': state => state.inboxes,
       'labels/getLabels': state => state.labels,
@@ -127,6 +140,7 @@ const createVuexStore = ({
     actions: {
       'aiAgent/show': actionMocks.show,
       'aiAgent/update': actionMocks.update,
+      'aiAgent/getUsage': actionMocks.getUsage,
       'labels/get': vi.fn().mockResolvedValue([]),
       'aiAgentTestConversations/reset': actionMocks.reset,
       'aiAgentTestConversations/get': actionMocks.get,

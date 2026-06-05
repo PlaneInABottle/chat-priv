@@ -5,8 +5,10 @@ export const state = {
   records: {},
   sortOrder: [],
   activeId: null,
+  usage: null,
   uiFlags: {
     isFetching: false,
+    isFetchingUsage: false,
     isCreating: false,
     isUpdating: false,
     isDeleting: false,
@@ -26,6 +28,9 @@ export const getters = {
   getActiveAgent($state) {
     return $state.records[$state.activeId] || null;
   },
+  getUsage($state) {
+    return $state.usage;
+  },
 };
 
 export const actions = {
@@ -42,6 +47,19 @@ export const actions = {
       // Ignore error - 404 means no ai agent configured yet
     } finally {
       commit('SET_AI_AGENT_UI_FLAG', { isFetching: false });
+    }
+  },
+
+  getUsage: async ({ commit }) => {
+    commit('SET_AI_AGENT_UI_FLAG', { isFetchingUsage: true });
+    try {
+      const response = await AiAgentAPI.getUsage();
+      commit('SET_AI_AGENT_USAGE', response.data);
+      return response.data;
+    } catch (error) {
+      return null;
+    } finally {
+      commit('SET_AI_AGENT_UI_FLAG', { isFetchingUsage: false });
     }
   },
 
@@ -149,6 +167,9 @@ export const mutations = {
     if ($state.activeId === id) {
       $state.activeId = null;
     }
+  },
+  SET_AI_AGENT_USAGE($state, data) {
+    $state.usage = data;
   },
   SET_AI_AGENT_UI_FLAG($state, data) {
     $state.uiFlags = {

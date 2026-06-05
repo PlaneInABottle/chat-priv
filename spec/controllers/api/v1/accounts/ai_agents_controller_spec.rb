@@ -38,8 +38,8 @@ RSpec.describe 'Ai Agents API', type: :request do
         expect(json.length).to eq(1)
         expect(json.first['id']).to eq(ai_agent.id)
         expect(json.first['name']).to eq(ai_agent.name)
-        expect(json.first['conversation_count']).to eq(1)
-        expect(json.first['conversation_limit']).to eq(0)
+        expect(json.first).not_to have_key('conversation_count')
+        expect(json.first).not_to have_key('conversation_limit')
         expect(json.first).not_to have_key('ai_agent_model')
       end
 
@@ -105,8 +105,8 @@ RSpec.describe 'Ai Agents API', type: :request do
         expect(json['id']).to eq(ai_agent.id)
         expect(json['name']).to eq(ai_agent.name)
         expect(json).not_to have_key('model')
-        expect(json['conversation_count']).to eq(2)
-        expect(json['conversation_limit']).to eq(0)
+        expect(json).not_to have_key('conversation_count')
+        expect(json).not_to have_key('conversation_limit')
         expect(json['agent_bot']).to be_present
         expect(json['agent_bot']['bot_type']).to eq('ai')
         expect(json['agent_bot']['inbox_ids']).to include(inbox.id)

@@ -65,7 +65,7 @@ class Account < ApplicationRecord
   store_accessor :settings, :reporting_timezone
   store_accessor :settings, :keep_pending_on_bot_failure
   store_accessor :settings, :captain_auto_resolve_mode
-  store_accessor :settings, :ai_agent_enabled, :ai_agent_model, :ai_agent_conversation_limit
+  store_accessor :settings, :ai_agent_enabled, :ai_agent_model, :ai_agent_conversation_limit, :ai_agent_conversation_reuse_window_hours
 
   include AccountCaptainAutoResolve
 
@@ -75,6 +75,7 @@ class Account < ApplicationRecord
   has_many :ai_agents, dependent: :destroy
   has_many :ai_agent_llm_calls, dependent: :destroy
   has_many :ai_agent_tool_executions, dependent: :destroy
+  has_many :ai_agent_usage_events, dependent: :destroy
   has_many :api_channels, dependent: :destroy_async, class_name: '::Channel::Api'
   has_many :articles, dependent: :destroy_async, class_name: '::Article'
   has_many :assignment_policies, dependent: :destroy_async
@@ -166,7 +167,8 @@ class Account < ApplicationRecord
     {
       enabled: ai_agent_enabled?,
       model: ai_agent_model,
-      conversation_limit: ai_agent_conversation_limit
+      conversation_limit: ai_agent_conversation_limit,
+      conversation_reuse_window_hours: ai_agent_conversation_reuse_window_hours
     }
   end
 
@@ -177,6 +179,9 @@ class Account < ApplicationRecord
     self.ai_agent_enabled = settings[:enabled] if settings.key?(:enabled)
     self.ai_agent_model = settings[:model] if settings.key?(:model)
     self.ai_agent_conversation_limit = settings[:conversation_limit] if settings.key?(:conversation_limit)
+    if settings.key?(:conversation_reuse_window_hours)
+      self.ai_agent_conversation_reuse_window_hours = settings[:conversation_reuse_window_hours]
+    end
   end
 
   def ai_agent_enabled?
@@ -189,6 +194,11 @@ class Account < ApplicationRecord
 
   def ai_agent_conversation_limit
     (super || 0).to_i
+  end
+
+  def ai_agent_conversation_reuse_window_hours
+    value = (super || 24).to_i
+    value.positive? ? value : 24
   end
 
   def usage_limits

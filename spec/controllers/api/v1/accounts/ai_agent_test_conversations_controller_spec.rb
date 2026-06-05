@@ -278,6 +278,17 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
         expect(json['title']).to eq('Hello AI')
       end
 
+      it 'does not count simulator messages against AI usage limits' do
+        expect do
+          post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations/#{test_conversation.id}/send_message",
+               headers: admin.create_new_auth_token,
+               params: { content: 'Hello AI' },
+               as: :json
+        end.not_to change(AiAgentUsageEvent, :count)
+
+        expect(response).to have_http_status(:success)
+      end
+
       it 'generates a response for agents with legacy human handoff config keys' do
         ai_agent.update_columns(enabled: true, config: {
                                  'tools' => {

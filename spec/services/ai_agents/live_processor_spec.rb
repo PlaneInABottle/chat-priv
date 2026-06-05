@@ -57,6 +57,63 @@ RSpec.describe AiAgents::LiveProcessor do
     expect(conversation.messages.where(message_type: 'outgoing', private: false, sender: ai_agent.agent_bot).last.content).to eq('Hi there')
   end
 
+  it 'consumes one monthly usage event for a successful live AI response' do
+    account.update!(ai_agent_conversation_limit: 2, ai_agent_conversation_reuse_window_hours: 24)
+    message = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming', sender: conversation.contact,
+                               content: 'Hello')
+    allow(adapter).to receive(:perform).and_return({ assistant_text: 'Hi there', tool_calls: [], finish_reason: 'stop' })
+
+    expect do
+      described_class.new(message: message, adapter: adapter).perform
+    end.to change(AiAgentUsageEvent.consumed, :count).by(1)
+
+    expect(AiAgentUsageEvent.last).to have_attributes(account_id: account.id, ai_agent_id: ai_agent.id, contact_id: conversation.contact_id)
+  end
+
+  it 'does not consume another usage event for the same contact inside the reuse window' do
+    account.update!(ai_agent_conversation_limit: 2, ai_agent_conversation_reuse_window_hours: 24)
+    create(:ai_agent_usage_event,
+           account: account,
+           ai_agent: ai_agent,
+           contact: conversation.contact,
+           conversation: conversation,
+           window_ends_at: 2.hours.from_now,
+           status: :consumed)
+    message = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming', sender: conversation.contact,
+                               content: 'Hello again')
+    allow(adapter).to receive(:perform).and_return({ assistant_text: 'Hi there', tool_calls: [], finish_reason: 'stop' })
+
+    expect do
+      described_class.new(message: message, adapter: adapter).perform
+    end.not_to change(AiAgentUsageEvent, :count)
+  end
+
+  it 'hands off silently without calling the LLM when monthly usage is exhausted' do
+    account.update!(ai_agent_conversation_limit: 1, ai_agent_conversation_reuse_window_hours: 1)
+    create(:ai_agent_usage_event,
+           account: account,
+           ai_agent: ai_agent,
+           contact: create(:contact, account: account),
+           period_start_at: Time.current.beginning_of_month,
+           period_end_at: Time.current.next_month.beginning_of_month,
+           window_started_at: 2.days.ago,
+           window_ends_at: 1.day.ago,
+           status: :consumed)
+    message = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming', sender: conversation.contact,
+                               content: 'Need help')
+
+    expect(adapter).not_to receive(:perform)
+
+    expect do
+      result = described_class.new(message: message, adapter: adapter).perform
+      expect(result).to be(true)
+    end.to change { conversation.messages.where(private: true).count }.by(1)
+      .and change { conversation.messages.where(message_type: 'outgoing', private: false, sender: ai_agent.agent_bot).count }.by(0)
+
+    expect(conversation.reload).to be_open
+    expect(conversation.additional_attributes['ai_usage_limit_exhausted']).to be(true)
+  end
+
   it 'passes recent public conversation messages ordered by id' do
     create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming', sender: conversation.contact,
                      content: 'Old')
