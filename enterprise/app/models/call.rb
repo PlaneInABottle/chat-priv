@@ -28,6 +28,9 @@
 #  index_calls_on_message_id                      (message_id)
 #  index_calls_on_provider_and_provider_call_id   (provider,provider_call_id) UNIQUE
 #
+require_dependency Rails.root.join('app/models/call').to_s
+
+unless defined?(::Call)
 class Call < ApplicationRecord
   STATUSES = %w[ringing in_progress completed no_answer failed].freeze
   TERMINAL_STATUSES = %w[completed no_answer failed].freeze
@@ -128,4 +131,5 @@ class Call < ApplicationRecord
       transcript: transcript
     }
   end
+end
 end

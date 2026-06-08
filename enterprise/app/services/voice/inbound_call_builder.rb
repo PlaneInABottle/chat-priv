@@ -1,3 +1,6 @@
+require_dependency Rails.root.join('app/services/voice/inbound_call_builder').to_s
+
+unless defined?(::Voice::InboundCallBuilder)
 class Voice::InboundCallBuilder
   attr_reader :inbox, :from_number, :call_sid, :provider, :extra_meta
 
@@ -115,4 +118,5 @@ class Voice::InboundCallBuilder
     call.update!(conference_sid: call.default_conference_sid) if call.twilio?
     call
   end
+end
 end

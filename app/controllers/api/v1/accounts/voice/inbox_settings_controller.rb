@@ -1,0 +1,53 @@
+class Api::V1::Accounts::Voice::InboxSettingsController < Api::V1::Accounts::BaseController
+  before_action :current_account
+  before_action :check_admin_authorization?
+  before_action :set_setting, only: [:show, :update]
+
+  def index
+    settings = Current.account.voice_inbox_settings.includes(:inbox).order(:created_at)
+    render json: { payload: settings.map { |setting| serialize(setting) } }
+  end
+
+  def show
+    render json: serialize(@setting)
+  end
+
+  def create
+    inbox = Current.account.inboxes.find(params.require(:inbox_id))
+    setting = Current.account.voice_inbox_settings.create!(voice_setting_params.merge(inbox: inbox))
+    render json: serialize(setting), status: :created
+  end
+
+  def update
+    @setting.update!(voice_setting_params)
+    render json: serialize(@setting)
+  end
+
+  private
+
+  def set_setting
+    @setting = Current.account.voice_inbox_settings.find(params[:id])
+  end
+
+  def voice_setting_params
+    params.permit(:ai_agent_id, :fallback_team_id, :status, :livekit_room_prefix, :greeting, :instructions, :recording_enabled, settings: {})
+  end
+
+  def serialize(setting)
+    {
+      id: setting.id,
+      account_id: setting.account_id,
+      inbox_id: setting.inbox_id,
+      inbox_name: setting.inbox.name,
+      ai_agent_id: setting.ai_agent_id,
+      fallback_team_id: setting.fallback_team_id,
+      status: setting.status,
+      livekit_room_prefix: setting.livekit_room_prefix,
+      greeting: setting.greeting,
+      instructions: setting.instructions,
+      recording_enabled: setting.recording_enabled,
+      last_error: setting.last_error,
+      settings: setting.settings
+    }
+  end
+end

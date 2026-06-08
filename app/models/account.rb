@@ -82,6 +82,8 @@ class Account < ApplicationRecord
   has_many :automation_rules, dependent: :destroy_async
   has_many :macros, dependent: :destroy_async
   has_many :campaigns, dependent: :destroy_async
+  has_many :calls, dependent: :destroy_async
+  has_many :call_transcript_segments, dependent: :destroy_async
   has_many :canned_responses, dependent: :destroy_async
   has_many :categories, dependent: :destroy_async, class_name: '::Category'
   has_many :contacts, dependent: :destroy_async
@@ -115,6 +117,7 @@ class Account < ApplicationRecord
   has_many :web_widgets, dependent: :destroy_async, class_name: '::Channel::WebWidget'
   has_many :webhooks, dependent: :destroy_async
   has_many :whatsapp_channels, dependent: :destroy_async, class_name: '::Channel::Whatsapp'
+  has_many :voice_inbox_settings, dependent: :destroy_async
   has_many :working_hours, dependent: :destroy_async
 
   has_one_attached :contacts_export
