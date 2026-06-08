@@ -132,6 +132,7 @@ class Message < ApplicationRecord
 
   has_many :attachments, dependent: :destroy, autosave: true, before_add: :validate_attachments_limit
   has_one :csat_survey_response, dependent: :destroy_async
+  has_one :call, class_name: 'Call', foreign_key: :message_id, dependent: :nullify, inverse_of: :message
   has_many :notifications, as: :primary_actor, dependent: :destroy_async
 
   after_create_commit :execute_after_create_commit_callbacks
@@ -156,7 +157,9 @@ class Message < ApplicationRecord
     attachments_payload = attachments.map(&:push_event_data).compact
     data[:attachments] = attachments_payload if attachments_payload.present?
 
-    merge_sender_attributes(data)
+    data = merge_sender_attributes(data)
+    data[:call] = call.push_event_data if content_type == 'voice_call' && call.present?
+    data
   end
 
   def conversation_push_event_data
