@@ -80,6 +80,9 @@ const isOutbound = computed(() => {
 const isWhatsapp = computed(
   () => call.value?.provider === VOICE_CALL_PROVIDERS.WHATSAPP
 );
+const isLivekit = computed(
+  () => call.value?.provider === VOICE_CALL_PROVIDERS.LIVEKIT
+);
 const isFailed = computed(() =>
   [VOICE_CALL_STATUS.NO_ANSWER, VOICE_CALL_STATUS.FAILED].includes(status.value)
 );
@@ -205,6 +208,7 @@ const callSid = computed(() => call.value?.providerCallId);
 
 const canJoinCall = computed(() => {
   if (status.value !== VOICE_CALL_STATUS.RINGING) return false;
+  if (isLivekit.value) return false;
   if (isOutbound.value) return false;
   if (acceptedByAgentId.value) return false;
   if (!callSid.value || !inboxId.value || !conversationId.value) return false;
@@ -248,6 +252,7 @@ const handleJoinCall = async () => {
 const canCallBack = computed(
   () =>
     isMissedInbound.value &&
+    !isLivekit.value &&
     !!inboxId.value &&
     !!conversationId.value &&
     !hasActiveCall.value &&

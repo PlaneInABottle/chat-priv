@@ -1,0 +1,54 @@
+{
+  "VOICE_AI": {
+    "HEADER": "Voice AI",
+    "DESCRIPTION": "Telefon sağlayıcısı bağlamadan önce LiveKit sesli AI MVP ayarlarını yapın ve tarayıcı tabanlı test çağrıları çalıştırın.",
+    "SETUP": {
+      "TITLE": "Test çağrısı kurulumu",
+      "DESCRIPTION": "Tarayıcı test çağrıları için API gelen kutusu, AI asistanı ve yedek ekip seçin.",
+      "INBOX": "API gelen kutusu",
+      "AI_AGENT": "AI asistanı",
+      "FALLBACK_TEAM": "Yedek ekip",
+      "NONE": "Yok",
+      "GREETING": "Karşılama mesajı",
+      "INSTRUCTIONS": "Sesli asistan talimatları",
+      "CALLER_NAME": "Test arayan adı",
+      "CALLER_NUMBER": "Test arayan numarası",
+      "SAVE": "Ayarları kaydet",
+      "START_TEST": "Test çağrısı başlat",
+      "NO_API_INBOX": "Sesli AI testinden önce bir API gelen kutusu oluşturun.",
+      "NO_AI_AGENT": "Sesli AI testinden önce bir AI asistanı oluşturun.",
+      "SAVE_SUCCESS": "Voice AI ayarları kaydedildi.",
+      "SAVE_ERROR": "Voice AI ayarları kaydedilemedi.",
+      "START_SUCCESS": "Test çağrısı oluşturuldu.",
+      "START_ERROR": "Test çağrısı oluşturulamadı."
+    },
+    "SESSION": {
+      "TITLE": "LiveKit oturumu",
+      "ROOM": "Oda",
+      "STATUS": "Durum",
+      "NOT_STARTED": "Henüz test çağrısı yok",
+      "DISCONNECTED": "Bağlantı yok",
+      "CONNECTING": "Bağlanıyor",
+      "CONNECTED": "Bağlandı",
+      "FAILED": "Başarısız",
+      "JOIN_CALLER": "Arayan olarak katıl",
+      "JOIN_AGENT": "Temsilci olarak katıl",
+      "DISCONNECT": "Bağlantıyı kes",
+      "MUTE": "Sesi kapat",
+      "UNMUTE": "Sesi aç",
+      "TAKE_OVER": "Devralındı olarak işaretle",
+      "END_CALL": "Çağrıyı bitir",
+      "REFRESH": "Yenile",
+      "OPEN_CONVERSATION": "Konuşmayı aç",
+      "TOKEN_ERROR": "LiveKit token oluşturulamadı.",
+      "CONNECT_ERROR": "LiveKit odasına katılınamadı.",
+      "TAKE_OVER_SUCCESS": "Çağrı devralındı olarak işaretlendi.",
+      "END_SUCCESS": "Çağrı bitirildi.",
+      "ACTION_ERROR": "Sesli çağrı işlemi başarısız oldu."
+    },
+    "TRANSCRIPT": {
+      "TITLE": "Transkript",
+      "EMPTY": "Sesli asistan transkriptleri gönderdikten sonra burada görünecek."
+    }
+  }
+}

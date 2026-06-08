@@ -7,6 +7,8 @@ import { defineStore } from 'pinia';
 const teardownByProvider = call => {
   if (call?.provider === VOICE_CALL_PROVIDERS.WHATSAPP) {
     cleanupWhatsappSession();
+  } else if (call?.provider === VOICE_CALL_PROVIDERS.LIVEKIT) {
+    return;
   } else {
     TwilioVoiceClient.endClientCall();
   }
