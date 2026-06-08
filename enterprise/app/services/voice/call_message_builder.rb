@@ -1,3 +1,6 @@
+require_dependency Rails.root.join('app/services/voice/call_message_builder').to_s
+
+unless defined?(::Voice::CallMessageBuilder)
 class Voice::CallMessageBuilder
   def initialize(call)
     @call = call
@@ -49,4 +52,5 @@ class Voice::CallMessageBuilder
       'status' => call.display_status
     }
   end
+end
 end

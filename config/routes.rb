@@ -39,6 +39,19 @@ Rails.application.routes.draw do
   end
 
   get '/health', to: 'health#show'
+  namespace :internal do
+    namespace :voice do
+      resources :calls, param: :provider_call_id, only: [] do
+        member do
+          post :transcript
+          post :event
+          post :handoff
+          post :end
+        end
+      end
+    end
+  end
+
   get '/api', to: 'api#index'
   namespace :api, defaults: { format: 'json' } do
     namespace :v1 do
@@ -104,6 +117,17 @@ Rails.application.routes.draw do
           end
           resource :saml_settings, only: [:show, :create, :update, :destroy]
           resource :ai_agent_usage, only: [:show], controller: 'ai_agent_usage'
+          namespace :voice do
+            resources :inbox_settings, only: [:index, :show, :create, :update]
+            resources :test_calls, only: [:create]
+            resources :calls, only: [:show] do
+              member do
+                post :token
+                post :take_over
+                post :end
+              end
+            end
+          end
           resources :ai_agents, only: [:index, :show, :create, :update, :destroy] do
             resources :tool_executions, only: [:index], controller: 'ai_agent_tool_executions'
             resources :test_conversations, only: [:index, :create, :show, :destroy], controller: 'ai_agent_test_conversations' do
