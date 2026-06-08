@@ -869,6 +869,12 @@ const menuItems = computed(() => {
           to: accountScopedRoute('ai_agents'),
         },
         {
+          name: 'Settings Voice AI',
+          label: t('SIDEBAR.VOICE_AI'),
+          icon: 'i-lucide-phone-call',
+          to: accountScopedRoute('voice_ai_settings'),
+        },
+        {
           name: 'Settings Macros',
           label: t('SIDEBAR.MACROS'),
           icon: 'i-lucide-toy-brick',

@@ -35,6 +35,7 @@ export const CHANNEL_TYPES = {
 export const VOICE_CALL_PROVIDERS = {
   TWILIO: 'twilio',
   WHATSAPP: 'whatsapp',
+  LIVEKIT: 'livekit',
 };
 
 export const getVoiceCallProvider = inbox => {

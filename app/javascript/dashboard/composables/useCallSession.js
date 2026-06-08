@@ -20,6 +20,7 @@ import {
 import Timer from 'dashboard/helper/Timer';
 
 const isWhatsappCall = call => call?.provider === VOICE_CALL_PROVIDERS.WHATSAPP;
+const isLivekitCall = call => call?.provider === VOICE_CALL_PROVIDERS.LIVEKIT;
 
 // Dismissed call sids must not be re-seeded by the conversation-load watcher.
 // Lives at module scope so all consumers share the same set.
@@ -89,6 +90,11 @@ const buildCallActions = ({ callsStore, whatsappSession, t }) => {
 
   const endCall = async ({ conversationId, inboxId, callSid }) => {
     const call = findCall(callSid);
+    if (isLivekitCall(call)) {
+      callsStore.clearActiveCall();
+      return;
+    }
+
     if (isWhatsappCall(call)) {
       // Pass call.callId so a wiped module state (e.g. a prior accept attempt
       // tore down the WebRTC session) doesn't stop us hitting /terminate.
@@ -114,6 +120,8 @@ const buildCallActions = ({ callsStore, whatsappSession, t }) => {
     if (globalIsJoining.value) return null;
 
     const call = findCall(callSid);
+    if (isLivekitCall(call)) return null;
+
     // Outbound *WhatsApp* calls have no separate join step — the offer was
     // sent at initiate time and the answer is applied by the cable handler.
     // Routing through acceptIncomingCall here would call prepareInboundAnswer →
@@ -188,6 +196,8 @@ const buildCallActions = ({ callsStore, whatsappSession, t }) => {
   const rejectIncomingCall = async callSid => {
     const call = findCall(callSid);
     try {
+      if (isLivekitCall(call)) return;
+
       if (isWhatsappCall(call) && call?.callId) {
         if (call.callDirection === VOICE_CALL_DIRECTION.OUTBOUND) {
           // Outbound calls that are still ringing must be terminated, not
