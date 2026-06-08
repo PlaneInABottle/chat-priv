@@ -26,6 +26,7 @@ import customRoles from './customRoles/customRole.routes';
 import profile from './profile/profile.routes';
 import security from './security/security.routes';
 import conversationWorkflow from './conversationWorkflow/conversationWorkflow.routes';
+import voiceAi from './voiceAi/voiceAi.routes';
 
 export default {
   routes: [
@@ -67,5 +68,6 @@ export default {
     ...profile.routes,
     ...security.routes,
     ...conversationWorkflow.routes,
+    ...voiceAi.routes,
   ],
 };
