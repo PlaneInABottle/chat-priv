@@ -162,6 +162,8 @@ const loadData = async () => {
     if (!selectedInboxId.value && apiInboxes.value.length) {
       selectedInboxId.value = apiInboxes.value[0].id;
     }
+  } catch (error) {
+    useAlert(t('VOICE_AI.SETUP.LOAD_ERROR'));
   } finally {
     isLoading.value = false;
   }
@@ -219,8 +221,7 @@ const createTestCall = async () => {
       caller_number: callerNumber.value,
     });
     currentCall.value = response.data;
-    sessionStatus.value = 'disconnected';
-    sessionError.value = '';
+    disconnectRoom();
     useAlert(t('VOICE_AI.SETUP.START_SUCCESS'));
   } catch (error) {
     useAlert(error.response?.data?.error || t('VOICE_AI.SETUP.START_ERROR'));
@@ -250,7 +251,16 @@ const stopRefreshPolling = () => {
 
 const startRefreshPolling = () => {
   stopRefreshPolling();
-  refreshTimer.value = setInterval(refreshCall, 4000);
+
+  const scheduleNext = async () => {
+    if (!refreshTimer.value) return;
+    await refreshCall();
+    if (refreshTimer.value) {
+      refreshTimer.value = setTimeout(scheduleNext, 4000);
+    }
+  };
+
+  refreshTimer.value = setTimeout(scheduleNext, 4000);
 };
 
 const endCall = async () => {

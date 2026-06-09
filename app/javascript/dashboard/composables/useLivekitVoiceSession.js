@@ -3,7 +3,6 @@ import { Room, RoomEvent, createLocalAudioTrack } from 'livekit-client';
 import { useI18n } from 'vue-i18n';
 
 import VoiceAPI from 'dashboard/api/voice';
-import { useAlert } from 'dashboard/composables';
 
 const CLIENT_SESSION_STORAGE_KEY = 'kozmopath:voice:client-session-id';
 const JOIN_TIMEOUT_MS = 30000;
@@ -145,7 +144,6 @@ export function useLivekitVoiceSession({ call }) {
     } catch (error) {
       sessionStatus.value = 'failed';
       sessionError.value = error.message || t('VOICE_AI.SESSION.CONNECT_ERROR');
-      useAlert(t('VOICE_AI.SESSION.CONNECT_ERROR'));
       disconnectRoom();
       return false;
     } finally {

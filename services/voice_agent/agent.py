@@ -28,17 +28,39 @@ DEFAULT_BASE_INSTRUCTIONS = (
 DEFAULT_REALTIME_MODEL = "gemini-3.1-flash-live-preview"
 
 
+_REQUIRED_ENV_VARS = ["CHATWOOT_INTERNAL_API_URL", "VOICE_AGENT_INTERNAL_TOKEN"]
+
+
+def _validate_env() -> None:
+    missing = [name for name in _REQUIRED_ENV_VARS if not os.environ.get(name)]
+    if missing:
+        raise RuntimeError(f"Missing required environment variables: {', '.join(missing)}")
+
+
 class ChatwootClient:
     def __init__(self) -> None:
+        _validate_env()
         self.base_url = os.environ["CHATWOOT_INTERNAL_API_URL"].rstrip("/")
         self.token = os.environ["VOICE_AGENT_INTERNAL_TOKEN"]
+        self._session: aiohttp.ClientSession | None = None
+
+    @property
+    def session(self) -> aiohttp.ClientSession:
+        if self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession(
+                headers={"X-Voice-Agent-Token": self.token},
+                raise_for_status=True,
+            )
+        return self._session
+
+    async def close(self) -> None:
+        if self._session and not self._session.closed:
+            await self._session.close()
+            self._session = None
 
     async def post(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
-        headers = {"X-Voice-Agent-Token": self.token}
-        async with aiohttp.ClientSession(headers=headers) as session:
-            async with session.post(f"{self.base_url}{path}", json=payload) as response:
-                response.raise_for_status()
-                return await response.json()
+        async with self.session.post(f"{self.base_url}{path}", json=payload) as response:
+            return await response.json()
 
     async def request_handoff(self, provider_call_id: str, reason: str) -> dict[str, Any]:
         return await self.post(f"/internal/voice/calls/{provider_call_id}/handoff", {"reason": reason})
@@ -69,17 +91,22 @@ class ChatwootClient:
         )
 
     async def append_transcript(self, provider_call_id: str, role: str, text: str, source: str, metadata: dict[str, Any]) -> dict[str, Any]:
+        payload = {"role": role, "text": text, "source": source, "metadata": metadata}
+        external_id = metadata.get("external_segment_id")
+        if external_id:
+            payload["external_segment_id"] = external_id
         return await self.post(
             f"/internal/voice/calls/{provider_call_id}/transcript",
-            {"role": role, "text": text, "source": source, "metadata": metadata},
+            payload,
         )
 
 
 class VoiceAssistant(Agent):
-    def __init__(self, provider_call_id: str, instructions: str, greeting: str | None = None) -> None:
+    def __init__(self, provider_call_id: str, instructions: str, greeting: str | None = None, end_once: Any = None) -> None:
         self.provider_call_id = provider_call_id
         self.chatwoot = ChatwootClient()
         self.greeting = greeting
+        self.end_once = end_once
         super().__init__(instructions=instructions)
 
     @function_tool
@@ -95,6 +122,9 @@ class VoiceAssistant(Agent):
     @function_tool
     async def end_customer_call(self, reason: str) -> str:
         """End the call when the conversation is complete."""
+        if self.end_once:
+            await self.end_once(reason)
+            return "Call ended."
         await self.execute_chatwoot_tool(
             "end_customer_call",
             {"reason": reason},
@@ -335,6 +365,19 @@ def end_reason_for_disconnect(reason: Any) -> str:
     return f"livekit_disconnect_{name}".replace(" ", "_")
 
 
+def _transcript_segment_id(item: ChatMessage, text: str) -> str | None:
+    """Return a stable idempotent key for this transcript segment.
+
+    Prefer the item's own id when available (Gemini realtime items have ids).
+    Fall back to a content fingerprint so duplicate events do not create
+    duplicate rows on the Rails side.
+    """
+    item_id = getattr(item, "id", None)
+    if item_id:
+        return str(item_id)
+    return hashlib.sha256(f"{item.role}:{text}".encode("utf-8")).hexdigest()[:16]
+
+
 def bind_transcript_events(session: AgentSession, provider_call_id: str, chatwoot: ChatwootClient) -> None:
     @session.on("conversation_item_added")
     def on_conversation_item_added(ev: Any) -> None:
@@ -346,13 +389,17 @@ def bind_transcript_events(session: AgentSession, provider_call_id: str, chatwoo
         if not text:
             return
 
+        segment_id = _transcript_segment_id(item, text)
         asyncio.create_task(
             chatwoot.append_transcript(
                 provider_call_id,
                 role_for_livekit(item.role),
                 text,
                 "livekit_agent",
-                {"livekit_role": item.role},
+                {
+                    "livekit_role": item.role,
+                    "external_segment_id": segment_id,
+                },
             )
         )
 
@@ -391,11 +438,24 @@ async def entrypoint(ctx: agents.JobContext) -> None:
     session = build_session(instructions=instructions)
     bind_transcript_events(session, provider_call_id, chatwoot)
 
-    await session.start(
-        room=ctx.room,
-        agent=VoiceAssistant(provider_call_id=provider_call_id, instructions=instructions, greeting=greeting),
-        room_input_options=RoomInputOptions(participant_identity=participant.identity),
-    )
+    @ctx.shutdown
+    def on_shutdown() -> None:
+        logger.info("shutdown signal received for room=%s", provider_call_id)
+        asyncio.create_task(end_call_once("livekit_dispatch_cancelled"))
+
+    try:
+        await session.start(
+            room=ctx.room,
+            agent=VoiceAssistant(
+                provider_call_id=provider_call_id,
+                instructions=instructions,
+                greeting=greeting,
+                end_once=end_call_once,
+            ),
+            room_input_options=RoomInputOptions(participant_identity=participant.identity),
+        )
+    finally:
+        await chatwoot.close()
 
 
 if __name__ == "__main__":

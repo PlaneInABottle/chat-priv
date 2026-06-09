@@ -1,8 +1,8 @@
 {
   "AI_AGENT": {
-    "HEADER": "AI Asistan",
+    "HEADER": "AI Assistant",
     "DESCRIPTION": "Configure your AI assistant to help manage conversations",
-    "LEARN_MORE": "Learn more about AI Asistan",
+    "LEARN_MORE": "Learn more about AI Assistant",
     "BACK": "Back",
     "TABS": {
       "SETTINGS": "Settings",
@@ -20,7 +20,7 @@
       "REQUIRED_FOR_TESTING": "Add a system prompt, then save your changes before testing this AI agent."
     },
     "ENABLED": {
-      "LABEL": "Enable AI Asistan",
+      "LABEL": "Enable AI Assistant",
       "HELP": "When enabled, the AI will respond to conversations assigned to it"
     },
     "INBOXES": {
@@ -125,8 +125,8 @@
     },
     "SAVE": {
       "BUTTON": "Save Changes",
-      "SUCCESS": "AI Asistan settings saved",
-      "ERROR": "Failed to save AI Asistan settings"
+      "SUCCESS": "AI Assistant settings saved",
+      "ERROR": "Failed to save AI Assistant settings"
     }
   },
   "AI_AGENTS": {
@@ -179,6 +179,7 @@
       "NO_AI_AGENT": "Create an AI agent before testing voice AI.",
       "SAVE_SUCCESS": "Voice AI settings saved.",
       "SAVE_ERROR": "Failed to save Voice AI settings.",
+      "LOAD_ERROR": "Failed to load Voice AI settings.",
       "START_SUCCESS": "Test call created.",
       "START_ERROR": "Failed to create test call."
     },
