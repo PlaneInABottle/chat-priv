@@ -8,7 +8,8 @@ class Api::V1::Accounts::Voice::TestCallsController < Api::V1::Accounts::BaseCon
       account: Current.account,
       inbox: inbox,
       caller_name: params[:caller_name],
-      caller_number: params[:caller_number]
+      caller_number: params[:caller_number],
+      initiated_by: Current.user
     )
     render json: Voice::CallSerializer.new(call).payload, status: :created
   rescue ArgumentError => e
