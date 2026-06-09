@@ -94,13 +94,13 @@ class Call < ApplicationRecord
   def from_number
     return meta['from_number'] if livekit?
 
-    incoming? ? contact.phone_number : inbox_channel_phone_number
+    incoming? ? contact&.phone_number : inbox_channel_phone_number
   end
 
   def to_number
     return meta['to_number'] if livekit?
 
-    incoming? ? inbox_channel_phone_number : contact.phone_number
+    incoming? ? inbox_channel_phone_number : contact&.phone_number
   end
 
   def recording_url
