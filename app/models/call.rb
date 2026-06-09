@@ -15,8 +15,8 @@
 #  updated_at           :datetime         not null
 #  accepted_by_agent_id :bigint
 #  account_id           :bigint           not null
-#  contact_id           :bigint           not null
-#  conversation_id      :bigint           not null
+#  contact_id           :bigint
+#  conversation_id      :bigint
 #  inbox_id             :bigint           not null
 #  message_id           :bigint
 #  provider_call_id     :string           not null
@@ -36,15 +36,16 @@ class Call < ApplicationRecord
   DEFAULT_STUN_URL = 'stun:stun.l.google.com:19302'.freeze
 
   store_accessor :meta, :conference_sid, :twilio_conference_sid, :recording_sid, :parent_call_sid,
-                 :initiated_at, :ended_at, :livekit_room_name, :handoff_status, :ai_status, :summary
+                 :initiated_at, :ended_at, :livekit_room_name, :handoff_status, :ai_status, :summary,
+                 :test_call_source, :test_call_initiated_by_user_id
 
   enum :provider, { twilio: 0, whatsapp: 1, livekit: 2 }
   enum :direction, { incoming: 0, outgoing: 1 }
 
   belongs_to :account
   belongs_to :inbox
-  belongs_to :conversation
-  belongs_to :contact
+  belongs_to :conversation, optional: true
+  belongs_to :contact, optional: true
   belongs_to :message, optional: true, inverse_of: :call
   belongs_to :accepted_by_agent, class_name: 'User', optional: true
 
@@ -55,6 +56,7 @@ class Call < ApplicationRecord
   validates :provider, presence: true
   validates :direction, presence: true
   validates :status, presence: true, inclusion: { in: STATUSES }
+  validates :conversation, :contact, presence: true, unless: :test_call?
 
   scope :active, -> { where.not(status: TERMINAL_STATUSES) }
   scope :by_conference_sid, ->(sid) { where("meta->>'conference_sid' = ?", sid) }
@@ -81,6 +83,10 @@ class Call < ApplicationRecord
     TERMINAL_STATUSES.include?(status)
   end
 
+  def test_call?
+    ActiveModel::Type::Boolean.new.cast(meta&.fetch('test_call', false))
+  end
+
   def display_status
     status.to_s.tr('_', '-')
   end
@@ -88,13 +94,13 @@ class Call < ApplicationRecord
   def from_number
     return meta['from_number'] if livekit?
 
-    incoming? ? contact.phone_number : inbox.channel&.phone_number
+    incoming? ? contact.phone_number : inbox_channel_phone_number
   end
 
   def to_number
     return meta['to_number'] if livekit?
 
-    incoming? ? inbox.channel&.phone_number : contact.phone_number
+    incoming? ? inbox_channel_phone_number : contact.phone_number
   end
 
   def recording_url
@@ -108,6 +114,12 @@ class Call < ApplicationRecord
   end
 
   private
+
+  def inbox_channel_phone_number
+    return unless inbox.channel.respond_to?(:phone_number)
+
+    inbox.channel.phone_number
+  end
 
   def event_payload
     {
@@ -136,6 +148,9 @@ class Call < ApplicationRecord
   def voice_payload
     {
       livekit_room_name: livekit_room_name,
+      test_call: test_call?,
+      test_call_source: test_call_source,
+      test_call_initiated_by_user_id: test_call_initiated_by_user_id,
       handoff_status: handoff_status,
       ai_status: ai_status,
       recording_url: recording_url,

@@ -399,7 +399,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_18_000000) do
   create_table "call_transcript_segments", force: :cascade do |t|
     t.bigint "account_id", null: false
     t.bigint "call_id", null: false
-    t.bigint "conversation_id", null: false
+    t.bigint "conversation_id"
     t.string "role", null: false
     t.string "source", default: "livekit_agent", null: false
     t.text "text", null: false
@@ -421,8 +421,8 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_18_000000) do
   create_table "calls", force: :cascade do |t|
     t.bigint "account_id", null: false
     t.bigint "inbox_id", null: false
-    t.bigint "conversation_id", null: false
-    t.bigint "contact_id", null: false
+    t.bigint "conversation_id"
+    t.bigint "contact_id"
     t.bigint "message_id"
     t.bigint "accepted_by_agent_id"
     t.string "provider_call_id", null: false
