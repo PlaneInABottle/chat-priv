@@ -379,6 +379,16 @@ def _transcript_segment_id(item: ChatMessage, text: str) -> str | None:
     return hashlib.sha256(f"{item.role}:{text}".encode("utf-8")).hexdigest()[:16]
 
 
+def _fire_and_forget(name: str, coro: Any) -> None:
+    async def _run() -> None:
+        try:
+            await coro
+        except Exception:
+            logger.exception("async task %s failed", name)
+
+    asyncio.create_task(_run())
+
+
 def bind_transcript_events(session: AgentSession, provider_call_id: str, chatwoot: ChatwootClient) -> None:
     @session.on("conversation_item_added")
     def on_conversation_item_added(ev: Any) -> None:
@@ -391,7 +401,8 @@ def bind_transcript_events(session: AgentSession, provider_call_id: str, chatwoo
             return
 
         segment_id = _transcript_segment_id(item, text)
-        asyncio.create_task(
+        _fire_and_forget(
+            "append_transcript",
             chatwoot.append_transcript(
                 provider_call_id,
                 role_for_livekit(item.role),
@@ -401,7 +412,7 @@ def bind_transcript_events(session: AgentSession, provider_call_id: str, chatwoo
                     "livekit_role": item.role,
                     "external_segment_id": segment_id,
                 },
-            )
+            ),
         )
 
 
@@ -434,7 +445,7 @@ async def entrypoint(ctx: agents.JobContext) -> None:
             return
 
         reason = end_reason_for_disconnect(disconnected_participant.disconnect_reason)
-        asyncio.create_task(end_call_once(reason))
+        _fire_and_forget("participant_disconnected_end_call", end_call_once(reason))
 
     session = build_session(instructions=instructions)
     bind_transcript_events(session, provider_call_id, chatwoot)
@@ -442,7 +453,7 @@ async def entrypoint(ctx: agents.JobContext) -> None:
     @ctx.shutdown
     def on_shutdown() -> None:
         logger.info("shutdown signal received for room=%s", provider_call_id)
-        asyncio.create_task(end_call_once("livekit_dispatch_cancelled"))
+        _fire_and_forget("shutdown_end_call", end_call_once("livekit_dispatch_cancelled"))
 
     try:
         await session.start(
