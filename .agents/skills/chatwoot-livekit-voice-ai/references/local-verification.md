@@ -26,16 +26,23 @@ Use PM2-managed processes:
 ```bash
 pm2 list
 pm2 restart chatwoot-backend --update-env
+pm2 restart chatwoot-worker --update-env
 pm2 restart chatwoot-voice-agent --update-env
 ```
 
-Start the worker if missing:
+Start the voice agent if missing:
 
 ```bash
 pm2 start zsh --name chatwoot-voice-agent -- -lc 'set -a; source /Users/Y_ALTAY1/Documents/simWoot/chatwoot/.env.local; set +a; cd /Users/Y_ALTAY1/Documents/simWoot/chatwoot/services/voice_agent; uv run python agent.py dev'
 ```
 
-The worker must log `registered worker` with `agent_name` matching `VOICE_AGENT_NAME`.
+Start the Chatwoot Sidekiq worker if missing:
+
+```bash
+pm2 start zsh --name chatwoot-worker -- -lc 'set -a; source /Users/Y_ALTAY1/Documents/simWoot/chatwoot/.env.local; set +a; cd /Users/Y_ALTAY1/Documents/simWoot/chatwoot; eval "$(rbenv init -)"; bundle exec sidekiq -C config/sidekiq.yml'
+```
+
+The voice agent must log `registered worker` with `agent_name` matching `VOICE_AGENT_NAME`. The Sidekiq worker is required for live conversation-thread updates because Chatwoot broadcasts `message.created` and `message.updated` through queued `ActionCableBroadcastJob`s.
 
 ## Fast Checks
 
@@ -54,26 +61,44 @@ Use `uv lock --check --directory services/voice_agent` after dependency changes.
 2. Snapshot before clicking.
 3. Select an API inbox. The local verified path used account `19` and inbox `19`, but always verify current local data.
 4. Click `Start test call`.
-5. Wait until `Join as caller` is enabled.
-6. Click `Join as caller`.
-7. Wait for the worker to connect to the realtime provider and post transcript.
-8. Click `Refresh` if the transcript panel does not update immediately.
-9. End the call from the UI.
+5. Confirm no floating incoming-call popup appears. Browser test calls are marked with `test_call: true`, do not create a normal Chatwoot conversation/contact/message, and are owned by the Voice AI settings panel.
+6. Wait until `Join as test caller` is enabled and the setup fields are disabled.
+7. Click `Join as test caller`.
+8. Wait for the Browser status to become `Connected` and for the worker to connect to the realtime provider and post transcript.
+9. To verify handoff tool detection, say a human-handoff request such as `Temsilciye baglanmak istiyorum`; after the worker calls `request_human_handoff`, click `Refresh` and confirm the `Transcript and tool calls` panel shows a `request_human_handoff` tool event. If speech input is unavailable in automation, invoke the worker's Python tool wrapper against the active test call and verify the same persisted `tool_events` output.
+10. Click `Refresh` if the transcript panel does not update immediately.
+11. End the call from the settings panel with `End test call`.
+12. Confirm the Call status becomes `completed`, Browser status becomes `Disconnected`, and setup fields are editable again.
+
+For the browser-only MVP flow, use `Join as test caller` in the Voice AI settings page to simulate the customer side. Default browser test calls intentionally have no conversation handoff surface. If human-agent takeover needs to be tested later, use a separate handoff rehearsal flow that creates an explicitly marked test conversation. The browser sends a per-tab `client_session_id` when requesting a LiveKit token; this prevents same-account tabs from reusing one LiveKit participant identity and disconnecting each other.
+
+The floating incoming-call popup is LiveKit-aware. Accepting a LiveKit call from the popup should request `/api/v1/accounts/:account_id/voice/calls/:id/token`, move the popup from `Incoming call` to `Call in progress`, and stop the ringtone. The conversation bubble should treat that same tab's active popup session as connected, rather than offering another `Join live call` action for the same call. A hard browser reload does not rehydrate the local LiveKit media connection; rely on the server call status and stale-call finalizer after reload.
 
 Expected proof:
 
 - Rails returns `201 Created` for `/api/v1/accounts/:id/voice/test_calls`.
+- The call payload includes `test_call: true`, `test_call_source: voice_ai_settings`, `test_call_initiated_by_user_id`, and nil `conversation_id`, `contact_id`, and `message_id`.
 - The call metadata includes `voice_agent_dispatch.status = dispatched`.
 - The worker receives a LiveKit job request for the room.
 - After caller joins, the worker connects to the realtime provider.
 - `POST /internal/voice/calls/:provider_call_id/transcript` stores at least one transcript segment.
+- `POST /internal/voice/calls/:provider_call_id/tool_call` stores voice-agent tool events in `call.meta["voice_tool_events"]`.
+- The settings `Transcript and tool calls` panel shows transcript segments and tool events after `Refresh`.
+
+## Handoff Rehearsal
+
+Default browser test calls do not create normal Chatwoot conversations and cannot be handed off. Handoff testing should use a separate rehearsal flow or a real conversation-backed LiveKit call. For conversation-backed calls, verify:
+
+1. The LiveKit voice-call message shows `Join live call`, `Take over`, and `End call`.
+2. `POST /internal/voice/calls/<livekit_room_name>/handoff` marks `handoff_status: requested`.
+3. `POST /api/v1/accounts/:account_id/voice/calls/:id/take_over` marks `handoff_status: accepted`, `ai_status: silent`, assigns the conversation, and removes agent worker participants when present.
 
 ## Datastore Proof
 
 Use Rails runner for direct evidence:
 
 ```bash
-set -a; source .env.local; set +a; eval "$(rbenv init -)"; bundle exec rails runner 'call = Call.livekit.where(account_id: 19).order(id: :desc).first; puts({ id: call.id, status: call.status, room: call.livekit_room_name, dispatch: call.meta["voice_agent_dispatch"], transcript: call.transcript, segments: call.transcript_segments.order(:id).map { |segment| { role: segment.role, text: segment.text, source: segment.source } } }.to_json)'
+set -a; source .env.local; set +a; eval "$(rbenv init -)"; bundle exec rails runner 'call = Call.livekit.where(account_id: 19).order(id: :desc).first; puts({ id: call.id, status: call.status, room: call.livekit_room_name, test_call: call.test_call?, conversation_id: call.conversation_id, contact_id: call.contact_id, message_id: call.message_id, dispatch: call.meta["voice_agent_dispatch"], transcript: call.transcript, tool_events: call.meta["voice_tool_events"], segments: call.transcript_segments.order(:id).map { |segment| { role: segment.role, text: segment.text, source: segment.source, conversation_id: segment.conversation_id } } }.to_json)'
 ```
 
 Report only what is present in the DB/UI/logs. Do not infer audio success from dispatch alone.
@@ -114,5 +139,6 @@ set -a; source .env.local; set +a; eval "$(rbenv init -)"; bundle exec rails run
 - `Start test call` returns `422`: check Rails logs for the real error, then reproduce with `Voice::TestCallBuilder.perform!` in Rails runner.
 - Worker starts but no dispatch: confirm `VOICE_AGENT_NAME` matches the worker registration and the Rails dispatch payload.
 - Dispatch succeeds but no transcript: confirm a standard participant joined the room; the worker waits for a caller before starting the session.
+- DB state changes but the conversation UI does not update: confirm `chatwoot-worker` is running; without Sidekiq, queued ActionCable broadcasts will not reach the browser.
 - Turn-detector model errors in realtime mode: pipeline-only imports probably loaded too early. Realtime mode should only register the provider plugin it uses.
 - Hanging unjoined rooms: `VOICE_AGENT_WAIT_FOR_PARTICIPANT_TIMEOUT_SECONDS` should end rooms that never receive a caller.
