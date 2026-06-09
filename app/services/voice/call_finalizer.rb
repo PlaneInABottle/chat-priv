@@ -26,6 +26,7 @@ class Voice::CallFinalizer
       agent: agent || call.accepted_by_agent,
       duration_seconds: call.duration_seconds
     )
+    Voice::CallBroadcaster.call_status_changed(call)
     call
   end
 

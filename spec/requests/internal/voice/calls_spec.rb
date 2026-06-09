@@ -77,26 +77,40 @@ RSpec.describe 'Internal voice calls API', type: :request do
       with_modified_env VOICE_AGENT_INTERNAL_TOKEN: 'secret' do
         post path,
              params: {
-               tool: 'request_human_handoff',
-               status: 'executed',
-               arguments: { reason: 'caller gave test@example.com and +905551112233' },
-               result: { tool_status: 'ok' },
-               duration_ms: 42
-             },
+                tool: 'request_human_handoff',
+                status: 'executed',
+                arguments: { reason: 'caller gave test@example.com and +905551112233' },
+                result: { tool_status: 'ok' },
+                duration_ms: 42,
+                external_id: 'tool-call-1'
+              },
              headers: { 'X-Voice-Agent-Token' => 'secret' },
              as: :json
       end
 
       expect(response).to have_http_status(:created)
-      event = call.reload.meta['voice_tool_events'].last
-      expect(event).to include(
-        'tool' => 'request_human_handoff',
-        'status' => 'executed',
-        'duration_ms' => 42,
-        'result' => { 'tool_status' => 'ok' }
+      event = call.reload.voice_tool_events.order(:created_at).last
+      expect(event).to have_attributes(
+        tool: 'request_human_handoff',
+        status: 'executed',
+        duration_ms: 42,
+        result: { 'tool_status' => 'ok' }
       )
-      expect(event.dig('arguments', 'reason')).to eq('caller gave [email redacted] and [phone redacted]')
-      expect(Voice::CallSerializer.new(call).payload[:tool_events]).to eq(call.meta['voice_tool_events'])
+      expect(event.arguments['reason']).to eq('caller gave [email redacted] and [phone redacted]')
+      expect(event.external_id).to eq('tool-call-1')
+      expect(Voice::CallSerializer.new(call).payload[:tool_events]).to eq([
+        {
+          id: event.id,
+          tool: 'request_human_handoff',
+          status: 'executed',
+          arguments: { 'reason' => 'caller gave [email redacted] and [phone redacted]' },
+          result: { 'tool_status' => 'ok' },
+          error_message: nil,
+          duration_ms: 42,
+          source: 'livekit_agent',
+          created_at: event.created_at.iso8601
+        }
+      ])
     end
   end
 

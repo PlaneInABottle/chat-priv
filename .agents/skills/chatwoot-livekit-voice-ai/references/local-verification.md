@@ -65,8 +65,7 @@ Use `uv lock --check --directory services/voice_agent` after dependency changes.
 6. Wait until `Join as test caller` is enabled and the setup fields are disabled.
 7. Click `Join as test caller`.
 8. Wait for the Browser status to become `Connected` and for the worker to connect to the realtime provider and post transcript.
-9. To verify handoff tool detection, say a human-handoff request such as `Temsilciye baglanmak istiyorum`; after the worker calls `request_human_handoff`, click `Refresh` and confirm the `Transcript and tool calls` panel shows a `request_human_handoff` tool event. If speech input is unavailable in automation, invoke the worker's Python tool wrapper against the active test call and verify the same persisted `tool_events` output.
-10. Click `Refresh` if the transcript panel does not update immediately.
+9. To verify handoff tool detection, say a human-handoff request such as `Temsilciye baglanmak istiyorum`; after the worker calls `request_human_handoff`, confirm the `Transcript and tool calls` panel shows a `request_human_handoff` tool event via realtime updates. If the browser reconnects or misses a websocket event, use `Refresh` once to resync the current call payload.
 11. End the call from the settings panel with `End test call`.
 12. Confirm the Call status becomes `completed`, Browser status becomes `Disconnected`, and setup fields are editable again.
 
@@ -82,8 +81,8 @@ Expected proof:
 - The worker receives a LiveKit job request for the room.
 - After caller joins, the worker connects to the realtime provider.
 - `POST /internal/voice/calls/:provider_call_id/transcript` stores at least one transcript segment.
-- `POST /internal/voice/calls/:provider_call_id/tool_call` stores voice-agent tool events in `call.meta["voice_tool_events"]`.
-- The settings `Transcript and tool calls` panel shows transcript segments and tool events after `Refresh`.
+- `POST /internal/voice/calls/:provider_call_id/tool_call` stores voice-agent tool events in `voice_tool_events` rows related to the call.
+- The settings `Transcript and tool calls` panel updates in realtime over ActionCable. Use `Refresh` only as a manual resync after websocket reconnect or missed events.
 
 ## Handoff Rehearsal
 
@@ -98,7 +97,7 @@ Default browser test calls do not create normal Chatwoot conversations and canno
 Use Rails runner for direct evidence:
 
 ```bash
-set -a; source .env.local; set +a; eval "$(rbenv init -)"; bundle exec rails runner 'call = Call.livekit.where(account_id: 19).order(id: :desc).first; puts({ id: call.id, status: call.status, room: call.livekit_room_name, test_call: call.test_call?, conversation_id: call.conversation_id, contact_id: call.contact_id, message_id: call.message_id, dispatch: call.meta["voice_agent_dispatch"], transcript: call.transcript, tool_events: call.meta["voice_tool_events"], segments: call.transcript_segments.order(:id).map { |segment| { role: segment.role, text: segment.text, source: segment.source, conversation_id: segment.conversation_id } } }.to_json)'
+set -a; source .env.local; set +a; eval "$(rbenv init -)"; bundle exec rails runner 'call = Call.livekit.where(account_id: 19).order(id: :desc).first; puts({ id: call.id, status: call.status, room: call.livekit_room_name, test_call: call.test_call?, conversation_id: call.conversation_id, contact_id: call.contact_id, message_id: call.message_id, dispatch: call.meta["voice_agent_dispatch"], transcript: call.transcript, tool_events: call.voice_tool_events.order(:id).map { |event| { tool: event.tool, status: event.status, duration_ms: event.duration_ms, source: event.source } }, segments: call.transcript_segments.order(:id).map { |segment| { role: segment.role, text: segment.text, source: segment.source, conversation_id: segment.conversation_id } } }.to_json)'
 ```
 
 Report only what is present in the DB/UI/logs. Do not infer audio success from dispatch alone.

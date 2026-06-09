@@ -34,7 +34,8 @@ class Internal::Voice::CallsController < Internal::Voice::BaseController
       arguments: hash_param(:arguments),
       result: hash_param(:result),
       error_message: params[:error_message],
-      duration_ms: params[:duration_ms]
+      duration_ms: params[:duration_ms],
+      external_id: params[:external_id]
     )
     render json: { status: 'stored', tool_event: event }, status: :created
   end
@@ -47,6 +48,7 @@ class Internal::Voice::CallsController < Internal::Voice::BaseController
     @call.update!(handoff_status: 'requested', ai_status: 'handoff_requested')
     @call.conversation.update!(team: setting&.fallback_team) if setting&.fallback_team
     Voice::CallMessageBuilder.new(@call).update_status!(status: @call.status)
+    Voice::CallBroadcaster.call_status_changed(@call)
     render json: Voice::CallSerializer.new(@call).payload
   end
 

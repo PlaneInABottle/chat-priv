@@ -1,0 +1,54 @@
+class Voice::CallBroadcaster
+  TRANSCRIPT_EVENT = 'voice_call.transcript_segment'
+  TOOL_EVENT = 'voice_call.tool_event'
+  STATUS_EVENT = 'voice_call.status_changed'
+
+  def self.transcript_segment(call, segment)
+    new(call).broadcast(TRANSCRIPT_EVENT, {
+                           segment: {
+                             id: segment.id,
+                             role: segment.role,
+                             text: segment.text,
+                             source: segment.source,
+                             created_at: segment.created_at.iso8601
+                           }
+                         })
+  end
+
+  def self.tool_event(call, event)
+    new(call).broadcast(TOOL_EVENT, {
+                           tool_event: {
+                             id: event.id,
+                             tool: event.tool,
+                             status: event.status,
+                             arguments: event.arguments,
+                             result: event.result,
+                             error_message: event.error_message,
+                             duration_ms: event.duration_ms,
+                             created_at: event.created_at.iso8601
+                           }
+                         })
+  end
+
+  def self.call_status_changed(call)
+    payload = Voice::CallSerializer.new(call).payload.merge(call_id: call.id, account_id: call.account_id)
+    new(call).broadcast(STATUS_EVENT, payload)
+  end
+
+  def initialize(call)
+    @call = call
+  end
+
+  def broadcast(event_name, extra_payload = {})
+    payload = { call_id: call.id, account_id: call.account_id }.merge(extra_payload)
+    ActionCable.server.broadcast(account_stream, { event: event_name, data: payload })
+  end
+
+  private
+
+  attr_reader :call
+
+  def account_stream
+    "account_#{call.account_id}"
+  end
+end
