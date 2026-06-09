@@ -15,8 +15,8 @@
 #  updated_at           :datetime         not null
 #  accepted_by_agent_id :bigint
 #  account_id           :bigint           not null
-#  contact_id           :bigint           not null
-#  conversation_id      :bigint           not null
+#  contact_id           :bigint
+#  conversation_id      :bigint
 #  inbox_id             :bigint           not null
 #  message_id           :bigint
 #  provider_call_id     :string           not null
@@ -98,11 +98,11 @@ class Call < ApplicationRecord
   end
 
   def from_number
-    incoming? ? contact.phone_number : inbox.channel&.phone_number
+    incoming? ? contact.phone_number : inbox_channel_phone_number
   end
 
   def to_number
-    incoming? ? inbox.channel&.phone_number : contact.phone_number
+    incoming? ? inbox_channel_phone_number : contact.phone_number
   end
 
   def recording_url
@@ -130,6 +130,14 @@ class Call < ApplicationRecord
       recording_url: recording_url,
       transcript: transcript
     }
+  end
+
+  private
+
+  def inbox_channel_phone_number
+    return unless inbox.channel.respond_to?(:phone_number)
+
+    inbox.channel.phone_number
   end
 end
 end

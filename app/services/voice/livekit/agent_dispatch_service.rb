@@ -1,12 +1,4 @@
-require 'jwt'
-require 'net/http'
-
 class Voice::Livekit::AgentDispatchService
-  ENDPOINT = '/twirp/livekit.AgentDispatchService/CreateDispatch'.freeze
-  OPEN_TIMEOUT = 3
-  READ_TIMEOUT = 5
-  TOKEN_TTL = 5.minutes
-
   def self.perform(call:, metadata: {})
     new(call: call, metadata: metadata).perform
   end
@@ -33,59 +25,23 @@ class Voice::Livekit::AgentDispatchService
   attr_reader :call, :metadata
 
   def post_dispatch
-    request = Net::HTTP::Post.new(dispatch_uri, headers)
-    request.body = {
-      agent_name: agent_name,
-      room: room_name,
-      metadata: metadata.to_json
-    }.to_json
-
-    Net::HTTP.start(
-      dispatch_uri.host,
-      dispatch_uri.port,
-      use_ssl: dispatch_uri.scheme == 'https',
-      open_timeout: OPEN_TIMEOUT,
-      read_timeout: READ_TIMEOUT
-    ) do |http|
-      http.request(request)
-    end
-  end
-
-  def headers
-    {
-      'Authorization' => "Bearer #{admin_token}",
-      'Content-Type' => 'application/json'
-    }
-  end
-
-  def admin_token
-    now = Time.zone.now.to_i
-    JWT.encode(
-      {
-        iss: api_key,
-        sub: 'voice-agent-dispatch',
-        nbf: now,
-        exp: (Time.zone.now + TOKEN_TTL).to_i,
-        video: {
-          room: room_name,
-          roomAdmin: true
-        }
-      },
-      api_secret,
-      'HS256'
+    client.post(
+      service: 'AgentDispatchService',
+      method: 'CreateDispatch',
+      body: {
+        agent_name: agent_name,
+        room: room_name,
+        metadata: metadata.to_json
+      }
     )
   end
 
-  def dispatch_uri
-    @dispatch_uri ||= URI("#{livekit_http_url}#{ENDPOINT}")
-  end
-
-  def livekit_http_url
-    livekit_url.sub(/\Awss:/, 'https:').sub(/\Aws:/, 'http:').delete_suffix('/')
+  def client
+    @client ||= Voice::Livekit::TwirpClient.new(room_name: room_name, subject: 'voice-agent-dispatch')
   end
 
   def configured?
-    [livekit_url, api_key, api_secret, agent_name].all?(&:present?)
+    client.configured? && agent_name.present?
   end
 
   def skipped_result
@@ -99,7 +55,7 @@ class Voice::Livekit::AgentDispatchService
     {
       'status' => 'dispatched',
       'dispatch_id' => parsed_body['id'],
-      'agent_name' => parsed_body['agent_name'] || agent_name,
+      'agent_name' => parsed_body['agent_name'] || parsed_body['agentName'] || agent_name,
       'room' => parsed_body['room'] || room_name
     }.compact
   end
@@ -114,25 +70,11 @@ class Voice::Livekit::AgentDispatchService
   end
 
   def parse_json(body)
-    JSON.parse(body.presence || '{}')
-  rescue JSON::ParserError
-    {}
+    client.parse_json(body)
   end
 
   def room_name
     call.livekit_room_name.presence || call.provider_call_id
-  end
-
-  def livekit_url
-    ENV['LIVEKIT_URL'].to_s
-  end
-
-  def api_key
-    ENV['LIVEKIT_API_KEY'].to_s
-  end
-
-  def api_secret
-    ENV['LIVEKIT_API_SECRET'].to_s
   end
 
   def agent_name

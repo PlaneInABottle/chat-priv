@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_06_08_090100) do
+ActiveRecord::Schema[7.1].define(version: 2026_06_08_090200) do
   # These extensions should be enabled to support this database
   enable_extension "pg_stat_statements"
   enable_extension "pg_trgm"
@@ -370,7 +370,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_06_08_090100) do
   create_table "call_transcript_segments", force: :cascade do |t|
     t.bigint "account_id", null: false
     t.bigint "call_id", null: false
-    t.bigint "conversation_id", null: false
+    t.bigint "conversation_id"
     t.string "role", null: false
     t.string "source", default: "livekit_agent", null: false
     t.text "text", null: false
@@ -392,8 +392,8 @@ ActiveRecord::Schema[7.1].define(version: 2026_06_08_090100) do
   create_table "calls", force: :cascade do |t|
     t.bigint "account_id", null: false
     t.bigint "inbox_id", null: false
-    t.bigint "conversation_id", null: false
-    t.bigint "contact_id", null: false
+    t.bigint "conversation_id"
+    t.bigint "contact_id"
     t.bigint "message_id"
     t.bigint "accepted_by_agent_id"
     t.string "provider_call_id", null: false
