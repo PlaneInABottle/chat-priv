@@ -19,6 +19,8 @@ const isVoiceCallMessage = message => {
   return CONTENT_TYPES.VOICE_CALL === message?.content_type;
 };
 
+const isTruthy = value => value === true || value === 'true';
+
 const shouldSkipCall = (callDirection, senderId, currentUserId) => {
   return callDirection === 'outbound' && senderId !== currentUserId;
 };
@@ -75,17 +77,22 @@ function extractCallerSnapshot(message) {
 
 function extractCallData(message) {
   const call = message?.call || {};
+  const data = message?.content_attributes?.data || {};
   return {
-    callSid: call.provider_call_id,
-    callId: call.id,
-    provider: call.provider,
-    status: call.status,
-    callDirection: call.direction === 'outgoing' ? 'outbound' : 'inbound',
+    callSid: call.provider_call_id || data.call_sid,
+    callId: call.id || data.call_id,
+    provider: call.provider || data.call_source,
+    status: call.status || data.status,
+    callDirection:
+      call.direction === 'outgoing'
+        ? 'outbound'
+        : data.call_direction || 'inbound',
     conversationId: message?.conversation_id,
     inboxId: message?.inbox_id ?? message?.conversation?.inbox_id,
     assigneeId: extractAssigneeId(message?.conversation),
     senderId: message?.sender?.id,
     caller: extractCallerSnapshot(message),
+    testCall: isTruthy(call.test_call ?? data.test_call),
   };
 }
 
@@ -105,7 +112,10 @@ export function handleVoiceCallCreated(
     inboxId,
     assigneeId,
     senderId,
+    testCall,
   } = extractCallData(message);
+
+  if (testCall) return;
 
   if (
     !shouldShowCall({
@@ -151,6 +161,7 @@ export function handleVoiceCallUpdated(
     inboxId,
     assigneeId,
     senderId,
+    testCall,
   } = extractCallData(message);
 
   const callsStore = useCallsStore();
@@ -162,6 +173,11 @@ export function handleVoiceCallUpdated(
     callStatus: status,
     callSid,
   });
+
+  if (testCall) {
+    callsStore.removeCall(callSid);
+    return;
+  }
 
   if (
     !shouldShowCall({
