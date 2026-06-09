@@ -22,7 +22,7 @@ class Voice::TranscriptAppender
     return existing_segment if existing_segment
 
     segment = call.transcript_segments.create!(segment_attributes)
-    refresh_call_transcript!
+    append_transcript_line!(segment)
     segment
   end
 
@@ -43,9 +43,10 @@ class Voice::TranscriptAppender
     @existing_segment ||= call.transcript_segments.find_by(external_segment_id: external_segment_id)
   end
 
-  def refresh_call_transcript!
-    transcript = call.transcript_segments.order(:created_at, :id).map { |segment| "#{segment.role}: #{segment.text}" }.join("\n")
-    call.update!(transcript: transcript)
+  def append_transcript_line!(segment)
+    new_line = "#{segment.role}: #{segment.text}"
+    call.transcript = [call.transcript.presence, new_line].compact.join("\n")
+    call.update_column(:transcript, call.transcript)
   end
 
   def external_segment_id
