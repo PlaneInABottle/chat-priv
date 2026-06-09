@@ -35,7 +35,7 @@ RSpec.describe Voice::Livekit::AgentDispatchService do
         status: 200,
         body: {
           id: 'AD_test',
-          agent_name: 'test-voice-agent',
+          agentName: 'test-voice-agent',
           room: 'room-1'
         }.to_json,
         headers: { 'Content-Type' => 'application/json' }

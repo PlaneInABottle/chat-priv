@@ -152,6 +152,25 @@ RSpec.describe Message do
     it 'returns push event payload' do
       expect(push_event_data).to eq(expected_data)
     end
+
+    context 'when the message contains a voice call for an API inbox' do
+      let(:account) { create(:account) }
+      let(:api_channel) { create(:channel_api, account: account) }
+      let(:inbox) { api_channel.inbox }
+      let(:contact) { create(:contact, :with_phone_number, account: account) }
+      let(:conversation) { create(:conversation, account: account, inbox: inbox, contact: contact) }
+      let(:message) do
+        create(:message, account: account, inbox: inbox, conversation: conversation, sender: contact, content_type: 'voice_call')
+      end
+
+      before do
+        create(:call, account: account, inbox: inbox, conversation: conversation, contact: contact, message: message, direction: :incoming)
+      end
+
+      it 'serializes without requiring the inbox channel to expose a phone number' do
+        expect(push_event_data[:call]).to include(from_number: contact.phone_number, to_number: nil)
+      end
+    end
   end
 
   describe 'message create event' do

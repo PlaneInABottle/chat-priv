@@ -45,6 +45,7 @@ Rails.application.routes.draw do
         member do
           post :transcript
           post :event
+          post :tool_call
           post :handoff
           post :end
         end
