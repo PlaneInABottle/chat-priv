@@ -183,32 +183,40 @@
       "START_ERROR": "Failed to create test call."
     },
     "SESSION": {
-      "TITLE": "LiveKit session",
+      "TITLE": "Browser test call",
       "ROOM": "Room",
-      "STATUS": "Status",
+      "CALL_STATUS": "Call",
+      "BROWSER_STATUS": "Browser",
       "NOT_STARTED": "No test call yet",
       "DISCONNECTED": "Disconnected",
       "CONNECTING": "Connecting",
       "CONNECTED": "Connected",
       "FAILED": "Failed",
-      "JOIN_CALLER": "Join as caller",
+      "JOIN_CALLER": "Join as test caller",
       "JOIN_AGENT": "Join as agent",
       "DISCONNECT": "Disconnect",
       "MUTE": "Mute",
       "UNMUTE": "Unmute",
       "TAKE_OVER": "Mark taken over",
-      "END_CALL": "End call",
+      "END_CALL": "End test call",
       "REFRESH": "Refresh",
       "OPEN_CONVERSATION": "Open conversation",
+      "HANDOFF_TOOLS": "Handoff tools",
       "TOKEN_ERROR": "Failed to create LiveKit token.",
       "CONNECT_ERROR": "Failed to join LiveKit room.",
       "TAKE_OVER_SUCCESS": "Call marked as taken over.",
       "END_SUCCESS": "Call ended.",
       "ACTION_ERROR": "Voice call action failed."
-    },
-    "TRANSCRIPT": {
-      "TITLE": "Transcript",
-      "EMPTY": "Transcript segments will appear here after the voice agent posts them."
-    }
+  },
+  "TRANSCRIPT": {
+    "TITLE": "Transcript and tool calls",
+    "DESCRIPTION": "Live speech turns and voice-agent tool calls appear here during sandbox tests.",
+    "EMPTY": "Transcript segments and tool calls will appear here after the voice agent posts them.",
+    "TRANSCRIPT_COUNT": "{count} transcript",
+    "TOOL_COUNT": "{count} tools",
+    "TOOL_EVENT": "Voice tool call",
+    "ARGUMENTS": "Arguments",
+    "RESULT": "Result"
   }
+}
 }

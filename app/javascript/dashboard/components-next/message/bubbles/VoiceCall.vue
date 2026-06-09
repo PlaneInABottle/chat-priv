@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useStore } from 'vuex';
 import { useMapGetter } from 'dashboard/composables/store';
@@ -13,8 +13,10 @@ import {
   ATTACHMENT_TYPES,
 } from '../constants';
 import { useCallActions } from 'dashboard/composables/useCallSession';
+import { useLivekitVoiceSession } from 'dashboard/composables/useLivekitVoiceSession';
 import { useWhatsappCallSession } from 'dashboard/composables/useWhatsappCallSession';
 import { useCallsStore } from 'dashboard/stores/calls';
+import VoiceAPI from 'dashboard/api/voice';
 import { VOICE_CALL_PROVIDERS } from 'dashboard/helper/inbox';
 import { formatDuration } from 'shared/helpers/timeHelper';
 import { useAlert } from 'dashboard/composables';
@@ -48,21 +50,41 @@ const {
   sender,
   messageType,
 } = useMessageContext();
-const { joinCall, endCall, activeCall, hasActiveCall, isJoining } =
-  useCallActions();
+const {
+  joinCall,
+  endCall,
+  dismissCall,
+  activeCall,
+  hasActiveCall,
+  isJoining: isLegacyJoining,
+} = useCallActions();
 const whatsappCallSession = useWhatsappCallSession();
 const callsStore = useCallsStore();
+const livekitCallDetails = ref(null);
+const isTakingOverLivekit = ref(false);
+const isEndingLivekit = ref(false);
 const contactsUiFlags = useMapGetter('contacts/getUIFlags');
 const isInitiatingCall = computed(
   () => contactsUiFlags.value?.isInitiatingCall || false
 );
 
-const status = computed(() => call.value?.status);
+const contentData = computed(() => contentAttributes?.value?.data || {});
+const callField = (camelKey, snakeKey = camelKey) => {
+  const source = livekitCallDetails.value || call.value || {};
+  return (
+    source[camelKey] ??
+    source[snakeKey] ??
+    contentData.value[camelKey] ??
+    contentData.value[snakeKey]
+  );
+};
+
+const status = computed(() => callField('status'));
 // Server-side call records use `outgoing`/`incoming`, while the Pinia store
 // and a few API hops normalise to `outbound`/`inbound`. Accept either so the
 // bubble label matches the message orientation no matter the source.
 const isOutbound = computed(() => {
-  const dir = call.value?.direction;
+  const dir = callField('direction');
   if (
     dir === VOICE_CALL_DIRECTION.OUTGOING ||
     dir === VOICE_CALL_DIRECTION.OUTBOUND
@@ -78,22 +100,31 @@ const isOutbound = computed(() => {
   return messageType.value === MESSAGE_TYPES.OUTGOING;
 });
 const isWhatsapp = computed(
-  () => call.value?.provider === VOICE_CALL_PROVIDERS.WHATSAPP
+  () => callField('provider') === VOICE_CALL_PROVIDERS.WHATSAPP
 );
 const isLivekit = computed(
-  () => call.value?.provider === VOICE_CALL_PROVIDERS.LIVEKIT
+  () => callField('provider') === VOICE_CALL_PROVIDERS.LIVEKIT
 );
 const isFailed = computed(() =>
   [VOICE_CALL_STATUS.NO_ANSWER, VOICE_CALL_STATUS.FAILED].includes(status.value)
 );
 const isMissedInbound = computed(() => isFailed.value && !isOutbound.value);
-const endReason = computed(() => call.value?.endReason);
+const endReason = computed(() => callField('endReason', 'end_reason'));
 const wasDeclinedByAgent = computed(
   () =>
     isMissedInbound.value &&
     endReason.value === VOICE_CALL_END_REASON.AGENT_REJECTED
 );
-const acceptedByAgentId = computed(() => call.value?.acceptedByAgentId);
+const acceptedByAgentId = computed(() =>
+  callField('acceptedByAgentId', 'accepted_by_agent_id')
+);
+const acceptedByAgentName = computed(() =>
+  callField('acceptedByAgentName', 'accepted_by_agent_name')
+);
+const handoffStatus = computed(() =>
+  callField('handoffStatus', 'handoff_status')
+);
+const aiStatus = computed(() => callField('aiStatus', 'ai_status'));
 const conversationAssignee = computed(() => {
   const conversation = store.getters.getConversationById?.(
     conversationId?.value
@@ -101,7 +132,7 @@ const conversationAssignee = computed(() => {
   return conversation?.meta?.assignee || null;
 });
 const displayAgentName = computed(() => {
-  if (call.value?.acceptedByAgentName) return call.value.acceptedByAgentName;
+  if (acceptedByAgentName.value) return acceptedByAgentName.value;
   if (acceptedByAgentId.value) {
     const agent = store.getters['agents/getAgentById'](acceptedByAgentId.value);
     if (agent?.available_name) return agent.available_name;
@@ -115,10 +146,11 @@ const audioAttachment = computed(() =>
 );
 
 const durationSeconds = computed(() => {
-  const fromCall = call.value?.durationSeconds || call.value?.duration_seconds;
+  const fromCall = callField('durationSeconds', 'duration_seconds');
   if (fromCall != null) return fromCall;
-  const data = contentAttributes?.value?.data;
-  return data?.durationSeconds || data?.duration_seconds;
+  return (
+    contentData.value?.durationSeconds || contentData.value?.duration_seconds
+  );
 });
 
 const formattedDuration = computed(() => formatDuration(durationSeconds.value));
@@ -127,7 +159,7 @@ const formattedDuration = computed(() => formatDuration(durationSeconds.value));
 // strictly from the persisted accept fields — never the conversation's current
 // assignee, which would mis-attribute a historical call after a reassignment.
 const handlerName = computed(() => {
-  if (call.value?.acceptedByAgentName) return call.value.acceptedByAgentName;
+  if (acceptedByAgentName.value) return acceptedByAgentName.value;
   if (!acceptedByAgentId.value) return null;
   const agent = store.getters['agents/getAgentById'](acceptedByAgentId.value);
   return agent?.available_name || agent?.name || null;
@@ -161,6 +193,18 @@ const subtext = computed(() => {
       .join(' · ');
   }
   if (status.value === VOICE_CALL_STATUS.IN_PROGRESS) {
+    if (isLivekit.value && handoffStatus.value === 'requested') {
+      return t('CONVERSATION.VOICE_CALL.HANDOFF_REQUESTED');
+    }
+    if (isLivekit.value && handoffStatus.value === 'accepted') {
+      return handledBy.value || t('CONVERSATION.VOICE_CALL.HANDOFF_ACCEPTED');
+    }
+    if (isLivekit.value && aiStatus.value === 'silent') {
+      return t('CONVERSATION.VOICE_CALL.AI_SILENT');
+    }
+    if (isLivekit.value) {
+      return t('CONVERSATION.VOICE_CALL.AI_ACTIVE');
+    }
     return handledBy.value;
   }
   if (isFailed.value) {
@@ -204,7 +248,50 @@ const iconContainerClass = computed(() => {
   return 'bg-n-alpha-2 text-n-slate-12';
 });
 
-const callSid = computed(() => call.value?.providerCallId);
+const callSid = computed(
+  () =>
+    callField('providerCallId', 'provider_call_id') ||
+    contentData.value?.call_sid
+);
+const livekitCallId = computed(
+  () => callField('id') || contentData.value?.call_id
+);
+const livekitCallForSession = computed(() => {
+  if (!livekitCallId.value) return null;
+  return { id: livekitCallId.value };
+});
+const {
+  remoteAudioRef,
+  sessionStatus: livekitSessionStatus,
+  sessionError: livekitSessionError,
+  activeParticipantType: livekitParticipantType,
+  isJoining: isJoiningLivekit,
+  isMuted: isLivekitMuted,
+  isConnected: isLivekitConnected,
+  joinRoom: joinLivekitRoom,
+  disconnectRoom: disconnectLivekitRoom,
+  toggleMute: toggleLivekitMute,
+} = useLivekitVoiceSession({ call: livekitCallForSession });
+
+const isLivekitTerminal = computed(() =>
+  [
+    VOICE_CALL_STATUS.COMPLETED,
+    VOICE_CALL_STATUS.NO_ANSWER,
+    VOICE_CALL_STATUS.FAILED,
+  ].includes(status.value)
+);
+const canUseLivekitControls = computed(
+  () =>
+    isLivekit.value && Boolean(livekitCallId.value) && !isLivekitTerminal.value
+);
+const isLivekitActiveInCallWidget = computed(
+  () =>
+    activeCall.value?.provider === VOICE_CALL_PROVIDERS.LIVEKIT &&
+    activeCall.value?.callSid === callSid.value
+);
+const displayLivekitSessionStatus = computed(() =>
+  isLivekitActiveInCallWidget.value ? 'connected' : livekitSessionStatus.value
+);
 
 const canJoinCall = computed(() => {
   if (status.value !== VOICE_CALL_STATUS.RINGING) return false;
@@ -221,18 +308,18 @@ const canJoinCall = computed(() => {
 
 const recordingAttachment = computed(() => {
   if (audioAttachment.value) return audioAttachment.value;
-  const url = call.value?.recordingUrl;
+  const url = callField('recordingUrl', 'recording_url');
   if (!url) return null;
   return {
     dataUrl: url,
     fileType: ATTACHMENT_TYPES.AUDIO,
     extension: 'wav',
-    transcribedText: call.value?.transcript || '',
+    transcribedText: callField('transcript') || '',
   };
 });
 
 const handleJoinCall = async () => {
-  if (!canJoinCall.value || isJoining.value) return;
+  if (!canJoinCall.value || isLegacyJoining.value) return;
 
   if (hasActiveCall.value && activeCall.value?.callSid !== callSid.value) {
     await endCall({
@@ -302,6 +389,61 @@ const handleCallBack = async () => {
     useAlert(error?.message || t('CONTACT_PANEL.CALL_FAILED'));
   }
 };
+
+const handleJoinLivekit = async () => {
+  if (
+    !canUseLivekitControls.value ||
+    isLivekitConnected.value ||
+    isLivekitActiveInCallWidget.value
+  ) {
+    return;
+  }
+  dismissCall(callSid.value);
+  await joinLivekitRoom('agent');
+};
+
+const handleDisconnectLivekit = () => {
+  if (isLivekitActiveInCallWidget.value) {
+    dismissCall(callSid.value);
+    return;
+  }
+
+  disconnectLivekitRoom();
+};
+
+const handleTakeOverLivekit = async () => {
+  if (!canUseLivekitControls.value || isTakingOverLivekit.value) return;
+
+  isTakingOverLivekit.value = true;
+  try {
+    const response = await VoiceAPI.takeOver(livekitCallId.value);
+    livekitCallDetails.value = response.data;
+    useAlert(t('VOICE_AI.SESSION.TAKE_OVER_SUCCESS'));
+  } catch {
+    useAlert(t('VOICE_AI.SESSION.ACTION_ERROR'));
+  } finally {
+    isTakingOverLivekit.value = false;
+  }
+};
+
+const handleEndLivekit = async () => {
+  if (!canUseLivekitControls.value || isEndingLivekit.value) return;
+
+  isEndingLivekit.value = true;
+  try {
+    const response = await VoiceAPI.endCall(livekitCallId.value, {
+      end_reason: 'agent_ended',
+    });
+    livekitCallDetails.value = response.data;
+    disconnectLivekitRoom();
+    dismissCall(callSid.value);
+    useAlert(t('VOICE_AI.SESSION.END_SUCCESS'));
+  } catch {
+    useAlert(t('VOICE_AI.SESSION.ACTION_ERROR'));
+  } finally {
+    isEndingLivekit.value = false;
+  }
+};
 </script>
 
 <template>
@@ -337,6 +479,88 @@ const handleCallBack = async () => {
         show-transcribed-text
       />
 
+      <div v-if="isLivekit" ref="remoteAudioRef" class="hidden" />
+
+      <div
+        v-if="isLivekit && livekitSessionError"
+        class="rounded-lg bg-n-ruby-3 px-3 py-2 text-sm text-n-ruby-11"
+      >
+        {{ livekitSessionError }}
+      </div>
+
+      <div
+        v-if="canUseLivekitControls"
+        class="rounded-lg bg-n-alpha-2 p-2 flex flex-col gap-2"
+      >
+        <div class="flex items-center justify-between gap-2 text-xs">
+          <span class="font-medium text-n-slate-11">
+            {{ $t('CONVERSATION.VOICE_CALL.LIVE_SESSION') }}
+          </span>
+          <span class="text-n-slate-10 capitalize">
+            {{ displayLivekitSessionStatus }}
+          </span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <NextButton
+            v-if="!isLivekitConnected && !isLivekitActiveInCallWidget"
+            type="button"
+            :label="$t('CONVERSATION.VOICE_CALL.JOIN_LIVE_CALL')"
+            icon="i-ph-headphones-bold"
+            teal
+            class="!rounded-full"
+            :disabled="isJoiningLivekit"
+            :is-loading="isJoiningLivekit && livekitParticipantType === 'agent'"
+            @click="handleJoinLivekit"
+          />
+          <NextButton
+            v-else
+            type="button"
+            :label="
+              isLivekitMuted
+                ? $t('CONVERSATION.VOICE_CALL.UNMUTE')
+                : $t('CONVERSATION.VOICE_CALL.MUTE')
+            "
+            icon="i-ph-microphone-bold"
+            variant="outline"
+            color="slate"
+            class="!rounded-full"
+            @click="toggleLivekitMute"
+          />
+          <NextButton
+            type="button"
+            :label="$t('CONVERSATION.VOICE_CALL.TAKE_OVER')"
+            icon="i-ph-user-check-bold"
+            variant="outline"
+            color="slate"
+            class="!rounded-full"
+            :disabled="handoffStatus === 'accepted'"
+            :is-loading="isTakingOverLivekit"
+            @click="handleTakeOverLivekit"
+          />
+          <NextButton
+            v-if="isLivekitConnected || isLivekitActiveInCallWidget"
+            type="button"
+            :label="$t('CONVERSATION.VOICE_CALL.DISCONNECT')"
+            icon="i-ph-phone-disconnect-bold"
+            variant="outline"
+            color="slate"
+            class="!rounded-full"
+            @click="handleDisconnectLivekit"
+          />
+          <NextButton
+            type="button"
+            :label="$t('CONVERSATION.VOICE_CALL.END_CALL')"
+            icon="i-ph-phone-x-bold"
+            variant="outline"
+            color="ruby"
+            class="!rounded-full"
+            :is-loading="isEndingLivekit"
+            @click="handleEndLivekit"
+          />
+        </div>
+      </div>
+
       <!-- Call back button (missed inbound) -->
       <NextButton
         v-if="canCallBack"
@@ -357,7 +581,7 @@ const handleCallBack = async () => {
         icon="i-ph-phone-bold"
         teal
         class="!rounded-full"
-        :disabled="isJoining"
+        :disabled="isLegacyJoining"
         @click="handleJoinCall"
       />
     </div>
