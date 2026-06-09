@@ -7,9 +7,7 @@ import { defineStore } from 'pinia';
 const teardownByProvider = call => {
   if (call?.provider === VOICE_CALL_PROVIDERS.WHATSAPP) {
     cleanupWhatsappSession();
-  } else if (call?.provider === VOICE_CALL_PROVIDERS.LIVEKIT) {
-    return;
-  } else {
+  } else if (call?.provider !== VOICE_CALL_PROVIDERS.LIVEKIT) {
     TwilioVoiceClient.endClientCall();
   }
 };
@@ -76,6 +74,13 @@ export const useCallsStore = defineStore('calls', {
       this.calls = this.calls.map(call => ({
         ...call,
         isActive: call.callSid === callSid,
+      }));
+    },
+
+    setCallInactive(callSid) {
+      this.calls = this.calls.map(call => ({
+        ...call,
+        isActive: call.callSid === callSid ? false : call.isActive,
       }));
     },
 

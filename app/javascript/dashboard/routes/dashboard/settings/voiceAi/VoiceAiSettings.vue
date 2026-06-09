@@ -1,20 +1,12 @@
 <script setup>
-import {
-  computed,
-  nextTick,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  watch,
-} from 'vue';
-import { Room, RoomEvent, createLocalAudioTrack } from 'livekit-client';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useRoute, useRouter } from 'vue-router';
 
 import VoiceAPI from 'dashboard/api/voice';
 import { INBOX_TYPES } from 'dashboard/helper/inbox';
 import { useAlert } from 'dashboard/composables';
 import { useMapGetter, useStore } from 'dashboard/composables/store';
+import { useLivekitVoiceSession } from 'dashboard/composables/useLivekitVoiceSession';
 
 import SettingsLayout from '../SettingsLayout.vue';
 import BaseSettingsHeader from '../components/BaseSettingsHeader.vue';
@@ -22,10 +14,14 @@ import Button from 'dashboard/components-next/button/Button.vue';
 import Input from 'dashboard/components-next/input/Input.vue';
 
 const DEFAULT_GREETING = 'Merhaba, size nasil yardimci olabilirim?';
+const TERMINAL_CALL_STATUSES = [
+  'completed',
+  'no-answer',
+  'no_answer',
+  'failed',
+];
 
 const store = useStore();
-const route = useRoute();
-const router = useRouter();
 const { t } = useI18n();
 
 const settings = ref([]);
@@ -37,21 +33,24 @@ const instructions = ref('');
 const callerName = ref('Test caller');
 const callerNumber = ref('+900000000000');
 const currentCall = ref(null);
-const sessionStatus = ref('disconnected');
-const sessionError = ref('');
-const activeParticipantType = ref('');
 const isLoading = ref(false);
 const isSaving = ref(false);
 const isCreatingCall = ref(false);
-const isJoining = ref(false);
 const isEnding = ref(false);
-const isTakingOver = ref(false);
 const isRefreshing = ref(false);
-const isMuted = ref(false);
-
-const roomRef = ref(null);
-const localAudioTrackRef = ref(null);
-const remoteAudioRef = ref(null);
+const refreshTimer = ref(null);
+const {
+  remoteAudioRef,
+  sessionStatus,
+  sessionError,
+  activeParticipantType,
+  isJoining,
+  isMuted,
+  isConnected,
+  joinRoom,
+  disconnectRoom,
+  toggleMute,
+} = useLivekitVoiceSession({ call: currentCall });
 
 const inboxes = useMapGetter('inboxes/getInboxes');
 const aiAgents = useMapGetter('aiAgent/getAiAgents');
@@ -68,14 +67,30 @@ const selectedSetting = computed(() =>
 );
 
 const canSave = computed(() => Boolean(selectedInboxId.value));
+const currentCallStatus = computed(() => currentCall.value?.status || '');
+const isCurrentCallTerminal = computed(() =>
+  TERMINAL_CALL_STATUSES.includes(currentCallStatus.value)
+);
+const hasCall = computed(() => Boolean(currentCall.value?.id));
+const hasActiveTestCall = computed(
+  () => hasCall.value && !isCurrentCallTerminal.value
+);
+const canEditSetup = computed(() => !hasActiveTestCall.value);
 const canStartTest = computed(
-  () => Boolean(selectedInboxId.value) && !isCreatingCall.value
+  () =>
+    Boolean(selectedInboxId.value) &&
+    !isCreatingCall.value &&
+    !hasActiveTestCall.value
 );
 const canJoin = computed(
-  () => Boolean(currentCall.value?.id) && !isJoining.value
+  () =>
+    Boolean(currentCall.value?.id) &&
+    !isCurrentCallTerminal.value &&
+    !isJoining.value
 );
-const isConnected = computed(() => sessionStatus.value === 'connected');
-const hasCall = computed(() => Boolean(currentCall.value?.id));
+const canUseLiveControls = computed(
+  () => hasCall.value && !isCurrentCallTerminal.value
+);
 const sessionStatusLabels = computed(() => ({
   disconnected: t('VOICE_AI.SESSION.DISCONNECTED'),
   connecting: t('VOICE_AI.SESSION.CONNECTING'),
@@ -83,24 +98,47 @@ const sessionStatusLabels = computed(() => ({
   failed: t('VOICE_AI.SESSION.FAILED'),
 }));
 
-const conversationRoute = computed(() => {
-  if (!currentCall.value?.conversation_id) return null;
-  return {
-    name: 'inbox_conversation',
-    params: {
-      accountId: route.params.accountId,
-      conversation_id: currentCall.value.conversation_id,
-    },
-  };
-});
-
 const transcriptSegments = computed(
   () => currentCall.value?.transcript_segments || []
 );
+const toolEvents = computed(() => currentCall.value?.tool_events || []);
+const timelineEvents = computed(() => {
+  const transcriptItems = transcriptSegments.value.map(segment => ({
+    ...segment,
+    timelineType: 'transcript',
+    timelineId: `transcript-${segment.id}`,
+    sortAt: segment.created_at,
+  }));
+  const toolItems = toolEvents.value.map(event => ({
+    ...event,
+    timelineType: 'tool',
+    timelineId: `tool-${event.id || event.created_at}`,
+    sortAt: event.created_at,
+  }));
+
+  return [...transcriptItems, ...toolItems].sort((a, b) => {
+    const first = new Date(a.sortAt || 0).getTime();
+    const second = new Date(b.sortAt || 0).getTime();
+    return first - second;
+  });
+});
 
 const sessionStatusLabel = computed(() => {
   return sessionStatusLabels.value[sessionStatus.value] || sessionStatus.value;
 });
+const callStatusLabel = computed(() => {
+  return currentCallStatus.value || t('VOICE_AI.SESSION.NOT_STARTED');
+});
+
+const toolStatusClass = status => {
+  if (status === 'executed') return 'text-n-teal-11 bg-n-teal-3';
+  if (status === 'error' || status === 'rejected') {
+    return 'text-n-ruby-11 bg-n-ruby-3';
+  }
+  return 'text-n-slate-11 bg-n-alpha-2';
+};
+
+const formatJson = value => JSON.stringify(value || {}, null, 2);
 
 const settingPayload = () => ({
   inbox_id: selectedInboxId.value,
@@ -191,90 +229,8 @@ const createTestCall = async () => {
   }
 };
 
-const clearRemoteAudio = () => {
-  const container = remoteAudioRef.value;
-  if (!container) return;
-  container.replaceChildren();
-};
-
-const attachRemoteAudio = track => {
-  if (track.kind !== 'audio' || !remoteAudioRef.value) return;
-  const element = track.attach();
-  element.autoplay = true;
-  element.dataset.livekitRemoteAudio = 'true';
-  remoteAudioRef.value.appendChild(element);
-};
-
-const detachRemoteAudio = track => {
-  track.detach().forEach(element => element.remove());
-};
-
-const disconnectRoom = () => {
-  localAudioTrackRef.value?.stop();
-  localAudioTrackRef.value = null;
-  roomRef.value?.disconnect();
-  roomRef.value = null;
-  activeParticipantType.value = '';
-  clearRemoteAudio();
-  if (sessionStatus.value !== 'failed') {
-    sessionStatus.value = 'disconnected';
-  }
-};
-
-const joinRoom = async participantType => {
-  if (!canJoin.value) return;
-
-  isJoining.value = true;
-  sessionStatus.value = 'connecting';
-  sessionError.value = '';
-  activeParticipantType.value = participantType;
-  try {
-    disconnectRoom();
-    activeParticipantType.value = participantType;
-    const response = await VoiceAPI.createToken(currentCall.value.id, {
-      participant_type: participantType,
-    });
-    const { url, token } = response.data;
-    const room = new Room();
-    room.on(RoomEvent.TrackSubscribed, attachRemoteAudio);
-    room.on(RoomEvent.TrackUnsubscribed, detachRemoteAudio);
-    room.on(RoomEvent.Disconnected, () => {
-      sessionStatus.value = 'disconnected';
-    });
-
-    await room.connect(url, token);
-    const audioTrack = await createLocalAudioTrack({
-      echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true,
-    });
-    await room.localParticipant.publishTrack(audioTrack);
-
-    roomRef.value = room;
-    localAudioTrackRef.value = audioTrack;
-    activeParticipantType.value = participantType;
-    isMuted.value = false;
-    sessionStatus.value = 'connected';
-  } catch (error) {
-    sessionStatus.value = 'failed';
-    sessionError.value = error.message || t('VOICE_AI.SESSION.CONNECT_ERROR');
-    useAlert(t('VOICE_AI.SESSION.CONNECT_ERROR'));
-    disconnectRoom();
-  } finally {
-    isJoining.value = false;
-    await nextTick();
-  }
-};
-
-const toggleMute = () => {
-  const track = localAudioTrackRef.value;
-  if (!track) return;
-  isMuted.value = !isMuted.value;
-  track.mediaStreamTrack.enabled = !isMuted.value;
-};
-
 const refreshCall = async () => {
-  if (!currentCall.value?.id) return;
+  if (!currentCall.value?.id || isRefreshing.value) return;
 
   isRefreshing.value = true;
   try {
@@ -285,23 +241,20 @@ const refreshCall = async () => {
   }
 };
 
-const takeOver = async () => {
-  if (!currentCall.value?.id) return;
+const stopRefreshPolling = () => {
+  if (!refreshTimer.value) return;
 
-  isTakingOver.value = true;
-  try {
-    const response = await VoiceAPI.takeOver(currentCall.value.id);
-    currentCall.value = response.data;
-    useAlert(t('VOICE_AI.SESSION.TAKE_OVER_SUCCESS'));
-  } catch {
-    useAlert(t('VOICE_AI.SESSION.ACTION_ERROR'));
-  } finally {
-    isTakingOver.value = false;
-  }
+  clearInterval(refreshTimer.value);
+  refreshTimer.value = null;
+};
+
+const startRefreshPolling = () => {
+  stopRefreshPolling();
+  refreshTimer.value = setInterval(refreshCall, 4000);
 };
 
 const endCall = async () => {
-  if (!currentCall.value?.id) return;
+  if (!canUseLiveControls.value || isEnding.value) return;
 
   isEnding.value = true;
   try {
@@ -318,16 +271,21 @@ const endCall = async () => {
   }
 };
 
-const openConversation = () => {
-  if (conversationRoute.value) router.push(conversationRoute.value);
-};
-
 watch(selectedInboxId, () => {
   syncFormFromSetting(selectedSetting.value);
 });
 
+watch(hasActiveTestCall, isActive => {
+  if (isActive) {
+    startRefreshPolling();
+    return;
+  }
+
+  stopRefreshPolling();
+});
+
 onMounted(loadData);
-onBeforeUnmount(disconnectRoom);
+onBeforeUnmount(stopRefreshPolling);
 </script>
 
 <template>
@@ -365,7 +323,8 @@ onBeforeUnmount(disconnectRoom);
               </span>
               <select
                 v-model="selectedInboxId"
-                class="h-10 rounded-lg border-0 outline outline-1 outline-n-weak bg-n-alpha-black2 px-3 text-sm text-n-slate-12"
+                :disabled="!canEditSetup"
+                class="h-10 rounded-lg border-0 outline outline-1 outline-n-weak bg-n-alpha-black2 px-3 text-sm text-n-slate-12 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <option value="" disabled>
                   {{ t('VOICE_AI.SETUP.INBOX') }}
@@ -386,7 +345,8 @@ onBeforeUnmount(disconnectRoom);
               </span>
               <select
                 v-model="selectedAiAgentId"
-                class="h-10 rounded-lg border-0 outline outline-1 outline-n-weak bg-n-alpha-black2 px-3 text-sm text-n-slate-12"
+                :disabled="!canEditSetup"
+                class="h-10 rounded-lg border-0 outline outline-1 outline-n-weak bg-n-alpha-black2 px-3 text-sm text-n-slate-12 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <option value="">
                   {{ t('VOICE_AI.SETUP.NONE') }}
@@ -407,7 +367,8 @@ onBeforeUnmount(disconnectRoom);
               </span>
               <select
                 v-model="selectedFallbackTeamId"
-                class="h-10 rounded-lg border-0 outline outline-1 outline-n-weak bg-n-alpha-black2 px-3 text-sm text-n-slate-12"
+                :disabled="!canEditSetup"
+                class="h-10 rounded-lg border-0 outline outline-1 outline-n-weak bg-n-alpha-black2 px-3 text-sm text-n-slate-12 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <option value="">
                   {{ t('VOICE_AI.SETUP.NONE') }}
@@ -420,14 +381,20 @@ onBeforeUnmount(disconnectRoom);
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input v-model="greeting" :label="t('VOICE_AI.SETUP.GREETING')" />
+            <Input
+              v-model="greeting"
+              :label="t('VOICE_AI.SETUP.GREETING')"
+              :disabled="!canEditSetup"
+            />
             <Input
               v-model="callerName"
               :label="t('VOICE_AI.SETUP.CALLER_NAME')"
+              :disabled="!canEditSetup"
             />
             <Input
               v-model="callerNumber"
               :label="t('VOICE_AI.SETUP.CALLER_NUMBER')"
+              :disabled="!canEditSetup"
             />
           </div>
 
@@ -438,7 +405,8 @@ onBeforeUnmount(disconnectRoom);
             <textarea
               v-model="instructions"
               rows="6"
-              class="rounded-lg border-0 outline outline-1 outline-n-weak bg-n-alpha-black2 px-3 py-2 text-sm text-n-slate-12 resize-y"
+              :disabled="!canEditSetup"
+              class="rounded-lg border-0 outline outline-1 outline-n-weak bg-n-alpha-black2 px-3 py-2 text-sm text-n-slate-12 resize-y disabled:cursor-not-allowed disabled:opacity-50"
             />
           </label>
 
@@ -448,7 +416,7 @@ onBeforeUnmount(disconnectRoom);
               icon="i-lucide-save"
               variant="outline"
               color="slate"
-              :disabled="!canSave"
+              :disabled="!canSave || !canEditSetup"
               :is-loading="isSaving"
               @click="saveSettings"
             />
@@ -481,7 +449,13 @@ onBeforeUnmount(disconnectRoom);
           <dl
             class="grid grid-cols-[96px_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm"
           >
-            <dt class="text-n-slate-11">{{ t('VOICE_AI.SESSION.STATUS') }}</dt>
+            <dt class="text-n-slate-11">
+              {{ t('VOICE_AI.SESSION.CALL_STATUS') }}
+            </dt>
+            <dd class="capitalize text-n-slate-12">{{ callStatusLabel }}</dd>
+            <dt class="text-n-slate-11">
+              {{ t('VOICE_AI.SESSION.BROWSER_STATUS') }}
+            </dt>
             <dd class="text-n-slate-12">{{ sessionStatusLabel }}</dd>
             <dt class="text-n-slate-11">{{ t('VOICE_AI.SESSION.ROOM') }}</dt>
             <dd class="truncate text-n-slate-12">
@@ -498,19 +472,10 @@ onBeforeUnmount(disconnectRoom);
           <div class="grid grid-cols-1 gap-2">
             <Button
               :label="t('VOICE_AI.SESSION.JOIN_CALLER')"
-              icon="i-lucide-user"
+              icon="i-lucide-phone"
               :disabled="!canJoin || isConnected"
               :is-loading="isJoining && activeParticipantType === 'caller'"
               @click="joinRoom('caller')"
-            />
-            <Button
-              :label="t('VOICE_AI.SESSION.JOIN_AGENT')"
-              icon="i-lucide-headphones"
-              variant="outline"
-              color="slate"
-              :disabled="!canJoin || isConnected"
-              :is-loading="isJoining && activeParticipantType === 'agent'"
-              @click="joinRoom('agent')"
             />
             <Button
               :label="
@@ -532,20 +497,20 @@ onBeforeUnmount(disconnectRoom);
               :disabled="!isConnected"
               @click="disconnectRoom"
             />
+            <Button
+              :label="t('VOICE_AI.SESSION.END_CALL')"
+              icon="i-lucide-circle-stop"
+              variant="outline"
+              color="ruby"
+              :disabled="!canUseLiveControls || isEnding"
+              :is-loading="isEnding"
+              @click="endCall"
+            />
           </div>
 
           <div class="h-px bg-n-weak" />
 
           <div class="grid grid-cols-1 gap-2">
-            <Button
-              :label="t('VOICE_AI.SESSION.TAKE_OVER')"
-              icon="i-lucide-user-check"
-              variant="outline"
-              color="slate"
-              :disabled="!hasCall"
-              :is-loading="isTakingOver"
-              @click="takeOver"
-            />
             <Button
               :label="t('VOICE_AI.SESSION.REFRESH')"
               icon="i-lucide-refresh-cw"
@@ -555,61 +520,122 @@ onBeforeUnmount(disconnectRoom);
               :is-loading="isRefreshing"
               @click="refreshCall"
             />
-            <Button
-              :label="t('VOICE_AI.SESSION.OPEN_CONVERSATION')"
-              icon="i-lucide-message-square"
-              variant="outline"
-              color="slate"
-              :disabled="!conversationRoute"
-              @click="openConversation"
-            />
-            <Button
-              :label="t('VOICE_AI.SESSION.END_CALL')"
-              icon="i-lucide-circle-stop"
-              variant="outline"
-              color="ruby"
-              :disabled="!hasCall"
-              :is-loading="isEnding"
-              @click="endCall"
-            />
           </div>
         </aside>
 
         <section
           class="xl:col-span-2 rounded-xl border border-n-weak bg-n-solid-1 p-5"
         >
-          <div class="flex items-center justify-between gap-3">
-            <h2 class="text-heading-2 text-n-slate-12">
-              {{ t('VOICE_AI.TRANSCRIPT.TITLE') }}
-            </h2>
-            <span class="text-sm text-n-slate-11">
-              {{ transcriptSegments.length }}
-            </span>
+          <div
+            class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
+          >
+            <div>
+              <h2 class="text-heading-2 text-n-slate-12">
+                {{ t('VOICE_AI.TRANSCRIPT.TITLE') }}
+              </h2>
+              <p class="mb-0 mt-1 text-sm text-n-slate-11">
+                {{ t('VOICE_AI.TRANSCRIPT.DESCRIPTION') }}
+              </p>
+            </div>
+            <div class="flex items-center gap-2 text-xs text-n-slate-11">
+              <span class="rounded-full bg-n-alpha-2 px-2 py-1">
+                {{
+                  t('VOICE_AI.TRANSCRIPT.TRANSCRIPT_COUNT', {
+                    count: transcriptSegments.length,
+                  })
+                }}
+              </span>
+              <span class="rounded-full bg-n-alpha-2 px-2 py-1">
+                {{
+                  t('VOICE_AI.TRANSCRIPT.TOOL_COUNT', {
+                    count: toolEvents.length,
+                  })
+                }}
+              </span>
+            </div>
           </div>
 
           <div
-            v-if="!transcriptSegments.length"
+            v-if="!timelineEvents.length"
             class="mt-4 rounded-lg bg-n-alpha-2 p-4 text-sm text-n-slate-11"
           >
             {{ t('VOICE_AI.TRANSCRIPT.EMPTY') }}
           </div>
           <div v-else class="mt-4 flex flex-col gap-3">
             <div
-              v-for="segment in transcriptSegments"
-              :key="segment.id"
-              class="rounded-lg bg-n-alpha-2 p-3"
+              v-for="item in timelineEvents"
+              :key="item.timelineId"
+              class="rounded-lg border border-n-weak bg-n-alpha-2 p-3"
             >
-              <div class="mb-1 flex items-center justify-between gap-3">
-                <span class="text-sm font-medium text-n-slate-12 capitalize">
-                  {{ segment.role }}
-                </span>
-                <span class="text-xs text-n-slate-10">
-                  {{ segment.source }}
-                </span>
+              <div
+                v-if="item.timelineType === 'tool'"
+                class="flex flex-col gap-3"
+              >
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <div class="flex items-center gap-2">
+                      <span class="i-lucide-wrench size-4 text-n-slate-11" />
+                      <span
+                        class="truncate text-sm font-medium text-n-slate-12"
+                      >
+                        {{ item.tool }}
+                      </span>
+                    </div>
+                    <p class="mb-0 mt-1 text-xs text-n-slate-10">
+                      {{ t('VOICE_AI.TRANSCRIPT.TOOL_EVENT') }}
+                    </p>
+                  </div>
+                  <span
+                    class="shrink-0 rounded-full px-2 py-1 text-xs font-medium capitalize"
+                    :class="toolStatusClass(item.status)"
+                  >
+                    {{ item.status }}
+                  </span>
+                </div>
+
+                <div
+                  v-if="item.error_message"
+                  class="rounded-md bg-n-ruby-3 px-3 py-2 text-sm text-n-ruby-11"
+                >
+                  {{ item.error_message }}
+                </div>
+
+                <div class="grid grid-cols-1 gap-2 md:grid-cols-2">
+                  <details class="rounded-md bg-n-alpha-2 px-3 py-2">
+                    <summary
+                      class="cursor-pointer text-xs font-medium text-n-slate-11"
+                    >
+                      {{ t('VOICE_AI.TRANSCRIPT.ARGUMENTS') }}
+                    </summary>
+                    <pre
+                      class="mb-0 mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words text-xs text-n-slate-12"
+                    ><code>{{ formatJson(item.arguments) }}</code></pre>
+                  </details>
+                  <details class="rounded-md bg-n-alpha-2 px-3 py-2">
+                    <summary
+                      class="cursor-pointer text-xs font-medium text-n-slate-11"
+                    >
+                      {{ t('VOICE_AI.TRANSCRIPT.RESULT') }}
+                    </summary>
+                    <pre
+                      class="mb-0 mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words text-xs text-n-slate-12"
+                    ><code>{{ formatJson(item.result) }}</code></pre>
+                  </details>
+                </div>
               </div>
-              <p class="mb-0 whitespace-pre-wrap text-sm text-n-slate-12">
-                {{ segment.text }}
-              </p>
+              <template v-else>
+                <div class="mb-1 flex items-center justify-between gap-3">
+                  <span class="text-sm font-medium text-n-slate-12 capitalize">
+                    {{ item.role }}
+                  </span>
+                  <span class="text-xs text-n-slate-10">
+                    {{ item.source }}
+                  </span>
+                </div>
+                <p class="mb-0 whitespace-pre-wrap text-sm text-n-slate-12">
+                  {{ item.text }}
+                </p>
+              </template>
             </div>
           </div>
         </section>

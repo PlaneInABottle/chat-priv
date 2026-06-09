@@ -3,20 +3,24 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
 import { useCallSession } from 'dashboard/composables/useCallSession';
+import { useLivekitVoiceSession } from 'dashboard/composables/useLivekitVoiceSession';
 import { setWhatsappCallMuted } from 'dashboard/composables/useWhatsappCallSession';
 import TwilioVoiceClient from 'dashboard/api/channel/voice/twilioVoiceClient';
+import VoiceAPI from 'dashboard/api/voice';
 import { frontendURL, conversationUrl } from 'dashboard/helper/URLHelper';
 import { VOICE_CALL_PROVIDERS } from 'dashboard/helper/inbox';
 import { VOICE_CALL_DIRECTION } from 'dashboard/components-next/message/constants';
 import WindowVisibilityHelper from 'dashboard/helper/AudioAlerts/WindowVisibilityHelper';
 import CallCard from 'dashboard/components-next/call/CallCard.vue';
 import countriesList from 'shared/constants/countries.js';
+import { useCallsStore } from 'dashboard/stores/calls';
 
 const RINGTONE_URL = '/audio/dashboard/ringtone.mp3';
 
 const route = useRoute();
 const router = useRouter();
 const store = useStore();
+const callsStore = useCallsStore();
 
 const {
   activeCall,
@@ -37,9 +41,32 @@ const isWhatsappActive = computed(
   () => activeCall.value?.provider === VOICE_CALL_PROVIDERS.WHATSAPP
 );
 
+const isLivekitCall = call => call?.provider === VOICE_CALL_PROVIDERS.LIVEKIT;
+
 const primaryIncomingCall = computed(() =>
   hasActiveCall.value ? null : incomingCalls.value[0] || null
 );
+
+const livekitSessionCall = computed(() => {
+  let call = null;
+  if (activeCall.value?.provider === VOICE_CALL_PROVIDERS.LIVEKIT) {
+    call = activeCall.value;
+  } else if (
+    primaryIncomingCall.value?.provider === VOICE_CALL_PROVIDERS.LIVEKIT
+  ) {
+    call = primaryIncomingCall.value;
+  }
+  if (!call?.callId) return null;
+  return { id: call.callId };
+});
+const {
+  remoteAudioRef: livekitRemoteAudioRef,
+  isJoining: isJoiningLivekit,
+  joinRoom: joinLivekitRoom,
+  disconnectRoom: disconnectLivekitRoom,
+} = useLivekitVoiceSession({ call: livekitSessionCall });
+const isCallAccepting = call =>
+  isLivekitCall(call) ? isJoiningLivekit.value : isJoining.value;
 
 const stackedIncomingCalls = computed(() =>
   hasActiveCall.value ? incomingCalls.value : incomingCalls.value.slice(1)
@@ -142,9 +169,27 @@ const goToConversation = call => {
   });
 };
 
+const endLivekitCall = async (call, reason) => {
+  if (!call) return;
+
+  try {
+    if (call.callId) {
+      await VoiceAPI.endCall(call.callId, { end_reason: reason });
+    }
+  } finally {
+    disconnectLivekitRoom();
+    dismissCall(call.callSid);
+  }
+};
+
 const handleEndCall = async () => {
   const call = activeCall.value;
   if (!call) return;
+
+  if (isLivekitCall(call)) {
+    await endLivekitCall(call, 'agent_ended_from_popup');
+    return;
+  }
 
   const inboxId = call.inboxId || getCallInfo(call).conversation?.inbox_id;
   if (!inboxId) return;
@@ -156,8 +201,45 @@ const handleEndCall = async () => {
   });
 };
 
+const handleRejectCall = async call => {
+  if (!call) return;
+
+  if (isLivekitCall(call)) {
+    await endLivekitCall(call, 'agent_rejected_from_popup');
+    return;
+  }
+
+  await rejectIncomingCall(call.callSid);
+};
+
+const handleJoinLivekitCall = async call => {
+  if (hasActiveCall.value && activeCall.value?.callSid !== call.callSid) {
+    await handleEndCall();
+  }
+
+  callsStore.setCallActive(call.callSid);
+  const joined = await joinLivekitRoom('agent');
+  if (!joined) {
+    callsStore.setCallInactive(call.callSid);
+    return;
+  }
+
+  if (call.conversationId) {
+    router.push({
+      name: 'inbox_conversation',
+      params: { conversation_id: call.conversationId },
+    });
+  }
+};
+
 const handleJoinCall = async call => {
-  if (!call || isJoining.value) return;
+  if (!call || isJoining.value || isJoiningLivekit.value) return;
+
+  if (isLivekitCall(call)) {
+    await handleJoinLivekitCall(call);
+    return;
+  }
+
   const { conversation } = getCallInfo(call);
 
   if (hasActiveCall.value) {
@@ -240,6 +322,8 @@ onBeforeUnmount(stopRingtone);
     v-if="incomingCalls.length || hasActiveCall"
     class="fixed ltr:right-4 rtl:left-4 bottom-4 z-50 flex flex-col gap-3 w-[400px]"
   >
+    <div ref="livekitRemoteAudioRef" class="hidden" />
+
     <!-- Stacked incoming calls (shown above the primary card) -->
     <CallCard
       v-for="call in stackedIncomingCalls"
@@ -247,8 +331,9 @@ onBeforeUnmount(stopRingtone);
       :call="call"
       :state="stackedCardState(call)"
       :call-info="getCallInfo(call)"
+      :is-accepting="isCallAccepting(call)"
       @accept="handleJoinCall(call)"
-      @reject="rejectIncomingCall(call.callSid)"
+      @reject="handleRejectCall(call)"
       @dismiss="dismissCall(call.callSid)"
       @go-to-conversation="goToConversation(call)"
     />
@@ -261,9 +346,10 @@ onBeforeUnmount(stopRingtone);
       :call-info="getCallInfo(activeCall || primaryIncomingCall)"
       :duration="hasActiveCall ? formattedCallDuration : ''"
       :is-muted="isMuted"
-      :show-mute="hasActiveCall"
+      :show-mute="hasActiveCall && !isLivekitCall(activeCall)"
+      :is-accepting="isCallAccepting(primaryIncomingCall)"
       @accept="handleJoinCall(primaryIncomingCall)"
-      @reject="rejectIncomingCall(primaryIncomingCall?.callSid)"
+      @reject="handleRejectCall(primaryIncomingCall)"
       @dismiss="dismissCall(primaryIncomingCall?.callSid)"
       @end="handleEndCall"
       @toggle-mute="toggleMute"

@@ -33,6 +33,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  isAccepting: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 defineEmits([
@@ -187,6 +191,8 @@ const channelIcon = computed(() => {
             icon="i-ph-phone-bold"
             teal
             class="!rounded-full"
+            :disabled="isAccepting"
+            :is-loading="isAccepting"
             @click="$emit('accept')"
           />
 
