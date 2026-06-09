@@ -245,7 +245,7 @@ const refreshCall = async () => {
 const stopRefreshPolling = () => {
   if (!refreshTimer.value) return;
 
-  clearInterval(refreshTimer.value);
+  clearTimeout(refreshTimer.value);
   refreshTimer.value = null;
 };
 
