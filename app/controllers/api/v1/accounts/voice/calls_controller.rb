@@ -1,4 +1,9 @@
+require 'securerandom'
+
 class Api::V1::Accounts::Voice::CallsController < Api::V1::Accounts::BaseController
+  VALID_PARTICIPANT_TYPES = %w[agent caller].freeze
+  MAX_CLIENT_SESSION_ID_LENGTH = 64
+
   before_action :current_account
   before_action :set_call
 
@@ -9,6 +14,8 @@ class Api::V1::Accounts::Voice::CallsController < Api::V1::Accounts::BaseControl
 
   def token
     authorize @call.inbox, :show?
+    return render_call_ended if @call.terminal?
+
     render json: Voice::Livekit::TokenService.new(
       call: @call,
       identity: token_identity,
@@ -20,7 +27,20 @@ class Api::V1::Accounts::Voice::CallsController < Api::V1::Accounts::BaseControl
 
   def take_over
     authorize @call.inbox, :show?
-    @call.update!(accepted_by_agent: Current.user, handoff_status: 'accepted', ai_status: 'silent', status: 'in_progress')
+    return render_call_ended if @call.terminal?
+    return render_conversation_required unless @call.conversation
+
+    room_result = Voice::Livekit::RoomService.remove_agent_participants(call: @call)
+    meta = (@call.meta || {}).merge(
+      'handoff_status' => 'accepted',
+      'ai_status' => 'silent',
+      'livekit_agent_removal' => room_result
+    )
+    @call.update!(
+      accepted_by_agent: Current.user,
+      status: 'in_progress',
+      meta: meta
+    )
     @call.conversation.update!(assignee: Current.user)
     Voice::CallMessageBuilder.new(@call).update_status!(status: @call.status, agent: Current.user)
     render json: Voice::CallSerializer.new(@call).payload
@@ -28,9 +48,9 @@ class Api::V1::Accounts::Voice::CallsController < Api::V1::Accounts::BaseControl
 
   def end
     authorize @call.inbox, :show?
-    duration = @call.started_at ? (Time.zone.now - @call.started_at).to_i : nil
-    @call.update!(status: 'completed', ended_at: Time.zone.now.to_i, duration_seconds: duration, end_reason: params[:end_reason].presence)
-    Voice::CallMessageBuilder.new(@call).update_status!(status: @call.status, agent: @call.accepted_by_agent, duration_seconds: duration)
+    return render json: Voice::CallSerializer.new(@call).payload if @call.terminal?
+
+    Voice::CallFinalizer.perform!(call: @call, end_reason: params[:end_reason].presence)
     render json: Voice::CallSerializer.new(@call).payload
   end
 
@@ -38,10 +58,31 @@ class Api::V1::Accounts::Voice::CallsController < Api::V1::Accounts::BaseControl
 
   def set_call
     @call = Current.account.calls.find(params[:id])
+    Voice::Livekit::StaleCallFinalizer.finalize_call_if_stale!(@call) if @call.livekit?
+    @call.reload
   end
 
   def token_identity
-    prefix = params[:participant_type].presence || 'agent'
-    "#{prefix}-account-#{Current.account.id}-user-#{Current.user&.id || 'system'}-call-#{@call.id}"
+    prefix = VALID_PARTICIPANT_TYPES.include?(params[:participant_type].to_s) ? params[:participant_type].to_s : 'agent'
+    [
+      prefix,
+      "account-#{Current.account.id}",
+      "user-#{Current.user&.id || 'system'}",
+      "call-#{@call.id}",
+      "session-#{client_session_id}"
+    ].join('-')
+  end
+
+  def client_session_id
+    sanitized = params[:client_session_id].to_s.downcase.gsub(/[^a-z0-9-]/, '').first(MAX_CLIENT_SESSION_ID_LENGTH)
+    sanitized.presence || SecureRandom.uuid
+  end
+
+  def render_call_ended
+    render json: { error: 'Call has already ended' }, status: :unprocessable_content
+  end
+
+  def render_conversation_required
+    render json: { error: 'Call handoff requires a conversation' }, status: :unprocessable_content
   end
 end

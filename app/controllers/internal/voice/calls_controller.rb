@@ -26,30 +26,45 @@ class Internal::Voice::CallsController < Internal::Voice::BaseController
     render json: { status: 'stored' }
   end
 
+  def tool_call
+    event = Voice::ToolCallRecorder.perform!(
+      call: @call,
+      tool: params.require(:tool),
+      status: params[:status].presence || 'executed',
+      arguments: hash_param(:arguments),
+      result: hash_param(:result),
+      error_message: params[:error_message],
+      duration_ms: params[:duration_ms]
+    )
+    render json: { status: 'stored', tool_event: event }, status: :created
+  end
+
   def handoff
+    return render_test_handoff if @call.test_call? && @call.conversation.blank?
+    return render json: { error: 'Call handoff requires a conversation' }, status: :unprocessable_content unless @call.conversation
+
     setting = VoiceInboxSetting.find_by(id: @call.meta['voice_inbox_setting_id'])
     @call.update!(handoff_status: 'requested', ai_status: 'handoff_requested')
     @call.conversation.update!(team: setting&.fallback_team) if setting&.fallback_team
+    Voice::CallMessageBuilder.new(@call).update_status!(status: @call.status)
     render json: Voice::CallSerializer.new(@call).payload
   end
 
   def end
-    duration = @call.started_at ? (Time.zone.now - @call.started_at).to_i : nil
-    @call.update!(
+    Voice::CallFinalizer.perform!(
+      call: @call,
       status: terminal_status,
-      ended_at: Time.zone.now.to_i,
-      duration_seconds: duration,
       end_reason: params[:end_reason].presence
     )
-    Voice::CallMessageBuilder.new(@call).update_status!(status: @call.status, duration_seconds: duration)
     render json: Voice::CallSerializer.new(@call).payload
   end
 
   private
 
   def set_call
-    @call = Call.livekit.find_by(provider_call_id: params[:provider_call_id]) ||
-            Call.livekit.where("meta->>'livekit_room_name' = ?", params[:provider_call_id]).first!
+    livekit_calls = Call.where(provider: :livekit)
+    @call = livekit_calls.find_by(provider_call_id: params[:provider_call_id]) ||
+            livekit_calls.where("meta->>'livekit_room_name' = ?", params[:provider_call_id]).first!
     Current.account = @call.account
   end
 
@@ -66,6 +81,32 @@ class Internal::Voice::CallsController < Internal::Voice::BaseController
     return metadata if metadata.is_a?(Hash)
 
     {}
+  end
+
+  def hash_param(key)
+    value = params[key]
+    return {} if value.blank?
+    return value.to_unsafe_h if value.respond_to?(:to_unsafe_h)
+    return value if value.is_a?(Hash)
+
+    {}
+  end
+
+  def render_test_handoff
+    meta = (@call.meta || {}).merge(
+      'handoff_status' => 'requested',
+      'ai_status' => 'handoff_requested',
+      'test_handoff_requested_at' => Time.zone.now.iso8601(3),
+      'test_handoff_reason' => params[:reason].to_s
+    )
+    @call.update!(meta: meta)
+    render json: Voice::CallSerializer.new(@call).payload.merge(
+      tool_status: 'ok',
+      terminal_action: 'handoff',
+      test_mode: true,
+      customer_message: 'Human handoff requested in the sandbox test call.',
+      reason: params[:reason].to_s
+    )
   end
 
   def terminal_status
