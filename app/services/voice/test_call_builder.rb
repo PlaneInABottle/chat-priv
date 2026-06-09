@@ -1,13 +1,14 @@
 class Voice::TestCallBuilder
-  def self.perform!(account:, inbox:, caller_name: nil, caller_number: nil)
-    new(account: account, inbox: inbox, caller_name: caller_name, caller_number: caller_number).perform!
+  def self.perform!(account:, inbox:, caller_name: nil, caller_number: nil, initiated_by: nil)
+    new(account: account, inbox: inbox, caller_name: caller_name, caller_number: caller_number, initiated_by: initiated_by).perform!
   end
 
-  def initialize(account:, inbox:, caller_name: nil, caller_number: nil)
+  def initialize(account:, inbox:, caller_name: nil, caller_number: nil, initiated_by: nil)
     @account = account
     @inbox = inbox
     @caller_name = caller_name.presence || 'Test caller'
     @caller_number = caller_number.presence || '+900000000000'
+    @initiated_by = initiated_by
   end
 
   def perform!
@@ -22,12 +23,13 @@ class Voice::TestCallBuilder
 
   private
 
-  attr_reader :account, :inbox, :caller_name, :caller_number
+  attr_reader :account, :inbox, :caller_name, :caller_number, :initiated_by
 
   def ensure_setting!
     account.voice_inbox_settings.find_or_create_by!(inbox: inbox) do |setting|
       setting.status = 'test_only'
       setting.greeting = 'Merhaba, size nasil yardimci olabilirim?'
+      setting.instructions = default_voice_instructions
     end
   end
 
@@ -36,12 +38,17 @@ class Voice::TestCallBuilder
   end
 
   def build_call!(setting, room_name)
-    Voice::InboundCallBuilder.perform!(
+    Call.create!(
+      account: account,
       inbox: inbox,
-      from_number: caller_number,
-      call_sid: room_name,
       provider: :livekit,
-      extra_meta: call_meta(setting, room_name)
+      direction: :incoming,
+      status: 'ringing',
+      provider_call_id: room_name,
+      meta: {
+        'initiated_at' => Time.zone.now.to_i,
+        'from_number' => caller_number
+      }.merge(call_meta(setting, room_name))
     )
   end
 
@@ -51,9 +58,14 @@ class Voice::TestCallBuilder
       'livekit_room_name' => room_name,
       'voice_inbox_setting_id' => setting.id,
       'ai_agent_id' => setting.ai_agent_id,
+      'voice_greeting' => setting.greeting,
+      'voice_instructions' => setting.instructions,
+      'test_call' => true,
+      'test_call_source' => 'voice_ai_settings',
+      'test_call_initiated_by_user_id' => initiated_by&.id,
       'handoff_status' => 'none',
       'ai_status' => 'waiting'
-    }
+    }.compact
   end
 
   def start_call!(call, room_name)
@@ -75,9 +87,15 @@ class Voice::TestCallBuilder
       account_id: account.id,
       inbox_id: inbox.id,
       call_id: call.id,
-      conversation_id: call.conversation_id,
+      conversation_id: nil,
       provider_call_id: call.provider_call_id,
-      livekit_room_name: call.livekit_room_name
-    }
+      livekit_room_name: call.livekit_room_name,
+      voice_greeting: call.meta['voice_greeting'],
+      voice_instructions: call.meta['voice_instructions']
+    }.compact
+  end
+
+  def default_voice_instructions
+    'Yalnizca dogal Istanbul Turkcesiyle konus. Kisa, net ve sakin musteri destek cevaplari ver.'
   end
 end

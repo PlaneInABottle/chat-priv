@@ -4,7 +4,10 @@ class Voice::CallSerializer
   end
 
   def payload
-    identity_payload.merge(state_payload).merge(transcript_segments: transcript_segments)
+    identity_payload.merge(state_payload).merge(
+      transcript_segments: transcript_segments,
+      tool_events: tool_events
+    )
   end
 
   private
@@ -19,7 +22,7 @@ class Voice::CallSerializer
       direction: call.direction,
       account_id: call.account_id,
       inbox_id: call.inbox_id,
-      conversation_id: call.conversation.display_id,
+      conversation_id: call.conversation&.display_id,
       contact_id: call.contact_id,
       message_id: call.message_id,
       livekit_room_name: call.livekit_room_name
@@ -29,6 +32,9 @@ class Voice::CallSerializer
   def state_payload
     {
       status: call.display_status,
+      test_call: call.test_call?,
+      test_call_source: call.test_call_source,
+      test_call_initiated_by_user_id: call.test_call_initiated_by_user_id,
       handoff_status: call.handoff_status,
       ai_status: call.ai_status,
       started_at: call.started_at&.iso8601,
@@ -50,5 +56,9 @@ class Voice::CallSerializer
         created_at: segment.created_at.iso8601
       }
     end
+  end
+
+  def tool_events
+    Array(call.meta&.fetch('voice_tool_events', [])).select { |event| event.is_a?(Hash) }
   end
 end

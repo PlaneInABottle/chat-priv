@@ -14,7 +14,7 @@
 #  updated_at          :datetime         not null
 #  account_id          :bigint           not null
 #  call_id             :bigint           not null
-#  conversation_id     :bigint           not null
+#  conversation_id     :bigint
 #  external_segment_id :string
 #
 # Indexes
@@ -38,7 +38,7 @@ class CallTranscriptSegment < ApplicationRecord
 
   belongs_to :account
   belongs_to :call
-  belongs_to :conversation
+  belongs_to :conversation, optional: true
 
   validates :role, presence: true, inclusion: { in: ROLES }
   validates :source, presence: true, inclusion: { in: SOURCES }
@@ -52,6 +52,8 @@ class CallTranscriptSegment < ApplicationRecord
     return unless call
 
     errors.add(:account_id, 'must match call') if account_id != call.account_id
+    return if call.conversation_id.blank? && conversation_id.blank?
+
     errors.add(:conversation_id, 'must match call') if conversation_id != call.conversation_id
   end
 end
