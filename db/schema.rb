@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_06_08_090200) do
+ActiveRecord::Schema[7.1].define(version: 2026_06_08_090300) do
   # These extensions should be enabled to support this database
   enable_extension "pg_stat_statements"
   enable_extension "pg_trgm"
@@ -1461,6 +1461,26 @@ ActiveRecord::Schema[7.1].define(version: 2026_06_08_090200) do
     t.index ["inbox_id"], name: "index_voice_inbox_settings_on_inbox_id"
   end
 
+  create_table "voice_tool_events", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "call_id", null: false
+    t.string "tool", null: false
+    t.string "status", default: "executed", null: false
+    t.jsonb "arguments", default: {}, null: false
+    t.jsonb "result", default: {}, null: false
+    t.text "error_message"
+    t.integer "duration_ms"
+    t.string "source", default: "livekit_agent", null: false
+    t.string "external_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "tool"], name: "idx_voice_tool_events_on_account_tool"
+    t.index ["account_id"], name: "index_voice_tool_events_on_account_id"
+    t.index ["call_id", "created_at"], name: "idx_voice_tool_events_on_call_created"
+    t.index ["call_id", "external_id"], name: "idx_voice_tool_events_on_call_external_id", unique: true, where: "(external_id IS NOT NULL)"
+    t.index ["call_id"], name: "index_voice_tool_events_on_call_id"
+  end
+
   create_table "webhooks", force: :cascade do |t|
     t.integer "account_id"
     t.integer "inbox_id"
@@ -1517,6 +1537,8 @@ ActiveRecord::Schema[7.1].define(version: 2026_06_08_090200) do
   add_foreign_key "voice_inbox_settings", "ai_agents"
   add_foreign_key "voice_inbox_settings", "inboxes"
   add_foreign_key "voice_inbox_settings", "teams", column: "fallback_team_id"
+  add_foreign_key "voice_tool_events", "accounts"
+  add_foreign_key "voice_tool_events", "calls"
   create_trigger("accounts_after_insert_row_tr", :generated => true, :compatibility => 1).
       on("accounts").
       after(:insert).

@@ -43,6 +43,7 @@ class Api::V1::Accounts::Voice::CallsController < Api::V1::Accounts::BaseControl
     )
     @call.conversation.update!(assignee: Current.user)
     Voice::CallMessageBuilder.new(@call).update_status!(status: @call.status, agent: Current.user)
+    Voice::CallBroadcaster.call_status_changed(@call)
     render json: Voice::CallSerializer.new(@call).payload
   end
 

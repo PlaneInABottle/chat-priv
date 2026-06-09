@@ -3,10 +3,12 @@ import hashlib
 import json
 import logging
 import os
+import threading
 import time
 from typing import Any
 
 import aiohttp
+import aiohttp.web
 from dotenv import load_dotenv
 from livekit import agents, rtc
 from livekit.agents import Agent, AgentSession, AutoSubscribe, RoomInputOptions, function_tool, inference
@@ -77,17 +79,21 @@ class ChatwootClient:
         result: dict[str, Any],
         error_message: str | None,
         duration_ms: int,
+        external_id: str | None = None,
     ) -> dict[str, Any]:
+        payload = {
+            "tool": tool,
+            "status": status,
+            "arguments": arguments,
+            "result": result,
+            "error_message": error_message,
+            "duration_ms": duration_ms,
+        }
+        if external_id:
+            payload["external_id"] = external_id
         return await self.post(
             f"/internal/voice/calls/{provider_call_id}/tool_call",
-            {
-                "tool": tool,
-                "status": status,
-                "arguments": arguments,
-                "result": result,
-                "error_message": error_message,
-                "duration_ms": duration_ms,
-            },
+            payload,
         )
 
     async def append_transcript(self, provider_call_id: str, role: str, text: str, source: str, metadata: dict[str, Any]) -> dict[str, Any]:
@@ -161,6 +167,7 @@ class VoiceAssistant(Agent):
                 result,
                 error_message,
                 round((time.monotonic() - started_at) * 1000),
+                _tool_call_external_id(tool, status, arguments, result, error_message),
             )
         except Exception as exc:
             logger.warning("failed to record voice tool call tool=%s error=%s", tool, exc)
@@ -249,6 +256,23 @@ def compact_tool_result(tool: str, result: dict[str, Any]) -> dict[str, Any]:
 
 def compact_hash(payload: dict[str, Any], keys: list[str]) -> dict[str, Any]:
     return {key: payload[key] for key in keys if key in payload and payload[key] is not None}
+
+
+def _tool_call_external_id(
+    tool: str,
+    status: str,
+    arguments: dict[str, Any],
+    result: dict[str, Any],
+    error_message: str | None,
+) -> str:
+    fingerprint = {
+        "tool": tool,
+        "status": status,
+        "arguments": arguments,
+        "result": result,
+        "error_message": error_message,
+    }
+    return hashlib.sha256(json.dumps(fingerprint, sort_keys=True, default=str).encode("utf-8")).hexdigest()[:24]
 
 
 def participant_wait_timeout() -> float:
@@ -420,6 +444,14 @@ async def entrypoint(ctx: agents.JobContext) -> None:
     await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
 
     provider_call_id = ctx.room.name
+    _active_rooms.add(provider_call_id)
+    try:
+        await _entrypoint_inner(ctx, provider_call_id)
+    finally:
+        _active_rooms.discard(provider_call_id)
+
+
+async def _entrypoint_inner(ctx: agents.JobContext, provider_call_id: str) -> None:
     metadata = job_metadata(ctx)
     instructions = session_instructions(metadata)
     greeting = str(metadata.get("voice_greeting") or "").strip() or None
@@ -450,10 +482,11 @@ async def entrypoint(ctx: agents.JobContext) -> None:
     session = build_session(instructions=instructions)
     bind_transcript_events(session, provider_call_id, chatwoot)
 
-    @ctx.shutdown
-    def on_shutdown() -> None:
-        logger.info("shutdown signal received for room=%s", provider_call_id)
-        _fire_and_forget("shutdown_end_call", end_call_once("livekit_dispatch_cancelled"))
+    async def on_shutdown(reason: str) -> None:
+        logger.info("shutdown signal received for room=%s reason=%s", provider_call_id, reason)
+        await end_call_once("livekit_dispatch_cancelled")
+
+    ctx.add_shutdown_callback(on_shutdown)
 
     try:
         await session.start(
@@ -471,7 +504,67 @@ async def entrypoint(ctx: agents.JobContext) -> None:
         await chatwoot.close()
 
 
+_START_TIME = time.monotonic()
+_active_rooms: set[str] = set()
+_health_server_started = False
+_health_runner: aiohttp.web.AppRunner | None = None
+_health_thread: threading.Thread | None = None
+_health_ready = threading.Event()
+
+
+async def _handle_health(request: aiohttp.web.Request) -> aiohttp.web.Response:
+    uptime = time.monotonic() - _START_TIME
+    payload = {
+        "status": "ok",
+        "agent_name": os.getenv("VOICE_AGENT_NAME", "kozmopath-voice-agent"),
+        "active_rooms": len(_active_rooms),
+        "uptime_seconds": round(uptime),
+    }
+    return aiohttp.web.json_response(payload)
+
+
+async def _start_health_server() -> None:
+    global _health_server_started, _health_runner
+    if _health_server_started:
+        return
+    _health_server_started = True
+
+    port = int(os.getenv("VOICE_AGENT_HEALTH_PORT", "9090"))
+    app = aiohttp.web.Application()
+    app.router.add_get("/health", _handle_health)
+    runner = aiohttp.web.AppRunner(app)
+    await runner.setup()
+    _health_runner = runner
+    site = aiohttp.web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+    _health_ready.set()
+    logger.info("health server listening on port %d", port)
+
+
+def _run_health_server_loop() -> None:
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(_start_health_server())
+    loop.run_forever()
+
+
+def _launch_health_server() -> None:
+    global _health_thread
+    if _health_thread and _health_thread.is_alive():
+        return
+
+    _health_ready.clear()
+    _health_thread = threading.Thread(
+        target=_run_health_server_loop,
+        name="voice-agent-health",
+        daemon=True,
+    )
+    _health_thread.start()
+    _health_ready.wait(timeout=5)
+
+
 if __name__ == "__main__":
+    _launch_health_server()
     agents.cli.run_app(
         agents.WorkerOptions(
             entrypoint_fnc=entrypoint,
