@@ -7,6 +7,8 @@ import { INBOX_TYPES } from 'dashboard/helper/inbox';
 import { useAlert } from 'dashboard/composables';
 import { useMapGetter, useStore } from 'dashboard/composables/store';
 import { useLivekitVoiceSession } from 'dashboard/composables/useLivekitVoiceSession';
+import { BUS_EVENTS } from 'shared/constants/busEvents';
+import { emitter } from 'shared/helpers/mitt';
 
 import SettingsLayout from '../SettingsLayout.vue';
 import BaseSettingsHeader from '../components/BaseSettingsHeader.vue';
@@ -38,7 +40,6 @@ const isSaving = ref(false);
 const isCreatingCall = ref(false);
 const isEnding = ref(false);
 const isRefreshing = ref(false);
-const refreshTimer = ref(null);
 const {
   remoteAudioRef,
   sessionStatus,
@@ -136,6 +137,19 @@ const toolStatusClass = status => {
     return 'text-n-ruby-11 bg-n-ruby-3';
   }
   return 'text-n-slate-11 bg-n-alpha-2';
+};
+
+const isHandoffToolEvent = item => {
+  return item?.tool === 'request_human_handoff' || item?.result?.terminal_action === 'handoff';
+};
+
+const handoffToolSummary = item => {
+  return (
+    item?.result?.customer_message ||
+    item?.result?.reason ||
+    item?.arguments?.reason ||
+    t('AI_AGENT.TEST_CONVERSATIONS.HANDOFF_PREVIEW')
+  );
 };
 
 const formatJson = value => JSON.stringify(value || {}, null, 2);
@@ -242,25 +256,58 @@ const refreshCall = async () => {
   }
 };
 
-const stopRefreshPolling = () => {
-  if (!refreshTimer.value) return;
-
-  clearTimeout(refreshTimer.value);
-  refreshTimer.value = null;
+const onTranscriptSegment = data => {
+  if (!currentCall.value || data.call_id !== currentCall.value.id) return;
+  const segments = currentCall.value.transcript_segments || [];
+  if (segments.some(segment => segment.id === data.segment.id)) return;
+  currentCall.value = {
+    ...currentCall.value,
+    transcript_segments: [...segments, data.segment],
+  };
 };
 
-const startRefreshPolling = () => {
-  stopRefreshPolling();
-
-  const scheduleNext = async () => {
-    if (!refreshTimer.value) return;
-    await refreshCall();
-    if (refreshTimer.value) {
-      refreshTimer.value = setTimeout(scheduleNext, 4000);
-    }
+const onToolEvent = data => {
+  if (!currentCall.value || data.call_id !== currentCall.value.id) return;
+  const events = currentCall.value.tool_events || [];
+  if (events.some(event => event.id === data.tool_event.id)) return;
+  currentCall.value = {
+    ...currentCall.value,
+    tool_events: [...events, data.tool_event],
   };
+};
 
-  refreshTimer.value = setTimeout(scheduleNext, 4000);
+const onStatusChanged = data => {
+  if (!currentCall.value || data.call_id !== currentCall.value.id) return;
+  currentCall.value = {
+    ...currentCall.value,
+    ...data,
+  };
+};
+
+const onWebsocketReconnect = () => {
+  refreshCall();
+};
+
+let voiceEventsSubscribed = false;
+
+const subscribeToVoiceEvents = () => {
+  if (voiceEventsSubscribed) return;
+
+  voiceEventsSubscribed = true;
+  emitter.on('voice.transcript_segment', onTranscriptSegment);
+  emitter.on('voice.tool_event', onToolEvent);
+  emitter.on('voice.status_changed', onStatusChanged);
+  emitter.on(BUS_EVENTS.WEBSOCKET_RECONNECT, onWebsocketReconnect);
+};
+
+const unsubscribeFromVoiceEvents = () => {
+  if (!voiceEventsSubscribed) return;
+
+  voiceEventsSubscribed = false;
+  emitter.off('voice.transcript_segment', onTranscriptSegment);
+  emitter.off('voice.tool_event', onToolEvent);
+  emitter.off('voice.status_changed', onStatusChanged);
+  emitter.off(BUS_EVENTS.WEBSOCKET_RECONNECT, onWebsocketReconnect);
 };
 
 const endCall = async () => {
@@ -285,17 +332,11 @@ watch(selectedInboxId, () => {
   syncFormFromSetting(selectedSetting.value);
 });
 
-watch(hasActiveTestCall, isActive => {
-  if (isActive) {
-    startRefreshPolling();
-    return;
-  }
-
-  stopRefreshPolling();
+onMounted(() => {
+  loadData();
+  subscribeToVoiceEvents();
 });
-
-onMounted(loadData);
-onBeforeUnmount(stopRefreshPolling);
+onBeforeUnmount(unsubscribeFromVoiceEvents);
 </script>
 
 <template>
@@ -601,6 +642,18 @@ onBeforeUnmount(stopRefreshPolling);
                   >
                     {{ item.status }}
                   </span>
+                </div>
+
+                <div
+                  v-if="isHandoffToolEvent(item)"
+                  class="rounded-lg border border-n-amber-6 bg-n-amber-3 px-3 py-3"
+                >
+                  <p class="mb-1 text-sm font-medium text-n-amber-12">
+                    {{ t('AI_AGENT.TEST_CONVERSATIONS.HANDOFF_TITLE') }}
+                  </p>
+                  <p class="mb-0 text-sm text-n-amber-11">
+                    {{ handoffToolSummary(item) }}
+                  </p>
                 </div>
 
                 <div

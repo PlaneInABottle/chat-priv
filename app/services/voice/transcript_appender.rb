@@ -23,6 +23,7 @@ class Voice::TranscriptAppender
 
     segment = call.transcript_segments.create!(segment_attributes)
     append_transcript_line!(segment)
+    Voice::CallBroadcaster.transcript_segment(call, segment)
     segment
   end
 

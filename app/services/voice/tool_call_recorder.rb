@@ -1,9 +1,10 @@
+require 'digest'
+
 class Voice::ToolCallRecorder
-  MAX_EVENTS = 50
   VALID_STATUSES = %w[started executed error rejected].freeze
   MAX_TEXT_LENGTH = 2000
 
-  def self.perform!(call:, tool:, status:, arguments: {}, result: {}, error_message: nil, duration_ms: nil)
+  def self.perform!(call:, tool:, status:, arguments: {}, result: {}, error_message: nil, duration_ms: nil, external_id: nil)
     new(
       call: call,
       tool: tool,
@@ -11,11 +12,12 @@ class Voice::ToolCallRecorder
       arguments: arguments,
       result: result,
       error_message: error_message,
-      duration_ms: duration_ms
+      duration_ms: duration_ms,
+      external_id: external_id
     ).perform!
   end
 
-  def initialize(call:, tool:, status:, arguments: {}, result: {}, error_message: nil, duration_ms: nil)
+  def initialize(call:, tool:, status:, arguments: {}, result: {}, error_message: nil, duration_ms: nil, external_id: nil)
     @call = call
     @tool = tool.to_s.presence || 'unknown_tool'
     @status = VALID_STATUSES.include?(status.to_s) ? status.to_s : 'executed'
@@ -23,35 +25,51 @@ class Voice::ToolCallRecorder
     @result = result
     @error_message = error_message
     @duration_ms = duration_ms
+    @external_id = external_id
   end
 
   def perform!
-    event = build_event
-    meta = call.meta.is_a?(Hash) ? call.meta.deep_dup : {}
-    events = Array(meta['voice_tool_events']).select { |item| item.is_a?(Hash) }
-    events << event
-    meta['voice_tool_events'] = events.last(MAX_EVENTS)
-    meta['last_voice_tool_event'] = event
-    call.update!(meta: meta)
+    return existing_event if existing_event
+
+    event = call.voice_tool_events.create!(
+      account: call.account,
+      tool: tool,
+      status: status,
+      arguments: sanitize(arguments),
+      result: sanitize(result),
+      error_message: sanitize_text(error_message),
+      duration_ms: normalized_duration_ms,
+      source: 'livekit_agent',
+      external_id: resolved_external_id
+    )
+    Voice::CallBroadcaster.tool_event(call, event)
     event
   end
 
   private
 
-  attr_reader :call, :tool, :status, :arguments, :result, :error_message, :duration_ms
+  attr_reader :call, :tool, :status, :arguments, :result, :error_message, :duration_ms, :external_id
 
-  def build_event
-    {
-      'id' => SecureRandom.uuid,
-      'tool' => tool.truncate(120),
-      'status' => status,
-      'arguments' => sanitize(arguments),
-      'result' => sanitize(result),
-      'error_message' => sanitize_text(error_message),
-      'duration_ms' => normalized_duration_ms,
-      'source' => 'livekit_agent',
-      'created_at' => Time.zone.now.iso8601(3)
-    }.compact
+  def existing_event
+    return if resolved_external_id.blank?
+
+    @existing_event ||= call.voice_tool_events.find_by(external_id: resolved_external_id)
+  end
+
+  def resolved_external_id
+    @resolved_external_id ||= begin
+      return external_id.to_s if external_id.present?
+
+      fingerprint_payload = {
+        tool: tool,
+        status: status,
+        arguments: sanitize(arguments),
+        result: sanitize(result),
+        error_message: sanitize_text(error_message),
+        duration_ms: normalized_duration_ms,
+      }
+      Digest::SHA256.hexdigest(fingerprint_payload.to_json)[0, 24]
+    end
   end
 
   def normalized_duration_ms

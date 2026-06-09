@@ -64,6 +64,9 @@ class ActionCableConnector extends BaseActionCableConnector {
       'voice_call.outbound_connected': this.onVoiceCallOutboundConnected,
       'voice_call.outbound_accepted': this.onVoiceCallOutboundAccepted,
       'voice_call.ended': this.onVoiceCallEnded,
+      'voice_call.transcript_segment': this.onVoiceCallTranscriptSegment,
+      'voice_call.tool_event': this.onVoiceCallToolEvent,
+      'voice_call.status_changed': this.onVoiceCallStatusChanged,
     };
   }
 
@@ -419,6 +422,21 @@ class ActionCableConnector extends BaseActionCableConnector {
       }
     }
     useCallsStore().removeCall(data.call_id);
+  };
+
+  // eslint-disable-next-line class-methods-use-this
+  onVoiceCallTranscriptSegment = data => {
+    emitter.emit('voice.transcript_segment', data);
+  };
+
+  // eslint-disable-next-line class-methods-use-this
+  onVoiceCallToolEvent = data => {
+    emitter.emit('voice.tool_event', data);
+  };
+
+  // eslint-disable-next-line class-methods-use-this
+  onVoiceCallStatusChanged = data => {
+    emitter.emit('voice.status_changed', data);
   };
 }
 

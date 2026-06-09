@@ -59,6 +59,18 @@ class Voice::CallSerializer
   end
 
   def tool_events
-    Array(call.meta&.fetch('voice_tool_events', [])).select { |event| event.is_a?(Hash) }
+    call.voice_tool_events.order(:created_at).map do |event|
+      {
+        id: event.id,
+        tool: event.tool,
+        status: event.status,
+        arguments: event.arguments,
+        result: event.result,
+        error_message: event.error_message,
+        duration_ms: event.duration_ms,
+        source: event.source,
+        created_at: event.created_at.iso8601
+      }
+    end
   end
 end
