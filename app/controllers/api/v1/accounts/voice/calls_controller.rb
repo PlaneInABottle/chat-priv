@@ -58,8 +58,6 @@ class Api::V1::Accounts::Voice::CallsController < Api::V1::Accounts::BaseControl
 
   def set_call
     @call = Current.account.calls.find(params[:id])
-    Voice::Livekit::StaleCallFinalizer.finalize_call_if_stale!(@call) if @call.livekit?
-    @call.reload
   end
 
   def token_identity
