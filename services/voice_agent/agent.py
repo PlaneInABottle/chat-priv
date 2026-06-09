@@ -102,9 +102,9 @@ class ChatwootClient:
 
 
 class VoiceAssistant(Agent):
-    def __init__(self, provider_call_id: str, instructions: str, greeting: str | None = None, end_once: Any = None) -> None:
+    def __init__(self, provider_call_id: str, instructions: str, greeting: str | None = None, end_once: Any = None, chatwoot: ChatwootClient | None = None) -> None:
         self.provider_call_id = provider_call_id
-        self.chatwoot = ChatwootClient()
+        self.chatwoot = chatwoot or ChatwootClient()
         self.greeting = greeting
         self.end_once = end_once
         super().__init__(instructions=instructions)
@@ -123,12 +123,13 @@ class VoiceAssistant(Agent):
     async def end_customer_call(self, reason: str) -> str:
         """End the call when the conversation is complete."""
         if self.end_once:
-            await self.end_once(reason)
-            return "Call ended."
+            operation = lambda: self.end_once(reason)
+        else:
+            operation = lambda: self.chatwoot.end_call(self.provider_call_id, reason)
         await self.execute_chatwoot_tool(
             "end_customer_call",
             {"reason": reason},
-            lambda: self.chatwoot.end_call(self.provider_call_id, reason),
+            operation,
         )
         return "Call ended."
 
@@ -451,6 +452,7 @@ async def entrypoint(ctx: agents.JobContext) -> None:
                 instructions=instructions,
                 greeting=greeting,
                 end_once=end_call_once,
+                chatwoot=chatwoot,
             ),
             room_input_options=RoomInputOptions(participant_identity=participant.identity),
         )
