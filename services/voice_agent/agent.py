@@ -410,7 +410,9 @@ def _fire_and_forget(name: str, coro: Any) -> None:
         except Exception:
             logger.exception("async task %s failed", name)
 
-    asyncio.create_task(_run())
+    task = asyncio.create_task(_run())
+    _BACKGROUND_TASKS.add(task)
+    task.add_done_callback(_BACKGROUND_TASKS.discard)
 
 
 def bind_transcript_events(session: AgentSession, provider_call_id: str, chatwoot: ChatwootClient) -> None:
@@ -505,6 +507,7 @@ async def _entrypoint_inner(ctx: agents.JobContext, provider_call_id: str) -> No
 
 
 _START_TIME = time.monotonic()
+_BACKGROUND_TASKS: set[asyncio.Task] = set()
 _active_rooms: set[str] = set()
 _health_server_started = False
 _health_runner: aiohttp.web.AppRunner | None = None

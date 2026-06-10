@@ -278,9 +278,10 @@ const onToolEvent = data => {
 
 const onStatusChanged = data => {
   if (!currentCall.value || data.call_id !== currentCall.value.id) return;
+  const { transcript_segments, tool_events, ...scalarFields } = data;
   currentCall.value = {
     ...currentCall.value,
-    ...data,
+    ...scalarFields,
   };
 };
 
