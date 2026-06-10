@@ -535,13 +535,21 @@ async def _start_health_server() -> None:
     app = aiohttp.web.Application()
     app.router.add_get("/health", _handle_health)
     runner = aiohttp.web.AppRunner(app)
-    await runner.setup()
-    _health_runner = runner
-    site = aiohttp.web.TCPSite(runner, "0.0.0.0", port)
-    await site.start()
-    _health_server_started = True
-    _health_ready.set()
-    logger.info("health server listening on port %d", port)
+    try:
+        await runner.setup()
+        _health_runner = runner
+        site = aiohttp.web.TCPSite(runner, "0.0.0.0", port)
+        await site.start()
+        _health_server_started = True
+        _health_ready.set()
+        logger.info("health server listening on port %d", port)
+    except Exception:
+        try:
+            await runner.cleanup()
+        except Exception:
+            pass
+        _health_runner = None
+        raise
 
 
 def _run_health_server_loop() -> None:
