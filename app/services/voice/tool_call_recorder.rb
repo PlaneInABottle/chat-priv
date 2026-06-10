@@ -42,7 +42,7 @@ class Voice::ToolCallRecorder
       source: 'livekit_agent',
       external_id: resolved_external_id
     )
-    Voice::CallBroadcaster.tool_event(call, event)
+    broadcast_tool_event(call, event)
     event
   end
 
@@ -103,6 +103,12 @@ class Voice::ToolCallRecorder
     return value.to_h if value.respond_to?(:to_h) && !value.is_a?(Array)
 
     value
+  end
+
+  def broadcast_tool_event(call, event)
+    Voice::CallBroadcaster.tool_event(call, event)
+  rescue StandardError => e
+    Rails.logger.warn("voice broadcast failed event=tool_event call_id=#{call.id} error=#{e.message}")
   end
 
   def sanitize_text(value)
