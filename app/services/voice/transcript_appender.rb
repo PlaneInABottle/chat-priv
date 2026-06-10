@@ -23,7 +23,7 @@ class Voice::TranscriptAppender
 
     segment = call.transcript_segments.create!(segment_attributes)
     append_transcript_line!(segment)
-    Voice::CallBroadcaster.transcript_segment(call, segment)
+    broadcast_transcript_segment(call, segment)
     segment
   end
 
@@ -42,6 +42,12 @@ class Voice::TranscriptAppender
     return if external_segment_id.blank?
 
     @existing_segment ||= call.transcript_segments.find_by(external_segment_id: external_segment_id)
+  end
+
+  def broadcast_transcript_segment(call, segment)
+    Voice::CallBroadcaster.transcript_segment(call, segment)
+  rescue StandardError => e
+    Rails.logger.warn("voice broadcast failed event=transcript_segment call_id=#{call.id} error=#{e.message}")
   end
 
   def append_transcript_line!(segment)
