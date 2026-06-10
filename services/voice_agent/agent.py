@@ -527,7 +527,6 @@ async def _start_health_server() -> None:
     global _health_server_started, _health_runner
     if _health_server_started:
         return
-    _health_server_started = True
 
     port = int(os.getenv("VOICE_AGENT_HEALTH_PORT", "9090"))
     app = aiohttp.web.Application()
@@ -537,6 +536,7 @@ async def _start_health_server() -> None:
     _health_runner = runner
     site = aiohttp.web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
+    _health_server_started = True
     _health_ready.set()
     logger.info("health server listening on port %d", port)
 
