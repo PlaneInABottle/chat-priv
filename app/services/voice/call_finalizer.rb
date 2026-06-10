@@ -26,7 +26,11 @@ class Voice::CallFinalizer
       agent: agent || call.accepted_by_agent,
       duration_seconds: call.duration_seconds
     )
-    Voice::CallBroadcaster.call_status_changed(call)
+    begin
+      Voice::CallBroadcaster.call_status_changed(call)
+    rescue StandardError => e
+      Rails.logger.warn("voice broadcast failed event=call_status_changed call_id=#{call.id} error=#{e.message}")
+    end
     call
   end
 
