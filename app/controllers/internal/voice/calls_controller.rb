@@ -48,7 +48,7 @@ class Internal::Voice::CallsController < Internal::Voice::BaseController
     @call.update!(handoff_status: 'requested', ai_status: 'handoff_requested')
     @call.conversation.update!(team: setting&.fallback_team) if setting&.fallback_team
     Voice::CallMessageBuilder.new(@call).update_status!(status: @call.status)
-    Voice::CallBroadcaster.call_status_changed(@call)
+    Voice::CallBroadcaster.safe_call_status_changed(@call)
     render json: Voice::CallSerializer.new(@call).payload
   end
 

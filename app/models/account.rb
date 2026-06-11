@@ -87,6 +87,8 @@ class Account < ApplicationRecord
   has_many :campaigns, dependent: :destroy_async
   has_many :calls, dependent: :destroy_async
   has_many :call_transcript_segments, dependent: :destroy_async
+  has_many :voice_recordings, dependent: :destroy
+  has_many :voice_tool_events, dependent: :destroy
   has_many :canned_responses, dependent: :destroy_async
   has_many :categories, dependent: :destroy_async, class_name: '::Category'
   has_many :contacts, dependent: :destroy_async

@@ -52,8 +52,10 @@ class Voice::TranscriptAppender
 
   def append_transcript_line!(segment)
     new_line = "#{segment.role}: #{segment.text}"
-    call.transcript = [call.transcript.presence, new_line].compact.join("\n")
-    call.update_column(:transcript, call.transcript)
+    call.with_lock do
+      call.transcript = [call.transcript.presence, new_line].compact.join("\n")
+      call.update_column(:transcript, call.transcript)
+    end
   end
 
   def external_segment_id

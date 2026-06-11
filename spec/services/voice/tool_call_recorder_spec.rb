@@ -57,4 +57,47 @@ RSpec.describe Voice::ToolCallRecorder do
     expect(second).to eq(first)
     expect(call.voice_tool_events.count).to eq(1)
   end
+
+  it 'stores repeated matching calls separately when no external_id is provided' do
+    2.times do
+      described_class.perform!(
+        call: call,
+        tool: 'request_human_handoff',
+        status: 'executed',
+        arguments: { reason: 'same request' },
+        result: { tool_status: 'ok' },
+        duration_ms: 42
+      )
+    end
+
+    expect(call.voice_tool_events.count).to eq(2)
+  end
+
+  it 'returns the existing event when a concurrent insert wins the external_id race' do
+    first = described_class.perform!(
+      call: call,
+      tool: 'request_human_handoff',
+      status: 'executed',
+      arguments: { reason: 'same request' },
+      result: { tool_status: 'ok' },
+      external_id: 'tool-call-race'
+    )
+    events = call.voice_tool_events
+
+    allow(call).to receive(:voice_tool_events).and_return(events)
+    allow(events).to receive(:find_by).with(external_id: 'tool-call-race').and_return(nil)
+    allow(events).to receive(:find_by!).with(external_id: 'tool-call-race').and_return(first)
+    allow(events).to receive(:create!).and_raise(ActiveRecord::RecordNotUnique)
+
+    raced = described_class.perform!(
+      call: call,
+      tool: 'request_human_handoff',
+      status: 'executed',
+      arguments: { reason: 'same request' },
+      result: { tool_status: 'ok' },
+      external_id: 'tool-call-race'
+    )
+
+    expect(raced).to eq(first)
+  end
 end

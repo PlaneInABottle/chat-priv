@@ -97,6 +97,8 @@ yarn-debug.log*
 .codex/
 .claude/
 CLAUDE.local.md
+session-ses_*.md
+__pycache__/
 
 # Histoire deployment
 .netlify

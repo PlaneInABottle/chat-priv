@@ -289,7 +289,3 @@
   display_name: WhatsApp Embedded Signup Flow
   enabled: false
   column: feature_flags_ext_1
-- name: ai_agent
-  display_name: AI Asistan
-  enabled: true
-  help_url: https://chwt.app/hc/ai-asistan

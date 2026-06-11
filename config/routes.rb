@@ -41,6 +41,7 @@ Rails.application.routes.draw do
   get '/health', to: 'health#show'
   namespace :internal do
     namespace :voice do
+      post 'livekit/webhook', to: 'livekit_webhooks#create'
       resources :calls, param: :provider_call_id, only: [] do
         member do
           post :transcript
@@ -120,6 +121,7 @@ Rails.application.routes.draw do
           resource :ai_agent_usage, only: [:show], controller: 'ai_agent_usage'
           namespace :voice do
             resources :inbox_settings, only: [:index, :show, :create, :update]
+            resources :recordings, only: [:index]
             resources :test_calls, only: [:create]
             resources :calls, only: [:show] do
               member do

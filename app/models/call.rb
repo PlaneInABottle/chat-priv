@@ -50,7 +50,8 @@ class Call < ApplicationRecord
   belongs_to :accepted_by_agent, class_name: 'User', optional: true
 
   has_many :transcript_segments, class_name: 'CallTranscriptSegment', dependent: :destroy
-  has_many :voice_tool_events, dependent: :destroy_async
+  has_many :voice_tool_events, dependent: :destroy
+  has_many :voice_recordings, dependent: :destroy
   has_one_attached :recording
 
   validates :provider_call_id, presence: true
@@ -105,6 +106,11 @@ class Call < ApplicationRecord
   end
 
   def recording_url
+    if livekit?
+      latest_recording = voice_recordings.completed.latest_first.first
+      return Voice::Recordings::StorageConfig.new.signed_url(latest_recording) if latest_recording
+    end
+
     return nil unless recording.attached?
 
     Rails.application.routes.url_helpers.rails_blob_url(recording)

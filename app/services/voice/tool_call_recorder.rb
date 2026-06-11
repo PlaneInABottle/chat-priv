@@ -1,5 +1,3 @@
-require 'digest'
-
 class Voice::ToolCallRecorder
   VALID_STATUSES = %w[started executed error rejected].freeze
   MAX_TEXT_LENGTH = 2000
@@ -44,6 +42,10 @@ class Voice::ToolCallRecorder
     )
     broadcast_tool_event(call, event)
     event
+  rescue ActiveRecord::RecordNotUnique
+    raise if resolved_external_id.blank?
+
+    call.voice_tool_events.find_by!(external_id: resolved_external_id)
   end
 
   private
@@ -57,19 +59,7 @@ class Voice::ToolCallRecorder
   end
 
   def resolved_external_id
-    @resolved_external_id ||= begin
-      return external_id.to_s if external_id.present?
-
-      fingerprint_payload = {
-        tool: tool,
-        status: status,
-        arguments: sanitize(arguments),
-        result: sanitize(result),
-        error_message: sanitize_text(error_message),
-        duration_ms: normalized_duration_ms,
-      }
-      Digest::SHA256.hexdigest(fingerprint_payload.to_json)[0, 24]
-    end
+    @resolved_external_id ||= external_id.to_s.presence
   end
 
   def normalized_duration_ms

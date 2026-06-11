@@ -5,6 +5,8 @@ class Voice::CallSerializer
 
   def payload
     identity_payload.merge(state_payload).merge(
+      recording: recording_payload,
+      recording_url: recording_payload[:url],
       transcript_segments: transcript_segments,
       tool_events: tool_events
     )
@@ -56,6 +58,27 @@ class Voice::CallSerializer
         created_at: segment.created_at.iso8601
       }
     end
+  end
+
+  def recording_payload
+    @recording_payload ||= build_recording_payload
+  end
+
+  def build_recording_payload
+    recording = call.voice_recordings.latest_first.first
+    return { status: 'disabled', url: call.recording_url }.compact unless recording
+
+    {
+      id: recording.id,
+      status: recording.status,
+      storage_provider: recording.storage_provider,
+      content_type: recording.content_type,
+      duration_seconds: recording.duration_seconds,
+      started_at: recording.started_at&.iso8601,
+      completed_at: recording.completed_at&.iso8601,
+      error_message: recording.error_message,
+      url: recording.completed? ? call.recording_url : nil
+    }.compact
   end
 
   def tool_events

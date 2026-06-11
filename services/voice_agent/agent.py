@@ -5,6 +5,7 @@ import logging
 import os
 import threading
 import time
+import uuid
 from typing import Any
 
 import aiohttp
@@ -167,7 +168,7 @@ class VoiceAssistant(Agent):
                 result,
                 error_message,
                 round((time.monotonic() - started_at) * 1000),
-                _tool_call_external_id(tool, status, arguments, result, error_message),
+                f"{tool}-{uuid.uuid4().hex}",
             )
         except Exception as exc:
             logger.warning("failed to record voice tool call tool=%s error=%s", tool, exc)
@@ -256,23 +257,6 @@ def compact_tool_result(tool: str, result: dict[str, Any]) -> dict[str, Any]:
 
 def compact_hash(payload: dict[str, Any], keys: list[str]) -> dict[str, Any]:
     return {key: payload[key] for key in keys if key in payload and payload[key] is not None}
-
-
-def _tool_call_external_id(
-    tool: str,
-    status: str,
-    arguments: dict[str, Any],
-    result: dict[str, Any],
-    error_message: str | None,
-) -> str:
-    fingerprint = {
-        "tool": tool,
-        "status": status,
-        "arguments": arguments,
-        "result": result,
-        "error_message": error_message,
-    }
-    return hashlib.sha256(json.dumps(fingerprint, sort_keys=True, default=str).encode("utf-8")).hexdigest()[:24]
 
 
 def participant_wait_timeout() -> float:
