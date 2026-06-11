@@ -1,4 +1,5 @@
 class Internal::Voice::BaseController < ActionController::API
+  rescue_from ActiveRecord::RecordNotFound, with: :render_not_found
   rescue_from ActiveRecord::RecordInvalid, with: :render_record_invalid
 
   before_action :authenticate_internal_token!
@@ -7,6 +8,10 @@ class Internal::Voice::BaseController < ActionController::API
 
   def render_record_invalid(error)
     render json: { error: error.record.errors.full_messages.to_sentence }, status: :unprocessable_content
+  end
+
+  def render_not_found(error)
+    render json: { error: error.message }, status: :not_found
   end
 
   def authenticate_internal_token!

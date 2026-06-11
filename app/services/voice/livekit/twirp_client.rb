@@ -6,10 +6,12 @@ class Voice::Livekit::TwirpClient
   READ_TIMEOUT = 5
   TOKEN_TTL = 5.minutes
 
-  def initialize(room_name:, subject:, video_grants: nil)
+  def initialize(room_name:, subject:, video_grants: nil, api_key: nil, api_secret: nil)
     @room_name = room_name
     @subject = subject
     @video_grants = video_grants
+    @api_key = api_key
+    @api_secret = api_secret
   end
 
   def configured?
@@ -82,10 +84,10 @@ class Voice::Livekit::TwirpClient
   end
 
   def api_key
-    ENV['LIVEKIT_API_KEY'].to_s
+    @api_key.presence || ENV['LIVEKIT_API_KEY'].to_s
   end
 
   def api_secret
-    ENV['LIVEKIT_API_SECRET'].to_s
+    @api_secret.presence || ENV['LIVEKIT_API_SECRET'].to_s
   end
 end
