@@ -1,6 +1,12 @@
 # Additional translations at https://github.com/plataformatec/devise/wiki/I18n
 
 en:
+  devise_token_auth:
+    sessions:
+      not_confirmed: "A confirmation email was sent to your account at '%{email}'. You must follow the instructions in the email before your account can be activated."
+      bad_credentials: "Invalid login credentials. Please try again."
+      not_supported: "This action is not supported."
+      user_not_found: "User was not found or was not logged in."
   devise:
     confirmations:
       confirmed: "Your email address has been successfully confirmed."
