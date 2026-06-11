@@ -37,7 +37,8 @@ class AccountDashboard < Administrate::BaseDashboard
     suspension_history: SuspensionHistoryField,
     account_users: Field::HasMany,
     custom_attributes: Field::String,
-    ai_agent_settings: AccountAiAgentSettingsField
+    ai_agent_settings: AccountAiAgentSettingsField,
+    voice_agent_runtime_settings: AccountVoiceAgentRuntimeSettingsField
   }.merge(enterprise_attribute_types).freeze
 
   # COLLECTION_ATTRIBUTES
@@ -76,6 +77,7 @@ class AccountDashboard < Administrate::BaseDashboard
     conversations
     account_users
     ai_agent_settings
+    voice_agent_runtime_settings
   ] + enterprise_show_page_attributes).freeze
 
   # FORM_ATTRIBUTES
@@ -95,6 +97,7 @@ class AccountDashboard < Administrate::BaseDashboard
     locale
     status
     ai_agent_settings
+    voice_agent_runtime_settings
   ] + enterprise_form_attributes).freeze
 
   # COLLECTION_FILTERS
@@ -128,7 +131,8 @@ class AccountDashboard < Administrate::BaseDashboard
     attrs = super + [
       limits: {},
       captain_models: {},
-      ai_agent_settings: %i[enabled model conversation_limit conversation_reuse_window_hours]
+      ai_agent_settings: %i[enabled model conversation_limit conversation_reuse_window_hours],
+      voice_agent_runtime_settings: {}
     ]
     attrs += %i[suspension_category suspension_reason] if action == 'update'
 

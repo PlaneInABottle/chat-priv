@@ -2,30 +2,62 @@
   "VOICE_AI": {
     "HEADER": "Voice AI",
     "DESCRIPTION": "Telefon sağlayıcısı bağlamadan önce LiveKit sesli AI MVP ayarlarını yapın ve tarayıcı tabanlı test çağrıları çalıştırın.",
+    "TABS": {
+      "SETUP": "Kurulum",
+      "AGENTS": "Sesli asistanlar",
+      "TEST": "Test çağrısı"
+    },
     "SETUP": {
-      "TITLE": "Test çağrısı kurulumu",
-      "DESCRIPTION": "Tarayıcı test çağrıları için API gelen kutusu, AI asistanı ve yedek ekip seçin.",
+      "TITLE": "Sesli kurulum",
+      "DESCRIPTION": "API gelen kutusu, sesli asistan, yedek ekip ve kayıt davranışını seçin.",
       "INBOX": "API gelen kutusu",
-      "AI_AGENT": "AI asistanı",
+      "VOICE_AGENT": "Sesli asistan",
       "FALLBACK_TEAM": "Yedek ekip",
       "NONE": "Yok",
-      "GREETING": "Karşılama mesajı",
-      "INSTRUCTIONS": "Sesli asistan talimatları",
       "CALLER_NAME": "Test arayan adı",
       "CALLER_NUMBER": "Test arayan numarası",
+      "RECORDING": "Çağrıları kaydet",
+      "RECORDING_HELP": "LiveKit kayıt etkin olduğunda çağrı kayıtlarını sakla.",
       "SAVE": "Ayarları kaydet",
       "START_TEST": "Test çağrısı başlat",
       "NO_API_INBOX": "Sesli AI testinden önce bir API gelen kutusu oluşturun.",
-      "NO_AI_AGENT": "Sesli AI testinden önce bir AI asistanı oluşturun.",
       "SAVE_SUCCESS": "Voice AI ayarları kaydedildi.",
       "SAVE_ERROR": "Voice AI ayarları kaydedilemedi.",
+      "LOAD_ERROR": "Voice AI ayarları yüklenemedi.",
       "START_SUCCESS": "Test çağrısı oluşturuldu.",
       "START_ERROR": "Test çağrısı oluşturulamadı."
     },
+    "AGENTS": {
+      "TITLE": "Sesli asistanlar",
+      "CREATE": "Sesli asistan oluştur",
+      "NEW": "Yeni",
+      "EMPTY": "Henüz sesli asistan yok.",
+      "EDITOR_TITLE": "Sesli asistan",
+      "EDITOR_DESCRIPTION": "Çağrılarda kullanılacak karşılama, prompt ve araçları yapılandırın. Çalışma zamanı ayarlarını yöneticiniz belirler.",
+      "STATUS_ENABLED": "Etkin",
+      "STATUS_DISABLED": "Devre dışı",
+      "NAME": "Ad",
+      "GREETING": "Karşılama",
+      "ENABLED": "Etkin",
+      "ENABLED_HELP": "Sadece etkin sesli asistanlar çağrıları yanıtlayabilir.",
+      "PROMPT": "Sesli prompt",
+      "TOOLS": "Araçlar",
+      "SAVE": "Sesli asistanı kaydet",
+      "SAVE_SUCCESS": "Sesli asistan kaydedildi.",
+      "SAVE_ERROR": "Sesli asistan kaydedilemedi.",
+      "IKAS_READY": "Ikas bağlı ve vitrin kataloğu senkronize.",
+      "IKAS_CATALOG_NOT_SYNCED": "Ikas bağlı, ancak vitrin kataloğu henüz senkronize değil.",
+      "IKAS_NOT_CONNECTED": "Bu hesap için Ikas bağlı değil."
+    },
+    "TEST": {
+      "TITLE": "Sandbox test çağrısı",
+      "DESCRIPTION": "Seçili sesli asistanı kullanan ve transkript/araç olaylarını burada gösteren tarayıcı test çağrısı başlatın."
+    },
     "SESSION": {
-      "TITLE": "LiveKit oturumu",
+      "TITLE": "Tarayıcı test çağrısı",
       "ROOM": "Oda",
-      "STATUS": "Durum",
+      "CALL_STATUS": "Çağrı",
+      "BROWSER_STATUS": "Tarayıcı",
       "NOT_STARTED": "Henüz test çağrısı yok",
       "DISCONNECTED": "Bağlantı yok",
       "CONNECTING": "Bağlanıyor",
@@ -47,8 +79,16 @@
       "ACTION_ERROR": "Sesli çağrı işlemi başarısız oldu."
     },
     "TRANSCRIPT": {
-      "TITLE": "Transkript",
-      "EMPTY": "Sesli asistan transkriptleri gönderdikten sonra burada görünecek."
+      "TITLE": "Transkript ve araç çağrıları",
+      "DESCRIPTION": "Canlı konuşma satırları ve sesli asistan araç çağrıları sandbox testlerinde burada görünür.",
+      "EMPTY": "Sesli asistan transkriptleri veya araç çağrılarını gönderdikten sonra burada görünecek.",
+      "TRANSCRIPT_COUNT": "{count} transkript",
+      "TOOL_COUNT": "{count} araç",
+      "TOOL_EVENT": "Sesli araç çağrısı",
+      "HANDOFF_TITLE": "İnsan temsilci aktarımı önizlemesi",
+      "HANDOFF_PREVIEW": "İnsan temsilci aktarımı istendi.",
+      "ARGUMENTS": "Argümanlar",
+      "RESULT": "Sonuç"
     }
   }
 }

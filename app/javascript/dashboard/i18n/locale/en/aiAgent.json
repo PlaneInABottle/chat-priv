@@ -162,26 +162,56 @@
   "VOICE_AI": {
     "HEADER": "Voice AI",
     "DESCRIPTION": "Configure the LiveKit voice AI MVP and run browser-based test calls before connecting a phone provider.",
+    "TABS": {
+      "SETUP": "Setup",
+      "AGENTS": "Voice agents",
+      "TEST": "Test call"
+    },
     "SETUP": {
-      "TITLE": "Test call setup",
-      "DESCRIPTION": "Choose an API inbox, AI agent, and fallback team for browser test calls.",
+      "TITLE": "Voice setup",
+      "DESCRIPTION": "Choose an API inbox, voice agent, fallback team, and recording behavior.",
       "INBOX": "API inbox",
-      "AI_AGENT": "AI agent",
+      "VOICE_AGENT": "Voice agent",
       "FALLBACK_TEAM": "Fallback team",
       "NONE": "None",
-      "GREETING": "Greeting",
-      "INSTRUCTIONS": "Voice instructions",
       "CALLER_NAME": "Test caller name",
       "CALLER_NUMBER": "Test caller number",
+      "RECORDING": "Record calls",
+      "RECORDING_HELP": "Store call recordings when LiveKit recording is enabled.",
       "SAVE": "Save settings",
       "START_TEST": "Start test call",
       "NO_API_INBOX": "Create an API inbox before testing voice AI.",
-      "NO_AI_AGENT": "Create an AI agent before testing voice AI.",
       "SAVE_SUCCESS": "Voice AI settings saved.",
       "SAVE_ERROR": "Failed to save Voice AI settings.",
       "LOAD_ERROR": "Failed to load Voice AI settings.",
       "START_SUCCESS": "Test call created.",
       "START_ERROR": "Failed to create test call."
+    },
+    "AGENTS": {
+      "TITLE": "Voice agents",
+      "CREATE": "Create voice agent",
+      "NEW": "New",
+      "EMPTY": "No voice agents yet.",
+      "EDITOR_TITLE": "Voice agent",
+      "EDITOR_DESCRIPTION": "Configure the greeting, prompt, and tools used during calls. Runtime settings are managed by your administrator.",
+      "STATUS_ENABLED": "Enabled",
+      "STATUS_DISABLED": "Disabled",
+      "NAME": "Name",
+      "GREETING": "Greeting",
+      "ENABLED": "Enabled",
+      "ENABLED_HELP": "Only enabled voice agents can answer calls.",
+      "PROMPT": "Voice prompt",
+      "TOOLS": "Tools",
+      "SAVE": "Save voice agent",
+      "SAVE_SUCCESS": "Voice agent saved.",
+      "SAVE_ERROR": "Failed to save voice agent.",
+      "IKAS_READY": "Ikas is connected and the storefront catalog is synced.",
+      "IKAS_CATALOG_NOT_SYNCED": "Ikas is connected, but the storefront catalog is not synced yet.",
+      "IKAS_NOT_CONNECTED": "Ikas is not connected for this account."
+    },
+    "TEST": {
+      "TITLE": "Sandbox test call",
+      "DESCRIPTION": "Start a browser-only call that uses the selected voice agent and shows transcript/tool events here."
     },
     "SESSION": {
       "TITLE": "Browser test call",
@@ -208,16 +238,18 @@
       "TAKE_OVER_SUCCESS": "Call marked as taken over.",
       "END_SUCCESS": "Call ended.",
       "ACTION_ERROR": "Voice call action failed."
-  },
-  "TRANSCRIPT": {
-    "TITLE": "Transcript and tool calls",
-    "DESCRIPTION": "Live speech turns and voice-agent tool calls appear here during sandbox tests.",
-    "EMPTY": "Transcript segments and tool calls will appear here after the voice agent posts them.",
-    "TRANSCRIPT_COUNT": "{count} transcript",
-    "TOOL_COUNT": "{count} tools",
-    "TOOL_EVENT": "Voice tool call",
-    "ARGUMENTS": "Arguments",
-    "RESULT": "Result"
+    },
+    "TRANSCRIPT": {
+      "TITLE": "Transcript and tool calls",
+      "DESCRIPTION": "Live speech turns and voice-agent tool calls appear here during sandbox tests.",
+      "EMPTY": "Transcript segments and tool calls will appear here after the voice agent posts them.",
+      "TRANSCRIPT_COUNT": "{count} transcript",
+      "TOOL_COUNT": "{count} tools",
+      "TOOL_EVENT": "Voice tool call",
+      "HANDOFF_TITLE": "Human handoff preview",
+      "HANDOFF_PREVIEW": "Human handoff requested.",
+      "ARGUMENTS": "Arguments",
+      "RESULT": "Result"
+    }
   }
-}
 }

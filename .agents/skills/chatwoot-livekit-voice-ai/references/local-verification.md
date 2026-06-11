@@ -18,6 +18,8 @@
 - Keep `.env.local` out of git. Never print or commit secret values.
 - The Python worker entrypoint is `services/voice_agent/agent.py`.
 - The Rails dispatch path is `Voice::Livekit::AgentDispatchService`.
+- Voice agents are separate from text AI agents. Configure them in Settings -> Voice AI -> Voice agents. Voice inbox settings select `voice_agent_id`; do not expect `ai_agent_id`, setting-level `greeting`, or setting-level `instructions`.
+- Integration tools such as `ikas_catalog_search` and `ikas_lookup_order` are enabled per voice agent. Ikas tools also require the account `ikas_integration` feature, a connected `ikas` hook, and a completed storefront catalog sync.
 
 ## Runtime
 
@@ -59,8 +61,9 @@ Use `uv lock --check --directory services/voice_agent` after dependency changes.
 
 1. Open `/app/accounts/:account_id/settings/voice-ai` with `agent-browser`.
 2. Snapshot before clicking.
-3. Select an API inbox. The local verified path used account `19` and inbox `19`, but always verify current local data.
-4. Click `Start test call`.
+3. On the Setup tab, select an API inbox and a Voice agent. The local verified path used account `36`, but always verify current local data.
+4. On the Voice agents tab, confirm the selected voice agent has the intended provider/model/voice and enabled tools. For Ikas voice tests, confirm `ikas_catalog_search` and `ikas_lookup_order` are checked after Ikas is connected and synced.
+5. Click `Start test call`.
 5. Confirm no floating incoming-call popup appears. Browser test calls are marked with `test_call: true`, do not create a normal Chatwoot conversation/contact/message, and are owned by the Voice AI settings panel.
 6. Wait until `Join as test caller` is enabled and the setup fields are disabled.
 7. Click `Join as test caller`.
@@ -77,7 +80,8 @@ Expected proof:
 
 - Rails returns `201 Created` for `/api/v1/accounts/:id/voice/test_calls`.
 - The call payload includes `test_call: true`, `test_call_source: voice_ai_settings`, `test_call_initiated_by_user_id`, and nil `conversation_id`, `contact_id`, and `message_id`.
-- The call metadata includes `voice_agent_dispatch.status = dispatched`.
+- The call metadata includes `voice_agent_id` and `voice_agent_dispatch.status = dispatched`.
+- The worker fetches `/internal/voice/calls/:provider_call_id/agent_context` and receives voice-agent instructions, runtime provider/model/voice, and the enabled voice tool schemas.
 - The worker receives a LiveKit job request for the room.
 - After caller joins, the worker connects to the realtime provider.
 - `POST /internal/voice/calls/:provider_call_id/transcript` stores at least one transcript segment.

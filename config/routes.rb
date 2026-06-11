@@ -44,9 +44,11 @@ Rails.application.routes.draw do
       post 'livekit/webhook', to: 'livekit_webhooks#create'
       resources :calls, param: :provider_call_id, only: [] do
         member do
+          get :agent_context
           post :transcript
           post :event
           post :tool_call
+          post 'tools/:tool_key/execute', action: :execute_tool, as: :execute_tool
           post :handoff
           post :end
         end
@@ -120,6 +122,7 @@ Rails.application.routes.draw do
           resource :saml_settings, only: [:show, :create, :update, :destroy]
           resource :ai_agent_usage, only: [:show], controller: 'ai_agent_usage'
           namespace :voice do
+            resources :agents
             resources :inbox_settings, only: [:index, :show, :create, :update]
             resources :recordings, only: [:index]
             resources :test_calls, only: [:create]

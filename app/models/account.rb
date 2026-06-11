@@ -70,12 +70,15 @@ class Account < ApplicationRecord
   store_accessor :settings, :keep_pending_on_bot_failure
   store_accessor :settings, :captain_auto_resolve_mode, :captain_false_promise_harness_enabled,
                  :ai_agent_enabled, :ai_agent_model, :ai_agent_conversation_limit, :ai_agent_conversation_reuse_window_hours
+
+  attr_reader :voice_agent_runtime_settings
   include AccountCaptainAutoResolve
 
   has_many :account_users, dependent: :destroy_async
   has_many :agent_bot_inboxes, dependent: :destroy_async
   has_many :agent_bots, dependent: :destroy_async
   has_many :ai_agents, dependent: :destroy
+  has_many :voice_agents, dependent: :destroy
   has_many :ai_agent_llm_calls, dependent: :destroy
   has_many :ai_agent_tool_executions, dependent: :destroy
   has_many :ai_agent_usage_events, dependent: :destroy
@@ -133,7 +136,9 @@ class Account < ApplicationRecord
   scope :with_auto_resolve, -> { where("(settings ->> 'auto_resolve_after')::int IS NOT NULL") }
 
   before_validation :validate_limit_keys
+  after_create :create_default_voice_agent!
   after_create_commit :notify_creation
+  after_save :apply_voice_agent_runtime_settings, if: -> { @voice_agent_runtime_settings.present? }
   after_update_commit :clear_unread_conversation_counts_cache, if: :saved_change_to_feature_conversation_unread_counts?
   after_destroy :remove_account_sequences
 
@@ -213,6 +218,22 @@ class Account < ApplicationRecord
     value.positive? ? value : 24
   end
 
+  def voice_agent_runtime_settings=(value)
+    @voice_agent_runtime_settings = value if value.is_a?(Hash)
+  end
+
+  def create_default_voice_agent!
+    return if voice_agents.exists?
+
+    voice_agents.create!(
+      name: 'Voice Assistant',
+      enabled: true,
+      greeting: 'Merhaba, size nasil yardimci olabilirim?',
+      prompt: 'Yalnizca dogal Istanbul Turkcesiyle konus. Kisa, net ve sakin musteri destek cevaplari ver.',
+      tools_config: VoiceAgents::Config.new({}).normalized_config
+    )
+  end
+
   def usage_limits
     {
       agents: ChatwootApp.max_limit.to_i,
@@ -249,6 +270,19 @@ class Account < ApplicationRecord
 
   def notify_creation
     Rails.configuration.dispatcher.dispatch(ACCOUNT_CREATED, Time.zone.now, account: self)
+  end
+
+  def apply_voice_agent_runtime_settings
+    @voice_agent_runtime_settings.each do |voice_agent_id, settings|
+      next unless settings.is_a?(Hash)
+
+      voice_agent = voice_agents.find_by(id: voice_agent_id)
+      next unless voice_agent
+
+      voice_agent.update!(settings.with_indifferent_access.slice(:architecture, :provider, :model, :voice, :language))
+    end
+  ensure
+    @voice_agent_runtime_settings = nil
   end
 
   def clear_unread_conversation_counts_cache
