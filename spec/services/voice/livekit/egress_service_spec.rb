@@ -15,7 +15,7 @@ RSpec.describe Voice::Livekit::EgressService do
                        .with do |request|
         body = JSON.parse(request.body)
         token = request.headers.fetch('Authorization').delete_prefix('Bearer ')
-        claims = JWT.decode(token, 'livekit-secret', true, { algorithm: 'HS256' }).first
+        claims = JWT.decode(token, 'recording-secret', true, { algorithm: 'HS256' }).first
 
         expect(body).to include(
           'room_name' => 'room-1',
@@ -31,6 +31,7 @@ RSpec.describe Voice::Livekit::EgressService do
         )
         expect(claims.dig('video', 'roomRecord')).to be(true)
         expect(claims.dig('video', 'room')).to eq('room-1')
+        expect(claims['iss']).to eq('recording-key')
       end.to_return(
         status: 200,
         body: { egress_id: 'EG_test', status: 'EGRESS_STARTING' }.to_json,
@@ -56,11 +57,12 @@ RSpec.describe Voice::Livekit::EgressService do
                      .with do |request|
         body = JSON.parse(request.body)
         token = request.headers.fetch('Authorization').delete_prefix('Bearer ')
-        claims = JWT.decode(token, 'livekit-secret', true, { algorithm: 'HS256' }).first
+        claims = JWT.decode(token, 'recording-secret', true, { algorithm: 'HS256' }).first
 
         expect(body).to eq('egress_id' => 'EG_test')
         expect(claims.dig('video', 'roomRecord')).to be(true)
         expect(claims.dig('video', 'room')).to eq('room-1')
+        expect(claims['iss']).to eq('recording-key')
       end.to_return(
         status: 200,
         body: { egress_id: 'EG_test', status: 'EGRESS_COMPLETE' }.to_json,
@@ -81,6 +83,8 @@ RSpec.describe Voice::Livekit::EgressService do
       'LIVEKIT_URL' => 'wss://test.livekit.cloud',
       'LIVEKIT_API_KEY' => 'livekit-key',
       'LIVEKIT_API_SECRET' => 'livekit-secret',
+      'LIVEKIT_RECORDING_API_KEY' => 'recording-key',
+      'LIVEKIT_RECORDING_API_SECRET' => 'recording-secret',
       'VOICE_RECORDING_S3_ACCESS_KEY_ID' => 'access-key',
       'VOICE_RECORDING_S3_SECRET_ACCESS_KEY' => 'secret-key',
       'VOICE_RECORDING_S3_BUCKET' => 'voice-recordings-test',
