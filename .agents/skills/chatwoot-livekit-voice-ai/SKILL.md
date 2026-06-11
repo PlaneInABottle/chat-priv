@@ -10,6 +10,7 @@ Use this skill for the native Voice AI MVP path only.
 ## Quick Navigation
 
 - **Local verification workflow**: Read [references/local-verification.md](references/local-verification.md).
+- **Recording and replay workflow**: Read [references/recording-replay.md](references/recording-replay.md).
 
 ## Boundaries
 

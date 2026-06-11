@@ -21,16 +21,13 @@ class Voice::CallFinalizer
       duration_seconds: resolved_duration_seconds,
       end_reason: end_reason
     )
+    stop_recording
     Voice::CallMessageBuilder.new(call).update_status!(
       status: call.status,
       agent: agent || call.accepted_by_agent,
       duration_seconds: call.duration_seconds
     )
-    begin
-      Voice::CallBroadcaster.call_status_changed(call)
-    rescue StandardError => e
-      Rails.logger.warn("voice broadcast failed event=call_status_changed call_id=#{call.id} error=#{e.message}")
-    end
+    Voice::CallBroadcaster.safe_call_status_changed(call)
     call
   end
 
@@ -47,5 +44,11 @@ class Voice::CallFinalizer
     return unless call.started_at
 
     (ended_at - call.started_at).to_i
+  end
+
+  def stop_recording
+    Voice::Recordings::StopService.perform(call: call)
+  rescue StandardError => e
+    Rails.logger.warn("voice recording stop failed call_id=#{call.id} error=#{e.class.name}: #{e.message}")
   end
 end

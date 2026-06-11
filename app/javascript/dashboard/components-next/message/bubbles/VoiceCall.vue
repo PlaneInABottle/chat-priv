@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useStore } from 'vuex';
 import { useMapGetter } from 'dashboard/composables/store';
@@ -316,6 +316,23 @@ const recordingAttachment = computed(() => {
     extension: 'wav',
     transcribedText: callField('transcript') || '',
   };
+});
+
+const refreshLivekitCallDetails = async () => {
+  if (!isLivekit.value || !livekitCallId.value) return;
+
+  try {
+    const response = await VoiceAPI.getCall(livekitCallId.value);
+    livekitCallDetails.value = response.data;
+  } catch {
+    // Keep the historical message payload visible if the detail fetch fails.
+  }
+};
+
+onMounted(() => {
+  if (isLivekitTerminal.value) {
+    refreshLivekitCallDetails();
+  }
 });
 
 const handleJoinCall = async () => {
