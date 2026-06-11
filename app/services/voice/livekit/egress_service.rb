@@ -64,8 +64,22 @@ class Voice::Livekit::EgressService
       video_grants: {
         room: room_name,
         roomRecord: true
-      }
+      },
+      api_key: recording_api_key,
+      api_secret: recording_api_secret
     )
+  end
+
+  def recording_api_key
+    return if recording_api_secret.blank?
+
+    ENV['LIVEKIT_RECORDING_API_KEY'].presence
+  end
+
+  def recording_api_secret
+    return if ENV['LIVEKIT_RECORDING_API_KEY'].blank?
+
+    ENV['LIVEKIT_RECORDING_API_SECRET'].presence
   end
 
   def room_name
