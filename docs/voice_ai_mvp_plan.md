@@ -80,3 +80,9 @@ Enterprise voice code may remain in the repository, but the new voice AI impleme
 - LiveKit call does not trigger Twilio client code.
 - Handoff assigns the configured fallback team.
 - Ended call stores duration, transcript, and summary placeholder.
+
+## Review Follow-ups
+
+- Decide whether the Python worker should fail closed when `/agent_context` is unavailable instead of falling back to legacy dispatch metadata.
+- Consider replacing migration JSON join metadata with an explicit temporary/source column if this migration needs more backfill complexity.
+- Keep text AI agents and voice agents as separate domains, but share common tool-definition helpers where behavior is truly identical.

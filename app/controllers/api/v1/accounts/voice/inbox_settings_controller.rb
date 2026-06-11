@@ -30,7 +30,7 @@ class Api::V1::Accounts::Voice::InboxSettingsController < Api::V1::Accounts::Bas
   end
 
   def voice_setting_params
-    params.permit(:ai_agent_id, :fallback_team_id, :status, :livekit_room_prefix, :greeting, :instructions, :recording_enabled, settings: {})
+    params.permit(:voice_agent_id, :fallback_team_id, :status, :livekit_room_prefix, :recording_enabled, settings: {})
   end
 
   def serialize(setting)
@@ -39,15 +39,14 @@ class Api::V1::Accounts::Voice::InboxSettingsController < Api::V1::Accounts::Bas
       account_id: setting.account_id,
       inbox_id: setting.inbox_id,
       inbox_name: setting.inbox.name,
-      ai_agent_id: setting.ai_agent_id,
+      voice_agent_id: setting.voice_agent_id,
       fallback_team_id: setting.fallback_team_id,
       status: setting.status,
       livekit_room_prefix: setting.livekit_room_prefix,
-      greeting: setting.greeting,
-      instructions: setting.instructions,
       recording_enabled: setting.recording_enabled,
       last_error: setting.last_error,
-      settings: setting.settings
+      settings: setting.settings,
+      voice_agent: setting.voice_agent ? VoiceAgents::Serializer.new(setting.voice_agent).payload : nil
     }
   end
 end

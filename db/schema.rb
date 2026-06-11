@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_06_11_120000) do
+ActiveRecord::Schema[7.1].define(version: 2026_06_11_130000) do
   # These extensions should be enabled to support this database
   enable_extension "pg_stat_statements"
   enable_extension "pg_trgm"
@@ -1440,25 +1440,42 @@ ActiveRecord::Schema[7.1].define(version: 2026_06_11_120000) do
     t.index ["uid", "provider"], name: "index_users_on_uid_and_provider", unique: true
   end
 
+  create_table "voice_agents", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.string "name", default: "Voice Assistant", null: false
+    t.boolean "enabled", default: false, null: false
+    t.text "greeting"
+    t.text "prompt", default: "", null: false
+    t.string "architecture", default: "realtime", null: false
+    t.string "provider", default: "gemini", null: false
+    t.string "model"
+    t.string "voice", default: "Charon", null: false
+    t.string "language", default: "tr", null: false
+    t.jsonb "tools_config", default: {}, null: false
+    t.jsonb "config", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "created_at"], name: "index_voice_agents_on_account_id_and_created_at"
+    t.index ["account_id"], name: "index_voice_agents_on_account_id"
+  end
+
   create_table "voice_inbox_settings", force: :cascade do |t|
     t.bigint "account_id", null: false
     t.bigint "inbox_id", null: false
-    t.bigint "ai_agent_id"
     t.bigint "fallback_team_id"
     t.string "status", default: "test_only", null: false
     t.string "livekit_room_prefix"
-    t.text "greeting"
-    t.text "instructions"
     t.boolean "recording_enabled", default: false, null: false
     t.text "last_error"
     t.jsonb "settings", default: {}, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.bigint "voice_agent_id"
     t.index ["account_id", "inbox_id"], name: "index_voice_inbox_settings_on_account_id_and_inbox_id", unique: true
     t.index ["account_id"], name: "index_voice_inbox_settings_on_account_id"
-    t.index ["ai_agent_id"], name: "index_voice_inbox_settings_on_ai_agent_id"
     t.index ["fallback_team_id"], name: "index_voice_inbox_settings_on_fallback_team_id"
     t.index ["inbox_id"], name: "index_voice_inbox_settings_on_inbox_id"
+    t.index ["voice_agent_id"], name: "index_voice_inbox_settings_on_voice_agent_id"
   end
 
   create_table "voice_recordings", force: :cascade do |t|
@@ -1556,10 +1573,11 @@ ActiveRecord::Schema[7.1].define(version: 2026_06_11_120000) do
   add_foreign_key "ikas_catalog_snapshots", "accounts", on_delete: :cascade
   add_foreign_key "ikas_catalog_snapshots", "integrations_hooks", on_delete: :cascade
   add_foreign_key "inboxes", "portals"
+  add_foreign_key "voice_agents", "accounts", on_delete: :cascade
   add_foreign_key "voice_inbox_settings", "accounts"
-  add_foreign_key "voice_inbox_settings", "ai_agents"
   add_foreign_key "voice_inbox_settings", "inboxes"
   add_foreign_key "voice_inbox_settings", "teams", column: "fallback_team_id"
+  add_foreign_key "voice_inbox_settings", "voice_agents"
   add_foreign_key "voice_recordings", "accounts"
   add_foreign_key "voice_recordings", "calls"
   add_foreign_key "voice_tool_events", "accounts"

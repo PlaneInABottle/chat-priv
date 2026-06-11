@@ -1,0 +1,13 @@
+<% if field.voice_agents.empty? %>
+  No voice agents configured.
+<% else %>
+  <% field.voice_agents.each do |voice_agent| %>
+    <strong><%= voice_agent.name %></strong> #<%= voice_agent.id %><br>
+    Architecture: <%= voice_agent.architecture %><br>
+    Provider: <%= voice_agent.provider %><br>
+    Model: <%= voice_agent.model.presence || 'Default from worker env' %><br>
+    Voice: <%= voice_agent.voice %><br>
+    Language: <%= voice_agent.language %><br>
+    <br>
+  <% end %>
+<% end %>

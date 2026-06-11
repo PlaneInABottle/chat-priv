@@ -12,8 +12,9 @@ import aiohttp
 import aiohttp.web
 from dotenv import load_dotenv
 from livekit import agents, rtc
-from livekit.agents import Agent, AgentSession, AutoSubscribe, RoomInputOptions, function_tool, inference
+from livekit.agents import Agent, AgentSession, AutoSubscribe, RoomInputOptions, RunContext, function_tool, inference
 from livekit.agents.llm import ChatMessage
+from livekit.agents.llm import ToolError
 from livekit.plugins import google
 
 load_dotenv()
@@ -65,6 +66,25 @@ class ChatwootClient:
         async with self.session.post(f"{self.base_url}{path}", json=payload) as response:
             return await response.json()
 
+    async def get(self, path: str) -> dict[str, Any]:
+        async with self.session.get(f"{self.base_url}{path}") as response:
+            return await response.json()
+
+    async def agent_context(self, provider_call_id: str) -> dict[str, Any]:
+        return await self.get(f"/internal/voice/calls/{provider_call_id}/agent_context")
+
+    async def execute_tool(
+        self,
+        provider_call_id: str,
+        tool_key: str,
+        arguments: dict[str, Any],
+        external_id: str,
+    ) -> dict[str, Any]:
+        return await self.post(
+            f"/internal/voice/calls/{provider_call_id}/tools/{tool_key}/execute",
+            {"arguments": arguments, "external_id": external_id},
+        )
+
     async def request_handoff(self, provider_call_id: str, reason: str) -> dict[str, Any]:
         return await self.post(f"/internal/voice/calls/{provider_call_id}/handoff", {"reason": reason})
 
@@ -109,69 +129,16 @@ class ChatwootClient:
 
 
 class VoiceAssistant(Agent):
-    def __init__(self, provider_call_id: str, instructions: str, greeting: str | None = None, end_once: Any = None, chatwoot: ChatwootClient | None = None) -> None:
-        self.provider_call_id = provider_call_id
-        self.chatwoot = chatwoot or ChatwootClient()
-        self.greeting = greeting
-        self.end_once = end_once
-        super().__init__(instructions=instructions)
-
-    @function_tool
-    async def request_human_handoff(self, reason: str) -> str:
-        """Request handoff to a human Chatwoot agent."""
-        await self.execute_chatwoot_tool(
-            "request_human_handoff",
-            {"reason": reason},
-            lambda: self.chatwoot.request_handoff(self.provider_call_id, reason),
-        )
-        return "Human handoff requested."
-
-    @function_tool
-    async def end_customer_call(self, reason: str) -> str:
-        """End the call when the conversation is complete."""
-        if self.end_once:
-            operation = lambda: self.end_once(reason)
-        else:
-            operation = lambda: self.chatwoot.end_call(self.provider_call_id, reason)
-        await self.execute_chatwoot_tool(
-            "end_customer_call",
-            {"reason": reason},
-            operation,
-        )
-        return "Call ended."
-
-    async def execute_chatwoot_tool(self, tool: str, arguments: dict[str, Any], operation: Any) -> dict[str, Any]:
-        started_at = time.monotonic()
-        try:
-            result = await operation()
-            await self.safe_record_tool_call(tool, "executed", arguments, compact_tool_result(tool, result), None, started_at)
-            return result
-        except Exception as exc:
-            await self.safe_record_tool_call(tool, "error", arguments, {}, str(exc), started_at)
-            raise
-
-    async def safe_record_tool_call(
+    def __init__(
         self,
-        tool: str,
-        status: str,
-        arguments: dict[str, Any],
-        result: dict[str, Any],
-        error_message: str | None,
-        started_at: float,
+        provider_call_id: str,
+        instructions: str,
+        greeting: str | None = None,
+        tools: list[Any] | None = None,
     ) -> None:
-        try:
-            await self.chatwoot.record_tool_call(
-                self.provider_call_id,
-                tool,
-                status,
-                arguments,
-                result,
-                error_message,
-                round((time.monotonic() - started_at) * 1000),
-                f"{tool}-{uuid.uuid4().hex}",
-            )
-        except Exception as exc:
-            logger.warning("failed to record voice tool call tool=%s error=%s", tool, exc)
+        self.provider_call_id = provider_call_id
+        self.greeting = greeting
+        super().__init__(instructions=instructions, tools=tools or [])
 
     async def on_enter(self) -> None:
         if gemini_31_realtime_enabled():
@@ -221,6 +188,39 @@ def session_instructions(metadata: dict[str, Any]) -> str:
         instructions.append(f"Preferred greeting: {greeting}")
 
     return "\n\n".join(instructions)
+
+
+def raw_tool_schema(tool: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "type": "function",
+        "name": tool["name"],
+        "description": tool.get("description") or tool["name"],
+        "parameters": tool.get("input_schema") or {"type": "object", "properties": {}},
+    }
+
+
+def build_chatwoot_tool(tool: dict[str, Any], chatwoot: ChatwootClient, provider_call_id: str) -> Any:
+    tool_key = str(tool["key"])
+
+    async def handler(raw_arguments: dict[str, object], context: RunContext) -> str:
+        external_id = f"{tool_key}-{uuid.uuid4().hex}"
+        result = await chatwoot.execute_tool(
+            provider_call_id,
+            tool_key,
+            dict(raw_arguments or {}),
+            external_id,
+        )
+        payload = result.get("result", result)
+        if result.get("status") in {"error", "rejected"} or payload.get("status") == "error":
+            raise ToolError(payload.get("error_message") or "Tool execution failed.")
+
+        return json.dumps(compact_tool_result(tool_key, payload), ensure_ascii=False)
+
+    return function_tool(handler, raw_schema=raw_tool_schema(tool))
+
+
+def build_chatwoot_tools(context: dict[str, Any], chatwoot: ChatwootClient, provider_call_id: str) -> list[Any]:
+    return [build_chatwoot_tool(tool, chatwoot, provider_call_id) for tool in context.get("tools", [])]
 
 
 def gemini_31_realtime_enabled() -> bool:
@@ -291,23 +291,26 @@ async def wait_for_customer_participant(ctx: agents.JobContext) -> rtc.RemotePar
         ctx.room.off("participant_connected", on_participant_connected)
 
 
-def build_session(instructions: str | None = None) -> AgentSession:
+def build_session(instructions: str | None = None, runtime: dict[str, Any] | None = None) -> AgentSession:
     resolved_instructions = instructions or base_instructions()
-    architecture = voice_agent_architecture()
+    runtime = runtime or {}
+    architecture = runtime.get("architecture") or voice_agent_architecture()
     if architecture == "realtime":
-        provider = os.getenv("VOICE_AGENT_REALTIME_PROVIDER", "gemini")
+        provider = runtime.get("provider") or os.getenv("VOICE_AGENT_REALTIME_PROVIDER", "gemini")
         if provider == "gemini":
+            model = runtime.get("model") or realtime_model()
+            voice = runtime.get("voice") or realtime_voice()
             logger.info(
                 "building Gemini realtime session model=%s voice=%s instructions_chars=%s instructions_sha256=%s",
-                realtime_model(),
-                realtime_voice(),
+                model,
+                voice,
                 len(resolved_instructions),
                 instruction_fingerprint(resolved_instructions),
             )
             return AgentSession(
                 llm=google.realtime.RealtimeModel(
-                    model=realtime_model(),
-                    voice=realtime_voice(),
+                    model=model,
+                    voice=voice,
                     temperature=float(os.getenv("VOICE_AGENT_TEMPERATURE", "0.8")),
                     instructions=resolved_instructions,
                 )
@@ -319,7 +322,10 @@ def build_session(instructions: str | None = None) -> AgentSession:
     from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
     return AgentSession(
-        stt=inference.STT(model=os.getenv("VOICE_AGENT_STT_MODEL", "deepgram/nova-3"), language=os.getenv("VOICE_AGENT_LANGUAGE", "multi")),
+        stt=inference.STT(
+            model=os.getenv("VOICE_AGENT_STT_MODEL", "deepgram/nova-3"),
+            language=runtime.get("language") or os.getenv("VOICE_AGENT_LANGUAGE", "multi"),
+        ),
         llm=inference.LLM(model=os.getenv("VOICE_AGENT_LLM_MODEL", "openai/gpt-4.1-mini")),
         tts=inference.TTS(
             model=os.getenv("VOICE_AGENT_TTS_MODEL", "cartesia/sonic-3"),
@@ -439,9 +445,13 @@ async def entrypoint(ctx: agents.JobContext) -> None:
 
 async def _entrypoint_inner(ctx: agents.JobContext, provider_call_id: str) -> None:
     metadata = job_metadata(ctx)
-    instructions = session_instructions(metadata)
-    greeting = str(metadata.get("voice_greeting") or "").strip() or None
     chatwoot = ChatwootClient()
+    runtime_context = await chatwoot.agent_context(provider_call_id)
+    instructions = str(runtime_context.get("instructions") or "").strip() or session_instructions(metadata)
+    voice_agent = runtime_context.get("voice_agent") or {}
+    runtime = runtime_context.get("runtime") or {}
+    greeting = str(voice_agent.get("greeting") or "").strip() or None
+    tools = build_chatwoot_tools(runtime_context, chatwoot, provider_call_id)
     try:
         participant = await wait_for_customer_participant(ctx)
     except asyncio.TimeoutError:
@@ -465,7 +475,7 @@ async def _entrypoint_inner(ctx: agents.JobContext, provider_call_id: str) -> No
         reason = end_reason_for_disconnect(disconnected_participant.disconnect_reason)
         _fire_and_forget("participant_disconnected_end_call", end_call_once(reason))
 
-    session = build_session(instructions=instructions)
+    session = build_session(instructions=instructions, runtime=runtime)
     bind_transcript_events(session, provider_call_id, chatwoot)
 
     async def on_shutdown(reason: str) -> None:
@@ -481,8 +491,7 @@ async def _entrypoint_inner(ctx: agents.JobContext, provider_call_id: str) -> No
                 provider_call_id=provider_call_id,
                 instructions=instructions,
                 greeting=greeting,
-                end_once=end_call_once,
-                chatwoot=chatwoot,
+                tools=tools,
             ),
             room_input_options=RoomInputOptions(participant_identity=participant.identity),
         )

@@ -112,7 +112,7 @@ class Voice::InboundCallBuilder
       direction: :incoming,
       status: 'ringing',
       provider_call_id: call_sid,
-      meta: { 'initiated_at' => Time.zone.now.to_i, 'from_number' => from_number }.merge(extra_meta.stringify_keys)
+      meta: inbound_call_meta
     )
     call.update!(conference_sid: call.default_conference_sid) if call.twilio?
     call
@@ -122,5 +122,15 @@ class Voice::InboundCallBuilder
     Voice::Recordings::StartService.perform(call: call)
   rescue StandardError => e
     Rails.logger.warn("voice recording start failed call_id=#{call.id} error=#{e.class.name}: #{e.message}")
+  end
+
+  def inbound_call_meta
+    meta = { 'initiated_at' => Time.zone.now.to_i, 'from_number' => from_number }.merge(extra_meta.stringify_keys)
+    return meta if meta['voice_agent_id'].present?
+
+    setting = account.voice_inbox_settings.find_by(id: meta['voice_inbox_setting_id'], inbox: inbox) ||
+              account.voice_inbox_settings.find_by(inbox: inbox)
+    voice_agent = setting&.voice_agent || account.voice_agents.enabled.order(:created_at).first || account.voice_agents.order(:created_at).first
+    voice_agent ? meta.merge('voice_agent_id' => voice_agent.id) : meta
   end
 end
