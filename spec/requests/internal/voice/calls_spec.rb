@@ -114,6 +114,80 @@ RSpec.describe 'Internal voice calls API', type: :request do
     end
   end
 
+  describe 'GET /internal/voice/calls/:provider_call_id/agent_context' do
+    let(:path) { "/internal/voice/calls/#{call.provider_call_id}/agent_context" }
+
+    it 'returns the selected voice agent prompt and voice tools' do
+      with_modified_env VOICE_AGENT_INTERNAL_TOKEN: 'secret' do
+        get path,
+            headers: { 'X-Voice-Agent-Token' => 'secret' },
+            as: :json
+      end
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body.dig('voice_agent', 'id')).to eq(call.meta['voice_agent_id'])
+      expect(response.parsed_body['instructions']).to include('Voice agent instructions')
+      expect(response.parsed_body['tools'].pluck('key')).to include('human_handoff', 'end_customer_call')
+    end
+
+    it 'does not resolve a voice agent from another account via call metadata' do
+      account_voice_agent = account.voice_agents.first!
+      other_voice_agent = create(:voice_agent, account: create(:account), name: 'Foreign voice agent')
+      setting = VoiceInboxSetting.find_by!(id: call.meta['voice_inbox_setting_id'])
+      setting.update!(voice_agent: nil)
+      call.update!(
+        meta: call.meta.merge(
+          'voice_inbox_setting_id' => nil,
+          'voice_agent_id' => other_voice_agent.id
+        )
+      )
+
+      with_modified_env VOICE_AGENT_INTERNAL_TOKEN: 'secret' do
+        get path,
+            headers: { 'X-Voice-Agent-Token' => 'secret' },
+            as: :json
+      end
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body.dig('voice_agent', 'id')).to eq(account_voice_agent.id)
+    end
+
+    it 'returns not found when no account-scoped voice agent can be resolved' do
+      setting = VoiceInboxSetting.find_by!(id: call.meta['voice_inbox_setting_id'])
+      setting.update!(voice_agent: nil)
+      account.voice_agents.destroy_all
+      call.update!(meta: call.meta.merge('voice_agent_id' => nil))
+
+      with_modified_env VOICE_AGENT_INTERNAL_TOKEN: 'secret' do
+        get path,
+            headers: { 'X-Voice-Agent-Token' => 'secret' },
+            as: :json
+      end
+
+      expect(response).to have_http_status(:not_found)
+      expect(response.parsed_body['error']).to include('Voice agent not configured')
+    end
+  end
+
+  describe 'POST /internal/voice/calls/:provider_call_id/tools/:tool_key/execute' do
+    let(:path) { "/internal/voice/calls/#{call.provider_call_id}/tools/human_handoff/execute" }
+
+    it 'executes and records a voice tool through the runtime endpoint' do
+      with_modified_env VOICE_AGENT_INTERNAL_TOKEN: 'secret' do
+        post path,
+             params: { arguments: { reason: 'caller requested a human' }, external_id: 'runtime-tool-1' },
+             headers: { 'X-Voice-Agent-Token' => 'secret' },
+             as: :json
+      end
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body['status']).to eq('executed')
+      event = call.reload.voice_tool_events.find_by!(external_id: 'runtime-tool-1')
+      expect(event).to have_attributes(tool: 'human_handoff', status: 'executed')
+      expect(call.handoff_status).to eq('requested')
+    end
+  end
+
   describe 'POST /internal/voice/calls/:provider_call_id/handoff' do
     let(:path) { "/internal/voice/calls/#{conversation_call.provider_call_id}/handoff" }
     let(:team) { create(:team, account: account) }

@@ -1,0 +1,67 @@
+<div class="field-unit__label">
+  <%= f.label field.attribute, 'Voice AI Runtime' %>
+</div>
+<div class="field-unit__field">
+  <div class="ai-agent-settings-panel voice-agent-runtime-panel">
+    <div class="ai-agent-settings-panel__header">
+      <span class="ai-agent-settings-panel__title">Voice agent runtime</span>
+      <span class="ai-agent-settings-control__hint">Only Super Admins can change provider, model, voice, architecture, and language.</span>
+    </div>
+
+    <% if field.voice_agents.empty? %>
+      <p class="text-sm text-slate-500 mb-0">No voice agents have been created for this account yet.</p>
+    <% else %>
+      <div class="voice-agent-runtime-panel__list">
+        <% field.voice_agents.each do |voice_agent| %>
+          <% input_id_prefix = "account_voice_agent_runtime_settings_#{voice_agent.id}" %>
+          <section class="voice-agent-runtime-card">
+            <div class="voice-agent-runtime-card__header">
+              <div>
+                <h4><%= voice_agent.name %></h4>
+                <p>#<%= voice_agent.id %> · <%= voice_agent.enabled? ? 'Enabled' : 'Disabled' %></p>
+              </div>
+            </div>
+
+            <div class="ai-agent-settings-panel__body">
+              <div class="ai-agent-settings-control">
+                <%= label_tag "#{input_id_prefix}_architecture", 'Architecture' %>
+                <%= select_tag "#{field.html_name}[#{voice_agent.id}][architecture]",
+                               options_for_select(VoiceAgent::ARCHITECTURES.map { |value| [value.titleize, value] }, voice_agent.architecture),
+                               id: "#{input_id_prefix}_architecture" %>
+              </div>
+
+              <div class="ai-agent-settings-control">
+                <%= label_tag "#{input_id_prefix}_provider", 'Provider' %>
+                <%= select_tag "#{field.html_name}[#{voice_agent.id}][provider]",
+                               options_for_select(VoiceAgent::PROVIDERS.map { |value| [value.titleize, value] }, voice_agent.provider),
+                               id: "#{input_id_prefix}_provider" %>
+              </div>
+
+              <div class="ai-agent-settings-control">
+                <%= label_tag "#{input_id_prefix}_model", 'Model' %>
+                <%= text_field_tag "#{field.html_name}[#{voice_agent.id}][model]",
+                                   voice_agent.model,
+                                   id: "#{input_id_prefix}_model",
+                                   placeholder: 'Default from worker env' %>
+              </div>
+
+              <div class="ai-agent-settings-control">
+                <%= label_tag "#{input_id_prefix}_voice", 'Voice' %>
+                <%= text_field_tag "#{field.html_name}[#{voice_agent.id}][voice]",
+                                   voice_agent.voice,
+                                   id: "#{input_id_prefix}_voice" %>
+              </div>
+
+              <div class="ai-agent-settings-control">
+                <%= label_tag "#{input_id_prefix}_language", 'Language' %>
+                <%= text_field_tag "#{field.html_name}[#{voice_agent.id}][language]",
+                                   voice_agent.language,
+                                   id: "#{input_id_prefix}_language" %>
+              </div>
+            </div>
+          </section>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+</div>

@@ -31,8 +31,11 @@ RSpec.describe Voice::TestCallBuilder do
       expect(call).to be_test_call
       expect(call.test_call_source).to eq('voice_ai_settings')
       expect(call.test_call_initiated_by_user_id).to eq(user.id)
-      expect(call.meta['voice_greeting']).to be_present
-      expect(call.meta['voice_instructions']).to include('Istanbul Turkcesi')
+      expect(call.meta['voice_agent_id']).to be_present
+      expect(VoiceAgent.find(call.meta['voice_agent_id'])).to have_attributes(
+        account_id: account.id,
+        enabled: true
+      )
       expect(call.contact).to be_nil
       expect(call.conversation).to be_nil
       expect(call.message).to be_nil
@@ -52,8 +55,7 @@ RSpec.describe Voice::TestCallBuilder do
           inbox_id: inbox.id,
           call_id: call.id,
           livekit_room_name: call.livekit_room_name,
-          voice_greeting: call.meta['voice_greeting'],
-          voice_instructions: call.meta['voice_instructions']
+          voice_agent_id: call.meta['voice_agent_id']
         )
       )
     end

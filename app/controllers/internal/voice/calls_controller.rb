@@ -1,6 +1,10 @@
 class Internal::Voice::CallsController < Internal::Voice::BaseController
   before_action :set_call
 
+  def agent_context
+    render json: VoiceAgents::RuntimeContext.new(call: @call).payload
+  end
+
   def transcript
     segment = Voice::TranscriptAppender.perform!(
       call: @call,
@@ -40,11 +44,23 @@ class Internal::Voice::CallsController < Internal::Voice::BaseController
     render json: { status: 'stored', tool_event: event }, status: :created
   end
 
+  def execute_tool
+    voice_agent = resolve_voice_agent
+    execution = VoiceAgents::ToolExecutor.perform!(
+      call: @call,
+      voice_agent: voice_agent,
+      tool_key: params.require(:tool_key),
+      args: hash_param(:arguments),
+      external_id: params[:external_id]
+    )
+    render json: execution.except(:tool_event).merge(tool_event: execution[:tool_event])
+  end
+
   def handoff
     return render_test_handoff if @call.test_call? && @call.conversation.blank?
     return render json: { error: 'Call handoff requires a conversation' }, status: :unprocessable_content unless @call.conversation
 
-    setting = VoiceInboxSetting.find_by(id: @call.meta['voice_inbox_setting_id'])
+    setting = voice_setting
     @call.update!(handoff_status: 'requested', ai_status: 'handoff_requested')
     @call.conversation.update!(team: setting&.fallback_team) if setting&.fallback_team
     Voice::CallMessageBuilder.new(@call).update_status!(status: @call.status)
@@ -109,6 +125,22 @@ class Internal::Voice::CallsController < Internal::Voice::BaseController
       customer_message: 'Human handoff requested in the sandbox test call.',
       reason: params[:reason].to_s
     )
+  end
+
+  def resolve_voice_agent
+    setting = voice_setting
+    voice_agent = setting&.voice_agent || @call.account.voice_agents.find_by(id: @call.meta&.fetch('voice_agent_id', nil))
+    voice_agent ||= @call.account.voice_agents.enabled.order(:created_at).first || @call.account.voice_agents.order(:created_at).first
+    raise ActiveRecord::RecordNotFound, 'Voice agent not configured' unless voice_agent
+
+    voice_agent
+  end
+
+  def voice_setting
+    @voice_setting ||= @call.account.voice_inbox_settings.find_by(
+      id: @call.meta&.fetch('voice_inbox_setting_id', nil),
+      inbox_id: @call.inbox_id
+    ) || @call.account.voice_inbox_settings.find_by(inbox_id: @call.inbox_id)
   end
 
   def terminal_status

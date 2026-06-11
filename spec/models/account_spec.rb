@@ -12,6 +12,7 @@ RSpec.describe Account do
   it { is_expected.to have_many(:facebook_pages).class_name('::Channel::FacebookPage').dependent(:destroy_async) }
   it { is_expected.to have_many(:web_widgets).class_name('::Channel::WebWidget').dependent(:destroy_async) }
   it { is_expected.to have_many(:webhooks).dependent(:destroy_async) }
+  it { is_expected.to have_many(:voice_agents).dependent(:destroy) }
   it { is_expected.to have_many(:notification_settings).dependent(:destroy_async) }
   it { is_expected.to have_many(:reporting_events) }
   it { is_expected.to have_many(:portals).dependent(:destroy_async) }
@@ -47,6 +48,27 @@ RSpec.describe Account do
     it 'returns ChatwootApp.max limits' do
       expect(account.usage_limits[:agents]).to eq(ChatwootApp.max_limit)
       expect(account.usage_limits[:inboxes]).to eq(ChatwootApp.max_limit)
+    end
+  end
+
+  describe 'voice agent defaults' do
+    it 'creates one default voice agent when the account is created' do
+      account = create(:account)
+
+      expect(account.voice_agents.count).to eq(1)
+      expect(account.voice_agents.first).to have_attributes(
+        name: 'Voice Assistant',
+        enabled: true,
+        language: 'tr',
+        voice: 'Charon'
+      )
+      expect(account.voice_agents.first.tools_config['enabled']).to include('human_handoff', 'end_customer_call')
+    end
+
+    it 'does not create duplicate default voice agents' do
+      account = create(:account)
+
+      expect { account.create_default_voice_agent! }.not_to change { account.voice_agents.count }
     end
   end
 
@@ -410,6 +432,39 @@ RSpec.describe Account do
       expect(account.ai_agent_model).to eq('openai/gpt-4o-mini')
       expect(account.ai_agent_conversation_limit).to eq(25)
       expect(account.ai_agent_conversation_reuse_window_hours).to eq(24)
+    end
+  end
+
+  describe 'voice_agent_runtime_settings' do
+    let(:account) { create(:account) }
+    let!(:voice_agent) { create(:voice_agent, account: account, architecture: 'realtime', provider: 'gemini', model: nil, voice: 'Charon', language: 'tr') }
+    let!(:other_voice_agent) { create(:voice_agent, architecture: 'realtime', provider: 'gemini', voice: 'Puck', language: 'tr') }
+
+    it 'updates runtime settings for account-owned voice agents only' do
+      account.voice_agent_runtime_settings = {
+        voice_agent.id.to_s => {
+          architecture: 'pipeline',
+          provider: 'openai',
+          model: 'gpt-4o-realtime-preview',
+          voice: 'alloy',
+          language: 'en',
+          prompt: 'ignored'
+        },
+        other_voice_agent.id.to_s => {
+          voice: 'ignored'
+        }
+      }
+      account.save!
+
+      expect(voice_agent.reload).to have_attributes(
+        architecture: 'pipeline',
+        provider: 'openai',
+        model: 'gpt-4o-realtime-preview',
+        voice: 'alloy',
+        language: 'en'
+      )
+      expect(voice_agent.prompt).not_to eq('ignored')
+      expect(other_voice_agent.reload.voice).to eq('Puck')
     end
   end
 

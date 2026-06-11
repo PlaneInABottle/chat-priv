@@ -15,6 +15,8 @@ class Voice::TestCallBuilder
     raise ArgumentError, 'Voice MVP test calls require an API inbox' unless inbox.api?
 
     setting = ensure_setting!
+    raise ArgumentError, 'Voice agent must be enabled before starting a test call' unless setting.voice_agent&.enabled?
+
     room_name = room_name_for(setting)
     call = build_call!(setting, room_name)
     start_call!(call, room_name)
@@ -26,11 +28,14 @@ class Voice::TestCallBuilder
   attr_reader :account, :inbox, :caller_name, :caller_number, :initiated_by
 
   def ensure_setting!
-    account.voice_inbox_settings.find_or_create_by!(inbox: inbox) do |setting|
-      setting.status = 'test_only'
-      setting.greeting = 'Merhaba, size nasil yardimci olabilirim?'
-      setting.instructions = default_voice_instructions
+    setting = account.voice_inbox_settings.find_or_create_by!(inbox: inbox) do |new_setting|
+      new_setting.status = 'test_only'
+      new_setting.voice_agent = default_voice_agent
     end
+    return setting if setting.voice_agent_id.present?
+
+    setting.update!(voice_agent: default_voice_agent)
+    setting
   end
 
   def room_name_for(setting)
@@ -57,9 +62,7 @@ class Voice::TestCallBuilder
       'contact_name' => caller_name,
       'livekit_room_name' => room_name,
       'voice_inbox_setting_id' => setting.id,
-      'ai_agent_id' => setting.ai_agent_id,
-      'voice_greeting' => setting.greeting,
-      'voice_instructions' => setting.instructions,
+      'voice_agent_id' => setting.voice_agent_id,
       'test_call' => true,
       'test_call_source' => 'voice_ai_settings',
       'test_call_initiated_by_user_id' => initiated_by&.id,
@@ -90,12 +93,11 @@ class Voice::TestCallBuilder
       conversation_id: nil,
       provider_call_id: call.provider_call_id,
       livekit_room_name: call.livekit_room_name,
-      voice_greeting: call.meta['voice_greeting'],
-      voice_instructions: call.meta['voice_instructions']
+      voice_agent_id: call.meta['voice_agent_id']
     }.compact
   end
 
-  def default_voice_instructions
-    'Yalnizca dogal Istanbul Turkcesiyle konus. Kisa, net ve sakin musteri destek cevaplari ver.'
+  def default_voice_agent
+    @default_voice_agent ||= account.voice_agents.order(:created_at).first || account.create_default_voice_agent!
   end
 end

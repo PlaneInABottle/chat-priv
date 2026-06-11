@@ -27,7 +27,8 @@ class Voice::CallSerializer
       conversation_id: call.conversation&.display_id,
       contact_id: call.contact_id,
       message_id: call.message_id,
-      livekit_room_name: call.livekit_room_name
+      livekit_room_name: call.livekit_room_name,
+      voice_agent_id: call.meta&.fetch('voice_agent_id', nil)
     }
   end
 

@@ -35,7 +35,8 @@ class AccountDashboard < Administrate::BaseDashboard
     status: Field::Select.with_options(collection: [%w[Active active], %w[Suspended suspended]]),
     account_users: Field::HasMany,
     custom_attributes: Field::String,
-    ai_agent_settings: AccountAiAgentSettingsField
+    ai_agent_settings: AccountAiAgentSettingsField,
+    voice_agent_runtime_settings: AccountVoiceAgentRuntimeSettingsField
   }.merge(enterprise_attribute_types).freeze
 
   # COLLECTION_ATTRIBUTES
@@ -72,6 +73,7 @@ class AccountDashboard < Administrate::BaseDashboard
     conversations
     account_users
     ai_agent_settings
+    voice_agent_runtime_settings
   ] + enterprise_show_page_attributes).freeze
 
   # FORM_ATTRIBUTES
@@ -90,6 +92,7 @@ class AccountDashboard < Administrate::BaseDashboard
     locale
     status
     ai_agent_settings
+    voice_agent_runtime_settings
   ] + enterprise_form_attributes).freeze
 
   # COLLECTION_FILTERS
@@ -120,7 +123,11 @@ class AccountDashboard < Administrate::BaseDashboard
   # to prevent an error from being raised (wrong number of arguments)
   # Reference: https://github.com/thoughtbot/administrate/pull/2356/files#diff-4e220b661b88f9a19ac527c50d6f1577ef6ab7b0bed2bfdf048e22e6bfa74a05R204
   def permitted_attributes(action)
-    attrs = super + [limits: {}, ai_agent_settings: %i[enabled model conversation_limit conversation_reuse_window_hours]]
+    attrs = super + [
+      limits: {},
+      ai_agent_settings: %i[enabled model conversation_limit conversation_reuse_window_hours],
+      voice_agent_runtime_settings: {}
+    ]
 
     # Add manually_managed_features to permitted attributes only for Chatwoot Cloud
     attrs << { manually_managed_features: [] } if ChatwootApp.chatwoot_cloud?

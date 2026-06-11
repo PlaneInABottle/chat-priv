@@ -802,6 +802,7 @@ fieldset {
   }
 
   input[type='number'],
+  input[type='text'],
   select {
     background-color: $sa-surface;
     border: 1px solid $sa-border;
@@ -821,6 +822,49 @@ fieldset {
   }
 }
 
+.voice-agent-runtime-panel {
+  .ai-agent-settings-panel__header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .ai-agent-settings-panel__body {
+    grid-template-columns: repeat(5, minmax(8rem, 1fr));
+  }
+}
+
+.voice-agent-runtime-panel__list {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.voice-agent-runtime-card {
+  border: 1px solid $sa-border-light;
+  border-radius: $sa-radius;
+  overflow: hidden;
+}
+
+.voice-agent-runtime-card__header {
+  background: $sa-surface;
+  border-bottom: 1px solid $sa-border-light;
+  padding: 0.75rem 1rem;
+
+  h4 {
+    color: $sa-heading;
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  p {
+    color: $sa-text-secondary;
+    font-size: 0.75rem;
+    margin: 0.125rem 0 0;
+  }
+}
+
 .ai-agent-settings-control__hint {
   color: $sa-text-secondary;
   display: block;
@@ -830,6 +874,10 @@ fieldset {
 
 @media (max-width: 62rem) {
   .ai-agent-settings-panel__body {
+    grid-template-columns: 1fr;
+  }
+
+  .voice-agent-runtime-panel .ai-agent-settings-panel__body {
     grid-template-columns: 1fr;
   }
 }
@@ -901,7 +949,8 @@ a[href*='super_admin'] {
 // 18. Focus-visible global
 // ============================================================
 
-:focus-visible {
+.main-content :focus-visible,
+.super-admin-sidebar :focus-visible {
   outline: 2px solid transparentize($sa-accent, 0.5);
   outline-offset: 2px;
 }
@@ -952,22 +1001,32 @@ a[href*='super_admin'] {
 // ============================================================
 
 // Firefox
-* {
+.main-content,
+.super-admin-sidebar {
   scrollbar-width: thin;
   scrollbar-color: darken($sa-border, 10%) transparent;
 }
 
 // Webkit (Chrome, Safari, Edge)
-::-webkit-scrollbar {
+.main-content::-webkit-scrollbar,
+.main-content ::-webkit-scrollbar,
+.super-admin-sidebar::-webkit-scrollbar,
+.super-admin-sidebar ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
-::-webkit-scrollbar-track {
+.main-content::-webkit-scrollbar-track,
+.main-content ::-webkit-scrollbar-track,
+.super-admin-sidebar::-webkit-scrollbar-track,
+.super-admin-sidebar ::-webkit-scrollbar-track {
   background: transparent;
 }
 
-::-webkit-scrollbar-thumb {
+.main-content::-webkit-scrollbar-thumb,
+.main-content ::-webkit-scrollbar-thumb,
+.super-admin-sidebar::-webkit-scrollbar-thumb,
+.super-admin-sidebar ::-webkit-scrollbar-thumb {
   background: darken($sa-border, 10%);
   border-radius: 3px;
 

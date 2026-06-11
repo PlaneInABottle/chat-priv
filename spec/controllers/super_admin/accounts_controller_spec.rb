@@ -129,6 +129,35 @@ RSpec.describe 'Super Admin accounts API', type: :request do
         expect(account.ai_agent_conversation_limit).to eq(25)
         expect(account.ai_agent_conversation_reuse_window_hours).to eq(12)
       end
+
+      it 'persists voice agent runtime settings' do
+        voice_agent = create(:voice_agent, account: account, architecture: 'realtime', provider: 'gemini', voice: 'Charon', language: 'tr')
+        sign_in(super_admin, scope: :super_admin)
+
+        patch "/super_admin/accounts/#{account.id}", params: {
+          account: {
+            name: account.name,
+            voice_agent_runtime_settings: {
+              voice_agent.id => {
+                architecture: 'pipeline',
+                provider: 'openai',
+                model: 'gpt-4o-realtime-preview',
+                voice: 'alloy',
+                language: 'en'
+              }
+            }
+          }
+        }
+
+        expect(response).to have_http_status(:redirect)
+        expect(voice_agent.reload).to have_attributes(
+          architecture: 'pipeline',
+          provider: 'openai',
+          model: 'gpt-4o-realtime-preview',
+          voice: 'alloy',
+          language: 'en'
+        )
+      end
     end
   end
 
