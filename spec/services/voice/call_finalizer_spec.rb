@@ -62,6 +62,16 @@ RSpec.describe Voice::CallFinalizer do
     )
   end
 
+  it 'stops active LiveKit recordings when ending a call' do
+    call = build_conversation_call
+    create(:voice_recording, call: call, status: 'active', egress_id: 'EG_active')
+    allow(Voice::Recordings::StopService).to receive(:perform).and_return({ 'status' => 'ok' })
+
+    described_class.perform!(call: call, end_reason: 'agent_ended')
+
+    expect(Voice::Recordings::StopService).to have_received(:perform).with(call: call)
+  end
+
   it 'keeps terminal calls idempotent' do
     call = Voice::TestCallBuilder.perform!(account: account, inbox: inbox)
     described_class.perform!(call: call, end_reason: 'first_end')

@@ -6,9 +6,10 @@ class Voice::Livekit::TwirpClient
   READ_TIMEOUT = 5
   TOKEN_TTL = 5.minutes
 
-  def initialize(room_name:, subject:)
+  def initialize(room_name:, subject:, video_grants: nil)
     @room_name = room_name
     @subject = subject
+    @video_grants = video_grants
   end
 
   def configured?
@@ -39,16 +40,16 @@ class Voice::Livekit::TwirpClient
 
   private
 
-  attr_reader :room_name, :subject
+  attr_reader :room_name, :subject, :video_grants
 
   def headers
     {
-      'Authorization' => "Bearer #{admin_token}",
+      'Authorization' => "Bearer #{access_token}",
       'Content-Type' => 'application/json'
     }
   end
 
-  def admin_token
+  def access_token
     now = Time.zone.now.to_i
     JWT.encode(
       {
@@ -56,14 +57,20 @@ class Voice::Livekit::TwirpClient
         sub: subject,
         nbf: now,
         exp: (Time.zone.now + TOKEN_TTL).to_i,
-        video: {
-          room: room_name,
-          roomAdmin: true
-        }
+        video: resolved_video_grants
       },
       api_secret,
       'HS256'
     )
+  end
+
+  def resolved_video_grants
+    return video_grants if video_grants.present?
+
+    {
+      room: room_name,
+      roomAdmin: true
+    }
   end
 
   def livekit_http_url

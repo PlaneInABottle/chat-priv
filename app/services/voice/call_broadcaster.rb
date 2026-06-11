@@ -35,6 +35,12 @@ class Voice::CallBroadcaster
     new(call).broadcast(STATUS_EVENT, payload)
   end
 
+  def self.safe_call_status_changed(call)
+    call_status_changed(call)
+  rescue StandardError => e
+    Rails.logger.warn("voice broadcast failed event=call_status_changed call_id=#{call.id} error=#{e.message}")
+  end
+
   def initialize(call)
     @call = call
   end

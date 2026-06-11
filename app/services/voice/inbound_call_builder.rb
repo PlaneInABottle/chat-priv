@@ -16,9 +16,12 @@ class Voice::InboundCallBuilder
 
   def perform!
     existing = find_existing_call
-    return existing if existing
+    if existing
+      start_recording!(existing)
+      return existing
+    end
 
-    ActiveRecord::Base.transaction do
+    call = ActiveRecord::Base.transaction do
       contact_inbox = ensure_contact_inbox!
       contact = contact_inbox.contact
       conversation = resolve_conversation!(contact, contact_inbox)
@@ -27,6 +30,8 @@ class Voice::InboundCallBuilder
       call.update!(message_id: message.id)
       call
     end
+    start_recording!(call)
+    call
   rescue ActiveRecord::RecordNotUnique
     find_existing_call || raise
   end
@@ -111,5 +116,11 @@ class Voice::InboundCallBuilder
     )
     call.update!(conference_sid: call.default_conference_sid) if call.twilio?
     call
+  end
+
+  def start_recording!(call)
+    Voice::Recordings::StartService.perform(call: call)
+  rescue StandardError => e
+    Rails.logger.warn("voice recording start failed call_id=#{call.id} error=#{e.class.name}: #{e.message}")
   end
 end

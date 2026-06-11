@@ -54,7 +54,12 @@ class Voice::CallMessageBuilder
       'test_call_initiated_by_user_id' => call.test_call_initiated_by_user_id,
       'handoff_status' => call.handoff_status,
       'ai_status' => call.ai_status,
+      'recording' => recording_payload,
       'duration_seconds' => call.duration_seconds
     }.compact
+  end
+
+  def recording_payload
+    @recording_payload ||= (Voice::CallSerializer.new(call).payload[:recording] || {}).except(:url)
   end
 end
