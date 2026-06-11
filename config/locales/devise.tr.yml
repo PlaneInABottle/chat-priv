@@ -1,5 +1,11 @@
 #Additional translations at https://github.com/plataformatec/devise/wiki/I18n
 tr:
+  devise_token_auth:
+    sessions:
+      not_confirmed: "'%{email}' adresine bir onay e-postası gönderildi. Hesabınızı etkinleştirmek için e-postadaki talimatları izlemelisiniz."
+      bad_credentials: "Geçersiz giriş bilgileri. Lütfen tekrar deneyin."
+      not_supported: "Bu işlem desteklenmiyor."
+      user_not_found: "Kullanıcı bulunamadı veya oturum açılmamış."
   devise:
     confirmations:
       confirmed: "E-posta adresiniz başarıyla onaylanmıştır."
