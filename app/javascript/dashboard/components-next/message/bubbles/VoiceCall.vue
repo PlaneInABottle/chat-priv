@@ -26,11 +26,6 @@ import BaseBubble from 'next/message/bubbles/Base.vue';
 import AudioChip from 'next/message/chips/Audio.vue';
 import NextButton from 'dashboard/components-next/button/Button.vue';
 
-const LABEL_MAP = {
-  [VOICE_CALL_STATUS.IN_PROGRESS]: 'CONVERSATION.VOICE_CALL.CALL_IN_PROGRESS',
-  [VOICE_CALL_STATUS.COMPLETED]: 'CONVERSATION.VOICE_CALL.CALL_ENDED',
-};
-
 const ICON_MAP = {
   [VOICE_CALL_STATUS.IN_PROGRESS]: 'i-ph-phone-call-bold',
   [VOICE_CALL_STATUS.COMPLETED]: 'i-ph-phone-bold',
@@ -171,18 +166,23 @@ const handledBy = computed(() =>
     : null
 );
 
-const labelKey = computed(() => {
-  if (LABEL_MAP[status.value]) return LABEL_MAP[status.value];
+const label = computed(() => {
+  if (status.value === VOICE_CALL_STATUS.IN_PROGRESS) {
+    return t('CONVERSATION.VOICE_CALL.CALL_IN_PROGRESS');
+  }
+  if (status.value === VOICE_CALL_STATUS.COMPLETED) {
+    return t('CONVERSATION.VOICE_CALL.CALL_ENDED');
+  }
   if (isFailed.value) {
     return isOutbound.value
-      ? 'CONVERSATION.VOICE_CALL.NO_ANSWER_OUTBOUND_LABEL'
-      : 'CONVERSATION.VOICE_CALL.MISSED_CALL';
+      ? t('CONVERSATION.VOICE_CALL.NO_ANSWER_OUTBOUND_LABEL')
+      : t('CONVERSATION.VOICE_CALL.MISSED_CALL');
   }
   // RINGING or an as-yet-unknown/initial status: orient purely by direction so an
   // outbound call never falls through to the "Incoming call" label.
   return isOutbound.value
-    ? 'CONVERSATION.VOICE_CALL.OUTGOING_CALL'
-    : 'CONVERSATION.VOICE_CALL.INCOMING_CALL';
+    ? t('CONVERSATION.VOICE_CALL.OUTGOING_CALL')
+    : t('CONVERSATION.VOICE_CALL.INCOMING_CALL');
 });
 
 const subtext = computed(() => {
@@ -308,12 +308,14 @@ const canJoinCall = computed(() => {
 
 const recordingAttachment = computed(() => {
   if (audioAttachment.value) return audioAttachment.value;
+  const recording = callField('recording') || {};
   const url = callField('recordingUrl', 'recording_url');
   if (!url) return null;
+  const contentType = recording.contentType || recording.content_type;
   return {
     dataUrl: url,
     fileType: ATTACHMENT_TYPES.AUDIO,
-    extension: 'wav',
+    extension: contentType === 'audio/ogg' ? 'ogg' : 'wav',
     transcribedText: callField('transcript') || '',
   };
 });
@@ -478,7 +480,7 @@ const handleEndLivekit = async () => {
           <span
             class="font-display text-sm font-medium leading-tight truncate tracking-tight"
           >
-            {{ $t(labelKey) }}
+            {{ label }}
           </span>
           <span
             v-if="subtext"
@@ -490,11 +492,16 @@ const handleEndLivekit = async () => {
       </div>
 
       <!-- Audio player (when there's a recording) -->
-      <AudioChip
-        v-if="recordingAttachment"
-        :attachment="recordingAttachment"
-        show-transcribed-text
-      />
+      <div v-if="recordingAttachment" class="flex flex-col gap-1">
+        <span class="text-xs font-medium text-n-slate-11">
+          {{ $t('CONVERSATION.VOICE_CALL.REPLAY_RECORDING') }}
+        </span>
+        <AudioChip
+          :attachment="recordingAttachment"
+          show-transcribed-text
+          :on-before-play="refreshLivekitCallDetails"
+        />
+      </div>
 
       <div v-if="isLivekit" ref="remoteAudioRef" class="hidden" />
 
