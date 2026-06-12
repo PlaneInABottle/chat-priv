@@ -16,7 +16,7 @@ class Voice::InboundCallBuilder
 
   def perform!
     call = provider == :livekit ? livekit_call_with_admission! : find_existing_call || create_call_with_message!
-    start_recording!(call)
+    start_recording!(call) unless call.livekit?
     call
   rescue ActiveRecord::RecordNotUnique
     find_existing_call || raise

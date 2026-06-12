@@ -39,7 +39,8 @@ class Voice::Recordings::StartService
   end
 
   def build_recording
-    call.voice_recordings.create!(
+    VoiceRecording.create!(
+      call: call,
       account: call.account,
       status: 'starting',
       storage_provider: storage_config.provider,
@@ -52,9 +53,9 @@ class Voice::Recordings::StartService
 
   def reserve_recording
     call.with_lock do
-      if call.voice_recordings.active.exists?
+      if recordings_scope.active.exists?
         skipped_result('recording_already_started')
-      elsif call.voice_recordings.completed.exists?
+      elsif recordings_scope.completed.exists?
         skipped_result('recording_already_completed')
       else
         build_recording
@@ -84,5 +85,9 @@ class Voice::Recordings::StartService
 
   def skipped_result(reason)
     { 'status' => 'skipped', 'reason' => reason }
+  end
+
+  def recordings_scope
+    VoiceRecording.where(call_id: call.id)
   end
 end

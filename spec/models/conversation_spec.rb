@@ -291,6 +291,47 @@ RSpec.describe Conversation do
                                content: system_resolved_message,
                                content_attributes: { activity: { type: 'conversation_status_changed', status: 'resolved' } } })
     end
+
+    it 'finalizes active livekit calls when the conversation is resolved' do
+      call = create(
+        :call,
+        provider: :livekit,
+        status: 'in_progress',
+        conversation: conversation,
+        account: conversation.account,
+        inbox: conversation.inbox,
+        contact: conversation.contact,
+        started_at: 1.minute.ago,
+        meta: { 'livekit_room_name' => 'room-resolve-test' }
+      )
+      allow(Voice::Livekit::RoomService).to receive(:delete_room).and_return({ 'status' => 'deleted' })
+
+      conversation.update!(status: :resolved)
+
+      expect(call.reload.status).to eq('completed')
+      expect(call.end_reason).to eq('conversation_resolved')
+      expect(Voice::Livekit::RoomService).to have_received(:delete_room).with(call: call)
+    end
+
+    it 'clears waiting_since even when livekit call finalization fails' do
+      create(
+        :call,
+        provider: :livekit,
+        status: 'in_progress',
+        conversation: conversation,
+        account: conversation.account,
+        inbox: conversation.inbox,
+        contact: conversation.contact,
+        started_at: 1.minute.ago,
+        meta: { 'livekit_room_name' => 'room-resolve-failure' }
+      )
+      conversation.update_column(:waiting_since, 5.minutes.ago)
+      allow(Voice::CallFinalizer).to receive(:perform!).and_raise(StandardError, 'boom')
+
+      expect { conversation.update!(status: :resolved) }.not_to raise_error
+
+      expect(conversation.reload.waiting_since).to be_nil
+    end
   end
 
   describe '#update_labels' do

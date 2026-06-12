@@ -89,6 +89,22 @@ RSpec.describe Voice::Recordings::WebhookHandler do
     )
   end
 
+  it 'does not rewrite terminal recordings from delayed webhooks' do
+    recording.update!(
+      status: 'failed',
+      completed_at: 1.hour.ago,
+      error_message: 'previous failure'
+    )
+
+    result = described_class.perform!(payload: completed_payload)
+
+    expect(result).to include('status' => 'failed', 'reason' => 'already_terminal')
+    expect(recording.reload).to have_attributes(
+      status: 'failed',
+      error_message: 'previous failure'
+    )
+  end
+
   def completed_payload(location: 's3://recordings/voice-recordings/account-1/call-1/final.mp4')
     file_result = { 'duration' => 12_000_000_000 }
     file_result['location'] = location if location
