@@ -233,9 +233,19 @@ class Conversation < ApplicationRecord
     # When conversation is resolved, clear waiting_since using update_column to avoid callbacks
     return unless saved_change_to_status? && status == 'resolved'
 
+    finalize_active_livekit_calls
+
     # rubocop:disable Rails/SkipsModelValidations
     update_column(:waiting_since, nil)
     # rubocop:enable Rails/SkipsModelValidations
+  end
+
+  def finalize_active_livekit_calls
+    calls.livekit.active.find_each do |call|
+      Voice::CallFinalizer.perform!(call: call, status: 'completed', end_reason: 'conversation_resolved')
+    rescue StandardError => e
+      Rails.logger.warn("voice call finalization failed conversation_id=#{id} call_id=#{call.id} error=#{e.class.name}: #{e.message}")
+    end
   end
 
   def ensure_snooze_until_reset
