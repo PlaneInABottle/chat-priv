@@ -150,7 +150,7 @@ module IkasCatalogMvp
             'key' => key,
             'value' => value,
             'value_folded' => Text.fold(value),
-            'fact_type' => %w[color colour renk].include?(folded_key) ? 'color' : 'facet'
+            'fact_type' => FacetKeyClassifier.color?(folded_key) ? 'color' : 'facet'
           }
         end
       end
