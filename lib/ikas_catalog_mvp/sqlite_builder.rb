@@ -131,6 +131,12 @@ module IkasCatalogMvp
           confidence TEXT NOT NULL,
           raw TEXT
         );
+        CREATE VIRTUAL TABLE catalog_items_fts USING fts5(
+          item_id UNINDEXED,
+          display_name,
+          search_text,
+          tokenize = 'unicode61'
+        );
         CREATE INDEX index_catalog_items_on_search ON catalog_items(search_text_folded);
         CREATE INDEX index_catalog_items_on_group ON catalog_items(group_id);
         CREATE INDEX index_catalog_item_categories_on_category ON catalog_item_categories(category_id, item_id);
@@ -226,6 +232,10 @@ module IkasCatalogMvp
 
     def insert_item(row)
       insert_hash_row('catalog_items', ITEM_COLUMNS, row)
+      db.execute(
+        'INSERT INTO catalog_items_fts (item_id, display_name, search_text) VALUES (?, ?, ?)',
+        [row['item_id'], Text.fold(row['display_name']), row['search_text_folded']]
+      )
     end
 
     def insert_item_category(row)

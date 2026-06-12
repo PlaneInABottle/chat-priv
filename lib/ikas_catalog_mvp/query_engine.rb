@@ -6,6 +6,7 @@ module IkasCatalogMvp
   class QueryEngine
     DEFAULT_LIMIT = 8
     CHILD_BUCKET_LIMIT = 5
+    SEARCH_BACKEND = 'fts5'.freeze
     STRUCTURED_EVIDENCE_SOURCES = %w[facet product_attribute product_option_set product price stock].freeze
 
     def initialize(sqlite_path:)
@@ -69,6 +70,7 @@ module IkasCatalogMvp
         'query' => text,
         'parsed' => parsed,
         'candidates' => [],
+        'search_backend' => SEARCH_BACKEND,
         'warnings' => ['query_missing_catalog_scope'],
         'next_action' => 'ask_customer_which_product_or_category'
       }
@@ -107,6 +109,7 @@ module IkasCatalogMvp
         'parsed' => parsed,
         'matched_scope' => root,
         'buckets' => buckets.first(DEFAULT_LIMIT),
+        'search_backend' => SEARCH_BACKEND,
         'next_action' => 'ask_customer_to_choose_category_or_type'
       }
     end
@@ -117,6 +120,7 @@ module IkasCatalogMvp
         'query' => text,
         'parsed' => parsed,
         'candidates' => [],
+        'search_backend' => SEARCH_BACKEND,
         'warnings' => ['query_contains_constraints_not_present_in_catalog_vocabulary']
       }
     end
@@ -137,22 +141,73 @@ module IkasCatalogMvp
         'matched_scope' => root,
         'result_count' => candidates.length,
         'candidates' => candidates,
+        'search_backend' => SEARCH_BACKEND,
         'warnings' => []
       }
     end
 
     def matching_rows(db, parsed, root, limit, category_ids:)
       terms = search_terms_for(db, root, parsed.fetch('terms'))
-      sql = matching_rows_sql(terms, category_ids)
-      bindings = terms.map { |term| term_binding(term) }
-      bindings.concat(category_ids)
+      fts5_terms = fts5_terms_for(terms)
+      return category_matching_rows(db, limit, category_ids: category_ids) if fts5_terms.empty?
+
+      raise Error, 'Ikas catalog FTS index is missing. Sync the catalog again.' unless fts5_available?(db)
+
+      fts5_matching_rows(db, fts5_terms, limit, category_ids: category_ids)
+    end
+
+    def category_matching_rows(db, limit, category_ids:)
+      sql = category_matching_rows_sql(category_ids)
+      bindings = category_ids.dup
       bindings << [limit * 8, 50].max
       db.execute(sql, bindings)
     end
 
-    def matching_rows_sql(terms, category_ids)
+    def fts5_available?(db)
+      db.get_first_value("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'catalog_items_fts'").to_s != ''
+    end
+
+    def fts5_matching_rows(db, fts5_terms, limit, category_ids:)
+      bindings = [fts5_query_for(fts5_terms)]
+      bindings.concat(category_ids)
+      bindings << [limit * 8, 50].max
+      db.execute(fts5_matching_rows_sql(category_ids), bindings)
+    end
+
+    def fts5_matching_rows_sql(category_ids)
+      clauses = ['catalog_items_fts MATCH ?']
+      clauses << "ic.category_id IN (#{placeholders(category_ids)})" if category_ids.any?
+      join_sql = category_ids.any? ? 'INNER JOIN catalog_item_categories ic ON ic.item_id = i.item_id' : ''
+
+      <<~SQL
+        SELECT DISTINCT i.*, bm25(catalog_items_fts, 0.0, 10.0, 1.0) AS fts_score
+        FROM catalog_items_fts
+        INNER JOIN catalog_items i ON i.item_id = catalog_items_fts.item_id
+        #{join_sql}
+        WHERE #{clauses.join(' AND ')}
+        ORDER BY fts_score ASC, i.sellable DESC, i.price_amount IS NULL ASC, i.price_amount ASC, i.in_stock DESC, i.display_name ASC
+        LIMIT ?
+      SQL
+    end
+
+    def fts5_query_for(fts5_terms)
+      fts5_terms.map { |term| fts5_term_query(term) }.join(' AND ')
+    end
+
+    def fts5_term_query(term)
+      escaped = term.gsub('"', '""')
+      return %("#{escaped}") if term.length <= 3
+      return %("#{escaped}"*) if term.length <= 5
+
+      %("#{escaped}")
+    end
+
+    def fts5_terms_for(terms)
+      terms.map { |term| Text.fold(term) }.reject(&:empty?)
+    end
+
+    def category_matching_rows_sql(category_ids)
       clauses = []
-      clauses.concat(terms.map { |term| term_match_sql(term) })
       clauses << "ic.category_id IN (#{placeholders(category_ids)})" if category_ids.any?
       where_sql = clauses.empty? ? '1 = 1' : clauses.join(' AND ')
       join_sql = category_ids.any? ? 'INNER JOIN catalog_item_categories ic ON ic.item_id = i.item_id' : ''
@@ -165,20 +220,6 @@ module IkasCatalogMvp
         ORDER BY i.sellable DESC, i.price_amount IS NULL ASC, i.price_amount ASC, i.in_stock DESC, i.display_name ASC
         LIMIT ?
       SQL
-    end
-
-    def term_match_sql(term)
-      return "' ' || i.search_text_folded || ' ' LIKE ?" if exact_token_search?(term)
-
-      'i.search_text_folded LIKE ?'
-    end
-
-    def term_binding(term)
-      exact_token_search?(term) ? "% #{term} %" : "%#{term}%"
-    end
-
-    def exact_token_search?(term)
-      term.to_s.length <= 3
     end
 
     def candidate_for(db, row, parsed, root, root_category_ids)
@@ -194,12 +235,14 @@ module IkasCatalogMvp
         match_kind = 'compatible' if match.fetch('kind') == 'compatible'
       end
 
-      relevance = relevance_for(db, row, parsed.fetch('terms'), root, root_category_ids, evidence)
+      item_category_ids = item_category_ids(db, row.fetch('item_id'))
+      relevance = relevance_for(db, row, parsed.fetch('terms'), root, root_category_ids, item_category_ids, evidence)
       candidate = {
         'item_id' => row.fetch('item_id'),
         'product_id' => row.fetch('product_id'),
         'variant_id' => row['variant_id'],
         'display_name' => row.fetch('display_name'),
+        'category_paths' => category_paths_for(db, item_category_ids),
         'price' => { 'amount' => row['price_amount'], 'currency' => row['currency'] },
         'stock' => {
           'available' => row.fetch('sellable').to_i.positive?,
@@ -387,21 +430,19 @@ module IkasCatalogMvp
       'medium'
     end
 
-    def relevance_for(db, row, terms, root, root_category_ids, evidence)
+    def relevance_for(db, row, terms, root, root_category_ids, item_category_ids, evidence)
       signals = []
-      item_category_ids = item_category_ids(db, row.fetch('item_id'))
       evidence.each do |evidence_row|
         add_relevance_signal(signals, evidence_signal_for(evidence_row))
       end
 
-      title_matches = matching_terms(row.fetch('display_name'), terms)
-      add_relevance_signal(signals, 'kind' => 'title_term_match', 'terms' => title_matches, 'score' => title_matches.length * 12)
-
       category_matches = category_matching_terms(db, item_category_ids, terms)
       add_relevance_signal(signals, 'kind' => 'category_term_match', 'terms' => category_matches, 'score' => category_matches.length * 14)
 
-      text_only_matches = matching_terms(row.fetch('search_text'), terms) - title_matches - category_matches
-      add_relevance_signal(signals, 'kind' => 'search_text_term_match', 'terms' => text_only_matches, 'score' => text_only_matches.length * 4)
+      if fts_score_present?(row)
+        add_relevance_signal(signals, fts_rank_signal_for(row))
+      end
+      add_relevance_signal(signals, display_name_prefix_signal_for(row, terms))
 
       if root && item_in_category_scope?(item_category_ids, root_category_ids)
         add_relevance_signal(signals, 'kind' => 'matched_category_scope', 'category_id' => root.fetch('id'), 'score' => 8)
@@ -435,6 +476,26 @@ module IkasCatalogMvp
       }
     end
 
+    def fts_rank_signal_for(row)
+      raw_score = -row['fts_score'].to_f
+      score = [[raw_score * 2.0, 20].min, 1].max.round(3)
+      { 'kind' => 'fts_bm25_match', 'raw_score' => raw_score.round(6), 'score' => score }
+    end
+
+    def fts_score_present?(row)
+      row.key?('fts_score') && !row['fts_score'].nil?
+    end
+
+    def display_name_prefix_signal_for(row, terms)
+      phrase = terms.join(' ')
+      return { 'kind' => 'display_name_prefix_match', 'score' => 0 } if phrase.empty?
+
+      folded_name = Text.fold(row.fetch('display_name'))
+      return { 'kind' => 'display_name_prefix_match', 'phrase' => phrase, 'score' => 6 } if folded_name.start_with?(phrase)
+
+      { 'kind' => 'display_name_prefix_match', 'score' => 0 }
+    end
+
     def add_relevance_signal(signals, signal)
       return if signal.fetch('score').to_i <= 0
 
@@ -443,7 +504,7 @@ module IkasCatalogMvp
 
     def candidate_sort_key(candidate, terms)
       [
-        -candidate.fetch('relevance_score').to_i,
+        -candidate.fetch('relevance_score').to_f,
         visible_term_miss_count(candidate.fetch('display_name'), terms),
         candidate.fetch('match_kind') == 'exact' ? 0 : 1,
         candidate.dig('stock', 'sellable') ? 0 : 1,
@@ -457,11 +518,6 @@ module IkasCatalogMvp
     def visible_term_miss_count(display_name, terms)
       visible_tokens = Text.tokens(display_name)
       terms.count { |term| visible_tokens.none? { |visible_token| category_token_match?(term, visible_token) } }
-    end
-
-    def matching_terms(text, terms)
-      tokens = Text.tokens(text)
-      terms.select { |term| tokens.any? { |token| category_token_match?(term, token) } }.uniq
     end
 
     def category_matching_terms(db, item_category_ids, terms)
@@ -479,6 +535,15 @@ module IkasCatalogMvp
 
     def item_category_ids(db, item_id)
       db.execute('SELECT category_id FROM catalog_item_categories WHERE item_id = ?', [item_id]).map { |row| row.fetch('category_id') }
+    end
+
+    def category_paths_for(db, item_category_ids)
+      item_category_ids.map do |category_id|
+        names = category_path_names(db, category_id)
+        next if names.empty?
+
+        names.join(' > ')
+      end.compact.uniq
     end
 
     def facet_vocabulary(db)
@@ -658,6 +723,20 @@ module IkasCatalogMvp
         SQL
         [category_id]
       ).flat_map { |row| Text.tokens(row.fetch('name')) }
+    end
+
+    def category_path_names(db, category_id)
+      db.execute(
+        <<~SQL,
+          WITH RECURSIVE ancestors(id, parent_id, name) AS (
+            SELECT id, parent_id, name FROM raw_categories WHERE id = ?
+            UNION ALL
+            SELECT c.id, c.parent_id, c.name FROM raw_categories c INNER JOIN ancestors a ON a.parent_id = c.id
+          )
+          SELECT name FROM ancestors
+        SQL
+        [category_id]
+      ).map { |row| row.fetch('name') }.reverse
     end
 
     def type_buckets(db, category_id)

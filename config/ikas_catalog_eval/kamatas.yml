@@ -13,6 +13,30 @@
     require_evidence:
       - fact: color
 
+- id: en_ucuz_beyaz_perde
+  query: "en ucuz beyaz perde"
+  expect:
+    result_type:
+      - show_candidates
+      - show_compatible_candidates
+    min_results: 1
+    top_results_include:
+      - "Orjin Pliseli Perde Beyaz"
+    require_links: true
+    require_evidence:
+      - fact: color
+
+- id: blackout_perde
+  query: "blackout perde"
+  expect:
+    result_type:
+      - show_candidates
+      - show_compatible_candidates
+    min_results: 1
+    top_results_include:
+      - "Blackout"
+    require_links: true
+
 - id: perde_nested_buckets
   query: "perde"
   expect:
@@ -36,6 +60,30 @@
     require_evidence:
       - fact: dimension_max
 
+- id: akordeon_sineklik_70x80_typo
+  query: "70x80 akordeon sineklik"
+  expect:
+    result_type:
+      - show_compatible_candidates
+    min_results: 3
+    top_results_include:
+      - "Sineklik"
+    require_links: true
+    require_evidence:
+      - fact: dimension_max
+
+- id: sabit_sok_tak_pencere_sineklik_70x100
+  query: "sabit sök tak pencere sineklik 70x100"
+  expect:
+    result_type:
+      - show_compatible_candidates
+    min_results: 1
+    top_results_include:
+      - "SABİT"
+    require_links: true
+    require_evidence:
+      - fact: dimension_max
+
 - id: menteseli_sineklik
   query: "menteşeli sineklik"
   expect:
@@ -45,6 +93,15 @@
     bucket_labels_include:
       - "Menteşeli Kapı Sineklikleri"
       - "Menteşeli Pencere Sinekliği"
+
+- id: cam_balkom_sineklik_typo
+  query: "cam balkom sineklik"
+  expect:
+    result_type:
+      - clarify_category
+    min_buckets: 2
+    bucket_labels_include:
+      - "Cam Balkon Kasalı Akordiyon Sineklik"
 
 - id: beyaz_olanin_linki_followup
   query: "beyaz olanın linki"
