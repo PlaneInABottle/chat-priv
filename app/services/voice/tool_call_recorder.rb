@@ -29,7 +29,8 @@ class Voice::ToolCallRecorder
   def perform!
     return existing_event if existing_event
 
-    event = call.voice_tool_events.create!(
+    event = VoiceToolEvent.create!(
+      call: call,
       account: call.account,
       tool: tool,
       status: status,
@@ -45,7 +46,7 @@ class Voice::ToolCallRecorder
   rescue ActiveRecord::RecordNotUnique
     raise if resolved_external_id.blank?
 
-    call.voice_tool_events.find_by!(external_id: resolved_external_id)
+    tool_events_scope.find_by!(external_id: resolved_external_id)
   end
 
   private
@@ -55,7 +56,11 @@ class Voice::ToolCallRecorder
   def existing_event
     return if resolved_external_id.blank?
 
-    @existing_event ||= call.voice_tool_events.find_by(external_id: resolved_external_id)
+    @existing_event ||= tool_events_scope.find_by(external_id: resolved_external_id)
+  end
+
+  def tool_events_scope
+    VoiceToolEvent.where(call_id: call.id)
   end
 
   def resolved_external_id

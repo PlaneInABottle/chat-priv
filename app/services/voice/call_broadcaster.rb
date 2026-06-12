@@ -21,21 +21,19 @@ class Voice::CallBroadcaster
   end
 
   def self.tool_event(call, event)
-    return unless call.test_call?
+    payload = {
+      id: event.id,
+      tool: event.tool,
+      status: event.status,
+      error_message: event.error_message,
+      duration_ms: event.duration_ms,
+      source: event.source,
+      created_at: event.created_at.iso8601
+    }
+    payload[:arguments] = event.arguments if call.test_call?
+    payload[:result] = event.result if call.test_call?
 
-    new(call).broadcast(TOOL_EVENT, {
-                          event: {
-                            id: event.id,
-                            tool: event.tool,
-                            status: event.status,
-                            arguments: event.arguments,
-                            result: event.result,
-                            error_message: event.error_message,
-                            duration_ms: event.duration_ms,
-                            source: event.source,
-                            created_at: event.created_at.iso8601
-                          }.compact
-                        })
+    new(call).broadcast(TOOL_EVENT, { event: payload.compact })
   end
 
   def self.safe_call_status_changed(call)

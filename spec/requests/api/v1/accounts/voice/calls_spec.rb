@@ -56,7 +56,15 @@ RSpec.describe 'Api::V1::Accounts::Voice::Calls', type: :request do
           as: :json
 
       expect(response).to have_http_status(:ok)
+      expect(response.parsed_body).to include(
+        'voice_agent_id' => voice_agent.id,
+        'voice_agent_name' => voice_agent.name
+      )
       expect(response.parsed_body).not_to have_key('tool_events')
+      expect(response.parsed_body['tool_event_summaries'].first).to include(
+        'tool' => 'request_human_handoff',
+        'status' => 'executed'
+      )
       expect(response.body).not_to include('private handoff reason', 'private note')
     end
 
