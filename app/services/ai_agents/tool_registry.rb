@@ -56,7 +56,7 @@ class AiAgents::ToolRegistry
     'organic products, product links, related product selection, or follow-up references to a',
     'previously discussed product option such as a color, size, model, or "that one".',
     'The query must be self-contained: include the relevant product/category/type words yourself',
-    'and omit unrelated filler words from the customer message.'
+    'and omit unrelated filler, shopping, or sorting words from the customer message.'
   ].join(' ').freeze
 
   IKAS_CATALOG_SEARCH_INPUT_SCHEMA = {
@@ -69,7 +69,9 @@ class AiAgents::ToolRegistry
           'For follow-ups, include the previous product/category context and requested option yourself,',
           'for example "70x80 akordiyon sineklik" or "beyaz plise perde", not only "70x80" or "beyaz".',
           'Do not include unrelated conversational filler words such as "kral", "abi", "ya", "şey", "yani", or "işte".',
-          'Do not include action words such as "link" unless they are part of a real product name.'
+          'Do not include action, shopping, or sorting words such as "link", "en ucuz", "ucuz", "uygun", or "fiyat",',
+          'unless they are part of a real product name. If a detailed query has no match, retry at most once with a simpler',
+          'main product/category query that keeps hard constraints such as dimensions, color, size, or weight.'
         ].join(' ')
       },
       limit: { type: 'integer', minimum: 1, maximum: 20, default: 8 }
