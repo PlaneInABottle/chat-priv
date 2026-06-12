@@ -22,7 +22,7 @@ RSpec.describe AiAgents::Tools::IkasCatalogSearchService do
     )
   end
 
-  it 'passes recent customer context separately for short follow-up searches' do
+  it 'does not pass previous customer messages as implicit catalog context' do
     conversation = create(:conversation, account: account)
     create(:message, account: account, conversation: conversation, content: 'sineklik var mi', created_at: 3.minutes.ago)
     create(:message, account: account, conversation: conversation, content: 'akordiyon sineklikler', created_at: 2.minutes.ago)
@@ -30,7 +30,7 @@ RSpec.describe AiAgents::Tools::IkasCatalogSearchService do
       :message,
       account: account,
       conversation: conversation,
-      content: '70x100 olsun link ve fiyat verir misin',
+      content: '70x100',
       created_at: 1.minute.ago
     )
     search_service = instance_double(Integrations::Ikas::CatalogSearchService)
@@ -49,7 +49,7 @@ RSpec.describe AiAgents::Tools::IkasCatalogSearchService do
     expect(Integrations::Ikas::CatalogSearchService).to have_received(:new).with(
       account: account,
       query_text: '70x100',
-      context_query_text: ['sineklik var mi', 'akordiyon sineklikler'],
+      context_query_text: nil,
       limit: 8
     )
   end

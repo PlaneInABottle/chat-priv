@@ -222,7 +222,7 @@ module IkasCatalogMvp
 
       def render
         lines = []
-        lines << "# Ikas Catalog Evaluation"
+        lines << '# Ikas Catalog Evaluation'
         lines << ''
         lines << "Status: **#{report.fetch('status').upcase}**"
         lines << "Cases: #{summary.fetch('passed')}/#{summary.fetch('total')} passed, #{summary.fetch('failed')} failed"

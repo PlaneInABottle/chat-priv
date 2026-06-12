@@ -4,8 +4,11 @@ class AiAgents::ToolPromptPolicy
   IKAS_CATALOG_RULES = <<~PROMPT
     Catalog tool rules:
     - Use `ikas_catalog_search` before answering questions about products, availability, dimensions, compatible sizes, colors, sizes, variants, categories, price, weight, volume, organic products, product links, or follow-up references to a previous product option.
-    - For follow-up product questions, include the relevant product/category words from the conversation in the tool query. A standalone measurement should be searched with the previously discussed category plus that measurement.
-    - For follow-up link, color, size, or model requests, call `ikas_catalog_search` again using the previous product/category context plus the requested option.
+    - Tool queries must be self-contained. For follow-up product questions, include the relevant product/category words from the conversation in the tool query yourself.
+    - A standalone measurement should be searched with the previously discussed category plus that measurement, for example "70x80 akordiyon sineklik".
+    - Remove conversational filler before calling the catalog tool, for example "kral", "abi", "ya", "şey", "yani", "işte", greetings, and politeness phrases, unless the word is clearly part of the product or brand name.
+    - For follow-up link requests, call `ikas_catalog_search` again using the previous product/category context, but do not add "link" as a catalog term unless it is part of a real product name.
+    - For follow-up color, size, or model requests, call `ikas_catalog_search` again using the previous product/category context plus the requested option.
     - Answer only from the catalog tool result. Do not invent products, prices, sizes, colors, stock, dimensions, or compatibility.
     - If the result_type is `clarify_category`, ask a focused question using the returned buckets.
     - If the result_type is `needs_scope`, ask which product or category the customer means. Do not suggest example products or categories unless they were returned by the tool.
