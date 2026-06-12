@@ -5,6 +5,7 @@ require 'sqlite3'
 module IkasCatalogMvp
   class QueryEngine
     DEFAULT_LIMIT = 8
+    CHILD_BUCKET_LIMIT = 5
 
     def initialize(sqlite_path:)
       @sqlite_path = sqlite_path
@@ -170,7 +171,7 @@ module IkasCatalogMvp
       match_kind = 'exact'
 
       constraints.each do |constraint|
-        match = match_constraint(db, row.fetch('item_id'), constraint)
+        match = match_constraint(db, row, constraint)
         return nil unless match
 
         evidence.concat(match.fetch('evidence'))
@@ -207,7 +208,8 @@ module IkasCatalogMvp
       }.compact
     end
 
-    def match_constraint(db, item_id, constraint)
+    def match_constraint(db, row, constraint)
+      item_id = row.fetch('item_id')
       case constraint.fetch('type')
       when 'dimension_pair' then dimension_match(db, item_id, constraint)
       when 'custom_size_requested' then fact_match(db, item_id, 'custom_size_supported')
@@ -215,7 +217,7 @@ module IkasCatalogMvp
       when 'price' then price_match(db, item_id, constraint)
       when 'weight', 'volume' then numeric_match(db, item_id, constraint)
       when 'organic' then fact_match(db, item_id, 'organic', numeric: 1)
-      when 'size', 'color', 'facet' then value_match(db, item_id, constraint)
+      when 'size', 'color', 'facet' then value_match(db, row, constraint)
       else
         nil
       end
@@ -257,12 +259,40 @@ module IkasCatalogMvp
       match('exact', fact) if fact
     end
 
-    def value_match(db, item_id, constraint)
+    def value_match(db, row, constraint)
       folded = Text.fold(constraint.fetch('value'))
-      fact = facts_for(db, item_id).find do |row|
-        row.fetch('type') == constraint.fetch('type') && row['value_folded'].to_s == folded
+      typed_facts = facts_for(db, row.fetch('item_id')).select { |fact| fact.fetch('type') == constraint.fetch('type') }
+      fact = typed_facts.find do |typed_fact|
+        typed_fact['value_folded'].to_s == folded
       end
-      match('exact', fact) if fact
+      return match('exact', fact) if fact
+
+      title_color_match(row, constraint, folded) if constraint.fetch('type') == 'color' && typed_facts.empty?
+    end
+
+    def title_color_match(row, constraint, folded)
+      return nil unless title_contains_value?(row.fetch('display_name'), folded)
+
+      match(
+        'exact',
+        {
+          'source' => 'display_name',
+          'type' => 'color',
+          'key' => constraint['key'],
+          'value_text' => constraint.fetch('value'),
+          'value_folded' => folded,
+          'confidence' => 'medium',
+          'raw' => row.fetch('display_name')
+        }
+      )
+    end
+
+    def title_contains_value?(title, folded_value)
+      title_tokens = Text.tokens(title)
+      return true if title_tokens.include?(folded_value)
+
+      folded_title = " #{Text.fold(title)} "
+      folded_title.include?(" #{folded_value} ")
     end
 
     def fact_match(db, item_id, type, numeric: nil)
@@ -520,8 +550,36 @@ module IkasCatalogMvp
         count = group_count_for_categories(db, ids)
         next unless count.positive?
 
+        bucket = {
+          'category_id' => row.fetch('id'),
+          'label' => row.fetch('name'),
+          'group_count' => count,
+          'children' => child_type_buckets(db, row.fetch('id'))
+        }
+        hidden_count = hidden_children_count(db, row.fetch('id'), bucket.fetch('children').length)
+        bucket['hidden_children_count'] = hidden_count if hidden_count.positive?
+        bucket
+      end.sort_by { |row| [-row.fetch('group_count'), row.fetch('label')] }
+    end
+
+    def child_type_buckets(db, category_id)
+      children = db.execute('SELECT id, name FROM raw_categories WHERE parent_id = ? ORDER BY name ASC', [category_id])
+      children.filter_map do |row|
+        ids = category_subtree_ids(db, row.fetch('id'))
+        count = group_count_for_categories(db, ids)
+        next unless count.positive?
+
         { 'category_id' => row.fetch('id'), 'label' => row.fetch('name'), 'group_count' => count }
       end.sort_by { |row| [-row.fetch('group_count'), row.fetch('label')] }
+         .first(CHILD_BUCKET_LIMIT)
+    end
+
+    def hidden_children_count(db, category_id, visible_count)
+      total = db.execute('SELECT id FROM raw_categories WHERE parent_id = ?', [category_id]).count do |row|
+        group_count_for_categories(db, category_subtree_ids(db, row.fetch('id'))).positive?
+      end
+      hidden_count = total - visible_count
+      [hidden_count, 0].max
     end
 
     def category_subtree_ids(db, category_id)
