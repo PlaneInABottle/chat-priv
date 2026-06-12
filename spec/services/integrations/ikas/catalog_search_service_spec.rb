@@ -173,6 +173,27 @@ RSpec.describe Integrations::Ikas::CatalogSearchService do
     end
   end
 
+  it 'repairs older completed snapshots that are missing the FTS index' do
+    build_catalog do |sqlite_path|
+      IkasCatalogSnapshot.where(account: account).delete_all
+      snapshot = create_snapshot(sqlite_path, completed_at: 1.day.from_now)
+      db = SQLite3::Database.new(sqlite_path)
+      db.execute('DROP TABLE catalog_items_fts')
+      db.close
+
+      service = described_class.new(account: account, query_text: '70x90 sineklik', limit: 8)
+      service.send(:repair_fts_index!, snapshot)
+      db = SQLite3::Database.new(snapshot.sqlite_path)
+      expect(db.get_first_value('SELECT COUNT(*) FROM catalog_items_fts').to_i).to be_positive
+      db.close
+
+      result = service.call
+
+      expect(result[:status]).to eq('ok')
+      expect(result[:candidates].first[:product_id]).to eq('p-sineklik')
+    end
+  end
+
   it 'applies context query text to dimension-only follow-up searches' do
     build_catalog do |sqlite_path|
       create_snapshot(sqlite_path)

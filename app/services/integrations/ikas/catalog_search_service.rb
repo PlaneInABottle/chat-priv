@@ -18,6 +18,11 @@ class Integrations::Ikas::CatalogSearchService
     return error if error
 
     search_result(latest_snapshot).deep_symbolize_keys
+  rescue IkasCatalogMvp::Error => e
+    return retry_after_fts_repair if fts_missing_error?(e)
+
+    Rails.logger.error("[Integrations::Ikas::CatalogSearchService] #{e.class}: #{e.message}")
+    error_payload('catalog_query_failed', 'Ikas catalog search failed.')
   rescue StandardError => e
     Rails.logger.error("[Integrations::Ikas::CatalogSearchService] #{e.class}: #{e.message}")
     error_payload('catalog_query_failed', 'Ikas catalog search failed.')
@@ -71,6 +76,47 @@ class Integrations::Ikas::CatalogSearchService
 
   def query_engine(snapshot)
     Integrations::Ikas::Catalog::QueryEngine.new(sqlite_path: snapshot.sqlite_path)
+  end
+
+  def retry_after_fts_repair
+    raise 'Ikas catalog FTS repair failed' if @fts_repair_attempted
+
+    @fts_repair_attempted = true
+    repair_fts_index!(latest_snapshot)
+    search_result(latest_snapshot).deep_symbolize_keys
+  rescue StandardError => e
+    Rails.logger.error("[Integrations::Ikas::CatalogSearchService] #{e.class}: #{e.message}")
+    error_payload('catalog_query_failed', 'Ikas catalog search failed.')
+  end
+
+  def fts_missing_error?(error)
+    error.message.to_s.include?('Ikas catalog FTS index is missing')
+  end
+
+  def repair_fts_index!(snapshot)
+    db = SQLite3::Database.new(snapshot.sqlite_path)
+    db.results_as_hash = true
+    db.execute_batch(<<~SQL)
+      DROP TABLE IF EXISTS catalog_items_fts;
+      CREATE VIRTUAL TABLE catalog_items_fts USING fts5(
+        item_id UNINDEXED,
+        display_name,
+        search_text,
+        tokenize = 'unicode61'
+      );
+    SQL
+    db.transaction
+    db.execute('SELECT item_id, display_name, search_text_folded FROM catalog_items') do |row|
+      db.execute(
+        'INSERT INTO catalog_items_fts (item_id, display_name, search_text) VALUES (?, ?, ?)',
+        [row.fetch('item_id'), Integrations::Ikas::Catalog::Text.fold(row.fetch('display_name')), row.fetch('search_text_folded')]
+      )
+    end
+    db.commit
+    snapshot.update!(metadata: (snapshot.metadata || {}).merge('fts_repaired_at' => Time.current.iso8601))
+  ensure
+    db&.rollback if db&.transaction_active?
+    db&.close
   end
 
   def clamped_limit

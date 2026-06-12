@@ -68,7 +68,8 @@ class AiAgents::ToolRegistry
           'For follow-ups, include previous product/category context yourself, for example',
           '"70x80 akordiyon sineklik" or "beyaz plise perde", not only "70x80" or "beyaz".',
           'Drop filler/action words such as "kral", "abi", "şey", "link", "fiyat", and "en ucuz"',
-          'unless they are part of a real product name.'
+          'unless they are part of a real product name.',
+          'Drop purchase quantities such as "2 tane" unless they are part of a product pack, product name, or dimensions.'
         ].join(' ')
       },
       limit: { type: 'integer', minimum: 1, maximum: 20, default: 8 }
