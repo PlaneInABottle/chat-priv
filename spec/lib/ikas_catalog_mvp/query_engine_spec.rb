@@ -39,7 +39,10 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
       { 'id' => 'shirts', 'name' => 'Shirts', 'parentId' => nil },
       { 'id' => 'honey', 'name' => 'Honey', 'parentId' => nil },
       { 'id' => 'curtains', 'name' => 'Perdeler', 'parentId' => nil },
-      { 'id' => 'blackout', 'name' => 'Blackout', 'parentId' => 'curtains' },
+      { 'id' => 'plise-curtains', 'name' => 'Plise Perdeler', 'parentId' => 'curtains' },
+      { 'id' => 'blackout', 'name' => 'Blackout Plise Perdeler', 'parentId' => 'plise-curtains' },
+      { 'id' => 'dimout', 'name' => 'Dimout Plise Perdeler', 'parentId' => 'plise-curtains' },
+      { 'id' => 'separator-curtains', 'name' => 'Seperatör Kapılar', 'parentId' => 'curtains' },
       { 'id' => 'balcony', 'name' => 'Balkon Ürünleri', 'parentId' => nil },
       { 'id' => 'panel-root', 'name' => 'Panel Ürünleri', 'parentId' => nil },
       { 'id' => 'panel-cases', 'name' => 'Panel Kasaları', 'parentId' => 'panel-root' },
@@ -60,7 +63,7 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
         'id' => 'color-type',
         'name' => 'Color',
         'selectionType' => 'color',
-        'values' => [{ 'id' => 'black', 'name' => 'Black' }, { 'id' => 'white', 'name' => 'White' }]
+        'values' => [{ 'id' => 'black', 'name' => 'Black' }, { 'id' => 'white', 'name' => 'White' }, { 'id' => 'beyaz', 'name' => 'Beyaz' }]
       }
     ]
   end
@@ -113,8 +116,12 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
       sineklik_product,
       kedi_sineklik_product,
       shirt_product,
+      white_shirt_product,
       honey_product,
       blackout_curtain_product,
+      dimout_curtain_product,
+      separator_curtain_product,
+      title_color_curtain_product,
       option_set_sineklik_product,
       kedi_pencere_sineklik_product,
       panel_window_case_product,
@@ -181,6 +188,25 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
     }
   end
 
+  def white_shirt_product
+    {
+      'id' => 'p-white-shirt',
+      'name' => 'White Cotton Shirt',
+      'categoryIds' => ['shirts'],
+      'attributes' => [],
+      'variants' => [
+        variant(
+          'v-white-shirt',
+          price: 45.0,
+          stocks: 5,
+          variant_values: [
+            { 'variantTypeId' => 'color-type', 'variantValueId' => 'beyaz' }
+          ]
+        )
+      ]
+    }
+  end
+
   def honey_product
     {
       'id' => 'p-honey',
@@ -201,6 +227,42 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
       'attributes' => [],
       'variants' => [
         variant('v-blackout', price: 900.0, stocks: 4)
+      ]
+    }
+  end
+
+  def dimout_curtain_product
+    {
+      'id' => 'p-dimout',
+      'name' => 'Dimout Katlanır Perde',
+      'categoryIds' => ['dimout'],
+      'attributes' => [],
+      'variants' => [
+        variant('v-dimout', price: 650.0, stocks: 4)
+      ]
+    }
+  end
+
+  def separator_curtain_product
+    {
+      'id' => 'p-separator',
+      'name' => 'Seperatör Kapı Perdesi',
+      'categoryIds' => ['separator-curtains'],
+      'attributes' => [],
+      'variants' => [
+        variant('v-separator', price: 1200.0, stocks: 4)
+      ]
+    }
+  end
+
+  def title_color_curtain_product
+    {
+      'id' => 'p-title-color-curtain',
+      'name' => 'Orjin Pliseli Perde Beyaz',
+      'categoryIds' => ['curtains'],
+      'attributes' => [],
+      'variants' => [
+        variant('v-title-color-curtain', price: 750.0, stocks: 5)
       ]
     }
   end
@@ -318,6 +380,18 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
     end
   end
 
+  it 'includes one level of nested category buckets for broad clarification responses' do
+    with_snapshot do |sqlite_path|
+      payload = described_class.new(sqlite_path: sqlite_path).query('perde')
+      plise_bucket = payload.fetch('buckets').find { |bucket| bucket.fetch('label') == 'Plise Perdeler' }
+
+      expect(payload.fetch('result_type')).to eq('clarify_category')
+      expect(payload.fetch('matched_scope').fetch('id')).to eq('curtains')
+      expect(payload.fetch('buckets').map { |bucket| bucket.fetch('label') }).to include('Plise Perdeler', 'Seperatör Kapılar')
+      expect(plise_bucket.fetch('children').map { |bucket| bucket.fetch('label') }).to include('Blackout Plise Perdeler', 'Dimout Plise Perdeler')
+    end
+  end
+
   it 'prefers the deeper noun category instead of a broad parent when short fuzzy matches would overreach' do
     with_snapshot do |sqlite_path|
       payload = described_class.new(sqlite_path: sqlite_path).query('panel kasası')
@@ -414,6 +488,17 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
       expect(payload.fetch('result_type')).to eq('show_candidates')
       expect(payload.fetch('matched_scope').fetch('id')).to eq('blackout')
       expect(payload.fetch('candidates').first.fetch('product_id')).to eq('p-blackout')
+    end
+  end
+
+  it 'matches color constraints from the product title when Ikas has no structured color facet' do
+    with_snapshot do |sqlite_path|
+      payload = described_class.new(sqlite_path: sqlite_path).query('beyaz perde')
+      candidate = payload.fetch('candidates').find { |row| row.fetch('product_id') == 'p-title-color-curtain' }
+
+      expect(payload.fetch('result_type')).to eq('show_candidates')
+      expect(candidate.fetch('match_reasons')).to include('matched color')
+      expect(candidate.fetch('evidence').first.fetch('source')).to eq('display_name')
     end
   end
 
