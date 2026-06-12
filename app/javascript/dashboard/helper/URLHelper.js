@@ -112,6 +112,13 @@ export const hasValidAvatarUrl = avatarUrl => {
 
 export const timeStampAppendedURL = dataUrl => {
   const url = new URL(dataUrl);
+  if (
+    url.searchParams.has('X-Amz-Signature') ||
+    url.searchParams.has('X-Amz-Credential')
+  ) {
+    return dataUrl;
+  }
+
   if (!url.searchParams.has('t')) {
     url.searchParams.append('t', Date.now());
   }

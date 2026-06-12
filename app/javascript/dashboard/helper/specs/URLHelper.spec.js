@@ -232,6 +232,12 @@ describe('#URL Helpers', () => {
       expect(timeStampAppendedURL(input)).toBe(input);
     });
 
+    it('should not append timestamp to a signed S3-compatible URL', () => {
+      const input =
+        'https://bucket.example.com/audio.ogg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=credential&X-Amz-Signature=signature';
+      expect(timeStampAppendedURL(input)).toBe(input);
+    });
+
     it('should handle URLs with hash fragments', () => {
       const input = 'https://example.com/audio.mp3#section1';
       const expected = `https://example.com/audio.mp3?t=${FIXED_TIMESTAMP}#section1`;

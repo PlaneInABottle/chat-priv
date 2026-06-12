@@ -106,8 +106,8 @@ class Call < ApplicationRecord
   end
 
   def recording_url
-    if livekit? && respond_to?(:voice_recordings)
-      latest_recording = voice_recordings.completed.latest_first.first
+    if livekit?
+      latest_recording = VoiceRecording.where(call_id: id).completed.latest_first.first
       return Voice::Recordings::StorageConfig.new.signed_url(latest_recording) if latest_recording
     end
 

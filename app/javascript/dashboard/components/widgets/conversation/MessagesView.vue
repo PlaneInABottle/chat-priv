@@ -438,6 +438,13 @@ export default {
       const payload = useSnakeCase(message);
       await this.$store.dispatch('sendMessageWithData', payload);
     },
+    onVoiceTranscriptUpdated() {
+      this.$nextTick(() => {
+        if (!this.hasUserScrolled) {
+          this.scrollToBottom();
+        }
+      });
+    },
     toggleReplyEditorSize() {
       this.resizableEditorWrapperRef?.toggleEditorExpand?.();
     },
@@ -478,6 +485,7 @@ export default {
       :inbox-supports-reply-to="inboxSupportsReplyTo"
       :messages="getMessages"
       @retry="handleMessageRetry"
+      @voice-transcript-updated="onVoiceTranscriptUpdated"
     >
       <template #beforeAll>
         <transition name="slide-up">

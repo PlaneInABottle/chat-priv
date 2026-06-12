@@ -1,6 +1,7 @@
 <script setup>
 import {
   computed,
+  nextTick,
   onMounted,
   useTemplateRef,
   ref,
@@ -12,7 +13,7 @@ import { downloadFile } from '@chatwoot/utils';
 import { useEmitter } from 'dashboard/composables/emitter';
 import { emitter } from 'shared/helpers/mitt';
 
-const { attachment } = defineProps({
+const props = defineProps({
   attachment: {
     type: Object,
     required: true,
@@ -21,6 +22,10 @@ const { attachment } = defineProps({
     type: Boolean,
     default: true,
   },
+  onBeforePlay: {
+    type: Function,
+    default: null,
+  },
 });
 
 defineOptions({
@@ -28,19 +33,23 @@ defineOptions({
 });
 
 const timeStampURL = computed(() => {
-  return timeStampAppendedURL(attachment.dataUrl);
+  return timeStampAppendedURL(props.attachment.dataUrl);
 });
 
 const TRANSCRIPT_PREVIEW_LENGTH = 200;
 const isTranscriptExpanded = ref(false);
 const isTranscriptLong = computed(
-  () => (attachment.transcribedText?.length || 0) > TRANSCRIPT_PREVIEW_LENGTH
+  () =>
+    (props.attachment.transcribedText?.length || 0) > TRANSCRIPT_PREVIEW_LENGTH
 );
 const displayedTranscript = computed(() => {
-  const text = attachment.transcribedText || '';
+  const text = props.attachment.transcribedText || '';
   if (!isTranscriptLong.value || isTranscriptExpanded.value) return text;
   return `${text.slice(0, TRANSCRIPT_PREVIEW_LENGTH).trimEnd()}…`;
 });
+const hasTranscribedText = computed(() =>
+  Boolean(props.attachment.transcribedText)
+);
 
 const audioPlayer = useTemplateRef('audioPlayer');
 
@@ -128,15 +137,24 @@ const seek = event => {
   currentTime.value = time;
 };
 
-const playOrPause = () => {
+const playOrPause = async () => {
   if (isPlaying.value) {
     audioPlayer.value.pause();
     isPlaying.value = false;
   } else {
+    if (props.onBeforePlay) {
+      await props.onBeforePlay();
+      await nextTick();
+      audioPlayer.value?.load();
+    }
     // Emit event to pause all other audio
     emitter.emit('pause_playing_audio', uid);
-    audioPlayer.value.play();
-    isPlaying.value = true;
+    try {
+      await audioPlayer.value.play();
+      isPlaying.value = true;
+    } catch {
+      isPlaying.value = false;
+    }
   }
 };
 
@@ -156,7 +174,7 @@ const changePlaybackSpeed = () => {
 };
 
 const downloadAudio = async () => {
-  const { fileType, dataUrl, extension } = attachment;
+  const { fileType, dataUrl, extension } = props.attachment;
   downloadFile({ url: dataUrl, type: fileType, extension });
 };
 </script>
@@ -187,7 +205,7 @@ const downloadAudio = async () => {
         <Icon v-else class="size-8" icon="i-teenyicons-play-small-solid" />
       </button>
       <div class="tabular-nums text-xs">
-        {{ formatTime(currentTime) }} / {{ formatTime(duration) }}
+        {{ `${formatTime(currentTime)} / ${formatTime(duration)}` }}
       </div>
       <div class="flex-1 items-center flex px-2">
         <input
@@ -223,7 +241,7 @@ const downloadAudio = async () => {
     </div>
 
     <div
-      v-if="attachment.transcribedText && showTranscribedText"
+      v-if="hasTranscribedText && props.showTranscribedText"
       class="text-n-slate-12 p-3 text-sm bg-n-alpha-1 rounded-lg w-full break-words"
     >
       {{ displayedTranscript }}
