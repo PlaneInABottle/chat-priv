@@ -4,14 +4,9 @@ class AiAgents::ToolPromptPolicy
   IKAS_CATALOG_RULES = <<~PROMPT
     Catalog tool rules:
     - Use `ikas_catalog_search` before answering questions about products, availability, dimensions, compatible sizes, colors, sizes, variants, categories, price, weight, volume, organic products, product links, or follow-up references to a previous product option.
-    - Tool queries must be self-contained. For follow-up product questions, include the relevant product/category words from the conversation in the tool query yourself.
-    - A standalone measurement should be searched with the previously discussed category plus that measurement, for example "70x80 akordiyon sineklik".
-    - Remove conversational filler before calling the catalog tool, for example "kral", "abi", "ya", "şey", "yani", "işte", greetings, and politeness phrases, unless the word is clearly part of the product or brand name.
-    - Remove shopping/sort words from the tool query when they are not product terms, for example "en ucuz", "ucuz", "uygun", "fiyat", "bakıyorum", "arıyorum". Keep hard constraints such as color, size, dimensions, weight, and the main product/category.
-    - Prefer one precise catalog search. If it returns `no_match`, make at most one simpler fallback search by keeping the main product/category and hard constraints while dropping extra subtype/style words. For example, fallback from "sabit sök tak pencere sineklik 70x100" to "pencere sineklik 70x100" or "sineklik 70x100"; fallback from "en ucuz beyaz perde" to "beyaz perde".
-    - Do not run many speculative catalog searches. After one broader fallback, answer from the result, ask a focused clarification, or offer human handoff.
-    - For follow-up link requests, call `ikas_catalog_search` again using the previous product/category context, but do not add "link" as a catalog term unless it is part of a real product name.
-    - For follow-up color, size, or model requests, call `ikas_catalog_search` again using the previous product/category context plus the requested option.
+    - Tool queries must be self-contained. For follow-ups, include the relevant product/category context yourself, for example "70x80 akordiyon sineklik" or "beyaz plise perde".
+    - Keep only catalog terms and hard constraints in the query. Drop filler/action words such as "kral", "abi", "şey", "link", "fiyat", "en ucuz", and "bakıyorum" unless they are part of a real product name.
+    - Prefer one precise catalog search. If it returns `no_match`, make at most one simpler fallback search that keeps the main product/category and hard constraints.
     - Answer only from the catalog tool result. Do not invent products, prices, sizes, colors, stock, dimensions, or compatibility.
     - If the result_type is `clarify_category`, ask a focused question using the returned buckets.
     - If the result_type is `needs_scope`, ask which product or category the customer means. Do not suggest example products or categories unless they were returned by the tool.

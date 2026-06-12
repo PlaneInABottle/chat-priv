@@ -53,10 +53,9 @@ class AiAgents::ToolRegistry
   IKAS_CATALOG_SEARCH_DESCRIPTION = [
     'Search the connected ikas catalog before answering customer questions about product availability,',
     'dimensions, compatible sizes, colors, sizes, variants, categories, price, weight, volume,',
-    'organic products, product links, related product selection, or follow-up references to a',
-    'previously discussed product option such as a color, size, model, or "that one".',
-    'The query must be self-contained: include the relevant product/category/type words yourself',
-    'and omit unrelated filler, shopping, or sorting words from the customer message.'
+    'organic products, product links, related product selection, or follow-up references.',
+    'Use a self-contained catalog query with product/category context and hard constraints,',
+    'not filler or action words from the customer message.'
   ].join(' ').freeze
 
   IKAS_CATALOG_SEARCH_INPUT_SCHEMA = {
@@ -66,12 +65,10 @@ class AiAgents::ToolRegistry
         type: 'string',
         description: [
           'A complete catalog search phrase for the connected seller catalog.',
-          'For follow-ups, include the previous product/category context and requested option yourself,',
-          'for example "70x80 akordiyon sineklik" or "beyaz plise perde", not only "70x80" or "beyaz".',
-          'Do not include unrelated conversational filler words such as "kral", "abi", "ya", "şey", "yani", or "işte".',
-          'Do not include action, shopping, or sorting words such as "link", "en ucuz", "ucuz", "uygun", or "fiyat",',
-          'unless they are part of a real product name. If a detailed query has no match, retry at most once with a simpler',
-          'main product/category query that keeps hard constraints such as dimensions, color, size, or weight.'
+          'For follow-ups, include previous product/category context yourself, for example',
+          '"70x80 akordiyon sineklik" or "beyaz plise perde", not only "70x80" or "beyaz".',
+          'Drop filler/action words such as "kral", "abi", "şey", "link", "fiyat", and "en ucuz"',
+          'unless they are part of a real product name.'
         ].join(' ')
       },
       limit: { type: 'integer', minimum: 1, maximum: 20, default: 8 }
