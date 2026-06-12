@@ -29,6 +29,7 @@ def first_existing(items: list[Any], name: str) -> Any | None:
 
 async def main() -> None:
     phone_number = required_env("VOICE_SIP_PHONE_NUMBER")
+    account_id = required_env("VOICE_SIP_ACCOUNT_ID")
     voice_number_id = required_env("VOICE_SIP_VOICE_NUMBER_ID")
     agent_name = os.getenv("VOICE_AGENT_NAME", "kozmopath-voice-agent")
     auth_username = os.getenv("LIVEKIT_SIP_AUTH_USERNAME", "chatwoot-local")
@@ -53,6 +54,7 @@ async def main() -> None:
             room_prefix=room_prefix,
             agent_name=agent_name,
             metadata={
+                "account_id": int(account_id),
                 "voice_number_id": int(voice_number_id),
                 "phone_number": phone_number,
                 "to_number": phone_number,
@@ -64,6 +66,7 @@ async def main() -> None:
 
     result = {
         "phone_number": phone_number,
+        "account_id": int(account_id),
         "voice_number_id": int(voice_number_id),
         "livekit_inbound_trunk_id": trunk.sip_trunk_id,
         "livekit_dispatch_rule_id": dispatch.sip_dispatch_rule_id,
@@ -115,8 +118,35 @@ async def find_or_create_dispatch(
     existing = await livekit_api.sip.list_dispatch_rule(api.ListSIPDispatchRuleRequest())
     dispatch = first_existing(list(existing.items), name)
     if dispatch:
-        return dispatch
+        return await update_dispatch(
+            livekit_api=livekit_api,
+            dispatch_id=dispatch.sip_dispatch_rule_id,
+            name=name,
+            trunk_id=trunk_id,
+            room_prefix=room_prefix,
+            agent_name=agent_name,
+            metadata=metadata,
+        )
 
+    return await create_dispatch(
+        livekit_api=livekit_api,
+        name=name,
+        trunk_id=trunk_id,
+        room_prefix=room_prefix,
+        agent_name=agent_name,
+        metadata=metadata,
+    )
+
+
+async def create_dispatch(
+    *,
+    livekit_api: api.LiveKitAPI,
+    name: str,
+    trunk_id: str,
+    room_prefix: str,
+    agent_name: str,
+    metadata: dict[str, Any],
+) -> Any:
     rule = api.SIPDispatchRule(
         dispatch_rule_individual=api.SIPDispatchRuleIndividual(room_prefix=room_prefix)
     )
@@ -136,6 +166,35 @@ async def find_or_create_dispatch(
         )
     )
     return await livekit_api.sip.create_dispatch_rule(request)
+
+
+async def update_dispatch(
+    *,
+    livekit_api: api.LiveKitAPI,
+    dispatch_id: str,
+    name: str,
+    trunk_id: str,
+    room_prefix: str,
+    agent_name: str,
+    metadata: dict[str, Any],
+) -> Any:
+    rule = api.SIPDispatchRule(
+        dispatch_rule_individual=api.SIPDispatchRuleIndividual(room_prefix=room_prefix)
+    )
+    replacement = api.SIPDispatchRuleInfo(
+        name=name,
+        rule=rule,
+        trunk_ids=[trunk_id],
+        room_config=api.RoomConfiguration(
+            agents=[
+                api.RoomAgentDispatch(
+                    agent_name=agent_name,
+                    metadata=json.dumps(metadata),
+                )
+            ]
+        ),
+    )
+    return await livekit_api.sip.update_dispatch_rule(dispatch_id, replacement)
 
 
 if __name__ == "__main__":
