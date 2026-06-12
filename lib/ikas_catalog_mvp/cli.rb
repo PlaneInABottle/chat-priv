@@ -85,7 +85,9 @@ module IkasCatalogMvp
 
       require_option!(options, :sqlite_path)
       require_option!(options, :text)
-      puts JSON.pretty_generate(QueryEngine.new(sqlite_path: options.fetch(:sqlite_path)).query(options.fetch(:text), limit: options.fetch(:limit)))
+      puts JSON.pretty_generate(
+        QueryEngine.new(sqlite_path: options.fetch(:sqlite_path)).query(options.fetch(:text), limit: options.fetch(:limit))
+      )
       0
     end
 

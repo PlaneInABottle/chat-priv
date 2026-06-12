@@ -544,6 +544,7 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
       expect(payload.fetch('result_type')).to eq('show_candidates')
       expect(payload.fetch('matched_scope').fetch('id')).to eq('blackout')
       expect(payload.fetch('candidates').first.fetch('product_id')).to eq('p-blackout')
+      expect(payload.fetch('candidates').first.fetch('category_paths')).to include('Perdeler > Plise Perdeler > Blackout Plise Perdeler')
     end
   end
 
@@ -675,6 +676,68 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
       expect(engine.query('akordeon sineklik 70x80').fetch('matched_scope').fetch('id')).to eq('sineklik-akordiyon')
       expect(engine.query('sineklk').fetch('matched_scope').fetch('id')).to eq('sineklik-root')
       expect(engine.query('bal').fetch('matched_scope')).to be_nil
+    end
+  end
+
+  it 'builds a full-text search index for catalog items' do
+    with_snapshot do |sqlite_path|
+      db = SQLite3::Database.new(sqlite_path)
+      count = db.get_first_value('SELECT COUNT(*) FROM catalog_items_fts').to_i
+
+      expect(count).to be_positive
+    ensure
+      db&.close
+    end
+  end
+
+  it 'retrieves text candidates through FTS5 while keeping structured ranking' do
+    with_snapshot do |sqlite_path|
+      payload = described_class.new(sqlite_path: sqlite_path).query('cotton shirt')
+      candidate = payload.fetch('candidates').first
+      fts_signal = candidate.fetch('relevance_signals').find { |signal| signal.fetch('kind') == 'fts_bm25_match' }
+
+      expect(payload.fetch('search_backend')).to eq('fts5')
+      expect(candidate.fetch('product_id')).to eq('p-shirt')
+      expect(fts_signal.fetch('raw_score')).to be_positive
+      expect(fts_signal.fetch('score')).to be_between(1, 20)
+      expect(candidate.fetch('relevance_signals').map { |signal| signal.fetch('kind') }).not_to include('title_term_match', 'search_text_term_match')
+    end
+  end
+
+  it 'keeps realistic product searches working through FTS5' do
+    with_snapshot do |sqlite_path|
+      engine = described_class.new(sqlite_path: sqlite_path)
+
+      expect(engine.query('blackout perde').fetch('candidates').first.fetch('product_id')).to eq('p-blackout')
+      expect(engine.query('akordeon sineklik 70x80').fetch('candidates').map { |row| row.fetch('product_id') }).to include('p-sineklik-akordiyon')
+      expect(engine.query('en ucuz beyaz perde').fetch('candidates').map { |row| row.fetch('product_id') }).to include(
+        'p-structured-color-curtain',
+        'p-title-color-curtain'
+      )
+    end
+  end
+
+  it 'supports prefix retrieval through FTS5 for partial product words' do
+    with_snapshot do |sqlite_path|
+      payload = described_class.new(sqlite_path: sqlite_path).query('plise perd')
+      product_ids = payload.fetch('candidates').map { |row| row.fetch('product_id') }
+
+      expect(product_ids).to include('p-title-color-curtain')
+      expect(payload.fetch('candidates').first.fetch('relevance_signals').map { |signal| signal.fetch('kind') }).to include('fts_bm25_match')
+    end
+  end
+
+  it 'requires a resynced catalog when FTS5 is missing for lexical search' do
+    with_snapshot do |sqlite_path|
+      db = SQLite3::Database.new(sqlite_path)
+      db.execute('DROP TABLE catalog_items_fts')
+      db.close
+      db = nil
+
+      expect { described_class.new(sqlite_path: sqlite_path).query('cotton shirt') }
+        .to raise_error(IkasCatalogMvp::Error, 'Ikas catalog FTS index is missing. Sync the catalog again.')
+    ensure
+      db&.close
     end
   end
 end

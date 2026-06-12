@@ -13,6 +13,13 @@ module IkasCatalogMvp
       ne nedir hangi hangisi link linki url adres baglanti
     ].freeze
     ORGANIC_TOKENS = %w[organic organik natural naturel dogal].freeze
+    SHOPPING_MODIFIER_PATTERNS = [
+      /\ben\s+ucuz\b/i,
+      /\bucuzdan\s+pahaliya\b/i,
+      /\bpahalidan\s+ucuza\b/i,
+      /\bpahalıdan\s+ucuza\b/i
+    ].freeze
+    SHOPPING_MODIFIER_TOKENS = %w[ucuz uygun hesapli fiyat fiyati fiyatlari].freeze
     SIZE_ALIASES = {
       'small' => 's',
       'medium' => 'm',
@@ -40,6 +47,7 @@ module IkasCatalogMvp
       constraints.concat(extract_size!(working))
       constraints.concat(extract_organic!(working))
       constraints.concat(extract_facets!(working))
+      strip_shopping_modifiers!(working)
       unsupported.concat(detect_unknown_color!(working))
 
       {
@@ -163,13 +171,19 @@ module IkasCatalogMvp
         .map { |token| { 'type' => 'unknown_color', 'value' => token, 'reason' => 'not_found_in_catalog_facets' } }
     end
 
+    def strip_shopping_modifiers!(text)
+      SHOPPING_MODIFIER_PATTERNS.each { |pattern| text.gsub!(pattern, ' ') }
+    end
+
     def phrase_present?(text, folded_phrase)
       folded = " #{Text.fold(text)} "
       folded.include?(" #{folded_phrase} ")
     end
 
     def remaining_terms(text)
-      Text.tokens(text, min_length: 2).reject { |token| INTENT_TOKENS.include?(token) || NOISE_TOKENS.include?(token) }
+      Text.tokens(text, min_length: 2).reject do |token|
+        INTENT_TOKENS.include?(token) || NOISE_TOKENS.include?(token) || SHOPPING_MODIFIER_TOKENS.include?(token)
+      end
     end
 
     def dimension_values(raw, unit)
