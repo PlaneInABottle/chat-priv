@@ -1,0 +1,17 @@
+[general]
+static=yes
+writeprotect=no
+
+[from-softphone]
+exten => ${ASTERISK_DIAL_EXTENSION},1,NoOp(Chatwoot local SIP test to ${VOICE_SIP_PHONE_NUMBER})
+ same => n,Set(CALLERID(num)=${ASTERISK_CALLER_ID})
+ same => n,Dial(PJSIP/${VOICE_SIP_PHONE_NUMBER}@livekit,60)
+ same => n,Hangup()
+
+exten => _+X!,1,NoOp(Chatwoot local SIP direct dial ${EXTEN})
+ same => n,Set(CALLERID(num)=${ASTERISK_CALLER_ID})
+ same => n,Dial(PJSIP/${EXTEN}@livekit,60)
+ same => n,Hangup()
+
+[from-livekit]
+exten => _.,1,Hangup()
