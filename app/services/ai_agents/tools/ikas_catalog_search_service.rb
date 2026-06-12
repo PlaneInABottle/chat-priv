@@ -8,7 +8,6 @@ class AiAgents::Tools::IkasCatalogSearchService
     @account = account
     @mode = mode
     @settings = settings || {}
-    @conversation = context[:conversation]
     @trigger_message = context[:trigger_message]
   end
 
@@ -16,14 +15,14 @@ class AiAgents::Tools::IkasCatalogSearchService
     Integrations::Ikas::CatalogSearchService.new(
       account: account,
       query_text: expanded_query_text(args['query']),
-      context_query_text: recent_customer_contexts,
+      context_query_text: nil,
       limit: args['limit'].presence || Integrations::Ikas::CatalogSearchService::DEFAULT_LIMIT
     ).call
   end
 
   private
 
-  attr_reader :ai_agent, :account, :mode, :settings, :conversation, :trigger_message
+  attr_reader :ai_agent, :account, :mode, :settings, :trigger_message
 
   def expanded_query_text(query_text)
     current_text = trigger_message&.content.to_s
@@ -44,18 +43,5 @@ class AiAgents::Tools::IkasCatalogSearchService
 
   def catalog_terms_for(text)
     Integrations::Ikas::Catalog::QueryParser.terms_for(text)
-  end
-
-  def recent_customer_contexts
-    return if conversation.blank?
-
-    recent_incoming_messages.map(&:content).reverse.presence
-  end
-
-  def recent_incoming_messages
-    scope = conversation.messages.incoming.where.not(content: [nil, ''])
-    scope = scope.where.not(id: trigger_message.id) if trigger_message&.id
-    scope = scope.where('created_at <= ?', trigger_message.created_at) if trigger_message&.created_at
-    scope.reorder(created_at: :desc, id: :desc).limit(8)
   end
 end

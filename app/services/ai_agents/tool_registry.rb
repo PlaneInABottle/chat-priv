@@ -54,7 +54,9 @@ class AiAgents::ToolRegistry
     'Search the connected ikas catalog before answering customer questions about product availability,',
     'dimensions, compatible sizes, colors, sizes, variants, categories, price, weight, volume,',
     'organic products, product links, related product selection, or follow-up references to a',
-    'previously discussed product option such as a color, size, model, or "that one".'
+    'previously discussed product option such as a color, size, model, or "that one".',
+    'The query must be self-contained: include the relevant product/category/type words yourself',
+    'and omit unrelated filler words from the customer message.'
   ].join(' ').freeze
 
   IKAS_CATALOG_SEARCH_INPUT_SCHEMA = {
@@ -62,7 +64,13 @@ class AiAgents::ToolRegistry
     properties: {
       query: {
         type: 'string',
-        description: 'The customer message or product request to search in the connected seller catalog. For follow-ups, include the previous product/category context and the requested option.'
+        description: [
+          'A complete catalog search phrase for the connected seller catalog.',
+          'For follow-ups, include the previous product/category context and requested option yourself,',
+          'for example "70x80 akordiyon sineklik" or "beyaz plise perde", not only "70x80" or "beyaz".',
+          'Do not include unrelated conversational filler words such as "kral", "abi", "ya", "şey", "yani", or "işte".',
+          'Do not include action words such as "link" unless they are part of a real product name.'
+        ].join(' ')
       },
       limit: { type: 'integer', minimum: 1, maximum: 20, default: 8 }
     },
