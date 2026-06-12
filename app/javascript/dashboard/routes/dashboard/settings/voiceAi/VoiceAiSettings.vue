@@ -23,6 +23,7 @@ const TERMINAL_CALL_STATUSES = [
   'no_answer',
   'failed',
 ];
+
 const DEFAULT_AGENT = {
   name: 'Voice Assistant',
   enabled: true,
@@ -37,6 +38,7 @@ const DEFAULT_AGENT = {
     end_customer_call: {},
   },
   config: {},
+  inbox_settings: [],
 };
 
 const clone = value => JSON.parse(JSON.stringify(value));
@@ -63,22 +65,21 @@ const { t } = useI18n();
 
 const settings = ref([]);
 const voiceAgents = ref([]);
-const selectedInboxId = ref('');
+const voiceUsage = ref(null);
 const selectedVoiceAgentId = ref('');
-const selectedFallbackTeamId = ref('');
-const recordingEnabled = ref(false);
+const selectedTestInboxId = ref('');
 const callerName = ref('Test caller');
 const callerNumber = ref('+900000000000');
-const activeTab = ref('setup');
+const activeTab = ref('agents');
 const currentCall = ref(null);
 const isLoading = ref(false);
-const isSaving = ref(false);
 const isSavingAgent = ref(false);
 const isCreatingCall = ref(false);
 const isEnding = ref(false);
 const isRefreshing = ref(false);
 
 const agentForm = ref(clone(DEFAULT_AGENT));
+const assignmentForm = ref({});
 const editingVoiceAgentId = ref(null);
 
 const {
@@ -98,9 +99,9 @@ const inboxes = useMapGetter('inboxes/getInboxes');
 const teams = useMapGetter('teams/getTeams');
 
 const tabs = computed(() => [
-  { label: t('VOICE_AI.TABS.SETUP'), value: 'setup' },
   { label: t('VOICE_AI.TABS.AGENTS'), value: 'agents' },
   { label: t('VOICE_AI.TABS.TEST'), value: 'test' },
+  { label: t('VOICE_AI.TABS.USAGE'), value: 'usage' },
 ]);
 const activeTabIndex = computed(() =>
   tabs.value.findIndex(tab => tab.value === activeTab.value)
@@ -109,22 +110,36 @@ const activeTabIndex = computed(() =>
 const apiInboxes = computed(() =>
   (inboxes.value || []).filter(inbox => inbox.channel_type === INBOX_TYPES.API)
 );
-const selectedSetting = computed(() =>
-  settings.value.find(
-    setting => Number(setting.inbox_id) === Number(selectedInboxId.value)
-  )
-);
+
 const selectedVoiceAgent = computed(() =>
   voiceAgents.value.find(
     agent => Number(agent.id) === Number(selectedVoiceAgentId.value)
   )
 );
+
 const availableTools = computed(
   () =>
     selectedVoiceAgent.value?.available_tools ||
     voiceAgents.value[0]?.available_tools ||
     []
 );
+
+const selectedAgentSavedApiSettings = computed(() =>
+  settings.value.filter(
+    setting =>
+      Number(setting.voice_agent_id) === Number(selectedVoiceAgentId.value) &&
+      apiInboxes.value.some(
+        inbox => Number(inbox.id) === Number(setting.inbox_id)
+      )
+  )
+);
+
+const selectedTestInboxSetting = computed(() =>
+  selectedAgentSavedApiSettings.value.find(
+    setting => Number(setting.inbox_id) === Number(selectedTestInboxId.value)
+  )
+);
+
 const isIkasAvailable = computed(() => {
   const integration = selectedVoiceAgent.value?.ikas_integration;
   return integration?.feature_enabled && integration?.state === 'connected';
@@ -135,8 +150,13 @@ const isIkasCatalogReady = computed(
     'completed'
 );
 
-const canSave = computed(() => Boolean(selectedInboxId.value));
-const canSaveAgent = computed(() => Boolean(agentForm.value.name?.trim()));
+const voiceAccessEnabled = computed(() => voiceUsage.value?.enabled === true);
+const isVoiceAccessDisabled = computed(
+  () => Boolean(voiceUsage.value) && !voiceAccessEnabled.value
+);
+const canSaveAgent = computed(
+  () => voiceAccessEnabled.value && Boolean(agentForm.value.name?.trim())
+);
 const currentCallStatus = computed(() => currentCall.value?.status || '');
 const isCurrentCallTerminal = computed(() =>
   TERMINAL_CALL_STATUSES.includes(currentCallStatus.value)
@@ -145,12 +165,14 @@ const hasCall = computed(() => Boolean(currentCall.value?.id));
 const hasActiveTestCall = computed(
   () => hasCall.value && !isCurrentCallTerminal.value
 );
-const canEditSetup = computed(() => !hasActiveTestCall.value);
+const canEditTest = computed(
+  () => voiceAccessEnabled.value && !hasActiveTestCall.value
+);
 const canStartTest = computed(
   () =>
-    Boolean(selectedInboxId.value) &&
-    Boolean(selectedVoiceAgentId.value) &&
+    voiceAccessEnabled.value &&
     Boolean(selectedVoiceAgent.value?.enabled) &&
+    Boolean(selectedTestInboxSetting.value) &&
     !isCreatingCall.value &&
     !hasActiveTestCall.value
 );
@@ -199,7 +221,69 @@ const callStatusLabel = computed(
   () => currentCallStatus.value || t('VOICE_AI.SESSION.NOT_STARTED')
 );
 
+const voiceUsageStatusClasses = computed(() => {
+  if (voiceUsage.value?.status === 'disabled') {
+    return 'border-n-slate-5 bg-n-slate-2';
+  }
+  if (voiceUsage.value?.status === 'exhausted') {
+    return 'border-n-ruby-5 bg-n-ruby-2';
+  }
+  if (voiceUsage.value?.status === 'warning') {
+    return 'border-n-amber-5 bg-n-amber-2';
+  }
+  return 'border-n-weak bg-n-alpha-1';
+});
+
+const assignmentStatuses = computed(() => [
+  { label: t('VOICE_AI.ASSIGNMENTS.STATUS_TEST_ONLY'), value: 'test_only' },
+  { label: t('VOICE_AI.ASSIGNMENTS.STATUS_READY'), value: 'ready' },
+]);
+
+const assignmentRows = computed(() =>
+  apiInboxes.value
+    .map(inbox => ({
+      inbox,
+      form: assignmentForm.value[String(inbox.id)],
+    }))
+    .filter(row => row.form)
+);
+
 const formatJson = value => JSON.stringify(value || {}, null, 2);
+const formatDateTime = value => {
+  if (!value) return '-';
+
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value));
+};
+const voiceUsageText = computed(() => {
+  if (!voiceUsage.value) return t('VOICE_AI.USAGE.LOADING');
+  if (voiceUsage.value.unlimited) {
+    return t('VOICE_AI.USAGE.UNLIMITED_USED', {
+      used: voiceUsage.value.used_minutes || 0,
+    });
+  }
+
+  return t('VOICE_AI.USAGE.USED_OF_LIMIT', {
+    used: voiceUsage.value.used_minutes || 0,
+    limit: voiceUsage.value.limit_minutes || 0,
+  });
+});
+const voiceRemainingText = computed(() => {
+  if (!voiceUsage.value) return t('VOICE_AI.USAGE.LOADING');
+  if (!voiceUsage.value.enabled) {
+    return t('VOICE_AI.USAGE.DISABLED_REMAINING');
+  }
+  if (voiceUsage.value.unlimited) {
+    return t('VOICE_AI.USAGE.UNLIMITED_REMAINING');
+  }
+
+  return t('VOICE_AI.USAGE.REMAINING', {
+    count: voiceUsage.value.remaining_minutes || 0,
+  });
+});
+
 const isToolEnabled = toolKey =>
   agentForm.value.tools_config.enabled.includes(toolKey);
 const toolStatusClass = status => {
@@ -218,17 +302,52 @@ const handoffToolSummary = item =>
   item?.arguments?.reason ||
   t('VOICE_AI.TRANSCRIPT.HANDOFF_PREVIEW');
 
-const syncFormFromSetting = setting => {
-  selectedVoiceAgentId.value =
-    setting?.voice_agent_id || voiceAgents.value[0]?.id || '';
-  selectedFallbackTeamId.value = setting?.fallback_team_id || '';
-  recordingEnabled.value = Boolean(setting?.recording_enabled);
+const assignedAgentName = setting => {
+  const agent = voiceAgents.value.find(
+    item => Number(item.id) === Number(setting?.voice_agent_id)
+  );
+  return agent?.name || t('VOICE_AI.ASSIGNMENTS.UNKNOWN_AGENT');
+};
+
+const currentAssignmentForInbox = inboxId =>
+  settings.value.find(setting => Number(setting.inbox_id) === Number(inboxId));
+
+const isAssignedToAnotherAgent = row =>
+  row.form.assigned &&
+  row.form.assigned_voice_agent_id &&
+  Number(row.form.assigned_voice_agent_id) !==
+    Number(editingVoiceAgentId.value);
+
+const assignedCount = agent =>
+  settings.value.filter(
+    setting => Number(setting.voice_agent_id) === Number(agent?.id)
+  ).length;
+
+const syncAssignmentForm = agent => {
+  const rows = {};
+  apiInboxes.value.forEach(inbox => {
+    const existing = settings.value.find(
+      setting => Number(setting.inbox_id) === Number(inbox.id)
+    );
+    rows[String(inbox.id)] = {
+      assigned: Boolean(
+        agent?.id && Number(existing?.voice_agent_id) === Number(agent.id)
+      ),
+      assignment_id: existing?.id || null,
+      assigned_voice_agent_id: existing?.voice_agent_id || null,
+      fallback_team_id: existing?.fallback_team_id || '',
+      recording_enabled: Boolean(existing?.recording_enabled),
+      status: existing?.status || 'test_only',
+    };
+  });
+  assignmentForm.value = rows;
 };
 
 const syncAgentForm = agent => {
   if (!agent) {
     editingVoiceAgentId.value = null;
     agentForm.value = clone(DEFAULT_AGENT);
+    syncAssignmentForm(null);
     return;
   }
 
@@ -237,7 +356,27 @@ const syncAgentForm = agent => {
     ...clone(DEFAULT_AGENT),
     ...agent,
     tools_config: normalizeToolsConfig(agent?.tools_config),
+    inbox_settings: agent?.inbox_settings || [],
   };
+  syncAssignmentForm(agent);
+};
+
+const ensureSelectedTestInbox = () => {
+  if (
+    selectedTestInboxId.value &&
+    selectedAgentSavedApiSettings.value.some(
+      setting => Number(setting.inbox_id) === Number(selectedTestInboxId.value)
+    )
+  ) {
+    return;
+  }
+  selectedTestInboxId.value =
+    selectedAgentSavedApiSettings.value[0]?.inbox_id || '';
+};
+
+const refreshSettings = async () => {
+  const response = await VoiceAPI.getSettings();
+  settings.value = response.data?.payload || [];
 };
 
 const loadData = async () => {
@@ -247,17 +386,18 @@ const loadData = async () => {
       store.dispatch('inboxes/get'),
       store.dispatch('teams/get'),
     ]);
-    const [agentResponse, settingsResponse] = await Promise.all([
+    const [agentResponse, settingsResponse, usageResponse] = await Promise.all([
       VoiceAPI.getAgents(),
       VoiceAPI.getSettings(),
+      VoiceAPI.getUsage(),
     ]);
     voiceAgents.value = agentResponse.data?.payload || [];
     settings.value = settingsResponse.data?.payload || [];
-    if (!selectedInboxId.value && apiInboxes.value.length) {
-      selectedInboxId.value = apiInboxes.value[0].id;
-    }
-    syncFormFromSetting(selectedSetting.value);
+    voiceUsage.value = usageResponse.data || null;
+    selectedVoiceAgentId.value =
+      selectedVoiceAgentId.value || voiceAgents.value[0]?.id || '';
     syncAgentForm(selectedVoiceAgent.value || voiceAgents.value[0]);
+    ensureSelectedTestInbox();
   } catch {
     useAlert(t('VOICE_AI.SETUP.LOAD_ERROR'));
   } finally {
@@ -265,36 +405,15 @@ const loadData = async () => {
   }
 };
 
-const settingPayload = () => ({
-  inbox_id: selectedInboxId.value,
-  voice_agent_id: selectedVoiceAgentId.value || null,
-  fallback_team_id: selectedFallbackTeamId.value || null,
-  recording_enabled: recordingEnabled.value,
-  status: 'test_only',
-});
-
-const saveSettings = async ({ silent = false } = {}) => {
-  if (!canSave.value) return null;
-  isSaving.value = true;
-  try {
-    const existing = selectedSetting.value;
-    const response = existing
-      ? await VoiceAPI.updateSetting(existing.id, settingPayload())
-      : await VoiceAPI.createSetting(settingPayload());
-    const saved = response.data;
-    settings.value = [
-      ...settings.value.filter(setting => setting.id !== saved.id),
-      saved,
-    ];
-    if (!silent) useAlert(t('VOICE_AI.SETUP.SAVE_SUCCESS'));
-    return saved;
-  } catch {
-    if (!silent) useAlert(t('VOICE_AI.SETUP.SAVE_ERROR'));
-    throw new Error('voice setting save failed');
-  } finally {
-    isSaving.value = false;
-  }
-};
+const assignmentPayload = () =>
+  assignmentRows.value
+    .filter(row => row.form?.assigned)
+    .map(row => ({
+      inbox_id: row.inbox.id,
+      fallback_team_id: row.form.fallback_team_id || null,
+      recording_enabled: Boolean(row.form.recording_enabled),
+      status: row.form.status || 'test_only',
+    }));
 
 const saveVoiceAgent = async () => {
   if (!canSaveAgent.value) return;
@@ -306,6 +425,7 @@ const saveVoiceAgent = async () => {
       greeting: agentForm.value.greeting,
       prompt: agentForm.value.prompt,
       tools_config: agentForm.value.tools_config,
+      inbox_settings: assignmentPayload(),
     };
     const response = editingVoiceAgentId.value
       ? await VoiceAPI.updateAgent(editingVoiceAgentId.value, payload)
@@ -316,7 +436,9 @@ const saveVoiceAgent = async () => {
       saved,
     ].sort((a, b) => a.id - b.id);
     selectedVoiceAgentId.value = saved.id;
+    await refreshSettings();
     syncAgentForm(saved);
+    ensureSelectedTestInbox();
     useAlert(t('VOICE_AI.AGENTS.SAVE_SUCCESS'));
   } catch {
     useAlert(t('VOICE_AI.AGENTS.SAVE_ERROR'));
@@ -326,6 +448,8 @@ const saveVoiceAgent = async () => {
 };
 
 const createNewVoiceAgent = () => {
+  if (!voiceAccessEnabled.value) return;
+
   selectedVoiceAgentId.value = '';
   syncAgentForm(null);
   activeTab.value = 'agents';
@@ -334,6 +458,7 @@ const createNewVoiceAgent = () => {
 const editVoiceAgent = agent => {
   selectedVoiceAgentId.value = agent.id;
   syncAgentForm(agent);
+  ensureSelectedTestInbox();
   activeTab.value = 'agents';
 };
 
@@ -361,9 +486,8 @@ const createTestCall = async () => {
   if (!canStartTest.value) return;
   isCreatingCall.value = true;
   try {
-    await saveSettings({ silent: true });
     const response = await VoiceAPI.createTestCall({
-      inbox_id: selectedInboxId.value,
+      inbox_id: selectedTestInboxId.value,
       voice_agent_id: selectedVoiceAgentId.value,
       caller_name: callerName.value,
       caller_number: callerNumber.value,
@@ -389,6 +513,11 @@ const refreshCall = async () => {
   }
 };
 
+const refreshUsage = async () => {
+  const response = await VoiceAPI.getUsage();
+  voiceUsage.value = response.data;
+};
+
 const endCall = async () => {
   if (!canUseLiveControls.value || isEnding.value) return;
   isEnding.value = true;
@@ -398,6 +527,7 @@ const endCall = async () => {
     });
     currentCall.value = response.data;
     disconnectRoom();
+    await refreshUsage();
     useAlert(t('VOICE_AI.SESSION.END_SUCCESS'));
   } catch {
     useAlert(t('VOICE_AI.SESSION.ACTION_ERROR'));
@@ -432,9 +562,11 @@ const onStatusChanged = data => {
   currentCall.value = { ...currentCall.value, ...scalarFields };
 };
 
-watch(selectedInboxId, () => syncFormFromSetting(selectedSetting.value));
 watch(selectedVoiceAgentId, () => {
-  if (selectedVoiceAgent.value) syncAgentForm(selectedVoiceAgent.value);
+  if (selectedVoiceAgent.value) {
+    syncAgentForm(selectedVoiceAgent.value);
+    ensureSelectedTestInbox();
+  }
 });
 
 let voiceEventsSubscribed = false;
@@ -481,131 +613,26 @@ onBeforeUnmount(unsubscribeFromVoiceEvents);
         />
 
         <section
-          v-if="activeTab === 'setup'"
-          class="rounded-xl border border-n-weak bg-n-solid-1 p-5 flex flex-col gap-5"
-        >
-          <div>
-            <h2 class="text-heading-2 text-n-slate-12">
-              {{ t('VOICE_AI.SETUP.TITLE') }}
-            </h2>
-            <p class="mb-0 mt-1 text-sm text-n-slate-11">
-              {{ t('VOICE_AI.SETUP.DESCRIPTION') }}
-            </p>
-          </div>
-
-          <div v-if="!apiInboxes.length" class="text-sm text-n-ruby-9">
-            {{ t('VOICE_AI.SETUP.NO_API_INBOX') }}
-          </div>
-
-          <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <label class="flex flex-col gap-1">
-              <span class="text-heading-3 text-n-slate-12">
-                {{ t('VOICE_AI.SETUP.INBOX') }}
-              </span>
-              <select
-                v-model="selectedInboxId"
-                :disabled="!canEditSetup"
-                class="h-10 rounded-lg border-0 outline outline-1 outline-n-weak bg-n-alpha-black2 px-3 text-sm text-n-slate-12 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <option value="" disabled>
-                  {{ t('VOICE_AI.SETUP.INBOX') }}
-                </option>
-                <option
-                  v-for="inbox in apiInboxes"
-                  :key="inbox.id"
-                  :value="inbox.id"
-                >
-                  {{ inbox.name }}
-                </option>
-              </select>
-            </label>
-
-            <label class="flex flex-col gap-1">
-              <span class="text-heading-3 text-n-slate-12">
-                {{ t('VOICE_AI.SETUP.VOICE_AGENT') }}
-              </span>
-              <select
-                v-model="selectedVoiceAgentId"
-                :disabled="!canEditSetup"
-                class="h-10 rounded-lg border-0 outline outline-1 outline-n-weak bg-n-alpha-black2 px-3 text-sm text-n-slate-12 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <option value="">{{ t('VOICE_AI.SETUP.NONE') }}</option>
-                <option
-                  v-for="agent in voiceAgents"
-                  :key="agent.id"
-                  :value="agent.id"
-                >
-                  {{ agent.name }}
-                </option>
-              </select>
-            </label>
-
-            <label class="flex flex-col gap-1">
-              <span class="text-heading-3 text-n-slate-12">
-                {{ t('VOICE_AI.SETUP.FALLBACK_TEAM') }}
-              </span>
-              <select
-                v-model="selectedFallbackTeamId"
-                :disabled="!canEditSetup"
-                class="h-10 rounded-lg border-0 outline outline-1 outline-n-weak bg-n-alpha-black2 px-3 text-sm text-n-slate-12 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <option value="">{{ t('VOICE_AI.SETUP.NONE') }}</option>
-                <option v-for="team in teams" :key="team.id" :value="team.id">
-                  {{ team.name }}
-                </option>
-              </select>
-            </label>
-          </div>
-
-          <div
-            class="flex items-center justify-between rounded-lg bg-n-alpha-2 p-3"
-          >
-            <div>
-              <p class="mb-1 text-sm font-medium text-n-slate-12">
-                {{ t('VOICE_AI.SETUP.RECORDING') }}
-              </p>
-              <p class="mb-0 text-sm text-n-slate-11">
-                {{ t('VOICE_AI.SETUP.RECORDING_HELP') }}
-              </p>
-            </div>
-            <Switch v-model="recordingEnabled" :disabled="!canEditSetup" />
-          </div>
-
-          <div class="flex flex-wrap gap-3">
-            <Button
-              :label="t('VOICE_AI.SETUP.SAVE')"
-              icon="i-lucide-save"
-              variant="outline"
-              color="slate"
-              :disabled="!canSave || !canEditSetup"
-              :is-loading="isSaving"
-              @click="saveSettings"
-            />
-            <Button
-              :label="t('VOICE_AI.AGENTS.CREATE')"
-              icon="i-lucide-bot"
-              variant="outline"
-              color="slate"
-              @click="createNewVoiceAgent"
-            />
-          </div>
-        </section>
-
-        <section
           v-if="activeTab === 'agents'"
           class="grid grid-cols-1 gap-6 xl:grid-cols-[320px_minmax(0,1fr)]"
         >
           <aside class="rounded-xl border border-n-weak bg-n-solid-1 p-4">
             <div class="mb-4 flex items-center justify-between gap-3">
-              <h2 class="text-heading-2 text-n-slate-12">
-                {{ t('VOICE_AI.AGENTS.TITLE') }}
-              </h2>
+              <div>
+                <h2 class="m-0 text-heading-2 text-n-slate-12">
+                  {{ t('VOICE_AI.AGENTS.TITLE') }}
+                </h2>
+                <p class="m-0 mt-1 text-xs text-n-slate-11">
+                  {{ t('VOICE_AI.AGENTS.LIST_HELP') }}
+                </p>
+              </div>
               <Button
                 icon="i-lucide-plus"
                 size="sm"
                 variant="outline"
                 color="slate"
                 :label="t('VOICE_AI.AGENTS.NEW')"
+                :disabled="!voiceAccessEnabled"
                 @click="createNewVoiceAgent"
               />
             </div>
@@ -617,7 +644,7 @@ onBeforeUnmount(unsubscribeFromVoiceEvents);
                 v-for="agent in voiceAgents"
                 :key="agent.id"
                 type="button"
-                class="rounded-lg border p-3 text-left"
+                class="rounded-lg border p-3 text-left transition"
                 :class="
                   editingVoiceAgentId === agent.id
                     ? 'border-n-brand bg-n-brand/5'
@@ -635,6 +662,19 @@ onBeforeUnmount(unsubscribeFromVoiceEvents);
                       : t('VOICE_AI.AGENTS.STATUS_DISABLED')
                   }}
                 </span>
+                <span class="mt-1 block text-xs text-n-slate-11">
+                  {{
+                    t('VOICE_AI.AGENTS.ASSIGNED_COUNT', {
+                      count: assignedCount(agent),
+                    })
+                  }}
+                </span>
+                <span
+                  v-if="!voiceAccessEnabled"
+                  class="mt-2 block text-xs text-n-slate-10"
+                >
+                  {{ t('VOICE_AI.AGENTS.DISABLED_BY_ADMIN') }}
+                </span>
               </button>
             </div>
           </aside>
@@ -643,7 +683,7 @@ onBeforeUnmount(unsubscribeFromVoiceEvents);
             class="rounded-xl border border-n-weak bg-n-solid-1 p-5 flex flex-col gap-5"
           >
             <div>
-              <h2 class="text-heading-2 text-n-slate-12">
+              <h2 class="m-0 text-heading-2 text-n-slate-12">
                 {{ t('VOICE_AI.AGENTS.EDITOR_TITLE') }}
               </h2>
               <p class="mb-0 mt-1 text-sm text-n-slate-11">
@@ -655,15 +695,17 @@ onBeforeUnmount(unsubscribeFromVoiceEvents);
               <Input
                 v-model="agentForm.name"
                 :label="t('VOICE_AI.AGENTS.NAME')"
+                :disabled="!voiceAccessEnabled"
               />
               <Input
                 v-model="agentForm.greeting"
                 :label="t('VOICE_AI.AGENTS.GREETING')"
+                :disabled="!voiceAccessEnabled"
               />
             </div>
 
             <div
-              class="flex items-center justify-between rounded-lg bg-n-alpha-2 p-3"
+              class="flex items-center justify-between gap-4 rounded-lg bg-n-alpha-2 p-3"
             >
               <div>
                 <p class="mb-1 text-sm font-medium text-n-slate-12">
@@ -673,7 +715,10 @@ onBeforeUnmount(unsubscribeFromVoiceEvents);
                   {{ t('VOICE_AI.AGENTS.ENABLED_HELP') }}
                 </p>
               </div>
-              <Switch v-model="agentForm.enabled" />
+              <Switch
+                v-model="agentForm.enabled"
+                :disabled="!voiceAccessEnabled"
+              />
             </div>
 
             <label class="flex flex-col gap-1">
@@ -682,7 +727,8 @@ onBeforeUnmount(unsubscribeFromVoiceEvents);
               </span>
               <textarea
                 v-model="agentForm.prompt"
-                rows="8"
+                rows="10"
+                :disabled="!voiceAccessEnabled"
                 class="rounded-lg border-0 outline outline-1 outline-n-weak bg-n-alpha-black2 px-3 py-2 text-sm text-n-slate-12 resize-y"
               />
             </label>
@@ -701,6 +747,7 @@ onBeforeUnmount(unsubscribeFromVoiceEvents);
                     type="checkbox"
                     class="mt-1 h-4 w-4 rounded border-n-slate-6 text-n-brand"
                     :checked="isToolEnabled(tool.key)"
+                    :disabled="!voiceAccessEnabled"
                     @change="toggleTool(tool.key)"
                   />
                   <span class="min-w-0">
@@ -724,6 +771,122 @@ onBeforeUnmount(unsubscribeFromVoiceEvents);
               </p>
             </div>
 
+            <div class="rounded-lg border border-n-weak bg-n-alpha-1 p-4">
+              <div
+                class="mb-4 flex flex-col gap-2 md:flex-row md:items-start md:justify-between"
+              >
+                <div>
+                  <h3 class="m-0 text-sm font-semibold text-n-slate-12">
+                    {{ t('VOICE_AI.ASSIGNMENTS.TITLE') }}
+                  </h3>
+                  <p class="m-0 mt-1 text-sm text-n-slate-11">
+                    {{ t('VOICE_AI.ASSIGNMENTS.DESCRIPTION') }}
+                  </p>
+                </div>
+                <span
+                  class="rounded-full bg-n-alpha-2 px-2 py-1 text-xs text-n-slate-11"
+                >
+                  {{
+                    t('VOICE_AI.AGENTS.ASSIGNED_COUNT', {
+                      count: assignmentPayload().length,
+                    })
+                  }}
+                </span>
+              </div>
+
+              <div v-if="!apiInboxes.length" class="text-sm text-n-ruby-9">
+                {{ t('VOICE_AI.SETUP.NO_API_INBOX') }}
+              </div>
+
+              <div v-else class="flex flex-col divide-y divide-n-weak">
+                <div
+                  v-for="row in assignmentRows"
+                  :key="row.inbox.id"
+                  class="grid grid-cols-1 gap-3 py-4 xl:grid-cols-[minmax(0,1fr)_180px_120px_120px]"
+                >
+                  <label class="flex min-w-0 items-start gap-3">
+                    <input
+                      v-model="row.form.assigned"
+                      type="checkbox"
+                      class="mt-1 h-4 w-4 rounded border-n-slate-6 text-n-brand"
+                      :disabled="!voiceAccessEnabled"
+                    />
+                    <span class="min-w-0">
+                      <span
+                        class="block truncate text-sm font-medium text-n-slate-12"
+                      >
+                        {{ row.inbox.name }}
+                      </span>
+                      <span class="mt-1 block text-xs text-n-slate-11">
+                        {{ t('VOICE_AI.ASSIGNMENTS.API_SANDBOX') }}
+                      </span>
+                      <span
+                        v-if="isAssignedToAnotherAgent(row)"
+                        class="mt-1 block text-xs text-n-amber-11"
+                      >
+                        {{
+                          t('VOICE_AI.ASSIGNMENTS.ASSIGNED_TO', {
+                            agent: assignedAgentName(
+                              currentAssignmentForInbox(row.inbox.id)
+                            ),
+                          })
+                        }}
+                      </span>
+                    </span>
+                  </label>
+
+                  <label class="flex flex-col gap-1">
+                    <span class="text-xs text-n-slate-11">
+                      {{ t('VOICE_AI.SETUP.FALLBACK_TEAM') }}
+                    </span>
+                    <select
+                      v-model="row.form.fallback_team_id"
+                      :disabled="!voiceAccessEnabled || !row.form.assigned"
+                      class="h-10 rounded-lg border-0 outline outline-1 outline-n-weak bg-n-alpha-black2 px-3 text-sm text-n-slate-12 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <option value="">{{ t('VOICE_AI.SETUP.NONE') }}</option>
+                      <option
+                        v-for="team in teams"
+                        :key="team.id"
+                        :value="team.id"
+                      >
+                        {{ team.name }}
+                      </option>
+                    </select>
+                  </label>
+
+                  <label class="flex flex-col gap-1">
+                    <span class="text-xs text-n-slate-11">
+                      {{ t('VOICE_AI.ASSIGNMENTS.STATUS') }}
+                    </span>
+                    <select
+                      v-model="row.form.status"
+                      :disabled="!voiceAccessEnabled || !row.form.assigned"
+                      class="h-10 rounded-lg border-0 outline outline-1 outline-n-weak bg-n-alpha-black2 px-3 text-sm text-n-slate-12 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <option
+                        v-for="status in assignmentStatuses"
+                        :key="status.value"
+                        :value="status.value"
+                      >
+                        {{ status.label }}
+                      </option>
+                    </select>
+                  </label>
+
+                  <div class="flex items-center justify-between gap-3">
+                    <span class="text-xs text-n-slate-11">
+                      {{ t('VOICE_AI.SETUP.RECORDING') }}
+                    </span>
+                    <Switch
+                      v-model="row.form.recording_enabled"
+                      :disabled="!voiceAccessEnabled || !row.form.assigned"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div class="flex justify-end">
               <Button
                 :label="t('VOICE_AI.AGENTS.SAVE')"
@@ -744,23 +907,75 @@ onBeforeUnmount(unsubscribeFromVoiceEvents);
             class="rounded-xl border border-n-weak bg-n-solid-1 p-5 flex flex-col gap-4"
           >
             <div>
-              <h2 class="text-heading-2 text-n-slate-12">
+              <h2 class="m-0 text-heading-2 text-n-slate-12">
                 {{ t('VOICE_AI.TEST.TITLE') }}
               </h2>
               <p class="mb-0 mt-1 text-sm text-n-slate-11">
                 {{ t('VOICE_AI.TEST.DESCRIPTION') }}
               </p>
             </div>
+
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <label class="flex flex-col gap-1">
+                <span class="text-heading-3 text-n-slate-12">
+                  {{ t('VOICE_AI.SETUP.VOICE_AGENT') }}
+                </span>
+                <select
+                  v-model="selectedVoiceAgentId"
+                  :disabled="!canEditTest"
+                  class="h-10 rounded-lg border-0 outline outline-1 outline-n-weak bg-n-alpha-black2 px-3 text-sm text-n-slate-12 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="">{{ t('VOICE_AI.SETUP.NONE') }}</option>
+                  <option
+                    v-for="agent in voiceAgents"
+                    :key="agent.id"
+                    :value="agent.id"
+                  >
+                    {{ agent.name }}
+                  </option>
+                </select>
+              </label>
+
+              <label class="flex flex-col gap-1">
+                <span class="text-heading-3 text-n-slate-12">
+                  {{ t('VOICE_AI.SETUP.INBOX') }}
+                </span>
+                <select
+                  v-model="selectedTestInboxId"
+                  :disabled="
+                    !canEditTest || !selectedAgentSavedApiSettings.length
+                  "
+                  class="h-10 rounded-lg border-0 outline outline-1 outline-n-weak bg-n-alpha-black2 px-3 text-sm text-n-slate-12 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="">{{ t('VOICE_AI.SETUP.NONE') }}</option>
+                  <option
+                    v-for="setting in selectedAgentSavedApiSettings"
+                    :key="setting.id"
+                    :value="setting.inbox_id"
+                  >
+                    {{ setting.inbox_name }}
+                  </option>
+                </select>
+              </label>
+            </div>
+
+            <div
+              v-if="selectedVoiceAgent && !selectedAgentSavedApiSettings.length"
+              class="rounded-lg border border-n-amber-5 bg-n-amber-2 p-3 text-sm text-n-amber-11"
+            >
+              {{ t('VOICE_AI.TEST.NO_ASSIGNED_INBOX') }}
+            </div>
+
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
               <Input
                 v-model="callerName"
                 :label="t('VOICE_AI.SETUP.CALLER_NAME')"
-                :disabled="!canEditSetup"
+                :disabled="!canEditTest"
               />
               <Input
                 v-model="callerNumber"
                 :label="t('VOICE_AI.SETUP.CALLER_NUMBER')"
-                :disabled="!canEditSetup"
+                :disabled="!canEditTest"
               />
             </div>
             <Button
@@ -776,7 +991,7 @@ onBeforeUnmount(unsubscribeFromVoiceEvents);
             class="rounded-xl border border-n-weak bg-n-solid-1 p-5 flex flex-col gap-4"
           >
             <div>
-              <h2 class="text-heading-2 text-n-slate-12">
+              <h2 class="m-0 text-heading-2 text-n-slate-12">
                 {{ t('VOICE_AI.SESSION.TITLE') }}
               </h2>
               <p class="mb-0 mt-1 truncate text-sm text-n-slate-11">
@@ -867,7 +1082,7 @@ onBeforeUnmount(unsubscribeFromVoiceEvents);
               class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
             >
               <div>
-                <h2 class="text-heading-2 text-n-slate-12">
+                <h2 class="m-0 text-heading-2 text-n-slate-12">
                   {{ t('VOICE_AI.TRANSCRIPT.TITLE') }}
                 </h2>
                 <p class="mb-0 mt-1 text-sm text-n-slate-11">
@@ -987,6 +1202,86 @@ onBeforeUnmount(unsubscribeFromVoiceEvents);
                     {{ item.text }}
                   </p>
                 </template>
+              </div>
+            </div>
+          </section>
+        </section>
+
+        <section
+          v-if="activeTab === 'usage'"
+          class="rounded-xl border border-n-weak bg-n-solid-1 p-5"
+        >
+          <section
+            class="rounded-lg border p-4"
+            :class="voiceUsageStatusClasses"
+          >
+            <div
+              class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between"
+            >
+              <div>
+                <h2 class="m-0 text-heading-2 text-n-slate-12">
+                  {{ t('VOICE_AI.USAGE.TITLE') }}
+                </h2>
+                <p class="m-0 mt-1 text-sm text-n-slate-11">
+                  {{
+                    isVoiceAccessDisabled
+                      ? t('VOICE_AI.USAGE.DISABLED_HELP')
+                      : t('VOICE_AI.USAGE.HELP')
+                  }}
+                </p>
+              </div>
+              <div class="md:text-right">
+                <p class="m-0 text-2xl font-semibold text-n-slate-12">
+                  {{ voiceRemainingText }}
+                </p>
+                <p class="m-0 mt-1 text-xs text-n-slate-11">
+                  {{ voiceUsageText }}
+                </p>
+              </div>
+            </div>
+
+            <div
+              class="mt-4 grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-n-weak bg-n-slate-4 md:grid-cols-4"
+            >
+              <div class="bg-n-alpha-1 p-3">
+                <span class="text-xs text-n-slate-11">
+                  {{ t('VOICE_AI.USAGE.RESET_AT') }}
+                </span>
+                <p class="m-0 mt-1 text-sm font-medium text-n-slate-12">
+                  {{ formatDateTime(voiceUsage?.reset_at) }}
+                </p>
+              </div>
+              <div class="bg-n-alpha-1 p-3">
+                <span class="text-xs text-n-slate-11">
+                  {{ t('VOICE_AI.USAGE.MAX_DURATION') }}
+                </span>
+                <p class="m-0 mt-1 text-sm font-medium text-n-slate-12">
+                  {{
+                    t('VOICE_AI.USAGE.MINUTES', {
+                      count: voiceUsage?.max_call_duration_minutes || 15,
+                    })
+                  }}
+                </p>
+              </div>
+              <div class="bg-n-alpha-1 p-3">
+                <span class="text-xs text-n-slate-11">
+                  {{ t('VOICE_AI.USAGE.CONCURRENT_LIMIT') }}
+                </span>
+                <p class="m-0 mt-1 text-sm font-medium text-n-slate-12">
+                  {{
+                    voiceUsage?.concurrent_call_limit === 0
+                      ? t('VOICE_AI.USAGE.UNLIMITED_SHORT')
+                      : voiceUsage?.concurrent_call_limit || 1
+                  }}
+                </p>
+              </div>
+              <div class="bg-n-alpha-1 p-3">
+                <span class="text-xs text-n-slate-11">
+                  {{ t('VOICE_AI.USAGE.ACTIVE_CALLS') }}
+                </span>
+                <p class="m-0 mt-1 text-sm font-medium text-n-slate-12">
+                  {{ voiceUsage?.active_calls || 0 }}
+                </p>
               </div>
             </div>
           </section>

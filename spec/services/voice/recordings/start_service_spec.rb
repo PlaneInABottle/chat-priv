@@ -1,10 +1,11 @@
 require 'rails_helper'
 
 RSpec.describe Voice::Recordings::StartService do
-  let(:account) { create(:account) }
+  let(:account) { create(:account, settings: { voice_ai_enabled: true }) }
   let(:api_channel) { create(:channel_api, account: account) }
   let(:inbox) { api_channel.inbox }
-  let(:setting) { create(:voice_inbox_setting, account: account, inbox: inbox, recording_enabled: true) }
+  let(:voice_agent) { account.voice_agents.first! }
+  let!(:setting) { create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: voice_agent, recording_enabled: true) }
 
   before do
     allow(Voice::Livekit::AgentDispatchService).to receive(:perform).and_return({ 'status' => 'skipped' })
@@ -18,7 +19,7 @@ RSpec.describe Voice::Recordings::StartService do
   end
 
   it 'skips sandbox test calls' do
-    call = Voice::TestCallBuilder.perform!(account: account, inbox: inbox)
+    call = Voice::TestCallBuilder.perform!(account: account, inbox: inbox, voice_agent: voice_agent)
 
     result = with_modified_env(recording_env) do
       described_class.perform(call: call)
@@ -52,6 +53,20 @@ RSpec.describe Voice::Recordings::StartService do
   it 'skips when the inbox setting disables recording' do
     setting.update!(recording_enabled: false)
     call = real_livekit_call
+
+    result = with_modified_env(recording_env) do
+      described_class.perform(call: call)
+    end
+
+    expect(result).to eq('status' => 'skipped', 'reason' => 'recording_disabled')
+    expect(call.voice_recordings).to be_empty
+  end
+
+  it 'ignores a voice_inbox_setting_id from another account when checking recording settings' do
+    setting.update!(recording_enabled: false)
+    foreign_setting = create(:voice_inbox_setting, recording_enabled: true)
+    call = real_livekit_call
+    call.update!(meta: call.meta.merge('voice_inbox_setting_id' => foreign_setting.id))
 
     result = with_modified_env(recording_env) do
       described_class.perform(call: call)

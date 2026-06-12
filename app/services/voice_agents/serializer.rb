@@ -23,6 +23,7 @@ class VoiceAgents::Serializer
       tools_config: tool_config.normalized_config,
       enabled_tool_keys: tool_config.enabled_tool_keys,
       available_tools: available_tools,
+      inbox_settings: inbox_settings,
       ikas_integration: ikas_integration,
       created_at: voice_agent.created_at,
       updated_at: voice_agent.updated_at
@@ -42,6 +43,12 @@ class VoiceAgents::Serializer
         mode_support: tool.mode_support,
         terminal: tool.terminal
       }
+    end
+  end
+
+  def inbox_settings
+    voice_agent.voice_inbox_settings.includes(:inbox).order(:created_at).map do |setting|
+      Voice::InboxSettingSerializer.new(setting).payload
     end
   end
 

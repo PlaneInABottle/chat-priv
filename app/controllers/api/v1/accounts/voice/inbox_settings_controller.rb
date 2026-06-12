@@ -1,6 +1,7 @@
 class Api::V1::Accounts::Voice::InboxSettingsController < Api::V1::Accounts::BaseController
   before_action :current_account
   before_action :check_admin_authorization?
+  before_action :ensure_voice_ai_enabled, only: [:create, :update]
   before_action :set_setting, only: [:show, :update]
 
   def index
@@ -34,19 +35,7 @@ class Api::V1::Accounts::Voice::InboxSettingsController < Api::V1::Accounts::Bas
   end
 
   def serialize(setting)
-    {
-      id: setting.id,
-      account_id: setting.account_id,
-      inbox_id: setting.inbox_id,
-      inbox_name: setting.inbox.name,
-      voice_agent_id: setting.voice_agent_id,
-      fallback_team_id: setting.fallback_team_id,
-      status: setting.status,
-      livekit_room_prefix: setting.livekit_room_prefix,
-      recording_enabled: setting.recording_enabled,
-      last_error: setting.last_error,
-      settings: setting.settings,
-      voice_agent: setting.voice_agent ? VoiceAgents::Serializer.new(setting.voice_agent).payload : nil
-    }
+    payload = Voice::InboxSettingSerializer.new(setting).payload
+    payload.merge(voice_agent: setting.voice_agent ? VoiceAgents::Serializer.new(setting.voice_agent).payload : nil)
   end
 end

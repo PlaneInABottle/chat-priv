@@ -18,7 +18,8 @@
 - Keep `.env.local` out of git. Never print or commit secret values.
 - The Python worker entrypoint is `services/voice_agent/agent.py`.
 - The Rails dispatch path is `Voice::Livekit::AgentDispatchService`.
-- Voice agents are separate from text AI agents. Configure them in Settings -> Voice AI -> Voice agents. Voice inbox settings select `voice_agent_id`; do not expect `ai_agent_id`, setting-level `greeting`, or setting-level `instructions`.
+- Voice agents are separate from text AI agents. Configure them in Settings -> Voice AI -> Voice agents. Assign API sandbox inboxes inside each voice agent; do not use a separate global voice setup tab. Voice inbox settings select `voice_agent_id`; do not expect `ai_agent_id`, setting-level `greeting`, or setting-level `instructions`.
+- Super Admin controls account-level Voice AI access and limits under `/super_admin/accounts/:id/edit`. Test calls are excluded from monthly minute and concurrent-call limits, but Voice AI must still be enabled for the account.
 - Integration tools such as `ikas_catalog_search` and `ikas_lookup_order` are enabled per voice agent. Ikas tools also require the account `ikas_integration` feature, a connected `ikas` hook, and a completed storefront catalog sync.
 
 ## Runtime
@@ -61,16 +62,17 @@ Use `uv lock --check --directory services/voice_agent` after dependency changes.
 
 1. Open `/app/accounts/:account_id/settings/voice-ai` with `agent-browser`.
 2. Snapshot before clicking.
-3. On the Setup tab, select an API inbox and a Voice agent. The local verified path used account `36`, but always verify current local data.
-4. On the Voice agents tab, confirm the selected voice agent has the intended provider/model/voice and enabled tools. For Ikas voice tests, confirm `ikas_catalog_search` and `ikas_lookup_order` are checked after Ikas is connected and synced.
-5. Click `Start test call`.
-5. Confirm no floating incoming-call popup appears. Browser test calls are marked with `test_call: true`, do not create a normal Chatwoot conversation/contact/message, and are owned by the Voice AI settings panel.
-6. Wait until `Join as test caller` is enabled and the setup fields are disabled.
-7. Click `Join as test caller`.
-8. Wait for the Browser status to become `Connected` and for the worker to connect to the realtime provider and post transcript.
-9. To verify handoff tool detection, say a human-handoff request such as `Temsilciye baglanmak istiyorum`; after the worker calls `request_human_handoff`, confirm the `Transcript and tool calls` panel shows a `request_human_handoff` tool event via realtime updates. If the browser reconnects or misses a websocket event, use `Refresh` once to resync the current call payload.
-11. End the call from the settings panel with `End test call`.
-12. Confirm the Call status becomes `completed`, Browser status becomes `Disconnected`, and setup fields are editable again.
+3. On the Voice agents tab, select or create the voice agent.
+4. In that agent's Inbox assignments panel, assign an API sandbox inbox, choose fallback team/recording/status, then save the voice agent. The local verified path used account `36`, but always verify current local data.
+5. On the Test call tab, choose the same voice agent and one of its assigned API inboxes. For Ikas voice tests, confirm `ikas_catalog_search` and `ikas_lookup_order` are checked after Ikas is connected and synced.
+6. Click `Start test call`.
+7. Confirm no floating incoming-call popup appears. Browser test calls are marked with `test_call: true`, do not create a normal Chatwoot conversation/contact/message, and are owned by the Voice AI settings panel.
+8. Wait until `Join as test caller` is enabled and the setup fields are disabled.
+9. Click `Join as test caller`.
+10. Wait for the Browser status to become `Connected` and for the worker to connect to the realtime provider and post transcript.
+11. To verify handoff tool detection, say a human-handoff request such as `Temsilciye baglanmak istiyorum`; after the worker calls `request_human_handoff`, confirm the `Transcript and tool calls` panel shows a `request_human_handoff` tool event via realtime updates. If the browser reconnects or misses a websocket event, use `Refresh` once to resync the current call payload.
+12. End the call from the settings panel with `End test call`.
+13. Confirm the Call status becomes `completed`, Browser status becomes `Disconnected`, and setup fields are editable again.
 
 For the browser-only MVP flow, use `Join as test caller` in the Voice AI settings page to simulate the customer side. Default browser test calls intentionally have no conversation handoff surface. If human-agent takeover needs to be tested later, use a separate handoff rehearsal flow that creates an explicitly marked test conversation. The browser sends a per-tab `client_session_id` when requesting a LiveKit token; this prevents same-account tabs from reusing one LiveKit participant identity and disconnecting each other.
 
@@ -140,6 +142,7 @@ set -a; source .env.local; set +a; eval "$(rbenv init -)"; bundle exec rails run
 ## Common Failures
 
 - `Start test call` returns `422`: check Rails logs for the real error, then reproduce with `Voice::TestCallBuilder.perform!` in Rails runner.
+- `Start test call` returns `403`: confirm Super Admin has enabled Voice AI for the account. Store admins can see current voice usage and limits on `/app/accounts/:account_id/settings/voice-ai`, but cannot change those account limits.
 - Worker starts but no dispatch: confirm `VOICE_AGENT_NAME` matches the worker registration and the Rails dispatch payload.
 - Dispatch succeeds but no transcript: confirm a standard participant joined the room; the worker waits for a caller before starting the session.
 - DB state changes but the conversation UI does not update: confirm `chatwoot-worker` is running; without Sidekiq, queued ActionCable broadcasts will not reach the browser.

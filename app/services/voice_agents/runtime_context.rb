@@ -77,7 +77,6 @@ class VoiceAgents::RuntimeContext
   def voice_agent
     @voice_agent ||= begin
       agent = setting&.voice_agent || call.account.voice_agents.find_by(id: call.meta&.fetch('voice_agent_id', nil))
-      agent ||= call.account.voice_agents.enabled.order(:created_at).first || call.account.voice_agents.order(:created_at).first
       raise ActiveRecord::RecordNotFound, 'Voice agent not configured' unless agent
 
       agent
@@ -85,9 +84,9 @@ class VoiceAgents::RuntimeContext
   end
 
   def setting
-    @setting ||= call.account.voice_inbox_settings.find_by(
-      id: call.meta&.fetch('voice_inbox_setting_id', nil),
-      inbox_id: call.inbox_id
-    ) || call.account.voice_inbox_settings.find_by(inbox_id: call.inbox_id)
+    @setting ||= call.account.voice_inbox_setting_for(
+      inbox: call.inbox,
+      id: call.meta&.fetch('voice_inbox_setting_id', nil)
+    )
   end
 end

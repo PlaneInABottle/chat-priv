@@ -1,9 +1,11 @@
 require 'rails_helper'
 
 RSpec.describe Voice::CallFinalizer do
-  let(:account) { create(:account) }
+  let(:account) { create(:account, settings: { voice_ai_enabled: true }) }
   let(:api_channel) { create(:channel_api, account: account) }
   let(:inbox) { api_channel.inbox }
+  let(:voice_agent) { account.voice_agents.first! }
+  let!(:voice_inbox_setting) { create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: voice_agent) }
 
   before do
     allow(Voice::Livekit::AgentDispatchService).to receive(:perform).and_return({ 'status' => 'skipped' })
@@ -17,6 +19,7 @@ RSpec.describe Voice::CallFinalizer do
       provider: :livekit,
       extra_meta: {
         'livekit_room_name' => "room-#{SecureRandom.hex(4)}",
+        'voice_inbox_setting_id' => voice_inbox_setting.id,
         'handoff_status' => 'none',
         'ai_status' => 'waiting'
       }
@@ -27,7 +30,7 @@ RSpec.describe Voice::CallFinalizer do
 
   it 'marks a sandbox test call terminal without a conversation message' do
     started_at = Time.zone.now.change(usec: 0) - 2.minutes
-    call = Voice::TestCallBuilder.perform!(account: account, inbox: inbox)
+    call = Voice::TestCallBuilder.perform!(account: account, inbox: inbox, voice_agent: voice_agent)
     call.update!(started_at: started_at)
 
     travel_to(started_at + 45.seconds) do
@@ -73,7 +76,7 @@ RSpec.describe Voice::CallFinalizer do
   end
 
   it 'keeps terminal calls idempotent' do
-    call = Voice::TestCallBuilder.perform!(account: account, inbox: inbox)
+    call = Voice::TestCallBuilder.perform!(account: account, inbox: inbox, voice_agent: voice_agent)
     described_class.perform!(call: call, end_reason: 'first_end')
 
     expect do

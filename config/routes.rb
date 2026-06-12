@@ -108,6 +108,7 @@ Rails.application.routes.draw do
           resource :saml_settings, only: [:show, :create, :update, :destroy]
           resource :ai_agent_usage, only: [:show], controller: 'ai_agent_usage'
           namespace :voice do
+            resource :usage, only: [:show], controller: 'usage'
             resources :agents
             resources :inbox_settings, only: [:index, :show, :create, :update]
             resources :recordings, only: [:index]

@@ -32,8 +32,10 @@ class Voice::Recordings::StartService
   end
 
   def setting
-    @setting ||= VoiceInboxSetting.find_by(id: call.meta&.fetch('voice_inbox_setting_id', nil)) ||
-                 VoiceInboxSetting.find_by(account_id: call.account_id, inbox_id: call.inbox_id)
+    @setting ||= call.account.voice_inbox_setting_for(
+      inbox: call.inbox,
+      id: call.meta&.fetch('voice_inbox_setting_id', nil)
+    )
   end
 
   def build_recording
@@ -50,10 +52,13 @@ class Voice::Recordings::StartService
 
   def reserve_recording
     call.with_lock do
-      return skipped_result('recording_already_started') if call.voice_recordings.active.exists?
-      return skipped_result('recording_already_completed') if call.voice_recordings.completed.exists?
-
-      build_recording
+      if call.voice_recordings.active.exists?
+        skipped_result('recording_already_started')
+      elsif call.voice_recordings.completed.exists?
+        skipped_result('recording_already_completed')
+      else
+        build_recording
+      end
     end
   end
 

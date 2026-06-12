@@ -786,8 +786,12 @@ fieldset {
   align-items: start;
   display: grid;
   gap: 1rem;
-  grid-template-columns: minmax(0, 1fr) 10rem;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
   padding: 1rem;
+}
+
+.ai-agent-settings-control--model {
+  grid-column: span 2;
 }
 
 .ai-agent-settings-control {
@@ -795,10 +799,13 @@ fieldset {
 
   label {
     color: $sa-heading;
+    display: flex;
+    align-items: flex-end;
     font-size: 0.8125rem;
     font-weight: 500;
+    line-height: 1.2;
     margin-bottom: 0.25rem;
-    display: block;
+    min-height: 2rem;
   }
 
   input[type='number'],
@@ -830,7 +837,7 @@ fieldset {
   }
 
   .ai-agent-settings-panel__body {
-    grid-template-columns: repeat(5, minmax(8rem, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
   }
 }
 
@@ -844,6 +851,7 @@ fieldset {
   border: 1px solid $sa-border-light;
   border-radius: $sa-radius;
   overflow: hidden;
+  min-width: 0;
 }
 
 .voice-agent-runtime-card__header {
@@ -872,13 +880,79 @@ fieldset {
   margin-top: 0.25rem;
 }
 
+.super-admin-field-summary {
+  display: grid;
+  gap: 0.625rem 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  margin: 0;
+
+  div {
+    min-width: 0;
+  }
+
+  dt {
+    color: $sa-text-secondary;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    line-height: 1.2;
+    margin: 0 0 0.125rem;
+    text-transform: uppercase;
+  }
+
+  dd {
+    color: $sa-heading;
+    font-size: 0.8125rem;
+    line-height: 1.35;
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+.voice-agent-runtime-summary {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.voice-agent-runtime-summary__card {
+  border: 1px solid $sa-border-light;
+  border-radius: $sa-radius;
+  padding: 0.875rem;
+
+  header {
+    align-items: baseline;
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  strong {
+    color: $sa-heading;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  span {
+    color: $sa-text-secondary;
+    font-size: 0.75rem;
+  }
+}
+
 @media (max-width: 62rem) {
   .ai-agent-settings-panel__body {
     grid-template-columns: 1fr;
   }
 
+  .ai-agent-settings-control--model {
+    grid-column: span 1;
+  }
+
   .voice-agent-runtime-panel .ai-agent-settings-panel__body {
     grid-template-columns: 1fr;
+  }
+
+  .ai-agent-settings-control label {
+    min-height: 0;
   }
 }
 

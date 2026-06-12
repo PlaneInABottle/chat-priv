@@ -10,6 +10,10 @@ class VoiceAPI extends ApiClient {
     return axios.get(`${this.url}/inbox_settings`);
   }
 
+  getUsage() {
+    return axios.get(`${this.url}/usage`);
+  }
+
   getAgents() {
     return axios.get(`${this.url}/agents`);
   }

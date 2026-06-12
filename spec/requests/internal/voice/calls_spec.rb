@@ -1,10 +1,12 @@
 require 'rails_helper'
 
 RSpec.describe 'Internal voice calls API', type: :request do
-  let(:account) { create(:account) }
+  let(:account) { create(:account, settings: { voice_ai_enabled: true }) }
   let(:api_channel) { create(:channel_api, account: account) }
   let(:inbox) { api_channel.inbox }
-  let(:call) { Voice::TestCallBuilder.perform!(account: account, inbox: inbox) }
+  let(:voice_agent) { account.voice_agents.first! }
+  let!(:voice_inbox_setting) { create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: voice_agent) }
+  let(:call) { Voice::TestCallBuilder.perform!(account: account, inbox: inbox, voice_agent: voice_agent) }
   let(:conversation_call) { build_conversation_call }
   let(:path) { "/internal/voice/calls/#{call.provider_call_id}/transcript" }
 
@@ -13,7 +15,7 @@ RSpec.describe 'Internal voice calls API', type: :request do
   end
 
   def build_conversation_call
-    setting = VoiceInboxSetting.find_or_create_by!(account: account, inbox: inbox)
+    setting = voice_inbox_setting
     Voice::InboundCallBuilder.perform!(
       inbox: inbox,
       from_number: '+905551112233',
@@ -130,8 +132,7 @@ RSpec.describe 'Internal voice calls API', type: :request do
       expect(response.parsed_body['tools'].pluck('key')).to include('human_handoff', 'end_customer_call')
     end
 
-    it 'does not resolve a voice agent from another account via call metadata' do
-      account_voice_agent = account.voice_agents.first!
+    it 'rejects voice agent metadata from another account' do
       other_voice_agent = create(:voice_agent, account: create(:account), name: 'Foreign voice agent')
       setting = VoiceInboxSetting.find_by!(id: call.meta['voice_inbox_setting_id'])
       setting.update!(voice_agent: nil)
@@ -148,8 +149,8 @@ RSpec.describe 'Internal voice calls API', type: :request do
             as: :json
       end
 
-      expect(response).to have_http_status(:ok)
-      expect(response.parsed_body.dig('voice_agent', 'id')).to eq(account_voice_agent.id)
+      expect(response).to have_http_status(:not_found)
+      expect(response.parsed_body['error']).to include('Voice agent not configured')
     end
 
     it 'returns not found when no account-scoped voice agent can be resolved' do
