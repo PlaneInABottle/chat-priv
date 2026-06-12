@@ -74,10 +74,7 @@
       "DESCRIPTION": "Bu sesli asistanın yanıtlayabileceği API gelen kutularını seçin. Bu test veya gelecekteki ses rotasını bu asistan yönetmeliyse gelen kutusunu buraya taşıyın.",
       "API_SANDBOX": "API sandbox gelen kutusu",
       "ASSIGNED_TO": "Şu anda {agent} asistanına atanmış; kaydedince buraya taşınır.",
-      "UNKNOWN_AGENT": "başka bir sesli asistan",
-      "STATUS": "Durum",
-      "STATUS_TEST_ONLY": "Sadece test",
-      "STATUS_READY": "Hazır"
+      "UNKNOWN_AGENT": "başka bir sesli asistan"
     },
     "TEST": {
       "TITLE": "Sandbox test çağrısı",

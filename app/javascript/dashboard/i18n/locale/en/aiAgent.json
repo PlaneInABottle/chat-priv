@@ -212,10 +212,7 @@
       "DESCRIPTION": "Choose which API inboxes this voice agent can answer. Move an inbox here when this agent should handle that test or future voice route.",
       "API_SANDBOX": "API sandbox inbox",
       "ASSIGNED_TO": "Currently assigned to {agent}; saving will move it here.",
-      "UNKNOWN_AGENT": "another voice agent",
-      "STATUS": "Status",
-      "STATUS_TEST_ONLY": "Test only",
-      "STATUS_READY": "Ready"
+      "UNKNOWN_AGENT": "another voice agent"
     },
     "TEST": {
       "TITLE": "Sandbox test call",

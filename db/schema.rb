@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_06_12_120000) do
+ActiveRecord::Schema[7.1].define(version: 2026_06_12_124500) do
   # These extensions should be enabled to support this database
   enable_extension "pg_stat_statements"
   enable_extension "pg_trgm"
@@ -1463,7 +1463,6 @@ ActiveRecord::Schema[7.1].define(version: 2026_06_12_120000) do
     t.bigint "account_id", null: false
     t.bigint "inbox_id", null: false
     t.bigint "fallback_team_id"
-    t.string "status", default: "test_only", null: false
     t.string "livekit_room_prefix"
     t.boolean "recording_enabled", default: false, null: false
     t.text "last_error"
