@@ -176,6 +176,20 @@ RSpec.describe AiAgents::LiveProcessor do
     expect(described_class.new(message: message, adapter: adapter).perform).to be_nil
   end
 
+  it 'does not execute for voice call messages' do
+    message = create(:message,
+                     account: account,
+                     inbox: inbox,
+                     conversation: conversation,
+                     message_type: 'incoming',
+                     content_type: 'voice_call',
+                     sender: conversation.contact)
+
+    expect(adapter).not_to receive(:perform)
+
+    expect(described_class.new(message: message, adapter: adapter).perform).to be_nil
+  end
+
   it 'does not execute when AI Agent is disabled for the account' do
     account.update!(ai_agent_enabled: false)
     message = create(:message,

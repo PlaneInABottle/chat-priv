@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_06_11_143000) do
+ActiveRecord::Schema[7.1].define(version: 2026_06_12_120000) do
   # These extensions should be enabled to support this database
   enable_extension "pg_stat_statements"
   enable_extension "pg_trgm"
@@ -1478,6 +1478,39 @@ ActiveRecord::Schema[7.1].define(version: 2026_06_11_143000) do
     t.index ["voice_agent_id"], name: "index_voice_inbox_settings_on_voice_agent_id"
   end
 
+  create_table "voice_numbers", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "voice_provider_connection_id", null: false
+    t.bigint "voice_inbox_setting_id", null: false
+    t.string "phone_number", null: false
+    t.string "status", default: "draft", null: false
+    t.string "livekit_inbound_trunk_id"
+    t.string "livekit_dispatch_rule_id"
+    t.jsonb "settings", default: {}, null: false
+    t.text "last_error"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_voice_numbers_on_account_id"
+    t.index ["livekit_dispatch_rule_id"], name: "index_voice_numbers_on_livekit_dispatch_rule_id"
+    t.index ["livekit_inbound_trunk_id"], name: "index_voice_numbers_on_livekit_inbound_trunk_id"
+    t.index ["phone_number"], name: "index_voice_numbers_on_phone_number", unique: true
+    t.index ["voice_inbox_setting_id"], name: "idx_voice_numbers_voice_inbox_setting"
+    t.index ["voice_provider_connection_id"], name: "idx_voice_numbers_provider_connection"
+  end
+
+  create_table "voice_provider_connections", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.string "provider", null: false
+    t.string "name", null: false
+    t.string "status", default: "draft", null: false
+    t.jsonb "settings", default: {}, null: false
+    t.text "last_error"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "provider", "name"], name: "idx_voice_provider_connections_account_provider_name", unique: true
+    t.index ["account_id"], name: "index_voice_provider_connections_on_account_id"
+  end
+
   create_table "voice_recordings", force: :cascade do |t|
     t.bigint "account_id", null: false
     t.bigint "call_id", null: false
@@ -1578,6 +1611,10 @@ ActiveRecord::Schema[7.1].define(version: 2026_06_11_143000) do
   add_foreign_key "voice_inbox_settings", "inboxes"
   add_foreign_key "voice_inbox_settings", "teams", column: "fallback_team_id"
   add_foreign_key "voice_inbox_settings", "voice_agents"
+  add_foreign_key "voice_numbers", "accounts"
+  add_foreign_key "voice_numbers", "voice_inbox_settings"
+  add_foreign_key "voice_numbers", "voice_provider_connections"
+  add_foreign_key "voice_provider_connections", "accounts"
   add_foreign_key "voice_recordings", "accounts"
   add_foreign_key "voice_recordings", "calls"
   add_foreign_key "voice_tool_events", "accounts"

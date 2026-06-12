@@ -37,6 +37,7 @@ class VoiceInboxSetting < ApplicationRecord
   belongs_to :inbox
   belongs_to :voice_agent, optional: true
   belongs_to :fallback_team, class_name: 'Team', optional: true
+  has_many :voice_numbers, dependent: :destroy
 
   validates :status, presence: true, inclusion: { in: STATUSES }
   validates :inbox_id, uniqueness: { scope: :account_id }

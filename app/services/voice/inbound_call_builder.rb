@@ -78,6 +78,11 @@ class Voice::InboundCallBuilder
   end
 
   def ensure_livekit_contact!
+    if from_number.to_s.match?(/\A\+[1-9]\d{1,14}\z/)
+      contact = account.contacts.find_by(phone_number: from_number)
+      return contact if contact
+    end
+
     account.contacts.find_or_create_by!(identifier: source_id_for_provider) do |record|
       record.name = contact_name.presence || from_number.presence || 'Voice caller'
       record.phone_number = from_number if from_number.to_s.match?(/\A\+[1-9]\d{1,14}\z/)
