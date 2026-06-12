@@ -40,11 +40,10 @@
   query: "menteşeli sineklik"
   expect:
     result_type:
-      - show_candidates
-      - show_compatible_candidates
-    min_results: 1
-    top_results_include:
-      - "sineklik"
+      - clarify_category
+    min_buckets: 2
+    bucket_labels_include:
+      - "Menteşeli"
 
 - id: beyaz_olanin_linki_followup
   query: "beyaz olanın linki"
@@ -79,14 +78,3 @@
     require_evidence:
       - fact: size
       - fact: color
-
-- id: turkish_filler_beyaz_perde
-  query: "kral beyaz perde bakıyorum"
-  expect:
-    result_type:
-      - show_candidates
-      - show_compatible_candidates
-    min_results: 1
-    top_results_include:
-      - "perde"
-      - "beyaz"

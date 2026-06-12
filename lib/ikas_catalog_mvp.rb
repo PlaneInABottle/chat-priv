@@ -12,6 +12,7 @@ module IkasCatalogMvp
 end
 
 require_relative 'ikas_catalog_mvp/text'
+require_relative 'ikas_catalog_mvp/facet_key_classifier'
 require_relative 'ikas_catalog_mvp/catalog_client'
 require_relative 'ikas_catalog_mvp/raw_sync'
 require_relative 'ikas_catalog_mvp/product_link_builder'

@@ -36,6 +36,10 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
       { 'id' => 'sineklik-root', 'name' => 'Sineklikler', 'parentId' => nil },
       { 'id' => 'sineklik-kedi', 'name' => 'Kedi Sineklikleri', 'parentId' => 'sineklik-root' },
       { 'id' => 'sineklik-akordiyon', 'name' => 'Akordiyon Sineklikler', 'parentId' => 'sineklik-root' },
+      { 'id' => 'sineklik-hinged', 'name' => 'Menteşeli Sineklikler', 'parentId' => 'sineklik-root' },
+      { 'id' => 'sineklik-hinged-door', 'name' => 'Menteşeli Kapı Sineklikleri', 'parentId' => 'sineklik-hinged' },
+      { 'id' => 'sineklik-hinged-window', 'name' => 'Menteşeli Pencere Sinekliği', 'parentId' => 'sineklik-hinged' },
+      { 'id' => 'sineklik-balcony', 'name' => 'Cam Balkon Sineklikleri', 'parentId' => 'sineklik-root' },
       { 'id' => 'shirts', 'name' => 'Shirts', 'parentId' => nil },
       { 'id' => 'honey', 'name' => 'Honey', 'parentId' => nil },
       { 'id' => 'curtains', 'name' => 'Perdeler', 'parentId' => nil },
@@ -64,6 +68,12 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
         'name' => 'Color',
         'selectionType' => 'color',
         'values' => [{ 'id' => 'black', 'name' => 'Black' }, { 'id' => 'white', 'name' => 'White' }, { 'id' => 'beyaz', 'name' => 'Beyaz' }]
+      },
+      {
+        'id' => 'curtain-color-type',
+        'name' => 'Perde Rengi',
+        'selectionType' => 'choice',
+        'values' => [{ 'id' => 'curtain-beyaz', 'name' => 'Beyaz Perde' }]
       }
     ]
   end
@@ -115,12 +125,15 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
     [
       sineklik_product,
       kedi_sineklik_product,
+      hinged_door_sineklik_product,
+      hinged_window_sineklik_product,
       shirt_product,
       white_shirt_product,
       honey_product,
       blackout_curtain_product,
       dimout_curtain_product,
       separator_curtain_product,
+      structured_color_curtain_product,
       title_color_curtain_product,
       option_set_sineklik_product,
       kedi_pencere_sineklik_product,
@@ -164,6 +177,30 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
       'attributes' => [],
       'variants' => [
         variant('v-sineklik-kedi', price: 350.0, stocks: 2)
+      ]
+    }
+  end
+
+  def hinged_door_sineklik_product
+    {
+      'id' => 'p-sineklik-hinged-door',
+      'name' => 'Menteşeli Kapı Sineklik',
+      'categoryIds' => ['sineklik-hinged-door'],
+      'attributes' => [],
+      'variants' => [
+        variant('v-sineklik-hinged-door', price: 390.0, stocks: 3)
+      ]
+    }
+  end
+
+  def hinged_window_sineklik_product
+    {
+      'id' => 'p-sineklik-hinged-window',
+      'name' => 'Menteşeli Pencere Sineklik',
+      'categoryIds' => ['sineklik-hinged-window'],
+      'attributes' => [],
+      'variants' => [
+        variant('v-sineklik-hinged-window', price: 310.0, stocks: 3)
       ]
     }
   end
@@ -263,6 +300,25 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
       'attributes' => [],
       'variants' => [
         variant('v-title-color-curtain', price: 750.0, stocks: 5)
+      ]
+    }
+  end
+
+  def structured_color_curtain_product
+    {
+      'id' => 'p-structured-color-curtain',
+      'name' => 'Orjin Pliseli Perde',
+      'categoryIds' => ['curtains'],
+      'attributes' => [],
+      'variants' => [
+        variant(
+          'v-structured-color-curtain',
+          price: 760.0,
+          stocks: 5,
+          variant_values: [
+            { 'variantTypeId' => 'curtain-color-type', 'variantValueId' => 'curtain-beyaz' }
+          ]
+        )
       ]
     }
   end
@@ -502,6 +558,20 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
     end
   end
 
+  it 'ranks structured variant evidence above title-only fallback evidence' do
+    with_snapshot do |sqlite_path|
+      payload = described_class.new(sqlite_path: sqlite_path).query('beyaz perde')
+      candidates = payload.fetch('candidates')
+      structured = candidates.find { |row| row.fetch('product_id') == 'p-structured-color-curtain' }
+      title_only = candidates.find { |row| row.fetch('product_id') == 'p-title-color-curtain' }
+
+      expect(candidates.first.fetch('product_id')).to eq('p-structured-color-curtain')
+      expect(structured.fetch('relevance_score')).to be > title_only.fetch('relevance_score')
+      expect(structured.fetch('relevance_signals').map { |signal| signal.fetch('kind') }).to include('structured_evidence_match')
+      expect(title_only.fetch('relevance_signals').map { |signal| signal.fetch('kind') }).to include('fallback_evidence_match')
+    end
+  end
+
   it 'does not match short product terms against longer unrelated category words' do
     with_snapshot do |sqlite_path|
       payload = described_class.new(sqlite_path: sqlite_path).query('bal')
@@ -571,6 +641,28 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
       payload = described_class.new(sqlite_path: sqlite_path).query('kedi için sineklik')
 
       expect(payload.fetch('matched_scope').fetch('id')).to eq('sineklik-kedi')
+    end
+  end
+
+  it 'asks for the exact smaller category buckets for a broad subtype query' do
+    with_snapshot do |sqlite_path|
+      payload = described_class.new(sqlite_path: sqlite_path).query('menteşeli sineklik')
+
+      expect(payload.fetch('result_type')).to eq('clarify_category')
+      expect(payload.fetch('matched_scope').fetch('id')).to eq('sineklik-hinged')
+      expect(payload.fetch('buckets').map { |bucket| bucket.fetch('label') }).to include(
+        'Menteşeli Kapı Sineklikleri',
+        'Menteşeli Pencere Sinekliği'
+      )
+    end
+  end
+
+  it 'prefers an exact smaller multi-word category over the broad parent' do
+    with_snapshot do |sqlite_path|
+      engine = described_class.new(sqlite_path: sqlite_path)
+
+      expect(engine.query('cam balkon sineklik').fetch('matched_scope').fetch('id')).to eq('sineklik-balcony')
+      expect(engine.query('menteşeli kapı sinekliği').fetch('matched_scope').fetch('id')).to eq('sineklik-hinged-door')
     end
   end
 end
