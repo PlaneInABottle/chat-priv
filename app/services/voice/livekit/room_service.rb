@@ -1,5 +1,6 @@
 class Voice::Livekit::RoomService
   AGENT_KIND_VALUES = ['AGENT', 'PARTICIPANT_KIND_AGENT', 4, '4'].freeze
+  RoomRef = Struct.new(:livekit_room_name, :provider_call_id, keyword_init: true)
 
   def self.remove_agent_participants(call:)
     new(call: call).remove_agent_participants
@@ -7,6 +8,14 @@ class Voice::Livekit::RoomService
 
   def self.participant_summary(call:)
     new(call: call).participant_summary
+  end
+
+  def self.delete_room(call:)
+    new(call: call).delete_room
+  end
+
+  def self.delete_room_name(room_name:)
+    new(call: RoomRef.new(livekit_room_name: room_name, provider_call_id: room_name)).delete_room
   end
 
   def initialize(call:)
@@ -53,6 +62,31 @@ class Voice::Livekit::RoomService
     }
   end
 
+  def delete_room
+    return skipped_result unless configured?
+
+    response = delete_client.post(
+      service: 'RoomService',
+      method: 'DeleteRoom',
+      body: { room: room_name }
+    )
+    parsed = parse_json(response.body)
+    raise "LiveKit DeleteRoom failed: #{parsed['msg'] || parsed['error'] || response.body}" unless response.is_a?(Net::HTTPSuccess)
+
+    {
+      'status' => 'deleted',
+      'room' => room_name
+    }
+  rescue StandardError => e
+    return not_found_result(e) if room_not_found?(e)
+
+    {
+      'status' => 'failed',
+      'error' => e.message.to_s.truncate(500),
+      'error_class' => e.class.name
+    }
+  end
+
   private
 
   attr_reader :call
@@ -85,6 +119,17 @@ class Voice::Livekit::RoomService
 
   def client
     @client ||= Voice::Livekit::TwirpClient.new(room_name: room_name, subject: 'voice-room-admin')
+  end
+
+  def delete_client
+    @delete_client ||= Voice::Livekit::TwirpClient.new(
+      room_name: room_name,
+      subject: 'voice-room-delete',
+      video_grants: {
+        room: room_name,
+        roomCreate: true
+      }
+    )
   end
 
   def agent_participant?(participant)

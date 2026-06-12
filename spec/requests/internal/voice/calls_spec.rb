@@ -72,6 +72,28 @@ RSpec.describe 'Internal voice calls API', type: :request do
     end
   end
 
+  describe 'POST /internal/voice/calls/:provider_call_id/event' do
+    let(:path) { "/internal/voice/calls/#{conversation_call.provider_call_id}/event" }
+
+    it 'marks the AI active when the worker starts listening' do
+      with_modified_env VOICE_AGENT_INTERNAL_TOKEN: 'secret' do
+        post path,
+             params: { event: 'agent_listening', payload: { participant_identity: 'sip_+905551112233' } },
+             headers: { 'X-Voice-Agent-Token' => 'secret' },
+             as: :json
+      end
+
+      expect(response).to have_http_status(:ok)
+      conversation_call.reload
+      expect(conversation_call.ai_status).to eq('active')
+      expect(conversation_call.meta).to include(
+        'last_voice_agent_event' => 'agent_listening',
+        'last_voice_agent_payload' => { 'participant_identity' => 'sip_+905551112233' }
+      )
+      expect(conversation_call.message.content_attributes.dig('data', 'ai_status')).to eq('active')
+    end
+  end
+
   describe 'POST /internal/voice/calls/:provider_call_id/tool_call' do
     let(:path) { "/internal/voice/calls/#{call.provider_call_id}/tool_call" }
 
@@ -79,13 +101,13 @@ RSpec.describe 'Internal voice calls API', type: :request do
       with_modified_env VOICE_AGENT_INTERNAL_TOKEN: 'secret' do
         post path,
              params: {
-                tool: 'request_human_handoff',
-                status: 'executed',
-                arguments: { reason: 'caller gave test@example.com and +905551112233' },
-                result: { tool_status: 'ok' },
-                duration_ms: 42,
-                external_id: 'tool-call-1'
-              },
+               tool: 'request_human_handoff',
+               status: 'executed',
+               arguments: { reason: 'caller gave test@example.com and +905551112233' },
+               result: { tool_status: 'ok' },
+               duration_ms: 42,
+               external_id: 'tool-call-1'
+             },
              headers: { 'X-Voice-Agent-Token' => 'secret' },
              as: :json
       end
@@ -125,7 +147,7 @@ RSpec.describe 'Internal voice calls API', type: :request do
 
     it 'rejects voice agent metadata from another account' do
       other_voice_agent = create(:voice_agent, account: create(:account), name: 'Foreign voice agent')
-      setting = VoiceInboxSetting.find_by!(id: call.meta['voice_inbox_setting_id'])
+      setting = VoiceInboxSetting.find(call.meta['voice_inbox_setting_id'])
       setting.update!(voice_agent: nil)
       call.update!(
         meta: call.meta.merge(
@@ -145,7 +167,7 @@ RSpec.describe 'Internal voice calls API', type: :request do
     end
 
     it 'returns not found when no account-scoped voice agent can be resolved' do
-      setting = VoiceInboxSetting.find_by!(id: call.meta['voice_inbox_setting_id'])
+      setting = VoiceInboxSetting.find(call.meta['voice_inbox_setting_id'])
       setting.update!(voice_agent: nil)
       account.voice_agents.destroy_all
       call.update!(meta: call.meta.merge('voice_agent_id' => nil))
@@ -158,6 +180,97 @@ RSpec.describe 'Internal voice calls API', type: :request do
 
       expect(response).to have_http_status(:not_found)
       expect(response.parsed_body['error']).to include('Voice agent not configured')
+    end
+  end
+
+  describe 'POST /internal/voice/calls/:provider_call_id/agent_context' do
+    it 'bootstraps a real SIP-dispatched LiveKit call from voice number metadata' do
+      provider_connection = create(:voice_provider_connection, account: account, provider: 'test_sip')
+      voice_number = create(
+        :voice_number,
+        account: account,
+        voice_provider_connection: provider_connection,
+        voice_inbox_setting: voice_inbox_setting,
+        phone_number: '+908501112234'
+      )
+      allow(Voice::Recordings::StartService).to receive(:perform)
+
+      with_modified_env VOICE_AGENT_INTERNAL_TOKEN: 'secret' do
+        expect do
+          post '/internal/voice/calls/sip-room-agent-context/agent_context',
+               params: {
+                 metadata: {
+                   voice_number_id: voice_number.id,
+                   from_number: '+905551112233',
+                   to_number: '+908501112234'
+                 }
+               },
+               headers: { 'X-Voice-Agent-Token' => 'secret' },
+               as: :json
+        end.to change(Call.livekit, :count).by(1)
+      end
+
+      expect(response).to have_http_status(:ok)
+      created_call = Call.livekit.find_by!(provider_call_id: 'sip-room-agent-context')
+      expect(created_call).to have_attributes(account_id: account.id, inbox_id: inbox.id, status: 'in_progress')
+      expect(created_call.meta).to include(
+        'voice_number_id' => voice_number.id,
+        'voice_provider_connection_id' => provider_connection.id,
+        'voice_inbox_setting_id' => voice_inbox_setting.id,
+        'voice_agent_id' => voice_agent.id
+      )
+      expect(response.parsed_body.dig('voice_agent', 'id')).to eq(voice_agent.id)
+    end
+
+    it 'returns not found when SIP metadata cannot be routed' do
+      with_modified_env VOICE_AGENT_INTERNAL_TOKEN: 'secret' do
+        expect do
+          post '/internal/voice/calls/sip-room-unmatched/agent_context',
+               params: { metadata: { to_number: '+908509999999' } },
+               headers: { 'X-Voice-Agent-Token' => 'secret' },
+               as: :json
+        end.not_to change(Call.livekit, :count)
+      end
+
+      expect(response).to have_http_status(:not_found)
+      expect(response.parsed_body['error']).to include('Voice number or voice inbox setting not configured')
+    end
+
+    it 'returns a limit response and deletes the LiveKit room when concurrent call admission rejects the call' do
+      account.update!(voice_ai_concurrent_call_limit: 1)
+      provider_connection = create(:voice_provider_connection, account: account, provider: 'test_sip')
+      voice_number = create(
+        :voice_number,
+        account: account,
+        voice_provider_connection: provider_connection,
+        voice_inbox_setting: voice_inbox_setting,
+        phone_number: '+908501112235'
+      )
+      create(:call, account: account, inbox: inbox, provider: :livekit, status: 'in_progress')
+      allow(Voice::Livekit::RoomService).to receive(:delete_room_name).and_return(
+        { 'status' => 'deleted', 'room' => 'sip-room-limit' }
+      )
+
+      with_modified_env VOICE_AGENT_INTERNAL_TOKEN: 'secret' do
+        expect do
+          post '/internal/voice/calls/sip-room-limit/agent_context',
+               params: {
+                 metadata: {
+                   voice_number_id: voice_number.id,
+                   to_number: '+908501112235'
+                 }
+               },
+               headers: { 'X-Voice-Agent-Token' => 'secret' },
+               as: :json
+        end.not_to change(Call.livekit, :count)
+      end
+
+      expect(response).to have_http_status(:too_many_requests)
+      expect(response.parsed_body).to include(
+        'error' => 'Voice AI concurrent call limit is reached.',
+        'error_code' => 'voice_usage_rejected'
+      )
+      expect(Voice::Livekit::RoomService).to have_received(:delete_room_name).with(room_name: 'sip-room-limit')
     end
   end
 

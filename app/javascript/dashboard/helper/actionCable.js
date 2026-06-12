@@ -14,6 +14,7 @@ import {
 import { VOICE_CALL_PROVIDERS } from 'dashboard/helper/inbox';
 import { VOICE_CALL_DIRECTION } from 'dashboard/components-next/message/constants';
 import { FEATURE_FLAGS } from 'dashboard/featureFlags';
+import { handleVoiceCallStatusPayload } from 'dashboard/helper/voice';
 
 const { isImpersonating } = useImpersonation();
 const UNREAD_COUNTS_REFETCH_THROTTLE_MS = 5000;
@@ -432,6 +433,11 @@ class ActionCableConnector extends BaseActionCableConnector {
   // eslint-disable-next-line class-methods-use-this
   onVoiceCallStatusChanged = data => {
     emitter.emit('voice.status_changed', data);
+    handleVoiceCallStatusPayload(
+      data,
+      this.app.$store.getters?.getCurrentUserID,
+      this.app.$store.getters?.getCurrentUserAvailability
+    );
   };
 
   // eslint-disable-next-line class-methods-use-this

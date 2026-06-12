@@ -106,7 +106,7 @@ class Call < ApplicationRecord
   end
 
   def recording_url
-    if livekit?
+    if livekit? && respond_to?(:voice_recordings)
       latest_recording = voice_recordings.completed.latest_first.first
       return Voice::Recordings::StorageConfig.new.signed_url(latest_recording) if latest_recording
     end
@@ -155,6 +155,8 @@ class Call < ApplicationRecord
   def voice_payload
     {
       livekit_room_name: livekit_room_name,
+      voice_number_id: meta&.fetch('voice_number_id', nil),
+      voice_provider_connection_id: meta&.fetch('voice_provider_connection_id', nil),
       test_call: test_call?,
       test_call_source: test_call_source,
       test_call_initiated_by_user_id: test_call_initiated_by_user_id,

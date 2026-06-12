@@ -70,8 +70,17 @@ class ChatwootClient:
         async with self.session.get(f"{self.base_url}{path}") as response:
             return await response.json()
 
-    async def agent_context(self, provider_call_id: str) -> dict[str, Any]:
-        return await self.get(f"/internal/voice/calls/{provider_call_id}/agent_context")
+    async def agent_context(self, provider_call_id: str, metadata: dict[str, Any] | None = None) -> dict[str, Any]:
+        async with self.session.post(
+            f"{self.base_url}/internal/voice/calls/{provider_call_id}/agent_context",
+            json={"metadata": metadata or {}},
+            raise_for_status=False,
+        ) as response:
+            payload = await response.json()
+            if response.status >= 400:
+                raise AgentContextRejected(response.status, str(payload.get("error") or response.reason))
+
+            return payload
 
     async def execute_tool(
         self,
@@ -90,6 +99,12 @@ class ChatwootClient:
 
     async def end_call(self, provider_call_id: str, end_reason: str) -> dict[str, Any]:
         return await self.post(f"/internal/voice/calls/{provider_call_id}/end", {"end_reason": end_reason})
+
+    async def record_event(self, provider_call_id: str, event: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+        return await self.post(
+            f"/internal/voice/calls/{provider_call_id}/event",
+            {"event": event, "payload": payload or {}},
+        )
 
     async def record_tool_call(
         self,
@@ -128,6 +143,13 @@ class ChatwootClient:
         )
 
 
+class AgentContextRejected(RuntimeError):
+    def __init__(self, status: int, message: str) -> None:
+        super().__init__(message)
+        self.status = status
+        self.message = message
+
+
 class VoiceAssistant(Agent):
     def __init__(
         self,
@@ -135,17 +157,26 @@ class VoiceAssistant(Agent):
         instructions: str,
         greeting: str | None = None,
         tools: list[Any] | None = None,
+        realtime_model_name: str | None = None,
     ) -> None:
         self.provider_call_id = provider_call_id
         self.greeting = greeting
+        self.realtime_model_name = realtime_model_name
         super().__init__(instructions=instructions, tools=tools or [])
 
     async def on_enter(self) -> None:
-        if gemini_31_realtime_enabled():
+        if self.realtime_model_name and "gemini-3.1" in self.realtime_model_name:
+            logger.info(
+                "skipping proactive greeting for room=%s model=%s reason=gemini_31_generate_reply_unsupported",
+                self.provider_call_id,
+                self.realtime_model_name,
+            )
             return
 
         greeting = self.greeting or "Merhaba, size nasil yardimci olabilirim?"
+        logger.info("requesting proactive greeting for room=%s greeting_chars=%s", self.provider_call_id, len(greeting))
         await self.session.generate_reply(instructions=f"Greet the caller in Turkish with this greeting: {greeting}")
+        logger.info("proactive greeting requested for room=%s", self.provider_call_id)
 
 
 def base_instructions() -> str:
@@ -417,6 +448,13 @@ def bind_transcript_events(session: AgentSession, provider_call_id: str, chatwoo
             return
 
         segment_id = _transcript_segment_id(item, text)
+        logger.info(
+            "transcript segment received room=%s role=%s text_chars=%s segment_id=%s",
+            provider_call_id,
+            item.role,
+            len(text),
+            segment_id,
+        )
         _fire_and_forget(
             "append_transcript",
             chatwoot.append_transcript(
@@ -446,45 +484,62 @@ async def entrypoint(ctx: agents.JobContext) -> None:
 async def _entrypoint_inner(ctx: agents.JobContext, provider_call_id: str) -> None:
     metadata = job_metadata(ctx)
     chatwoot = ChatwootClient()
-    runtime_context = await chatwoot.agent_context(provider_call_id)
-    instructions = str(runtime_context.get("instructions") or "").strip() or session_instructions(metadata)
-    voice_agent = runtime_context.get("voice_agent") or {}
-    runtime = runtime_context.get("runtime") or {}
-    greeting = str(voice_agent.get("greeting") or "").strip() or None
-    tools = build_chatwoot_tools(runtime_context, chatwoot, provider_call_id)
     try:
-        participant = await wait_for_customer_participant(ctx)
-    except asyncio.TimeoutError:
-        await chatwoot.end_call(provider_call_id, "participant_timeout")
-        return
-
-    ended = False
-
-    async def end_call_once(reason: str) -> None:
-        nonlocal ended
-        if ended:
-            return
-        ended = True
-        await chatwoot.end_call(provider_call_id, reason)
-
-    @ctx.room.on("participant_disconnected")
-    def on_participant_disconnected(disconnected_participant: rtc.RemoteParticipant) -> None:
-        if disconnected_participant.identity != participant.identity:
+        try:
+            runtime_context = await chatwoot.agent_context(provider_call_id, metadata)
+        except AgentContextRejected as error:
+            logger.warning(
+                "voice agent context rejected for room=%s status=%s message=%s",
+                provider_call_id,
+                error.status,
+                error.message,
+            )
             return
 
-        reason = end_reason_for_disconnect(disconnected_participant.disconnect_reason)
-        _fire_and_forget("participant_disconnected_end_call", end_call_once(reason))
+        instructions = str(runtime_context.get("instructions") or "").strip() or session_instructions(metadata)
+        voice_agent = runtime_context.get("voice_agent") or {}
+        runtime = runtime_context.get("runtime") or {}
+        realtime_model_name = str(runtime.get("model") or realtime_model()).strip()
+        greeting = str(voice_agent.get("greeting") or "").strip() or None
+        tools = build_chatwoot_tools(runtime_context, chatwoot, provider_call_id)
+        try:
+            participant = await wait_for_customer_participant(ctx)
+        except asyncio.TimeoutError:
+            await chatwoot.end_call(provider_call_id, "participant_timeout")
+            return
+        await chatwoot.record_event(
+            provider_call_id,
+            "agent_listening",
+            {"participant_identity": participant.identity},
+        )
 
-    session = build_session(instructions=instructions, runtime=runtime)
-    bind_transcript_events(session, provider_call_id, chatwoot)
+        ended = False
 
-    async def on_shutdown(reason: str) -> None:
-        logger.info("shutdown signal received for room=%s reason=%s", provider_call_id, reason)
-        await end_call_once("livekit_dispatch_cancelled")
+        async def end_call_once(reason: str) -> None:
+            nonlocal ended
+            if ended:
+                return
+            ended = True
+            await chatwoot.end_call(provider_call_id, reason)
 
-    ctx.add_shutdown_callback(on_shutdown)
+        @ctx.room.on("participant_disconnected")
+        def on_participant_disconnected(disconnected_participant: rtc.RemoteParticipant) -> None:
+            if disconnected_participant.identity != participant.identity:
+                return
 
-    try:
+            reason = end_reason_for_disconnect(disconnected_participant.disconnect_reason)
+            _fire_and_forget("participant_disconnected_end_call", end_call_once(reason))
+
+        session = build_session(instructions=instructions, runtime=runtime)
+        bind_transcript_events(session, provider_call_id, chatwoot)
+
+        async def on_shutdown(reason: str) -> None:
+            logger.info("shutdown signal received for room=%s reason=%s", provider_call_id, reason)
+            await chatwoot.record_event(provider_call_id, "agent_session_ended", {"reason": reason})
+            await end_call_once("livekit_dispatch_cancelled")
+
+        ctx.add_shutdown_callback(on_shutdown)
+
         await session.start(
             room=ctx.room,
             agent=VoiceAssistant(
@@ -492,6 +547,7 @@ async def _entrypoint_inner(ctx: agents.JobContext, provider_call_id: str) -> No
                 instructions=instructions,
                 greeting=greeting,
                 tools=tools,
+                realtime_model_name=realtime_model_name,
             ),
             room_input_options=RoomInputOptions(participant_identity=participant.identity),
         )

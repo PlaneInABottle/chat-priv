@@ -53,7 +53,7 @@ class AiAgents::LiveProcessor
   end
 
   def eligible_customer_message?
-    message.incoming? && !message.private? && !message.activity? && !message.template? && !ai_generated_message?
+    message.incoming? && message.text? && !message.private? && !message.activity? && !message.template? && !ai_generated_message?
   end
 
   def ai_generated_message?

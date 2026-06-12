@@ -26,7 +26,9 @@ class VoiceAgents::RuntimeContext
       inbox_id: call.inbox_id,
       provider_call_id: call.provider_call_id,
       livekit_room_name: call.livekit_room_name,
-      test_call: call.test_call?
+      test_call: call.test_call?,
+      voice_number_id: call.meta&.fetch('voice_number_id', nil),
+      voice_provider_connection_id: call.meta&.fetch('voice_provider_connection_id', nil)
     }
   end
 

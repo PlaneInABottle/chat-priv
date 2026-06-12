@@ -21,6 +21,7 @@ class Voice::CallFinalizer
       duration_seconds: resolved_duration_seconds,
       end_reason: end_reason
     )
+    terminate_livekit_room
     stop_recording
     Voice::CallMessageBuilder.new(call).update_status!(
       status: call.status,
@@ -50,5 +51,14 @@ class Voice::CallFinalizer
     Voice::Recordings::StopService.perform(call: call)
   rescue StandardError => e
     Rails.logger.warn("voice recording stop failed call_id=#{call.id} error=#{e.class.name}: #{e.message}")
+  end
+
+  def terminate_livekit_room
+    return unless call.livekit?
+
+    room_result = Voice::Livekit::RoomService.delete_room(call: call)
+    call.update!(meta: (call.meta || {}).merge('livekit_room_delete' => room_result))
+  rescue StandardError => e
+    Rails.logger.warn("livekit room delete failed call_id=#{call.id} error=#{e.class.name}: #{e.message}")
   end
 end
