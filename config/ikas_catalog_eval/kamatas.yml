@@ -1,0 +1,69 @@
+# Local/dev evaluation pack for the current Kamataş-like Ikas snapshot.
+# Keep product-specific expectations here instead of hardcoding them in search logic.
+- id: beyaz_perde
+  query: "beyaz perde"
+  expect:
+    result_type:
+      - show_candidates
+      - show_compatible_candidates
+    min_results: 1
+    top_results_include:
+      - "Orjin Pliseli Perde Beyaz"
+    require_links: true
+    require_evidence:
+      - fact: color
+
+- id: perde_nested_buckets
+  query: "perde"
+  expect:
+    result_type:
+      - clarify_category
+    min_buckets: 2
+    bucket_labels_include:
+      - "Plise Perdeler"
+      - "Orjin Plise Perdeler"
+      - "Seperatör Kapılar"
+
+- id: akordiyon_sineklik_70x80
+  query: "70x80 akordiyon sineklik"
+  expect:
+    result_type:
+      - show_compatible_candidates
+    min_results: 3
+    top_results_include:
+      - "Sineklik"
+    require_links: true
+    require_evidence:
+      - fact: dimension_max
+
+- id: menteseli_sineklik
+  query: "menteşeli sineklik"
+  expect:
+    result_type:
+      - show_candidates
+      - show_compatible_candidates
+      - clarify_category
+    bucket_labels_include:
+      - "Menteşeli Sineklikler"
+
+- id: beyaz_olanin_linki_followup
+  query: "beyaz olanın linki"
+  context_texts:
+    - "akordiyon sineklik 70x80"
+  expect:
+    result_type:
+      - show_candidates
+      - show_compatible_candidates
+    min_results: 1
+    require_links: true
+
+- id: turkish_filler_beyaz_perde
+  query: "kral beyaz perde bakıyorum"
+  expect:
+    result_type:
+      - show_candidates
+      - show_compatible_candidates
+    min_results: 1
+    top_results_include:
+      - "Perde"
+    require_links: true

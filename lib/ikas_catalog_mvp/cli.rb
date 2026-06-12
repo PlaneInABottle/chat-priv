@@ -19,6 +19,7 @@ module IkasCatalogMvp
       when 'sync' then sync
       when 'build' then build
       when 'query' then query
+      when 'eval' then evaluate
       else
         warn usage
         1
@@ -88,6 +89,26 @@ module IkasCatalogMvp
       0
     end
 
+    def evaluate
+      options = { limit: QueryEngine::DEFAULT_LIMIT, format: CatalogEvaluator::DEFAULT_FORMAT }
+      OptionParser.new do |parser|
+        parser.on('--sqlite-path VALUE') { |value| options[:sqlite_path] = value }
+        parser.on('--cases VALUE') { |value| options[:cases_path] = value }
+        parser.on('--limit VALUE') { |value| options[:limit] = value.to_i }
+        parser.on('--format VALUE') { |value| options[:format] = value }
+      end.parse!(argv)
+
+      require_option!(options, :sqlite_path)
+      require_option!(options, :cases_path)
+      report = CatalogEvaluator.new(
+        sqlite_path: options.fetch(:sqlite_path),
+        cases_path: options.fetch(:cases_path),
+        limit: options.fetch(:limit)
+      ).evaluate
+      puts CatalogEvaluator.render(report, format: options.fetch(:format))
+      report.fetch('status') == 'passed' ? 0 : 1
+    end
+
     def require_option!(options, key)
       raise KeyError, "missing required option: #{key}" if options[key].to_s.empty?
     end
@@ -98,6 +119,7 @@ module IkasCatalogMvp
           bin/ikas_catalog_mvp sync --store-url STORE --client-id ID --client-secret SECRET [--api-url URL] [--output-root DIR]
           bin/ikas_catalog_mvp build --snapshot-dir DIR [--sqlite-path FILE]
           bin/ikas_catalog_mvp query --sqlite-path FILE --text TEXT [--limit N]
+          bin/ikas_catalog_mvp eval --sqlite-path FILE --cases FILE [--format json|markdown] [--limit N]
       TEXT
     end
   end

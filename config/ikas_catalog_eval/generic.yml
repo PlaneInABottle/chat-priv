@@ -1,0 +1,92 @@
+# Generic starter pack for Ikas catalog evaluation.
+# Copy and tune this per seller; not every shop is expected to sell every product family below.
+- id: beyaz_perde
+  query: "beyaz perde"
+  expect:
+    result_type:
+      - show_candidates
+      - show_compatible_candidates
+    min_results: 1
+    top_results_include:
+      - "perde"
+      - "beyaz"
+    require_links: true
+    require_evidence:
+      - fact: color
+
+- id: blackout_perde
+  query: "blackout perde"
+  expect:
+    result_type:
+      - show_candidates
+      - show_compatible_candidates
+    min_results: 1
+    top_results_include:
+      - "blackout"
+
+- id: akordiyon_sineklik_70x80
+  query: "70x80 akordiyon sineklik"
+  expect:
+    result_type:
+      - show_compatible_candidates
+    min_results: 1
+    top_results_include:
+      - "sineklik"
+    require_links: true
+    require_evidence:
+      - fact: dimension_max
+
+- id: menteseli_sineklik
+  query: "menteşeli sineklik"
+  expect:
+    result_type:
+      - show_candidates
+      - show_compatible_candidates
+    min_results: 1
+    top_results_include:
+      - "sineklik"
+
+- id: beyaz_olanin_linki_followup
+  query: "beyaz olanın linki"
+  context_texts:
+    - "akordiyon sineklik 70x80"
+  expect:
+    result_type:
+      - show_candidates
+      - show_compatible_candidates
+    min_results: 1
+    require_links: true
+
+- id: organik_bal_500g
+  query: "organik bal 500g"
+  expect:
+    result_type:
+      - show_candidates
+    min_results: 1
+    top_results_include:
+      - "bal"
+    require_evidence:
+      - fact: organic
+      - fact: weight
+
+- id: m_beden_siyah_tshirt
+  query: "m beden siyah tshirt"
+  expect:
+    result_type:
+      - show_candidates
+    min_results: 1
+    require_links: true
+    require_evidence:
+      - fact: size
+      - fact: color
+
+- id: turkish_filler_beyaz_perde
+  query: "kral beyaz perde bakıyorum"
+  expect:
+    result_type:
+      - show_candidates
+      - show_compatible_candidates
+    min_results: 1
+    top_results_include:
+      - "perde"
+      - "beyaz"
