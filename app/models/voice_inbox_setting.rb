@@ -7,7 +7,6 @@
 #  livekit_room_prefix :string
 #  recording_enabled   :boolean          default(FALSE), not null
 #  settings            :jsonb            not null
-#  status              :string           default("test_only"), not null
 #  created_at          :datetime         not null
 #  updated_at          :datetime         not null
 #  account_id          :bigint           not null
@@ -31,15 +30,12 @@
 #  fk_rails_...  (voice_agent_id => voice_agents.id)
 #
 class VoiceInboxSetting < ApplicationRecord
-  STATUSES = %w[test_only ready failed].freeze
-
   belongs_to :account
   belongs_to :inbox
   belongs_to :voice_agent, optional: true
   belongs_to :fallback_team, class_name: 'Team', optional: true
   has_many :voice_numbers, dependent: :destroy
 
-  validates :status, presence: true, inclusion: { in: STATUSES }
   validates :inbox_id, uniqueness: { scope: :account_id }
   validate :associations_belong_to_account
 

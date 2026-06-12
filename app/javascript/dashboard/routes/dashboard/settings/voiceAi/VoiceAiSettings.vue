@@ -237,11 +237,6 @@ const voiceUsageStatusClasses = computed(() => {
   return 'border-n-weak bg-n-alpha-1';
 });
 
-const assignmentStatuses = computed(() => [
-  { label: t('VOICE_AI.ASSIGNMENTS.STATUS_TEST_ONLY'), value: 'test_only' },
-  { label: t('VOICE_AI.ASSIGNMENTS.STATUS_READY'), value: 'ready' },
-]);
-
 const assignmentRows = computed(() =>
   apiInboxes.value
     .map(inbox => ({
@@ -323,7 +318,6 @@ const syncAssignmentForm = agent => {
       assigned_voice_agent_id: existing?.voice_agent_id || null,
       fallback_team_id: existing?.fallback_team_id || '',
       recording_enabled: Boolean(existing?.recording_enabled),
-      status: existing?.status || 'test_only',
     };
   });
   assignmentForm.value = rows;
@@ -398,7 +392,6 @@ const assignmentPayload = () =>
       inbox_id: row.inbox.id,
       fallback_team_id: row.form.fallback_team_id || null,
       recording_enabled: Boolean(row.form.recording_enabled),
-      status: row.form.status || 'test_only',
     }));
 
 const saveVoiceAgent = async () => {
@@ -793,7 +786,7 @@ onBeforeUnmount(unsubscribeFromVoiceEvents);
                 <div
                   v-for="row in assignmentRows"
                   :key="row.inbox.id"
-                  class="grid grid-cols-1 gap-3 py-4 xl:grid-cols-[minmax(0,1fr)_180px_120px_120px]"
+                  class="grid grid-cols-1 gap-3 py-4 xl:grid-cols-[minmax(0,1fr)_180px_120px]"
                 >
                   <label class="flex min-w-0 items-start gap-3">
                     <input
@@ -842,25 +835,6 @@ onBeforeUnmount(unsubscribeFromVoiceEvents);
                         :value="team.id"
                       >
                         {{ team.name }}
-                      </option>
-                    </select>
-                  </label>
-
-                  <label class="flex flex-col gap-1">
-                    <span class="text-xs text-n-slate-11">
-                      {{ t('VOICE_AI.ASSIGNMENTS.STATUS') }}
-                    </span>
-                    <select
-                      v-model="row.form.status"
-                      :disabled="!voiceAccessEnabled || !row.form.assigned"
-                      class="h-10 rounded-lg border-0 outline outline-1 outline-n-weak bg-n-alpha-black2 px-3 text-sm text-n-slate-12 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <option
-                        v-for="status in assignmentStatuses"
-                        :key="status.value"
-                        :value="status.value"
-                      >
-                        {{ status.label }}
                       </option>
                     </select>
                   </label>

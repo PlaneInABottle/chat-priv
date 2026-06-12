@@ -31,7 +31,7 @@ class Api::V1::Accounts::Voice::InboxSettingsController < Api::V1::Accounts::Bas
   end
 
   def voice_setting_params
-    params.permit(:voice_agent_id, :fallback_team_id, :status, :livekit_room_prefix, :recording_enabled, settings: {})
+    params.permit(:voice_agent_id, :fallback_team_id, :livekit_room_prefix, :recording_enabled, settings: {})
   end
 
   def serialize(setting)
