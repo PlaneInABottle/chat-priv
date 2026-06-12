@@ -1640,7 +1640,6 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_18_000000) do
     t.bigint "account_id", null: false
     t.bigint "inbox_id", null: false
     t.bigint "fallback_team_id"
-    t.string "status", default: "test_only", null: false
     t.string "livekit_room_prefix"
     t.boolean "recording_enabled", default: false, null: false
     t.text "last_error"

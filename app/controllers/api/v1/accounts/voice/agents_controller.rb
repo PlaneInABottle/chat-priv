@@ -57,7 +57,6 @@ class Api::V1::Accounts::Voice::AgentsController < Api::V1::Accounts::BaseContro
         :id,
         :inbox_id,
         :fallback_team_id,
-        :status,
         :recording_enabled,
         { settings: {} }
       ]
@@ -91,7 +90,6 @@ class Api::V1::Accounts::Voice::AgentsController < Api::V1::Accounts::BaseContro
     setting = Current.account.voice_inbox_settings.find_or_initialize_by(inbox: inbox)
     setting.voice_agent = voice_agent
     setting.fallback_team_id = assignment['fallback_team_id'].presence
-    setting.status = assignment['status'].presence || setting.status.presence || 'test_only'
     if assignment.key?('recording_enabled')
       setting.recording_enabled = ActiveModel::Type::Boolean.new.cast(assignment['recording_enabled'])
     end

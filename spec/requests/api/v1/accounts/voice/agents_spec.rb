@@ -85,8 +85,7 @@ RSpec.describe 'Api::V1::Accounts::Voice::Agents', type: :request do
                {
                  inbox_id: inbox.id,
                  fallback_team_id: team.id,
-                 recording_enabled: true,
-                 status: 'test_only'
+                 recording_enabled: true
                }
              ]
            },
@@ -98,9 +97,9 @@ RSpec.describe 'Api::V1::Accounts::Voice::Agents', type: :request do
       expect(assignment).to include(
         'inbox_id' => inbox.id,
         'fallback_team_id' => team.id,
-        'recording_enabled' => true,
-        'status' => 'test_only'
+        'recording_enabled' => true
       )
+      expect(assignment).not_to have_key('status')
       expect(VoiceInboxSetting.find(assignment['id'])).to have_attributes(
         inbox_id: inbox.id,
         fallback_team_id: team.id,
@@ -167,8 +166,7 @@ RSpec.describe 'Api::V1::Accounts::Voice::Agents', type: :request do
               inbox_settings: [
                 {
                   inbox_id: inbox.id,
-                  recording_enabled: true,
-                  status: 'ready'
+                  recording_enabled: true
                 }
               ]
             },
@@ -178,8 +176,7 @@ RSpec.describe 'Api::V1::Accounts::Voice::Agents', type: :request do
       expect(response).to have_http_status(:ok)
       expect(setting.reload).to have_attributes(
         voice_agent_id: target_agent.id,
-        recording_enabled: true,
-        status: 'ready'
+        recording_enabled: true
       )
       expect(response.parsed_body['inbox_settings'].pluck('id')).to eq([setting.id])
     end
@@ -196,8 +193,7 @@ RSpec.describe 'Api::V1::Accounts::Voice::Agents', type: :request do
               inbox_settings: [
                 {
                   inbox_id: kept_inbox.id,
-                  recording_enabled: false,
-                  status: 'test_only'
+                  recording_enabled: false
                 }
               ]
             },
@@ -218,8 +214,7 @@ RSpec.describe 'Api::V1::Accounts::Voice::Agents', type: :request do
               inbox_settings: [
                 {
                   inbox_id: other_inbox.id,
-                  recording_enabled: false,
-                  status: 'test_only'
+                  recording_enabled: false
                 }
               ]
             },

@@ -14,7 +14,6 @@ class Voice::InboxSettingSerializer
       inbox_channel_type: setting.inbox.channel_type,
       voice_agent_id: setting.voice_agent_id,
       fallback_team_id: setting.fallback_team_id,
-      status: setting.status,
       livekit_room_prefix: setting.livekit_room_prefix,
       recording_enabled: setting.recording_enabled,
       last_error: setting.last_error,
