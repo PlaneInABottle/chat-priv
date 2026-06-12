@@ -110,14 +110,13 @@
       "ACTION_ERROR": "Sesli çağrı işlemi başarısız oldu."
     },
     "TRANSCRIPT": {
-      "TITLE": "Transkript ve araç çağrıları",
-      "DESCRIPTION": "Canlı konuşma satırları ve sesli asistan araç çağrıları sandbox testlerinde burada görünür.",
-      "EMPTY": "Sesli asistan transkriptleri veya araç çağrılarını gönderdikten sonra burada görünecek.",
+      "TITLE": "Transkript",
+      "DESCRIPTION": "Canlı konuşma satırları ve AI araç çağrıları sandbox testlerinde burada görünür.",
+      "EMPTY": "Sesli asistan transkriptleri ve araç çağrılarını gönderdikten sonra burada görünecek.",
       "TRANSCRIPT_COUNT": "{count} transkript",
-      "TOOL_COUNT": "{count} araç",
-      "TOOL_EVENT": "Sesli araç çağrısı",
-      "HANDOFF_TITLE": "İnsan temsilci aktarımı önizlemesi",
-      "HANDOFF_PREVIEW": "İnsan temsilci aktarımı istendi.",
+      "TOOL_COUNT": "{count} araç çağrısı",
+      "TOOL_EVENT": "Araç çağrısı",
+      "TOOL_DETAILS": "Argümanları ve sonucu göster",
       "ARGUMENTS": "Argümanlar",
       "RESULT": "Sonuç"
     }

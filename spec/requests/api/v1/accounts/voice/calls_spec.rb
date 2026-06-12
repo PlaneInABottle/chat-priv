@@ -39,6 +39,49 @@ RSpec.describe 'Api::V1::Accounts::Voice::Calls', type: :request do
     end
   end
 
+  describe 'GET /api/v1/accounts/:account_id/voice/calls/:id' do
+    it 'does not expose raw voice tool events for conversation-backed calls' do
+      conversation_call.voice_tool_events.create!(
+        account: account,
+        tool: 'request_human_handoff',
+        status: 'executed',
+        arguments: { reason: 'private handoff reason' },
+        result: { internal_note: 'private note' },
+        source: 'livekit_agent'
+      )
+
+      get "/api/v1/accounts/#{account.id}/voice/calls/#{conversation_call.id}",
+          headers: agent.create_new_auth_token,
+          as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body).not_to have_key('tool_events')
+      expect(response.body).not_to include('private handoff reason', 'private note')
+    end
+
+    it 'exposes sanitized voice tool events for sandbox test calls' do
+      call.voice_tool_events.create!(
+        account: account,
+        tool: 'request_human_handoff',
+        status: 'executed',
+        arguments: { reason: 'caller gave test@example.com and +905551112233' },
+        result: { internal_note: 'private note' },
+        source: 'livekit_agent'
+      )
+
+      get "/api/v1/accounts/#{account.id}/voice/calls/#{call.id}",
+          headers: agent.create_new_auth_token,
+          as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body['tool_events'].first).to include(
+        'tool' => 'request_human_handoff',
+        'status' => 'executed',
+        'arguments' => { 'reason' => 'caller gave [email redacted] and [phone redacted]' }
+      )
+    end
+  end
+
   describe 'POST /api/v1/accounts/:account_id/voice/calls/:id/take_over' do
     it 'assigns the call to the agent, silences AI state, and refreshes the message payload' do
       post "/api/v1/accounts/#{account.id}/voice/calls/#{conversation_call.id}/take_over",

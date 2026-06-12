@@ -13,7 +13,6 @@ import TagMultiSelectComboBox from 'dashboard/components-next/combobox/TagMultiS
 import Avatar from 'dashboard/components-next/avatar/Avatar.vue';
 import TestConversationLayout from './components/TestConversationLayout.vue';
 import TabBar from 'dashboard/components-next/tabbar/TabBar.vue';
-import AiAgentToolLogs from './components/AiAgentToolLogs.vue';
 import AiAgentPromptEditor from './components/AiAgentPromptEditor.vue';
 import AiAgentUsageSummary from './components/AiAgentUsageSummary.vue';
 
@@ -99,7 +98,6 @@ const maxCharacters = 4000;
 const tabs = computed(() => [
   { label: t('AI_AGENT.TABS.SETTINGS'), value: 'settings' },
   { label: t('AI_AGENT.TABS.TEST'), value: 'test' },
-  { label: t('AI_AGENT.TABS.TOOL_LOGS'), value: 'tool_logs' },
 ]);
 
 const activeTabIndex = computed(() =>
@@ -623,10 +621,6 @@ watch(agentId, async (newAgentId, oldAgentId) => {
             />
           </div>
         </div>
-        <template v-if="activeTab === 'tool_logs'">
-          <AiAgentToolLogs :ai-agent-id="agentId" />
-        </template>
-
         <!-- Save Button -->
         <div class="flex justify-end">
           <Button

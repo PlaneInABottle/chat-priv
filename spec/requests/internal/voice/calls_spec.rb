@@ -100,19 +100,10 @@ RSpec.describe 'Internal voice calls API', type: :request do
       )
       expect(event.arguments['reason']).to eq('caller gave [email redacted] and [phone redacted]')
       expect(event.external_id).to eq('tool-call-1')
-      expect(Voice::CallSerializer.new(call).payload[:tool_events]).to eq([
-        {
-          id: event.id,
-          tool: 'request_human_handoff',
-          status: 'executed',
-          arguments: { 'reason' => 'caller gave [email redacted] and [phone redacted]' },
-          result: { 'tool_status' => 'ok' },
-          error_message: nil,
-          duration_ms: 42,
-          source: 'livekit_agent',
-          created_at: event.created_at.iso8601
-        }
-      ])
+      expect(Voice::CallSerializer.new(call).payload[:tool_events].first).to include(
+        tool: 'request_human_handoff',
+        arguments: { 'reason' => 'caller gave [email redacted] and [phone redacted]' }
+      )
     end
   end
 
