@@ -26,9 +26,10 @@ module IkasCatalogMvp
           return clarify_payload(text, parsed, root, buckets)
         end
 
-        rows = matching_rows(db, parsed, root, limit)
-        rows = matching_rows(db, parsed, nil, limit) if rows.empty? && root
-        candidates = rows.filter_map { |row| candidate_for(db, row, parsed, root) }
+        root_category_ids = root ? category_subtree_ids(db, root.fetch('id')) : []
+        rows = matching_rows(db, parsed, root, limit, category_ids: root_category_ids)
+        rows = matching_rows(db, parsed, nil, limit, category_ids: []) if rows.empty? && root
+        candidates = rows.filter_map { |row| candidate_for(db, row, parsed, root, root_category_ids) }
                          .sort_by { |candidate| candidate_sort_key(candidate, parsed.fetch('terms')) }
                          .first(limit)
 
@@ -140,9 +141,8 @@ module IkasCatalogMvp
       }
     end
 
-    def matching_rows(db, parsed, root, limit)
+    def matching_rows(db, parsed, root, limit, category_ids:)
       terms = search_terms_for(db, root, parsed.fetch('terms'))
-      category_ids = root ? category_subtree_ids(db, root.fetch('id')) : []
       sql = matching_rows_sql(terms, category_ids)
       bindings = terms.map { |term| term_binding(term) }
       bindings.concat(category_ids)
@@ -181,7 +181,7 @@ module IkasCatalogMvp
       term.to_s.length <= 3
     end
 
-    def candidate_for(db, row, parsed, root)
+    def candidate_for(db, row, parsed, root, root_category_ids)
       constraints = parsed.fetch('constraints')
       evidence = []
       match_kind = 'exact'
@@ -194,7 +194,7 @@ module IkasCatalogMvp
         match_kind = 'compatible' if match.fetch('kind') == 'compatible'
       end
 
-      relevance = relevance_for(db, row, parsed.fetch('terms'), root, evidence)
+      relevance = relevance_for(db, row, parsed.fetch('terms'), root, root_category_ids, evidence)
       candidate = {
         'item_id' => row.fetch('item_id'),
         'product_id' => row.fetch('product_id'),
@@ -387,7 +387,7 @@ module IkasCatalogMvp
       'medium'
     end
 
-    def relevance_for(db, row, terms, root, evidence)
+    def relevance_for(db, row, terms, root, root_category_ids, evidence)
       signals = []
       item_category_ids = item_category_ids(db, row.fetch('item_id'))
       evidence.each do |evidence_row|
@@ -403,7 +403,7 @@ module IkasCatalogMvp
       text_only_matches = matching_terms(row.fetch('search_text'), terms) - title_matches - category_matches
       add_relevance_signal(signals, 'kind' => 'search_text_term_match', 'terms' => text_only_matches, 'score' => text_only_matches.length * 4)
 
-      if root && item_in_category_scope?(db, item_category_ids, root.fetch('id'))
+      if root && item_in_category_scope?(item_category_ids, root_category_ids)
         add_relevance_signal(signals, 'kind' => 'matched_category_scope', 'category_id' => root.fetch('id'), 'score' => 8)
       end
 
@@ -473,9 +473,8 @@ module IkasCatalogMvp
       item_category_ids.flat_map { |category_id| category_path_tokens(db, category_id) }.uniq
     end
 
-    def item_in_category_scope?(db, item_category_ids, category_id)
-      scoped_ids = category_subtree_ids(db, category_id)
-      (item_category_ids & scoped_ids).any?
+    def item_in_category_scope?(item_category_ids, root_category_ids)
+      (item_category_ids & root_category_ids).any?
     end
 
     def item_category_ids(db, item_id)
