@@ -6,10 +6,6 @@ class AiAgentAPI extends ApiClient {
     super('ai_agents', { accountScoped: true });
   }
 
-  getToolExecutions(id, params = {}) {
-    return axios.get(`${this.url}/${id}/tool_executions`, { params });
-  }
-
   getUsage() {
     return axios.get(`${this.baseUrl()}/ai_agent_usage`);
   }

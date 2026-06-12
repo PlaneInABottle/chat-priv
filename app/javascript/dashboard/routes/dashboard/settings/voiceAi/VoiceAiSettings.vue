@@ -23,6 +23,8 @@ const TERMINAL_CALL_STATUSES = [
   'no_answer',
   'failed',
 ];
+const TOOL_PAYLOAD_CLASS =
+  'm-0 max-h-48 overflow-auto rounded bg-n-solid-1 p-2 whitespace-pre-wrap';
 
 const DEFAULT_AGENT = {
   name: 'Voice Assistant',
@@ -188,7 +190,7 @@ const canUseLiveControls = computed(
 const transcriptSegments = computed(
   () => currentCall.value?.transcript_segments || []
 );
-const toolEvents = computed(() => currentCall.value?.tool_events || []);
+const testToolEvents = computed(() => currentCall.value?.tool_events || []);
 const timelineEvents = computed(() => {
   const transcriptItems = transcriptSegments.value.map(segment => ({
     ...segment,
@@ -196,12 +198,13 @@ const timelineEvents = computed(() => {
     timelineId: `transcript-${segment.id}`,
     sortAt: segment.created_at,
   }));
-  const toolItems = toolEvents.value.map(event => ({
+  const toolItems = testToolEvents.value.map(event => ({
     ...event,
-    timelineType: 'tool',
-    timelineId: `tool-${event.id || event.created_at}`,
+    timelineType: 'tool_event',
+    timelineId: `tool-${event.id}`,
     sortAt: event.created_at,
   }));
+
   return [...transcriptItems, ...toolItems].sort(
     (a, b) =>
       new Date(a.sortAt || 0).getTime() - new Date(b.sortAt || 0).getTime()
@@ -248,7 +251,6 @@ const assignmentRows = computed(() =>
     .filter(row => row.form)
 );
 
-const formatJson = value => JSON.stringify(value || {}, null, 2);
 const formatDateTime = value => {
   if (!value) return '-';
 
@@ -286,22 +288,6 @@ const voiceRemainingText = computed(() => {
 
 const isToolEnabled = toolKey =>
   agentForm.value.tools_config.enabled.includes(toolKey);
-const toolStatusClass = status => {
-  if (status === 'executed') return 'text-n-teal-11 bg-n-teal-3';
-  if (status === 'error' || status === 'rejected') {
-    return 'text-n-ruby-11 bg-n-ruby-3';
-  }
-  return 'text-n-slate-11 bg-n-alpha-2';
-};
-const isHandoffToolEvent = item =>
-  item?.tool === 'request_human_handoff' ||
-  item?.result?.terminal_action === 'handoff';
-const handoffToolSummary = item =>
-  item?.result?.customer_message ||
-  item?.result?.reason ||
-  item?.arguments?.reason ||
-  t('VOICE_AI.TRANSCRIPT.HANDOFF_PREVIEW');
-
 const assignedAgentName = setting => {
   const agent = voiceAgents.value.find(
     item => Number(item.id) === Number(setting?.voice_agent_id)
@@ -546,20 +532,25 @@ const onTranscriptSegment = data => {
   };
 };
 
-const onToolEvent = data => {
-  if (!currentCall.value || data.call_id !== currentCall.value.id) return;
-  const events = currentCall.value.tool_events || [];
-  if (events.some(event => event.id === data.tool_event.id)) return;
-  currentCall.value = {
-    ...currentCall.value,
-    tool_events: [...events, data.tool_event],
-  };
-};
-
 const onStatusChanged = data => {
   if (!currentCall.value || data.call_id !== currentCall.value.id) return;
   const { transcript_segments, tool_events, ...scalarFields } = data;
   currentCall.value = { ...currentCall.value, ...scalarFields };
+};
+
+const onToolEvent = data => {
+  if (!currentCall.value || data.call_id !== currentCall.value.id) return;
+  const events = currentCall.value.tool_events || [];
+  if (events.some(event => event.id === data.event.id)) return;
+  currentCall.value = {
+    ...currentCall.value,
+    tool_events: [...events, data.event],
+  };
+};
+
+const formatToolPayload = value => {
+  if (!value || Object.keys(value).length === 0) return '{}';
+  return JSON.stringify(value, null, 2);
 };
 
 watch(selectedVoiceAgentId, () => {
@@ -574,16 +565,16 @@ const subscribeToVoiceEvents = () => {
   if (voiceEventsSubscribed) return;
   voiceEventsSubscribed = true;
   emitter.on('voice.transcript_segment', onTranscriptSegment);
-  emitter.on('voice.tool_event', onToolEvent);
   emitter.on('voice.status_changed', onStatusChanged);
+  emitter.on('voice.tool_event', onToolEvent);
   emitter.on(BUS_EVENTS.WEBSOCKET_RECONNECT, refreshCall);
 };
 const unsubscribeFromVoiceEvents = () => {
   if (!voiceEventsSubscribed) return;
   voiceEventsSubscribed = false;
   emitter.off('voice.transcript_segment', onTranscriptSegment);
-  emitter.off('voice.tool_event', onToolEvent);
   emitter.off('voice.status_changed', onStatusChanged);
+  emitter.off('voice.tool_event', onToolEvent);
   emitter.off(BUS_EVENTS.WEBSOCKET_RECONNECT, refreshCall);
 };
 
@@ -1100,7 +1091,7 @@ onBeforeUnmount(unsubscribeFromVoiceEvents);
                 <span class="rounded-full bg-n-alpha-2 px-2 py-1">
                   {{
                     t('VOICE_AI.TRANSCRIPT.TOOL_COUNT', {
-                      count: toolEvents.length,
+                      count: testToolEvents.length,
                     })
                   }}
                 </span>
@@ -1117,76 +1108,57 @@ onBeforeUnmount(unsubscribeFromVoiceEvents);
               <div
                 v-for="item in timelineEvents"
                 :key="item.timelineId"
-                class="rounded-lg border border-n-weak bg-n-alpha-2 p-3"
+                class="rounded-lg border border-n-weak p-3"
+                :class="
+                  item.timelineType === 'tool_event'
+                    ? 'bg-n-amber-2'
+                    : 'bg-n-alpha-2'
+                "
               >
-                <div
-                  v-if="item.timelineType === 'tool'"
-                  class="flex flex-col gap-3"
-                >
-                  <div class="flex items-start justify-between gap-3">
-                    <div class="min-w-0">
-                      <div class="flex items-center gap-2">
-                        <span class="i-lucide-wrench size-4 text-n-slate-11" />
-                        <span
-                          class="truncate text-sm font-medium text-n-slate-12"
-                        >
-                          {{ item.tool }}
-                        </span>
-                      </div>
-                      <p class="mb-0 mt-1 text-xs text-n-slate-10">
+                <template v-if="item.timelineType === 'tool_event'">
+                  <div class="mb-2 flex items-center justify-between gap-3">
+                    <div class="flex min-w-0 items-center gap-2">
+                      <span class="text-sm font-medium text-n-slate-12">
                         {{ t('VOICE_AI.TRANSCRIPT.TOOL_EVENT') }}
-                      </p>
+                      </span>
+                      <span class="truncate text-sm text-n-slate-11">
+                        {{ item.tool }}
+                      </span>
                     </div>
-                    <span
-                      class="shrink-0 rounded-full px-2 py-1 text-xs font-medium capitalize"
-                      :class="toolStatusClass(item.status)"
-                    >
+                    <span class="text-xs text-n-slate-10">
                       {{ item.status }}
                     </span>
                   </div>
-
-                  <div
-                    v-if="isHandoffToolEvent(item)"
-                    class="rounded-lg border border-n-amber-6 bg-n-amber-3 px-3 py-3"
-                  >
-                    <p class="mb-1 text-sm font-medium text-n-amber-12">
-                      {{ t('VOICE_AI.TRANSCRIPT.HANDOFF_TITLE') }}
-                    </p>
-                    <p class="mb-0 text-sm text-n-amber-11">
-                      {{ handoffToolSummary(item) }}
-                    </p>
-                  </div>
-
-                  <div
+                  <p
                     v-if="item.error_message"
-                    class="rounded-md bg-n-ruby-3 px-3 py-2 text-sm text-n-ruby-11"
+                    class="mb-2 text-sm text-n-ruby-11"
                   >
                     {{ item.error_message }}
-                  </div>
-
-                  <div class="grid grid-cols-1 gap-2 md:grid-cols-2">
-                    <details class="rounded-md bg-n-alpha-2 px-3 py-2">
-                      <summary
-                        class="cursor-pointer text-xs font-medium text-n-slate-11"
-                      >
-                        {{ t('VOICE_AI.TRANSCRIPT.ARGUMENTS') }}
-                      </summary>
-                      <pre
-                        class="mb-0 mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words text-xs text-n-slate-12"
-                      ><code>{{ formatJson(item.arguments) }}</code></pre>
-                    </details>
-                    <details class="rounded-md bg-n-alpha-2 px-3 py-2">
-                      <summary
-                        class="cursor-pointer text-xs font-medium text-n-slate-11"
-                      >
-                        {{ t('VOICE_AI.TRANSCRIPT.RESULT') }}
-                      </summary>
-                      <pre
-                        class="mb-0 mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words text-xs text-n-slate-12"
-                      ><code>{{ formatJson(item.result) }}</code></pre>
-                    </details>
-                  </div>
-                </div>
+                  </p>
+                  <details class="text-xs text-n-slate-11">
+                    <summary class="cursor-pointer font-medium text-n-slate-12">
+                      {{ t('VOICE_AI.TRANSCRIPT.TOOL_DETAILS') }}
+                    </summary>
+                    <div class="mt-2 grid grid-cols-1 gap-2 lg:grid-cols-2">
+                      <div>
+                        <p class="m-0 mb-1 font-medium">
+                          {{ t('VOICE_AI.TRANSCRIPT.ARGUMENTS') }}
+                        </p>
+                        <pre :class="TOOL_PAYLOAD_CLASS">{{
+                          formatToolPayload(item.arguments)
+                        }}</pre>
+                      </div>
+                      <div>
+                        <p class="m-0 mb-1 font-medium">
+                          {{ t('VOICE_AI.TRANSCRIPT.RESULT') }}
+                        </p>
+                        <pre :class="TOOL_PAYLOAD_CLASS">{{
+                          formatToolPayload(item.result)
+                        }}</pre>
+                      </div>
+                    </div>
+                  </details>
+                </template>
                 <template v-else>
                   <div class="mb-1 flex items-center justify-between gap-3">
                     <span
@@ -1194,9 +1166,9 @@ onBeforeUnmount(unsubscribeFromVoiceEvents);
                     >
                       {{ item.role }}
                     </span>
-                    <span class="text-xs text-n-slate-10">{{
-                      item.source
-                    }}</span>
+                    <span class="text-xs text-n-slate-10">
+                      {{ item.source }}
+                    </span>
                   </div>
                   <p class="mb-0 whitespace-pre-wrap text-sm text-n-slate-12">
                     {{ item.text }}

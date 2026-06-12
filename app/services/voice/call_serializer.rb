@@ -8,8 +8,8 @@ class Voice::CallSerializer
       recording: recording_payload,
       recording_url: recording_payload[:url],
       transcript_segments: transcript_segments,
-      tool_events: tool_events
-    )
+      tool_events: test_tool_events
+    ).compact
   end
 
   private
@@ -82,19 +82,35 @@ class Voice::CallSerializer
     }.compact
   end
 
-  def tool_events
-    call.voice_tool_events.order(:created_at).map do |event|
+  def test_tool_events
+    return unless call.test_call?
+
+    call.voice_tool_events.order(:created_at, :id).map do |event|
       {
         id: event.id,
         tool: event.tool,
         status: event.status,
-        arguments: event.arguments,
-        result: event.result,
+        arguments: redact_tool_payload(event.arguments),
+        result: redact_tool_payload(event.result),
         error_message: event.error_message,
         duration_ms: event.duration_ms,
         source: event.source,
         created_at: event.created_at.iso8601
-      }
+      }.compact
     end
   end
+
+  def redact_tool_payload(value)
+    case value
+    when Hash
+      value.transform_values { |item| redact_tool_payload(item) }
+    when Array
+      value.map { |item| redact_tool_payload(item) }
+    when String
+      AiAgents::PrivacyRedactor.redact_text(value)
+    else
+      value
+    end
+  end
+
 end

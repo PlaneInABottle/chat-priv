@@ -6,8 +6,7 @@
     "BACK": "Back",
     "TABS": {
       "SETTINGS": "Settings",
-      "TEST": "Test",
-      "TOOL_LOGS": "Tool Logs"
+      "TEST": "Test"
     },
     "NAME": {
       "LABEL": "Agent Name",
@@ -101,27 +100,6 @@
       "ENABLE_BEFORE_TESTING": "Enable this AI agent and save your changes before testing.",
       "ADD_PROMPT_BEFORE_TESTING": "Add a system prompt and save your changes before testing this AI agent.",
       "ERROR": "Sorry, I couldn't generate a response right now. Please try again."
-    },
-    "TOOL_LOGS": {
-      "TITLE": "Tool Logs",
-      "LOADING": "Loading tool logs...",
-      "EMPTY": "No tool executions yet.",
-      "ERROR": "Failed to load tool logs.",
-      "CONVERSATION_LINK": "Conversation #{id}",
-      "FILTERS": {
-        "ALL_STATUSES": "All statuses",
-        "ALL_MODES": "All modes",
-        "TOOL_KEY": "Tool key"
-      },
-      "STATUS": {
-        "EXECUTED": "Executed",
-        "ERROR": "Error",
-        "REJECTED": "Rejected"
-      },
-      "MODE": {
-        "TEST": "Test",
-        "LIVE": "Live"
-      }
     },
     "SAVE": {
       "BUTTON": "Save Changes",
@@ -271,14 +249,13 @@
       "ACTION_ERROR": "Voice call action failed."
     },
     "TRANSCRIPT": {
-      "TITLE": "Transcript and tool calls",
-      "DESCRIPTION": "Live speech turns and voice-agent tool calls appear here during sandbox tests.",
+      "TITLE": "Transcript",
+      "DESCRIPTION": "Live speech turns and AI tool calls appear here during sandbox tests.",
       "EMPTY": "Transcript segments and tool calls will appear here after the voice agent posts them.",
       "TRANSCRIPT_COUNT": "{count} transcript",
-      "TOOL_COUNT": "{count} tools",
-      "TOOL_EVENT": "Voice tool call",
-      "HANDOFF_TITLE": "Human handoff preview",
-      "HANDOFF_PREVIEW": "Human handoff requested.",
+      "TOOL_COUNT": "{count} tool call",
+      "TOOL_EVENT": "Tool call",
+      "TOOL_DETAILS": "Show arguments and result",
       "ARGUMENTS": "Arguments",
       "RESULT": "Result"
     }

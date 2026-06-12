@@ -122,7 +122,6 @@ Rails.application.routes.draw do
             end
           end
           resources :ai_agents, only: [:index, :show, :create, :update, :destroy] do
-            resources :tool_executions, only: [:index], controller: 'ai_agent_tool_executions'
             resources :test_conversations, only: [:index, :create, :show, :destroy], controller: 'ai_agent_test_conversations' do
               collection do
                 delete :clear_all
@@ -742,6 +741,7 @@ Rails.application.routes.draw do
       resources :ai_agent_tools, only: [:index, :show]
       resources :ai_agent_llm_calls, only: [:index]
       resources :ai_agent_tool_executions, only: [:index]
+      resources :voice_ai_calls, only: [:index, :show]
       resource :ai_agent_prompt_preview, only: [:show]
 
       # resources that doesn't appear in primary navigation in super admin
