@@ -130,7 +130,6 @@ class Internal::Voice::CallsController < Internal::Voice::BaseController
   def resolve_voice_agent
     setting = voice_setting
     voice_agent = setting&.voice_agent || @call.account.voice_agents.find_by(id: @call.meta&.fetch('voice_agent_id', nil))
-    voice_agent ||= @call.account.voice_agents.enabled.order(:created_at).first || @call.account.voice_agents.order(:created_at).first
     raise ActiveRecord::RecordNotFound, 'Voice agent not configured' unless voice_agent
 
     voice_agent

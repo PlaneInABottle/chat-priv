@@ -238,6 +238,28 @@ RSpec.describe 'Super Admin accounts API', type: :request do
         expect(account.ai_agent_conversation_reuse_window_hours).to eq(12)
       end
 
+      it 'persists Voice AI account limit settings into account settings' do
+        sign_in(super_admin, scope: :super_admin)
+        patch "/super_admin/accounts/#{account.id}", params: {
+          account: {
+            name: account.name,
+            voice_ai_settings: {
+              enabled: 'true',
+              monthly_minute_limit: 120,
+              max_call_duration_minutes: 20,
+              concurrent_call_limit: 3
+            }
+          }
+        }
+
+        expect(response).to have_http_status(:redirect)
+        account.reload
+        expect(account.voice_ai_enabled?).to be(true)
+        expect(account.voice_ai_monthly_minute_limit).to eq(120)
+        expect(account.voice_ai_max_call_duration_minutes).to eq(20)
+        expect(account.voice_ai_concurrent_call_limit).to eq(3)
+      end
+
       it 'persists voice agent runtime settings' do
         voice_agent = create(:voice_agent, account: account, architecture: 'realtime', provider: 'gemini', voice: 'Charon', language: 'tr')
         sign_in(super_admin, scope: :super_admin)

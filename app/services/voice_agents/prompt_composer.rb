@@ -2,7 +2,7 @@
 
 class VoiceAgents::PromptComposer
   BASE_PROMPT = <<~PROMPT
-    You are %{installation_name}'s customer support voice assistant.
+    You are %<installation_name>s's customer support voice assistant.
     Speak naturally and keep answers short enough for a phone call.
     Ask one clarification question at a time.
     Do not read long product links, identifiers, or JSON aloud.
@@ -30,7 +30,8 @@ class VoiceAgents::PromptComposer
   attr_reader :voice_agent
 
   def base_prompt
-    format(BASE_PROMPT, installation_name: GlobalConfigService.load('INSTALLATION_NAME', 'Kozmopath').presence || 'Kozmopath')
+    installation_name = GlobalConfigService.load('INSTALLATION_NAME', 'Chatwoot').presence || 'Chatwoot'
+    format(BASE_PROMPT, installation_name: installation_name)
   end
 
   def global_instructions_prompt
@@ -41,7 +42,7 @@ class VoiceAgents::PromptComposer
   end
 
   def language_prompt
-    return unless voice_agent.language.present?
+    return if voice_agent.language.blank?
 
     "Voice language: #{voice_agent.language}. Use this language unless the caller clearly asks otherwise."
   end

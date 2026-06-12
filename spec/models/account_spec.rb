@@ -530,6 +530,68 @@ RSpec.describe Account do
     end
   end
 
+  describe 'voice_ai_settings' do
+    let(:account) { create(:account) }
+
+    it 'returns defaults when absent' do
+      expect(account.voice_ai_settings).to eq(
+        enabled: false,
+        monthly_minute_limit: 0,
+        max_call_duration_minutes: 15,
+        concurrent_call_limit: 1
+      )
+    end
+
+    it 'round-trips voice_ai_settings through virtual attribute' do
+      account.voice_ai_settings = {
+        enabled: true,
+        monthly_minute_limit: 100,
+        max_call_duration_minutes: 20,
+        concurrent_call_limit: 3
+      }
+      account.save!
+      account.reload
+
+      expect(account.voice_ai_enabled?).to be(true)
+      expect(account.voice_ai_monthly_minute_limit).to eq(100)
+      expect(account.voice_ai_max_call_duration_minutes).to eq(20)
+      expect(account.voice_ai_concurrent_call_limit).to eq(3)
+    end
+
+    it 'normalizes invalid numeric values to safe defaults' do
+      account.update!(
+        voice_ai_monthly_minute_limit: -1,
+        voice_ai_max_call_duration_minutes: 0,
+        voice_ai_concurrent_call_limit: -2
+      )
+
+      expect(account.voice_ai_monthly_minute_limit).to eq(0)
+      expect(account.voice_ai_max_call_duration_minutes).to eq(15)
+      expect(account.voice_ai_concurrent_call_limit).to eq(0)
+    end
+  end
+
+  describe '#voice_inbox_setting_for' do
+    let(:account) { create(:account) }
+    let(:inbox) { create(:channel_api, account: account).inbox }
+
+    it 'returns only account and inbox scoped settings' do
+      local_setting = create(:voice_inbox_setting, account: account, inbox: inbox)
+      foreign_setting = create(:voice_inbox_setting)
+
+      expect(account.voice_inbox_setting_for(inbox: inbox, id: local_setting.id)).to eq(local_setting)
+      expect(account.voice_inbox_setting_for(inbox: inbox, id: foreign_setting.id)).to eq(local_setting)
+    end
+
+    it 'does not return another account setting even if a foreign inbox is passed' do
+      other_account = create(:account)
+      other_inbox = create(:channel_api, account: other_account).inbox
+      create(:voice_inbox_setting, account: other_account, inbox: other_inbox)
+
+      expect(account.voice_inbox_setting_for(inbox: other_inbox)).to be_nil
+    end
+  end
+
   describe 'captain_preferences' do
     let(:account) { create(:account) }
 

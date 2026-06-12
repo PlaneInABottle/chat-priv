@@ -1,0 +1,44 @@
+<% usage_summary = Voice::Usage::Summary.new(account: field.resource).payload %>
+<dl class="super-admin-field-summary">
+  <div>
+    <dt><%= t('super_admin.account_voice_ai_settings.enabled') %></dt>
+    <dd>
+      <%= field.resource.voice_ai_enabled? ? t('super_admin.account_voice_ai_settings.yes') : t('super_admin.account_voice_ai_settings.no') %>
+    </dd>
+  </div>
+  <div>
+    <dt><%= t('super_admin.account_voice_ai_settings.monthly_minute_limit') %></dt>
+    <dd>
+      <%= field.resource.voice_ai_monthly_minute_limit == 0 ? t('super_admin.account_voice_ai_settings.unlimited') : field.resource.voice_ai_monthly_minute_limit %>
+    </dd>
+  </div>
+  <div>
+    <dt><%= t('super_admin.account_voice_ai_settings.current_month_usage') %></dt>
+    <dd>
+      <%= usage_summary[:used_minutes] %><%= usage_summary[:unlimited] ? '' : " / #{usage_summary[:limit_minutes]}" %>
+      <%= t('super_admin.account_voice_ai_settings.minutes') %>
+    </dd>
+  </div>
+  <div>
+    <dt><%= t('super_admin.account_voice_ai_settings.remaining_minutes') %></dt>
+    <dd><%= usage_summary[:unlimited] ? t('super_admin.account_voice_ai_settings.unlimited') : usage_summary[:remaining_minutes] %></dd>
+  </div>
+  <div>
+    <dt><%= t('super_admin.account_voice_ai_settings.max_call_duration') %></dt>
+    <dd><%= field.resource.voice_ai_max_call_duration_minutes %> <%= t('super_admin.account_voice_ai_settings.minutes') %></dd>
+  </div>
+  <div>
+    <dt><%= t('super_admin.account_voice_ai_settings.concurrent_call_limit') %></dt>
+    <dd>
+      <%= field.resource.voice_ai_concurrent_call_limit == 0 ? t('super_admin.account_voice_ai_settings.unlimited') : field.resource.voice_ai_concurrent_call_limit %>
+    </dd>
+  </div>
+  <div>
+    <dt><%= t('super_admin.account_voice_ai_settings.active_real_calls') %></dt>
+    <dd><%= usage_summary[:active_calls] %></dd>
+  </div>
+  <div>
+    <dt><%= t('super_admin.account_voice_ai_settings.resets_at') %></dt>
+    <dd><%= l(Time.zone.parse(usage_summary[:reset_at]), format: :long) %></dd>
+  </div>
+</dl>

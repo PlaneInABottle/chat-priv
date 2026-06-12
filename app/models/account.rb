@@ -69,7 +69,8 @@ class Account < ApplicationRecord
   store_accessor :settings, :reporting_timezone
   store_accessor :settings, :keep_pending_on_bot_failure
   store_accessor :settings, :captain_auto_resolve_mode, :captain_false_promise_harness_enabled,
-                 :ai_agent_enabled, :ai_agent_model, :ai_agent_conversation_limit, :ai_agent_conversation_reuse_window_hours
+                 :ai_agent_enabled, :ai_agent_model, :ai_agent_conversation_limit, :ai_agent_conversation_reuse_window_hours,
+                 :voice_ai_enabled, :voice_ai_monthly_minute_limit, :voice_ai_max_call_duration_minutes, :voice_ai_concurrent_call_limit
 
   attr_reader :voice_agent_runtime_settings
   include AccountCaptainAutoResolve
@@ -218,6 +219,48 @@ class Account < ApplicationRecord
     value.positive? ? value : 24
   end
 
+  def voice_ai_settings
+    {
+      enabled: voice_ai_enabled?,
+      monthly_minute_limit: voice_ai_monthly_minute_limit,
+      max_call_duration_minutes: voice_ai_max_call_duration_minutes,
+      concurrent_call_limit: voice_ai_concurrent_call_limit
+    }
+  end
+
+  def voice_ai_settings=(value)
+    return unless value.is_a?(Hash)
+
+    settings = value.with_indifferent_access
+    self.voice_ai_enabled = settings[:enabled] if settings.key?(:enabled)
+    self.voice_ai_monthly_minute_limit = settings[:monthly_minute_limit] if settings.key?(:monthly_minute_limit)
+    self.voice_ai_max_call_duration_minutes = settings[:max_call_duration_minutes] if settings.key?(:max_call_duration_minutes)
+    self.voice_ai_concurrent_call_limit = settings[:concurrent_call_limit] if settings.key?(:concurrent_call_limit)
+  end
+
+  def voice_ai_enabled?
+    ActiveModel::Type::Boolean.new.cast(voice_ai_enabled) == true
+  end
+
+  def voice_ai_monthly_minute_limit
+    non_negative_integer(super)
+  end
+
+  def voice_ai_max_call_duration_minutes
+    positive_integer(super, 15)
+  end
+
+  def voice_ai_concurrent_call_limit
+    non_negative_integer(super.presence || 1)
+  end
+
+  def voice_inbox_setting_for(inbox:, id: nil)
+    scoped_settings = voice_inbox_settings.where(account_id: self.id, inbox: inbox)
+    return scoped_settings.find_by(id: id) || scoped_settings.first if id.present?
+
+    scoped_settings.first
+  end
+
   def voice_agent_runtime_settings=(value)
     @voice_agent_runtime_settings = value if value.is_a?(Hash)
   end
@@ -299,6 +342,15 @@ class Account < ApplicationRecord
 
   def validate_limit_keys
     # method overridden in enterprise module
+  end
+
+  def non_negative_integer(value)
+    [value.to_i, 0].max
+  end
+
+  def positive_integer(value, fallback)
+    parsed_value = value.to_i
+    parsed_value.positive? ? parsed_value : fallback
   end
 
   def validate_reporting_timezone

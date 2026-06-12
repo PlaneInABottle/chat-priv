@@ -55,5 +55,18 @@ RSpec.describe VoiceAgents::RuntimeContext do
 
       expect(payload.dig(:voice_agent, :id)).to eq(local_setting.voice_agent_id)
     end
+
+    it 'raises when the call has no assigned or explicit voice agent' do
+      call = create(
+        :call,
+        account: account,
+        inbox: inbox,
+        provider: :livekit,
+        provider_call_id: 'room-3',
+        meta: {}
+      )
+
+      expect { described_class.new(call: call).payload }.to raise_error(ActiveRecord::RecordNotFound, 'Voice agent not configured')
+    end
   end
 end

@@ -15,21 +15,7 @@ class Voice::InboundCallBuilder
   end
 
   def perform!
-    existing = find_existing_call
-    if existing
-      start_recording!(existing)
-      return existing
-    end
-
-    call = ActiveRecord::Base.transaction do
-      contact_inbox = ensure_contact_inbox!
-      contact = contact_inbox.contact
-      conversation = resolve_conversation!(contact, contact_inbox)
-      call = create_call!(contact, conversation)
-      message = Voice::CallMessageBuilder.new(call).perform!
-      call.update!(message_id: message.id)
-      call
-    end
+    call = provider == :livekit ? livekit_call_with_admission! : find_existing_call || create_call_with_message!
     start_recording!(call)
     call
   rescue ActiveRecord::RecordNotUnique
@@ -45,6 +31,30 @@ class Voice::InboundCallBuilder
   def find_existing_call
     Call.where(account_id: account.id, inbox_id: inbox.id)
         .find_by(provider: provider, provider_call_id: call_sid)
+  end
+
+  def livekit_call_with_admission!
+    account.with_lock do
+      existing = find_existing_call
+      if existing
+        existing
+      else
+        Voice::Usage::Admission.check!(account: account)
+        create_call_with_message!
+      end
+    end
+  end
+
+  def create_call_with_message!
+    ActiveRecord::Base.transaction do
+      contact_inbox = ensure_contact_inbox!
+      contact = contact_inbox.contact
+      conversation = resolve_conversation!(contact, contact_inbox)
+      call = create_call!(contact, conversation)
+      message = Voice::CallMessageBuilder.new(call).perform!
+      call.update!(message_id: message.id)
+      call
+    end
   end
 
   def ensure_contact_inbox!
@@ -126,11 +136,12 @@ class Voice::InboundCallBuilder
 
   def inbound_call_meta
     meta = { 'initiated_at' => Time.zone.now.to_i, 'from_number' => from_number }.merge(extra_meta.stringify_keys)
-    return meta if meta['voice_agent_id'].present?
+    setting = account.voice_inbox_setting_for(inbox: inbox, id: meta['voice_inbox_setting_id'])
+    return meta.except('voice_agent_id', 'voice_inbox_setting_id') unless setting&.voice_agent_id
 
-    setting = account.voice_inbox_settings.find_by(id: meta['voice_inbox_setting_id'], inbox: inbox) ||
-              account.voice_inbox_settings.find_by(inbox: inbox)
-    voice_agent = setting&.voice_agent || account.voice_agents.enabled.order(:created_at).first || account.voice_agents.order(:created_at).first
-    voice_agent ? meta.merge('voice_agent_id' => voice_agent.id) : meta
+    meta.merge(
+      'voice_inbox_setting_id' => setting.id,
+      'voice_agent_id' => setting.voice_agent_id
+    )
   end
 end
