@@ -144,7 +144,7 @@ module IkasCatalogMvp
       terms = search_terms_for(db, root, parsed.fetch('terms'))
       category_ids = root ? category_subtree_ids(db, root.fetch('id')) : []
       sql = matching_rows_sql(terms, category_ids)
-      bindings = terms.map { |term| "%#{term}%" }
+      bindings = terms.map { |term| term_binding(term) }
       bindings.concat(category_ids)
       bindings << [limit * 8, 50].max
       db.execute(sql, bindings)
@@ -152,7 +152,7 @@ module IkasCatalogMvp
 
     def matching_rows_sql(terms, category_ids)
       clauses = []
-      clauses.concat(terms.map { 'i.search_text_folded LIKE ?' })
+      clauses.concat(terms.map { |term| term_match_sql(term) })
       clauses << "ic.category_id IN (#{placeholders(category_ids)})" if category_ids.any?
       where_sql = clauses.empty? ? '1 = 1' : clauses.join(' AND ')
       join_sql = category_ids.any? ? 'INNER JOIN catalog_item_categories ic ON ic.item_id = i.item_id' : ''
@@ -165,6 +165,20 @@ module IkasCatalogMvp
         ORDER BY i.sellable DESC, i.price_amount IS NULL ASC, i.price_amount ASC, i.in_stock DESC, i.display_name ASC
         LIMIT ?
       SQL
+    end
+
+    def term_match_sql(term)
+      return "' ' || i.search_text_folded || ' ' LIKE ?" if exact_token_search?(term)
+
+      'i.search_text_folded LIKE ?'
+    end
+
+    def term_binding(term)
+      exact_token_search?(term) ? "% #{term} %" : "%#{term}%"
+    end
+
+    def exact_token_search?(term)
+      term.to_s.length <= 3
     end
 
     def candidate_for(db, row, parsed, root)
@@ -590,10 +604,10 @@ module IkasCatalogMvp
 
     def similar_category_token?(left, right)
       min_length = [left.length, right.length].min
-      return false if min_length < 7
+      return false if min_length < 6
 
       distance = levenshtein_distance(left, right)
-      distance <= 2
+      distance <= (min_length >= 7 ? 2 : 1)
     end
 
     def levenshtein_distance(left, right)
