@@ -679,6 +679,16 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
     end
   end
 
+  it 'ignores purchase quantity units that are not catalog terms' do
+    with_snapshot do |sqlite_path|
+      payload = described_class.new(sqlite_path: sqlite_path).query('70x90 sineklik 2 tane')
+
+      expect(payload.fetch('result_type')).to eq('show_compatible_candidates')
+      expect(payload.fetch('candidates')).not_to be_empty
+      expect(payload.fetch('parsed').fetch('terms')).not_to include('tane')
+    end
+  end
+
   it 'builds a full-text search index for catalog items' do
     with_snapshot do |sqlite_path|
       db = SQLite3::Database.new(sqlite_path)

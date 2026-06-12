@@ -20,6 +20,7 @@ module IkasCatalogMvp
       /\bpahalıdan\s+ucuza\b/i
     ].freeze
     SHOPPING_MODIFIER_TOKENS = %w[ucuz uygun hesapli fiyat fiyati fiyatlari].freeze
+    QUANTITY_UNIT_TOKENS = %w[tane adet cift çift].freeze
     SIZE_ALIASES = {
       'small' => 's',
       'medium' => 'm',
@@ -65,7 +66,7 @@ module IkasCatalogMvp
       rows = []
       text.scan(pair_regex).each do |raw, unit|
         text.sub!(raw, ' ')
-        rows << { 'type' => 'dimension_pair', 'values' => dimension_values(raw, unit), 'unit' => normalized_unit(unit), 'raw' => raw.strip }
+        rows << { 'type' => 'dimension_pair', 'values' => dimension_values(raw, unit), 'unit' => 'cm', 'raw' => raw.strip }
       end
       rows
     end
@@ -182,7 +183,8 @@ module IkasCatalogMvp
 
     def remaining_terms(text)
       Text.tokens(text, min_length: 2).reject do |token|
-        INTENT_TOKENS.include?(token) || NOISE_TOKENS.include?(token) || SHOPPING_MODIFIER_TOKENS.include?(token)
+        INTENT_TOKENS.include?(token) || NOISE_TOKENS.include?(token) || SHOPPING_MODIFIER_TOKENS.include?(token) ||
+          QUANTITY_UNIT_TOKENS.include?(token)
       end
     end
 
@@ -197,10 +199,6 @@ module IkasCatalogMvp
       when 'm' then numeric * 100.0
       else numeric
       end
-    end
-
-    def normalized_unit(unit)
-      unit.to_s.empty? ? 'cm' : 'cm'
     end
   end
 end
