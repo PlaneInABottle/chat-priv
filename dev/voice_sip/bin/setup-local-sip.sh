@@ -29,7 +29,9 @@ echo "Provisioning Chatwoot VoiceProviderConnection and VoiceNumber..."
 bundle exec rails runner dev/voice_sip/bin/provision_chatwoot_number.rb | tee dev/voice_sip/.generated/chatwoot_voice_number.initial.json
 
 export VOICE_SIP_VOICE_NUMBER_ID
+export VOICE_SIP_ACCOUNT_ID
 VOICE_SIP_VOICE_NUMBER_ID="$(ruby -rjson -e 'puts JSON.parse(File.read("dev/voice_sip/.generated/chatwoot_voice_number.initial.json")).fetch("voice_number_id")')"
+VOICE_SIP_ACCOUNT_ID="$(ruby -rjson -e 'puts JSON.parse(File.read("dev/voice_sip/.generated/chatwoot_voice_number.initial.json")).fetch("account_id")')"
 
 echo "Provisioning LiveKit SIP inbound trunk and dispatch rule..."
 uv run --project services/voice_agent python dev/voice_sip/bin/provision_livekit_sip.py
@@ -51,13 +53,18 @@ Start Asterisk:
   docker compose up -d --build
 
 Softphone account:
-  SIP server: 127.0.0.1
+  SIP server from this Mac: 127.0.0.1
+  SIP server from a phone on the same LAN: ${ASTERISK_SOFTPHONE_SIGNALING_ADDRESS}
   Port: 5060 UDP
   Username: ${ASTERISK_SOFTPHONE_USER}
   Password: ${ASTERISK_SOFTPHONE_PASSWORD}
+  Codecs: G.722, PCMU, or PCMA
 
 Dial:
   ${ASTERISK_DIAL_EXTENSION}
+
+Verify phone registration before audio testing:
+  dev/voice_sip/bin/check-softphone-registration.sh
 
 Generated state:
   dev/voice_sip/.generated/chatwoot_voice_number.final.json
