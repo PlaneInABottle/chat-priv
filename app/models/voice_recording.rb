@@ -54,4 +54,8 @@ class VoiceRecording < ApplicationRecord
   def active?
     status.in?(%w[starting active])
   end
+
+  def terminal?
+    status.in?(%w[completed failed])
+  end
 end

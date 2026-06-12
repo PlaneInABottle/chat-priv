@@ -27,6 +27,21 @@ class Voice::Recordings::StorageConfig
     ENV.fetch('VOICE_RECORDING_CONTENT_TYPE', DEFAULT_CONTENT_TYPE)
   end
 
+  def content_type_for(object_key)
+    case File.extname(object_key.to_s).downcase
+    when '.ogg', '.oga'
+      'audio/ogg'
+    when '.mp3'
+      'audio/mpeg'
+    when '.wav'
+      'audio/wav'
+    when '.m4a'
+      'audio/mp4'
+    else
+      content_type
+    end
+  end
+
   def object_key_for(call)
     [
       object_key_prefix,

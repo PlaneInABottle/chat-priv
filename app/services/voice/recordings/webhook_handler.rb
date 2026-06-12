@@ -36,6 +36,8 @@ class Voice::Recordings::WebhookHandler
   end
 
   def mark_active(recording)
+    return terminal_result(recording) if recording.terminal?
+
     recording.update!(
       status: 'active',
       metadata: (recording.metadata || {}).merge(event_name => egress_info)
@@ -44,6 +46,8 @@ class Voice::Recordings::WebhookHandler
   end
 
   def mark_ended(recording)
+    return terminal_result(recording) if recording.terminal?
+
     recording.transaction do
       attrs = ended_successfully? ? completed_attributes(recording) : failed_attributes
       recording.update!(attrs.merge(metadata: (recording.metadata || {}).merge(event_name => egress_info)))
@@ -53,13 +57,18 @@ class Voice::Recordings::WebhookHandler
     { 'status' => recording.status, 'recording_id' => recording.id }
   end
 
+  def terminal_result(recording)
+    { 'status' => recording.status, 'recording_id' => recording.id, 'reason' => 'already_terminal' }
+  end
+
   def completed_attributes(recording)
+    object_key = file_object_key(recording).presence || egress_file_path.presence || recording.object_key
     {
       status: 'completed',
       completed_at: ended_at,
       duration_seconds: duration_seconds,
-      object_key: file_object_key(recording).presence || egress_file_path.presence || recording.object_key,
-      content_type: Voice::Recordings::StorageConfig.new.content_type,
+      object_key: object_key,
+      content_type: Voice::Recordings::StorageConfig.new.content_type_for(object_key),
       error_message: nil
     }.compact
   end
