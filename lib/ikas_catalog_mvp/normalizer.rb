@@ -5,8 +5,6 @@ require 'cgi'
 module IkasCatalogMvp
   class Normalizer
     SIZE_VALUES = %w[xxs xs s m l xl xxl xxxl].freeze
-    COLOR_KEYS = %w[color colour renk].freeze
-    SIZE_KEYS = %w[size beden numara].freeze
     ORGANIC_TERMS = %w[organic organik natural naturel dogal dogadan].freeze
 
     def initialize(categories:, variant_types:, product_attributes:, product_option_sets: [], storefronts: [])
@@ -306,8 +304,8 @@ module IkasCatalogMvp
     end
 
     def facet_type_for(key, value)
-      return 'color' if COLOR_KEYS.include?(key)
-      return 'size' if SIZE_KEYS.include?(key) || SIZE_VALUES.include?(Text.fold(value))
+      return 'color' if FacetKeyClassifier.color?(key)
+      return 'size' if FacetKeyClassifier.size?(key) || SIZE_VALUES.include?(Text.fold(value))
 
       'facet'
     end

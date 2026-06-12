@@ -6,6 +6,7 @@ module IkasCatalogMvp
   class QueryEngine
     DEFAULT_LIMIT = 8
     CHILD_BUCKET_LIMIT = 5
+    STRUCTURED_EVIDENCE_SOURCES = %w[facet product_attribute product_option_set product price stock].freeze
 
     def initialize(sqlite_path:)
       @sqlite_path = sqlite_path
@@ -27,7 +28,7 @@ module IkasCatalogMvp
 
         rows = matching_rows(db, parsed, root, limit)
         rows = matching_rows(db, parsed, nil, limit) if rows.empty? && root
-        candidates = rows.filter_map { |row| candidate_for(db, row, parsed.fetch('constraints')) }
+        candidates = rows.filter_map { |row| candidate_for(db, row, parsed, root) }
                          .sort_by { |candidate| candidate_sort_key(candidate, parsed.fetch('terms')) }
                          .first(limit)
 
@@ -166,7 +167,8 @@ module IkasCatalogMvp
       SQL
     end
 
-    def candidate_for(db, row, constraints)
+    def candidate_for(db, row, parsed, root)
+      constraints = parsed.fetch('constraints')
       evidence = []
       match_kind = 'exact'
 
@@ -178,6 +180,7 @@ module IkasCatalogMvp
         match_kind = 'compatible' if match.fetch('kind') == 'compatible'
       end
 
+      relevance = relevance_for(db, row, parsed.fetch('terms'), root, evidence)
       candidate = {
         'item_id' => row.fetch('item_id'),
         'product_id' => row.fetch('product_id'),
@@ -193,7 +196,9 @@ module IkasCatalogMvp
         'confidence' => confidence_for(evidence),
         'match_kind' => match_kind,
         'match_reasons' => reasons_for(evidence, constraints),
-        'evidence' => evidence
+        'evidence' => evidence,
+        'relevance_score' => relevance.fetch('score'),
+        'relevance_signals' => relevance.fetch('signals')
       }
       candidate['link'] = link_for(row) if row['product_url'].to_s != ''
       candidate
@@ -265,13 +270,16 @@ module IkasCatalogMvp
       fact = typed_facts.find do |typed_fact|
         typed_fact['value_folded'].to_s == folded
       end
+      fact ||= typed_facts.find do |typed_fact|
+        constraint.fetch('type') == 'color' && text_contains_value?(typed_fact['value_text'], folded)
+      end
       return match('exact', fact) if fact
 
       title_color_match(row, constraint, folded) if constraint.fetch('type') == 'color' && typed_facts.empty?
     end
 
     def title_color_match(row, constraint, folded)
-      return nil unless title_contains_value?(row.fetch('display_name'), folded)
+      return nil unless text_contains_value?(row.fetch('display_name'), folded)
 
       match(
         'exact',
@@ -287,12 +295,12 @@ module IkasCatalogMvp
       )
     end
 
-    def title_contains_value?(title, folded_value)
-      title_tokens = Text.tokens(title)
-      return true if title_tokens.include?(folded_value)
+    def text_contains_value?(text, folded_value)
+      tokens = Text.tokens(text)
+      return true if tokens.include?(folded_value)
 
-      folded_title = " #{Text.fold(title)} "
-      folded_title.include?(" #{folded_value} ")
+      folded_text = " #{Text.fold(text)} "
+      folded_text.include?(" #{folded_value} ")
     end
 
     def fact_match(db, item_id, type, numeric: nil)
@@ -365,8 +373,63 @@ module IkasCatalogMvp
       'medium'
     end
 
+    def relevance_for(db, row, terms, root, evidence)
+      signals = []
+      item_category_ids = item_category_ids(db, row.fetch('item_id'))
+      evidence.each do |evidence_row|
+        add_relevance_signal(signals, evidence_signal_for(evidence_row))
+      end
+
+      title_matches = matching_terms(row.fetch('display_name'), terms)
+      add_relevance_signal(signals, 'kind' => 'title_term_match', 'terms' => title_matches, 'score' => title_matches.length * 12)
+
+      category_matches = category_matching_terms(db, item_category_ids, terms)
+      add_relevance_signal(signals, 'kind' => 'category_term_match', 'terms' => category_matches, 'score' => category_matches.length * 14)
+
+      text_only_matches = matching_terms(row.fetch('search_text'), terms) - title_matches - category_matches
+      add_relevance_signal(signals, 'kind' => 'search_text_term_match', 'terms' => text_only_matches, 'score' => text_only_matches.length * 4)
+
+      if root && item_in_category_scope?(db, item_category_ids, root.fetch('id'))
+        add_relevance_signal(signals, 'kind' => 'matched_category_scope', 'category_id' => root.fetch('id'), 'score' => 8)
+      end
+
+      { 'score' => signals.sum { |signal| signal.fetch('score') }, 'signals' => signals }
+    end
+
+    def evidence_signal_for(evidence_row)
+      source = evidence_row.fetch('source')
+      fact = evidence_row.fetch('fact')
+      compatible = evidence_row.fetch('match_kind') == 'compatible'
+      structured = STRUCTURED_EVIDENCE_SOURCES.include?(source)
+      score = if compatible
+                structured ? 35 : 20
+              elsif structured
+                30
+              elsif source == 'display_name'
+                14
+              elsif source == 'text'
+                8
+              else
+                10
+              end
+
+      {
+        'kind' => structured ? 'structured_evidence_match' : 'fallback_evidence_match',
+        'source' => source,
+        'fact' => fact,
+        'score' => score
+      }
+    end
+
+    def add_relevance_signal(signals, signal)
+      return if signal.fetch('score').to_i <= 0
+
+      signals << signal
+    end
+
     def candidate_sort_key(candidate, terms)
       [
+        -candidate.fetch('relevance_score').to_i,
         visible_term_miss_count(candidate.fetch('display_name'), terms),
         candidate.fetch('match_kind') == 'exact' ? 0 : 1,
         candidate.dig('stock', 'sellable') ? 0 : 1,
@@ -380,6 +443,29 @@ module IkasCatalogMvp
     def visible_term_miss_count(display_name, terms)
       visible_tokens = Text.tokens(display_name)
       terms.count { |term| visible_tokens.none? { |visible_token| category_token_match?(term, visible_token) } }
+    end
+
+    def matching_terms(text, terms)
+      tokens = Text.tokens(text)
+      terms.select { |term| tokens.any? { |token| category_token_match?(term, token) } }.uniq
+    end
+
+    def category_matching_terms(db, item_category_ids, terms)
+      tokens = item_category_tokens(db, item_category_ids)
+      terms.select { |term| tokens.any? { |token| category_token_match?(term, token) } }.uniq
+    end
+
+    def item_category_tokens(db, item_category_ids)
+      item_category_ids.flat_map { |category_id| category_path_tokens(db, category_id) }.uniq
+    end
+
+    def item_in_category_scope?(db, item_category_ids, category_id)
+      scoped_ids = category_subtree_ids(db, category_id)
+      (item_category_ids & scoped_ids).any?
+    end
+
+    def item_category_ids(db, item_id)
+      db.execute('SELECT category_id FROM catalog_item_categories WHERE item_id = ?', [item_id]).map { |row| row.fetch('category_id') }
     end
 
     def facet_vocabulary(db)
@@ -396,10 +482,28 @@ module IkasCatalogMvp
       end
       return nil if candidates.empty?
       return candidates.first if candidates.length == 1
+      exact = exact_category_name_match(db, candidates, terms)
+      return exact if exact
+
       substantial = substantial_category_match(db, candidates)
       return substantial if substantial
 
       common_ancestor_for(db, candidates) || candidates.max_by { |row| category_subtree_ids(db, row.fetch('id')).length }
+    end
+
+    def exact_category_name_match(db, categories, terms)
+      return nil if terms.length < 2
+
+      categories.map do |row|
+        name_tokens = Text.tokens(row.fetch('name'))
+        matched_terms = terms.count { |term| name_tokens.any? { |word| category_token_match?(term, word) } }
+        next unless matched_terms == terms.length
+
+        extra_tokens = name_tokens.count { |word| terms.none? { |term| category_token_match?(term, word) } }
+        [row, extra_tokens, category_subtree_ids(db, row.fetch('id')).length]
+      end.compact
+        .min_by { |_row, extra_tokens, subtree_size| [extra_tokens, subtree_size] }
+        &.first
     end
 
     def substantial_category_match(db, categories)
