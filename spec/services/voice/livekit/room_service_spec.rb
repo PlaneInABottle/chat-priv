@@ -94,4 +94,69 @@ RSpec.describe Voice::Livekit::RoomService do
       )
     end
   end
+
+  describe '.delete_room' do
+    it 'skips when LiveKit credentials are missing' do
+      result = with_modified_env('LIVEKIT_URL' => nil, 'LIVEKIT_API_KEY' => nil, 'LIVEKIT_API_SECRET' => nil) do
+        described_class.delete_room(call: call)
+      end
+
+      expect(result).to eq(
+        {
+          'status' => 'skipped',
+          'reason' => 'livekit_room_service_not_configured'
+        }
+      )
+    end
+
+    it 'deletes the room with a roomCreate token' do
+      delete_request = stub_request(:post, 'https://test.livekit.cloud/twirp/livekit.RoomService/DeleteRoom')
+                       .with do |request|
+        body = JSON.parse(request.body)
+        token = request.headers.fetch('Authorization').delete_prefix('Bearer ')
+        claims = JWT.decode(token, 'livekit-secret', true, { algorithm: 'HS256' }).first
+
+        expect(body).to include('room' => 'room-1')
+        expect(claims.dig('video', 'roomCreate')).to be(true)
+        expect(claims.dig('video', 'room')).to eq('room-1')
+      end.to_return(status: 200, body: '{}', headers: { 'Content-Type' => 'application/json' })
+
+      result = with_modified_env(
+        'LIVEKIT_URL' => 'wss://test.livekit.cloud',
+        'LIVEKIT_API_KEY' => 'livekit-key',
+        'LIVEKIT_API_SECRET' => 'livekit-secret'
+      ) do
+        described_class.delete_room(call: call)
+      end
+
+      expect(result).to eq(
+        {
+          'status' => 'deleted',
+          'room' => 'room-1'
+        }
+      )
+      expect(delete_request).to have_been_requested
+    end
+  end
+
+  describe '.delete_room_name' do
+    it 'deletes a room by name without a call record' do
+      delete_request = stub_request(:post, 'https://test.livekit.cloud/twirp/livekit.RoomService/DeleteRoom')
+                       .with do |request|
+        body = JSON.parse(request.body)
+        expect(body).to include('room' => 'sip-room-rejected')
+      end.to_return(status: 200, body: '{}', headers: { 'Content-Type' => 'application/json' })
+
+      result = with_modified_env(
+        'LIVEKIT_URL' => 'wss://test.livekit.cloud',
+        'LIVEKIT_API_KEY' => 'livekit-key',
+        'LIVEKIT_API_SECRET' => 'livekit-secret'
+      ) do
+        described_class.delete_room_name(room_name: 'sip-room-rejected')
+      end
+
+      expect(result).to include('status' => 'deleted', 'room' => 'sip-room-rejected')
+      expect(delete_request).to have_been_requested
+    end
+  end
 end

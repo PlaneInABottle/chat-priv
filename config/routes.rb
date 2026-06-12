@@ -44,6 +44,7 @@ Rails.application.routes.draw do
       resources :calls, param: :provider_call_id, only: [] do
         member do
           get :agent_context
+          post :agent_context
           post :transcript
           post :event
           post :tool_call
@@ -741,6 +742,8 @@ Rails.application.routes.draw do
       resources :ai_agent_tools, only: [:index, :show]
       resources :ai_agent_llm_calls, only: [:index]
       resources :ai_agent_tool_executions, only: [:index]
+      resources :voice_provider_connections, only: [:index, :new, :create, :show, :edit, :update, :destroy]
+      resources :voice_numbers, only: [:index, :new, :create, :show, :edit, :update, :destroy]
       resources :voice_ai_calls, only: [:index, :show]
       resource :ai_agent_prompt_preview, only: [:show]
 

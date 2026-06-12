@@ -13,6 +13,8 @@ RSpec.describe Account do
   it { is_expected.to have_many(:web_widgets).class_name('::Channel::WebWidget').dependent(:destroy_async) }
   it { is_expected.to have_many(:webhooks).dependent(:destroy_async) }
   it { is_expected.to have_many(:voice_agents).dependent(:destroy) }
+  it { is_expected.to have_many(:voice_provider_connections).dependent(:destroy) }
+  it { is_expected.to have_many(:voice_numbers).dependent(:destroy) }
   it { is_expected.to have_many(:notification_settings).dependent(:destroy_async) }
   it { is_expected.to have_many(:reporting_events) }
   it { is_expected.to have_many(:portals).dependent(:destroy_async) }

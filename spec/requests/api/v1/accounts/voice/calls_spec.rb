@@ -19,6 +19,7 @@ RSpec.describe 'Api::V1::Accounts::Voice::Calls', type: :request do
         'removed_identities' => ['agent-worker-1']
       }
     )
+    allow(Voice::Livekit::RoomService).to receive(:delete_room).and_return({ 'status' => 'deleted', 'room' => 'room-1' })
   end
 
   def build_conversation_call
@@ -165,6 +166,28 @@ RSpec.describe 'Api::V1::Accounts::Voice::Calls', type: :request do
   end
 
   describe 'POST /api/v1/accounts/:account_id/voice/calls/:id/end' do
+    it 'ends a conversation-backed LiveKit call and deletes the room' do
+      post "/api/v1/accounts/#{account.id}/voice/calls/#{conversation_call.id}/end",
+           params: { end_reason: 'agent_ended' },
+           headers: agent.create_new_auth_token,
+           as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(Voice::Livekit::RoomService).to have_received(:delete_room).with(call: conversation_call)
+      expect(response.parsed_body).to include(
+        'id' => conversation_call.id,
+        'status' => 'completed',
+        'end_reason' => 'agent_ended'
+      )
+      expect(conversation_call.reload).to have_attributes(
+        status: 'completed',
+        end_reason: 'agent_ended'
+      )
+      expect(conversation_call.message.reload.content_attributes['data']).to include(
+        'status' => 'completed'
+      )
+    end
+
     it 'keeps ending an already-ended call idempotent' do
       call.update!(status: 'completed', duration_seconds: 10, end_reason: 'already_ended')
 

@@ -76,5 +76,22 @@ RSpec.describe Voice::InboundCallBuilder do
         extra_meta: { 'livekit_room_name' => 'livekit-room-locked' }
       )
     end
+
+    it 'reuses an existing contact with the same phone number for LiveKit calls' do
+      account = create(:account, settings: { voice_ai_enabled: true })
+      inbox = create(:channel_api, account: account).inbox
+      contact = create(:contact, account: account, phone_number: '+905551112233')
+
+      call = described_class.perform!(
+        inbox: inbox,
+        from_number: '+905551112233',
+        call_sid: 'livekit-room-existing-contact',
+        provider: :livekit,
+        extra_meta: { 'livekit_room_name' => 'livekit-room-existing-contact' }
+      )
+
+      expect(call.contact).to eq(contact)
+      expect(account.contacts.where(phone_number: '+905551112233').count).to eq(1)
+    end
   end
 end

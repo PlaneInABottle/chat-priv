@@ -2,6 +2,7 @@ import { computed, readonly, ref, watch, onUnmounted, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { useI18n } from 'vue-i18n';
 import VoiceAPI from 'dashboard/api/channel/voice/voiceAPIClient';
+import AccountVoiceAPI from 'dashboard/api/voice';
 import TwilioVoiceClient from 'dashboard/api/channel/voice/twilioVoiceClient';
 import { useCallsStore } from 'dashboard/stores/calls';
 import { useAlert } from 'dashboard/composables';
@@ -91,7 +92,15 @@ const buildCallActions = ({ callsStore, whatsappSession, t }) => {
   const endCall = async ({ conversationId, inboxId, callSid }) => {
     const call = findCall(callSid);
     if (isLivekitCall(call)) {
-      callsStore.clearActiveCall();
+      try {
+        if (call?.callId) {
+          await AccountVoiceAPI.endCall(call.callId, {
+            end_reason: 'agent_ended_from_session',
+          });
+        }
+      } finally {
+        callsStore.clearActiveCall();
+      }
       return;
     }
 

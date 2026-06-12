@@ -28,7 +28,9 @@ class Voice::CallSerializer
       contact_id: call.contact_id,
       message_id: call.message_id,
       livekit_room_name: call.livekit_room_name,
-      voice_agent_id: call.meta&.fetch('voice_agent_id', nil)
+      voice_agent_id: call.meta&.fetch('voice_agent_id', nil),
+      voice_number_id: call.meta&.fetch('voice_number_id', nil),
+      voice_provider_connection_id: call.meta&.fetch('voice_provider_connection_id', nil)
     }
   end
 
@@ -66,6 +68,8 @@ class Voice::CallSerializer
   end
 
   def build_recording_payload
+    return { status: 'disabled', url: call.recording_url }.compact unless call.respond_to?(:voice_recordings)
+
     recording = call.voice_recordings.latest_first.first
     return { status: 'disabled', url: call.recording_url }.compact unless recording
 

@@ -1,7 +1,29 @@
 class Internal::Voice::CallsController < Internal::Voice::BaseController
-  before_action :set_call
+  BOOTSTRAP_METADATA_KEYS = %i[
+    account_id
+    inbox_id
+    voice_number_id
+    voice_inbox_setting_id
+    contact_name
+    sip_call_id
+    sip_trunk_id
+    sip_rule_id
+    sip_phone_number
+    sip_trunk_phone_number
+    livekit_inbound_trunk_id
+    livekit_dispatch_rule_id
+    from_number
+    to_number
+    phone_number
+    caller_number
+    called_number
+  ].freeze
+  TRANSCRIPT_METADATA_KEYS = %i[livekit_role external_segment_id].freeze
+
+  before_action :set_call, except: [:agent_context]
 
   def agent_context
+    set_or_bootstrap_call
     render json: VoiceAgents::RuntimeContext.new(call: @call).payload
   end
 
@@ -15,7 +37,7 @@ class Internal::Voice::CallsController < Internal::Voice::BaseController
       started_at: parse_time(params[:started_at]),
       ended_at: parse_time(params[:ended_at]),
       external_segment_id: params[:external_segment_id],
-      metadata: metadata_param
+      metadata: transcript_metadata_param
     )
     render json: { id: segment.id, call_id: @call.id, status: 'stored' }, status: :created
   end
@@ -23,10 +45,14 @@ class Internal::Voice::CallsController < Internal::Voice::BaseController
   def event
     meta = @call.meta || {}
     event_name = params.require(:event)
+    ai_status = ai_status_for_event(event_name)
     meta['last_voice_agent_event'] = event_name
     meta['last_voice_agent_event_at'] = Time.zone.now.iso8601
-    meta['last_voice_agent_payload'] = params[:payload] if params[:payload].is_a?(Hash)
+    meta['last_voice_agent_payload'] = hash_param(:payload)
+    meta['ai_status'] = ai_status if ai_status
     @call.update!(meta: meta)
+    Voice::CallMessageBuilder.new(@call).update_status!(status: @call.status) if @call.message_id
+    Voice::CallBroadcaster.safe_call_status_changed(@call)
     render json: { status: 'stored' }
   end
 
@@ -80,10 +106,23 @@ class Internal::Voice::CallsController < Internal::Voice::BaseController
   private
 
   def set_call
-    livekit_calls = Call.where(provider: :livekit)
-    @call = livekit_calls.find_by(provider_call_id: params[:provider_call_id]) ||
-            livekit_calls.where("meta->>'livekit_room_name' = ?", params[:provider_call_id]).first!
+    @call = find_livekit_call || raise(ActiveRecord::RecordNotFound, 'LiveKit call not found')
     Current.account = @call.account
+  end
+
+  def set_or_bootstrap_call
+    @call = find_livekit_call
+    @call ||= Voice::Telephony::InboundCallBootstrapper.perform!(
+      provider_call_id: params[:provider_call_id],
+      metadata: bootstrap_metadata_param
+    )
+    Current.account = @call.account
+  end
+
+  def find_livekit_call
+    livekit_calls = Call.where(provider: :livekit)
+    livekit_calls.find_by(provider_call_id: params[:provider_call_id]) ||
+      livekit_calls.where("meta->>'livekit_room_name' = ?", params[:provider_call_id]).first
   end
 
   def parse_time(value)
@@ -92,13 +131,21 @@ class Internal::Voice::CallsController < Internal::Voice::BaseController
     Time.zone.parse(value.to_s)
   end
 
-  def metadata_param
-    metadata = params[:metadata]
-    return {} if metadata.blank?
-    return metadata.to_unsafe_h if metadata.respond_to?(:to_unsafe_h)
-    return metadata if metadata.is_a?(Hash)
+  def bootstrap_metadata_param
+    permitted_hash_param(:metadata, BOOTSTRAP_METADATA_KEYS)
+  end
 
-    {}
+  def transcript_metadata_param
+    permitted_hash_param(:metadata, TRANSCRIPT_METADATA_KEYS)
+  end
+
+  def permitted_hash_param(key, permitted_keys)
+    value = params[key]
+    return {} if value.blank?
+    return {} unless value.respond_to?(:permit) || value.is_a?(Hash)
+
+    parameters = value.respond_to?(:permit) ? value : ActionController::Parameters.new(value)
+    parameters.permit(*permitted_keys).to_h
   end
 
   def hash_param(key)
@@ -145,5 +192,14 @@ class Internal::Voice::CallsController < Internal::Voice::BaseController
   def terminal_status
     status = params[:status].presence || 'completed'
     Call::TERMINAL_STATUSES.include?(status) ? status : 'completed'
+  end
+
+  def ai_status_for_event(event_name)
+    case event_name.to_s
+    when 'agent_session_started', 'agent_listening'
+      'active'
+    when 'agent_session_ended'
+      'completed'
+    end
   end
 end

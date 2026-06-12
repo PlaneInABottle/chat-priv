@@ -1,6 +1,7 @@
 import { CONTENT_TYPES } from 'dashboard/components-next/message/constants';
 import { MESSAGE_TYPE } from 'shared/constants/messages';
 import { useCallsStore } from 'dashboard/stores/calls';
+import { VOICE_CALL_PROVIDERS } from 'dashboard/helper/inbox';
 import types from 'dashboard/store/mutation-types';
 
 export const TERMINAL_STATUSES = [
@@ -20,6 +21,8 @@ const isVoiceCallMessage = message => {
 };
 
 const isTruthy = value => value === true || value === 'true';
+const isLivekit = provider => provider === VOICE_CALL_PROVIDERS.LIVEKIT;
+const isTerminalStatus = status => TERMINAL_STATUSES.includes(status);
 
 const shouldSkipCall = (callDirection, senderId, currentUserId) => {
   return callDirection === 'outbound' && senderId !== currentUserId;
@@ -55,6 +58,11 @@ const shouldShowCall = ({
 const shouldRingInbound = (callDirection, currentUserAvailability) => {
   if (callDirection === 'outbound') return true;
   return currentUserAvailability === 'online';
+};
+
+const shouldNotifyHumanForLivekit = ({ provider, handoffStatus }) => {
+  if (!isLivekit(provider)) return true;
+  return ['requested', 'accepted'].includes(handoffStatus);
 };
 
 function extractCallerSnapshot(message) {
@@ -93,6 +101,8 @@ function extractCallData(message) {
     senderId: message?.sender?.id,
     caller: extractCallerSnapshot(message),
     testCall: isTruthy(call.test_call ?? data.test_call),
+    handoffStatus: call.handoff_status || data.handoff_status,
+    aiStatus: call.ai_status || data.ai_status,
   };
 }
 
@@ -113,9 +123,11 @@ export function handleVoiceCallCreated(
     assigneeId,
     senderId,
     testCall,
+    handoffStatus,
   } = extractCallData(message);
 
   if (testCall) return;
+  if (!shouldNotifyHumanForLivekit({ provider, handoffStatus })) return;
 
   if (
     !shouldShowCall({
@@ -162,6 +174,7 @@ export function handleVoiceCallUpdated(
     assigneeId,
     senderId,
     testCall,
+    handoffStatus,
   } = extractCallData(message);
 
   const callsStore = useCallsStore();
@@ -191,6 +204,11 @@ export function handleVoiceCallUpdated(
     return;
   }
 
+  if (!shouldNotifyHumanForLivekit({ provider, handoffStatus })) {
+    callsStore.removeCall(callSid);
+    return;
+  }
+
   if (status === 'ringing') {
     if (!shouldRingInbound(callDirection, currentUserAvailability)) return;
 
@@ -205,6 +223,68 @@ export function handleVoiceCallUpdated(
       caller: extractCallerSnapshot(message),
     });
   }
+}
+
+export function handleVoiceCallStatusPayload(
+  data,
+  currentUserId,
+  currentUserAvailability
+) {
+  const callSid =
+    data?.provider_call_id || data?.call_sid || data?.livekit_room_name;
+  if (!callSid) return;
+
+  const callsStore = useCallsStore();
+  callsStore.handleCallStatusChanged({
+    callSid,
+    status: data?.status,
+    conversationId: data?.conversation_id,
+  });
+
+  if (isTerminalStatus(data?.status) || isTruthy(data?.test_call)) {
+    callsStore.removeCall(callSid);
+    return;
+  }
+
+  if (!isLivekit(data?.provider)) return;
+
+  if (
+    !shouldNotifyHumanForLivekit({
+      provider: data.provider,
+      handoffStatus: data.handoff_status,
+    })
+  ) {
+    callsStore.removeCall(callSid);
+    return;
+  }
+
+  const callDirection =
+    data?.direction === 'outgoing'
+      ? 'outbound'
+      : data?.call_direction || data?.direction || 'inbound';
+
+  if (
+    !shouldRingInbound(callDirection, currentUserAvailability) ||
+    !shouldShowCall({
+      callDirection,
+      senderId: data?.sender_id,
+      assigneeId: data?.assignee_id,
+      currentUserId,
+    })
+  ) {
+    return;
+  }
+
+  callsStore.addCall({
+    callSid,
+    callId: data?.id || data?.call_id,
+    provider: data.provider,
+    conversationId: data?.conversation_id,
+    inboxId: data?.inbox_id,
+    callDirection,
+    senderId: data?.sender_id,
+    caller: data?.caller,
+  });
 }
 
 export function syncConversationCallVisibility(conversation, currentUserId) {

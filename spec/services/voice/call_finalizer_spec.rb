@@ -9,6 +9,7 @@ RSpec.describe Voice::CallFinalizer do
 
   before do
     allow(Voice::Livekit::AgentDispatchService).to receive(:perform).and_return({ 'status' => 'skipped' })
+    allow(Voice::Livekit::RoomService).to receive(:delete_room).and_return({ 'status' => 'skipped' })
   end
 
   def build_conversation_call
@@ -73,6 +74,21 @@ RSpec.describe Voice::CallFinalizer do
     described_class.perform!(call: call, end_reason: 'agent_ended')
 
     expect(Voice::Recordings::StopService).to have_received(:perform).with(call: call)
+  end
+
+  it 'terminates the LiveKit room when ending a LiveKit call' do
+    call = build_conversation_call
+    allow(Voice::Livekit::RoomService).to receive(:delete_room).with(call: call).and_return(
+      { 'status' => 'deleted', 'room' => call.livekit_room_name }
+    )
+
+    described_class.perform!(call: call, end_reason: 'agent_ended')
+
+    expect(Voice::Livekit::RoomService).to have_received(:delete_room).with(call: call)
+    expect(call.reload.meta['livekit_room_delete']).to eq(
+      'status' => 'deleted',
+      'room' => call.livekit_room_name
+    )
   end
 
   it 'keeps terminal calls idempotent' do
