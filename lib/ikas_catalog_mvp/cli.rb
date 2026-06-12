@@ -35,10 +35,10 @@ module IkasCatalogMvp
 
     def sync
       options = {
-        store_url: ENV['IKAS_STORE_URL'],
-        client_id: ENV['IKAS_CLIENT_ID'],
-        client_secret: ENV['IKAS_CLIENT_SECRET'],
-        graphql_url: ENV['IKAS_API_URL'],
+        store_url: ENV.fetch('IKAS_STORE_URL', nil),
+        client_id: ENV.fetch('IKAS_CLIENT_ID', nil),
+        client_secret: ENV.fetch('IKAS_CLIENT_SECRET', nil),
+        graphql_url: ENV.fetch('IKAS_API_URL', nil),
         output_root: ROOT_DIR.to_s
       }
       OptionParser.new do |parser|
