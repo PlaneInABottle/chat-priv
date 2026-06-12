@@ -1,7 +1,27 @@
-Enabled: <%= field.resource.ai_agent_enabled? ? 'Yes' : 'No' %><br>
-Model: <%= field.resource.ai_agent_model %><br>
-Monthly Conversation Limit: <%= field.resource.ai_agent_conversation_limit == 0 ? 'Unlimited' : field.resource.ai_agent_conversation_limit %><br>
-Same Customer Reuse Window: <%= field.resource.ai_agent_conversation_reuse_window_hours %> hours<br>
 <% usage_summary = AiAgents::Usage::Summary.new(account: field.resource).payload %>
-Current Month Usage: <%= usage_summary[:used] %><%= usage_summary[:unlimited] ? '' : " / #{usage_summary[:limit]}" %><br>
-Resets At: <%= l(Time.zone.parse(usage_summary[:reset_at]), format: :long) %>
+<dl class="super-admin-field-summary">
+  <div>
+    <dt>Enabled</dt>
+    <dd><%= field.resource.ai_agent_enabled? ? 'Yes' : 'No' %></dd>
+  </div>
+  <div>
+    <dt>Model</dt>
+    <dd><%= field.resource.ai_agent_model %></dd>
+  </div>
+  <div>
+    <dt>Monthly Conversation Limit</dt>
+    <dd><%= field.resource.ai_agent_conversation_limit == 0 ? 'Unlimited' : field.resource.ai_agent_conversation_limit %></dd>
+  </div>
+  <div>
+    <dt>Same Customer Reuse Window</dt>
+    <dd><%= field.resource.ai_agent_conversation_reuse_window_hours %> hours</dd>
+  </div>
+  <div>
+    <dt>Current Month Usage</dt>
+    <dd><%= usage_summary[:used] %><%= usage_summary[:unlimited] ? '' : " / #{usage_summary[:limit]}" %></dd>
+  </div>
+  <div>
+    <dt>Resets At</dt>
+    <dd><%= l(Time.zone.parse(usage_summary[:reset_at]), format: :long) %></dd>
+  </div>
+</dl>

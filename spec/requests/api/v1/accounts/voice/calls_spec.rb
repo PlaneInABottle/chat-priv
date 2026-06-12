@@ -1,11 +1,13 @@
 require 'rails_helper'
 
 RSpec.describe 'Api::V1::Accounts::Voice::Calls', type: :request do
-  let(:account) { create(:account) }
+  let(:account) { create(:account, settings: { voice_ai_enabled: true }) }
   let(:agent) { create(:user, account: account, role: :agent) }
   let(:api_channel) { create(:channel_api, account: account) }
   let(:inbox) { api_channel.inbox }
-  let(:call) { Voice::TestCallBuilder.perform!(account: account, inbox: inbox) }
+  let(:voice_agent) { account.voice_agents.first! }
+  let!(:voice_inbox_setting) { create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: voice_agent) }
+  let(:call) { Voice::TestCallBuilder.perform!(account: account, inbox: inbox, voice_agent: voice_agent) }
   let(:conversation_call) { build_conversation_call }
 
   before do
@@ -20,7 +22,7 @@ RSpec.describe 'Api::V1::Accounts::Voice::Calls', type: :request do
   end
 
   def build_conversation_call
-    setting = VoiceInboxSetting.find_or_create_by!(account: account, inbox: inbox)
+    setting = voice_inbox_setting
     Voice::InboundCallBuilder.perform!(
       inbox: inbox,
       from_number: '+905551112233',

@@ -1,11 +1,19 @@
 class Voice::TestCallBuilder
-  def self.perform!(account:, inbox:, caller_name: nil, caller_number: nil, initiated_by: nil)
-    new(account: account, inbox: inbox, caller_name: caller_name, caller_number: caller_number, initiated_by: initiated_by).perform!
+  def self.perform!(account:, inbox:, voice_agent: nil, caller_name: nil, caller_number: nil, initiated_by: nil)
+    new(
+      account: account,
+      inbox: inbox,
+      voice_agent: voice_agent,
+      caller_name: caller_name,
+      caller_number: caller_number,
+      initiated_by: initiated_by
+    ).perform!
   end
 
-  def initialize(account:, inbox:, caller_name: nil, caller_number: nil, initiated_by: nil)
+  def initialize(account:, inbox:, voice_agent: nil, caller_name: nil, caller_number: nil, initiated_by: nil)
     @account = account
     @inbox = inbox
+    @voice_agent = voice_agent
     @caller_name = caller_name.presence || 'Test caller'
     @caller_number = caller_number.presence || '+900000000000'
     @initiated_by = initiated_by
@@ -13,8 +21,9 @@ class Voice::TestCallBuilder
 
   def perform!
     raise ArgumentError, 'Voice MVP test calls require an API inbox' unless inbox.api?
+    Voice::Usage::Admission.check!(account: account, test_call: true)
 
-    setting = ensure_setting!
+    setting = assigned_setting!
     raise ArgumentError, 'Voice agent must be enabled before starting a test call' unless setting.voice_agent&.enabled?
 
     room_name = room_name_for(setting)
@@ -25,16 +34,17 @@ class Voice::TestCallBuilder
 
   private
 
-  attr_reader :account, :inbox, :caller_name, :caller_number, :initiated_by
+  attr_reader :account, :inbox, :voice_agent, :caller_name, :caller_number, :initiated_by
 
-  def ensure_setting!
-    setting = account.voice_inbox_settings.find_or_create_by!(inbox: inbox) do |new_setting|
-      new_setting.status = 'test_only'
-      new_setting.voice_agent = default_voice_agent
+  def assigned_setting!
+    raise ArgumentError, 'Voice agent must belong to this account.' if voice_agent && voice_agent.account_id != account.id
+
+    setting = account.voice_inbox_setting_for(inbox: inbox)
+    expected_voice_agent = voice_agent || setting&.voice_agent
+    unless expected_voice_agent && setting&.voice_agent_id == expected_voice_agent.id
+      raise ArgumentError, 'Assign this inbox to the selected voice agent before starting a test call.'
     end
-    return setting if setting.voice_agent_id.present?
 
-    setting.update!(voice_agent: default_voice_agent)
     setting
   end
 
@@ -97,7 +107,4 @@ class Voice::TestCallBuilder
     }.compact
   end
 
-  def default_voice_agent
-    @default_voice_agent ||= account.voice_agents.order(:created_at).first || account.create_default_voice_agent!
-  end
 end

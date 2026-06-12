@@ -22,6 +22,7 @@ class Voice::Livekit::StaleCallFinalizer
 
   def finalize_call_if_stale!(call)
     return if call.terminal?
+    return finalize_max_duration!(call) if max_duration_exceeded?(call)
     return unless old_enough?(call, minimum_age)
 
     summary = Voice::Livekit::RoomService.participant_summary(call: call)
@@ -38,9 +39,20 @@ class Voice::Livekit::StaleCallFinalizer
   attr_reader :account, :minimum_age, :fallback_timeout
 
   def stale_candidates
-    scope = Call.where(provider: :livekit).active.where('started_at < ?', minimum_age.ago)
+    scope = Call.where(provider: :livekit).active.where.not(started_at: nil)
     scope = scope.where(account: account) if account
     scope
+  end
+
+  def finalize_max_duration!(call)
+    Voice::CallFinalizer.perform!(call: call, end_reason: 'voice_max_duration_exceeded')
+    call
+  end
+
+  def max_duration_exceeded?(call)
+    return false unless call.started_at
+
+    call.started_at <= call.account.voice_ai_max_call_duration_minutes.minutes.ago
   end
 
   def stale_reason(call, summary)

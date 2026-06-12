@@ -66,6 +66,11 @@ en:
       failed: Signup failed
     voice:
       call_already_accepted: '%{agent_name} is already handling the call.'
+      usage:
+        disabled: 'Voice AI is disabled for this account.'
+        monthly_limit_exhausted: 'Voice AI monthly minute limit is exhausted.'
+        concurrent_limit_reached: 'Voice AI concurrent call limit is reached.'
+        rejected: 'Voice AI call cannot be started.'
     assignment_policy:
       not_found: Assignment policy not found
     attachments:
@@ -561,6 +566,8 @@ en:
     label:
       account:
         ai_agent_settings: "AI Agent Settings"
+        voice_ai_settings: "Voice AI Settings"
+        voice_agent_runtime_settings: "Voice Agent Runtime Settings"
   portals:
     articles:
       captain_not_available: 'Translation requires Captain to be enabled for this account'
@@ -577,6 +584,24 @@ en:
     ssl_status:
       custom_domain_not_configured: 'Custom domain is not configured'
   super_admin:
+    account_voice_ai_settings:
+      title: "Voice AI Settings"
+      account_access: "Account access"
+      enabled: "Enabled"
+      disabled: "Disabled"
+      yes: "Yes"
+      no: "No"
+      monthly_minute_limit: "Monthly Voice Minute Limit"
+      current_month_usage: "Current Month Usage"
+      remaining_minutes: "Remaining Minutes"
+      max_call_duration: "Max Call Duration"
+      concurrent_call_limit: "Concurrent Call Limit"
+      active_real_calls: "Active Real Calls"
+      resets_at: "Resets At"
+      unlimited: "Unlimited"
+      minutes: "minutes"
+      unlimited_hint: "0 = unlimited. Test calls are excluded."
+      max_call_duration_hint: "Minutes per call."
     push_diagnostics:
       user_not_found: 'User not found.'
       no_subscriptions_to_test: 'Select at least one subscription to test.'

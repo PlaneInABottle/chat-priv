@@ -146,9 +146,9 @@ class VoiceAgents::ToolExecutor
   end
 
   def voice_setting
-    @voice_setting ||= call.account.voice_inbox_settings.find_by(
-      id: call.meta&.fetch('voice_inbox_setting_id', nil),
-      inbox_id: call.inbox_id
-    ) || call.account.voice_inbox_settings.find_by(inbox_id: call.inbox_id)
+    @voice_setting ||= call.account.voice_inbox_setting_for(
+      inbox: call.inbox,
+      id: call.meta&.fetch('voice_inbox_setting_id', nil)
+    )
   end
 end

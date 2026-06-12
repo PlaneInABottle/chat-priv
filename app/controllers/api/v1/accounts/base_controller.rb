@@ -11,4 +11,10 @@ class Api::V1::Accounts::BaseController < Api::BaseController
 
     render json: { error: 'AI Agent is not enabled for this account' }, status: :forbidden
   end
+
+  def ensure_voice_ai_enabled
+    return if Current.account.voice_ai_enabled?
+
+    render json: { error: 'Voice AI is disabled for this account.' }, status: :forbidden
+  end
 end

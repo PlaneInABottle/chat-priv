@@ -2,10 +2,12 @@ require 'rails_helper'
 
 RSpec.describe Voice::TestCallBuilder do
   describe '.perform!' do
-    let(:account) { create(:account) }
+    let(:account) { create(:account, settings: { voice_ai_enabled: true }) }
     let(:api_channel) { create(:channel_api, account: account) }
     let(:inbox) { api_channel.inbox }
     let(:user) { create(:user, account: account) }
+    let(:voice_agent) { account.voice_agents.first! }
+    let!(:voice_inbox_setting) { create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: voice_agent) }
 
     before do
       allow(Voice::Livekit::AgentDispatchService).to receive(:perform).and_return(
@@ -20,6 +22,7 @@ RSpec.describe Voice::TestCallBuilder do
       call = described_class.perform!(
         account: account,
         inbox: inbox,
+        voice_agent: voice_agent,
         caller_name: 'Test Caller',
         caller_number: '+905551112233',
         initiated_by: user
@@ -64,8 +67,32 @@ RSpec.describe Voice::TestCallBuilder do
       web_inbox = create(:inbox, account: account)
 
       expect do
-        described_class.perform!(account: account, inbox: web_inbox)
+        described_class.perform!(account: account, inbox: web_inbox, voice_agent: voice_agent)
       end.to raise_error(ArgumentError, 'Voice MVP test calls require an API inbox')
+    end
+
+    it 'requires the selected inbox to be assigned to the selected voice agent' do
+      other_agent = create(:voice_agent, account: account)
+
+      expect do
+        described_class.perform!(account: account, inbox: inbox, voice_agent: other_agent)
+      end.to raise_error(ArgumentError, 'Assign this inbox to the selected voice agent before starting a test call.')
+    end
+
+    it 'rejects a selected voice agent from another account' do
+      foreign_agent = create(:voice_agent)
+
+      expect do
+        described_class.perform!(account: account, inbox: inbox, voice_agent: foreign_agent)
+      end.to raise_error(ArgumentError, 'Voice agent must belong to this account.')
+    end
+
+    it 'rejects test calls when account Voice AI access is disabled' do
+      account.update!(voice_ai_enabled: false)
+
+      expect do
+        described_class.perform!(account: account, inbox: inbox, voice_agent: voice_agent)
+      end.to raise_error(Voice::Usage::Admission::Error, 'Voice AI is disabled for this account.')
     end
   end
 end

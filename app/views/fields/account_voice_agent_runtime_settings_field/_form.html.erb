@@ -4,8 +4,10 @@
 <div class="field-unit__field">
   <div class="ai-agent-settings-panel voice-agent-runtime-panel">
     <div class="ai-agent-settings-panel__header">
-      <span class="ai-agent-settings-panel__title">Voice agent runtime</span>
-      <span class="ai-agent-settings-control__hint">Only Super Admins can change provider, model, voice, architecture, and language.</span>
+      <span class="ai-agent-settings-panel__title">Voice agent runtime settings</span>
+      <span class="ai-agent-settings-control__hint">
+        Super Admins can change architecture, provider, model, voice, and language separately for each voice agent in this account.
+      </span>
     </div>
 
     <% if field.voice_agents.empty? %>
@@ -18,7 +20,7 @@
             <div class="voice-agent-runtime-card__header">
               <div>
                 <h4><%= voice_agent.name %></h4>
-                <p>#<%= voice_agent.id %> · <%= voice_agent.enabled? ? 'Enabled' : 'Disabled' %></p>
+                <p>ID <%= voice_agent.id %> · <%= voice_agent.enabled? ? 'Enabled' : 'Disabled' %></p>
               </div>
             </div>
 

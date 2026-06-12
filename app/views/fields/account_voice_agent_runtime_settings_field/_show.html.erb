@@ -1,13 +1,36 @@
 <% if field.voice_agents.empty? %>
   No voice agents configured.
 <% else %>
-  <% field.voice_agents.each do |voice_agent| %>
-    <strong><%= voice_agent.name %></strong> #<%= voice_agent.id %><br>
-    Architecture: <%= voice_agent.architecture %><br>
-    Provider: <%= voice_agent.provider %><br>
-    Model: <%= voice_agent.model.presence || 'Default from worker env' %><br>
-    Voice: <%= voice_agent.voice %><br>
-    Language: <%= voice_agent.language %><br>
-    <br>
-  <% end %>
+  <div class="voice-agent-runtime-summary">
+    <% field.voice_agents.each do |voice_agent| %>
+      <section class="voice-agent-runtime-summary__card">
+        <header>
+          <strong><%= voice_agent.name %></strong>
+          <span>ID <%= voice_agent.id %></span>
+        </header>
+        <dl class="super-admin-field-summary">
+          <div>
+            <dt>Architecture</dt>
+            <dd><%= voice_agent.architecture %></dd>
+          </div>
+          <div>
+            <dt>Provider</dt>
+            <dd><%= voice_agent.provider %></dd>
+          </div>
+          <div>
+            <dt>Model</dt>
+            <dd><%= voice_agent.model.presence || 'Default from worker env' %></dd>
+          </div>
+          <div>
+            <dt>Voice</dt>
+            <dd><%= voice_agent.voice %></dd>
+          </div>
+          <div>
+            <dt>Language</dt>
+            <dd><%= voice_agent.language %></dd>
+          </div>
+        </dl>
+      </section>
+    <% end %>
+  </div>
 <% end %>

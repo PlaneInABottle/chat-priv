@@ -163,9 +163,9 @@
     "HEADER": "Voice AI",
     "DESCRIPTION": "Configure the LiveKit voice AI MVP and run browser-based test calls before connecting a phone provider.",
     "TABS": {
-      "SETUP": "Setup",
       "AGENTS": "Voice agents",
-      "TEST": "Test call"
+      "TEST": "Test call",
+      "USAGE": "Usage"
     },
     "SETUP": {
       "TITLE": "Voice setup",
@@ -187,19 +187,39 @@
       "START_SUCCESS": "Test call created.",
       "START_ERROR": "Failed to create test call."
     },
+    "USAGE": {
+      "TITLE": "Voice AI usage",
+      "HELP": "Monthly voice minute usage for this account. Sandbox test calls are excluded.",
+      "DISABLED_HELP": "Voice AI is disabled by your administrator.",
+      "LOADING": "Loading...",
+      "DISABLED_REMAINING": "Disabled",
+      "UNLIMITED_REMAINING": "Unlimited remaining",
+      "UNLIMITED_USED": "{used} minutes used",
+      "USED_OF_LIMIT": "{used} / {limit} minutes used",
+      "REMAINING": "{count} minutes left",
+      "RESET_AT": "Resets at",
+      "MAX_DURATION": "Max call duration",
+      "CONCURRENT_LIMIT": "Concurrent call limit",
+      "ACTIVE_CALLS": "Active calls",
+      "MINUTES": "{count} minutes",
+      "UNLIMITED_SHORT": "Unlimited"
+    },
     "AGENTS": {
       "TITLE": "Voice agents",
       "CREATE": "Create voice agent",
       "NEW": "New",
       "EMPTY": "No voice agents yet.",
+      "LIST_HELP": "Create agents and assign inboxes they can answer.",
       "EDITOR_TITLE": "Voice agent",
       "EDITOR_DESCRIPTION": "Configure the greeting, prompt, and tools used during calls. Runtime settings are managed by your administrator.",
       "STATUS_ENABLED": "Enabled",
       "STATUS_DISABLED": "Disabled",
+      "ASSIGNED_COUNT": "{count} assigned",
       "NAME": "Name",
       "GREETING": "Greeting",
       "ENABLED": "Enabled",
       "ENABLED_HELP": "Only enabled voice agents can answer calls.",
+      "DISABLED_BY_ADMIN": "Voice AI is disabled by your administrator.",
       "PROMPT": "Voice prompt",
       "TOOLS": "Tools",
       "SAVE": "Save voice agent",
@@ -209,9 +229,20 @@
       "IKAS_CATALOG_NOT_SYNCED": "Ikas is connected, but the storefront catalog is not synced yet.",
       "IKAS_NOT_CONNECTED": "Ikas is not connected for this account."
     },
+    "ASSIGNMENTS": {
+      "TITLE": "Inbox assignments",
+      "DESCRIPTION": "Choose which API inboxes this voice agent can answer. Move an inbox here when this agent should handle that test or future voice route.",
+      "API_SANDBOX": "API sandbox inbox",
+      "ASSIGNED_TO": "Currently assigned to {agent}; saving will move it here.",
+      "UNKNOWN_AGENT": "another voice agent",
+      "STATUS": "Status",
+      "STATUS_TEST_ONLY": "Test only",
+      "STATUS_READY": "Ready"
+    },
     "TEST": {
       "TITLE": "Sandbox test call",
-      "DESCRIPTION": "Start a browser-only call that uses the selected voice agent and shows transcript/tool events here."
+      "DESCRIPTION": "Start a browser-only call using a saved voice-agent inbox assignment.",
+      "NO_ASSIGNED_INBOX": "Assign an API inbox to this voice agent before starting a sandbox test call."
     },
     "SESSION": {
       "TITLE": "Browser test call",

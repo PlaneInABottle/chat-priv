@@ -1,7 +1,7 @@
 require 'rails_helper'
 
 RSpec.describe 'Api::V1::Accounts::Voice::Agents', type: :request do
-  let(:account) { create(:account) }
+  let(:account) { create(:account, settings: { voice_ai_enabled: true }) }
   let(:admin) { create(:user, account: account, role: :administrator) }
 
   describe 'GET /api/v1/accounts/:account_id/voice/agents' do
@@ -39,6 +39,18 @@ RSpec.describe 'Api::V1::Accounts::Voice::Agents', type: :request do
   end
 
   describe 'POST /api/v1/accounts/:account_id/voice/agents' do
+    it 'rejects creation when account Voice AI access is disabled' do
+      account.update!(voice_ai_enabled: false)
+
+      post "/api/v1/accounts/#{account.id}/voice/agents",
+           params: { name: 'Blocked voice' },
+           headers: admin.create_new_auth_token,
+           as: :json
+
+      expect(response).to have_http_status(:forbidden)
+      expect(response.parsed_body['error']).to eq('Voice AI is disabled for this account.')
+    end
+
     it 'creates a voice agent with normalized tools config' do
       post "/api/v1/accounts/#{account.id}/voice/agents",
            params: {
@@ -59,6 +71,41 @@ RSpec.describe 'Api::V1::Accounts::Voice::Agents', type: :request do
         'prompt' => 'Only speak Turkish.'
       )
       expect(response.parsed_body.dig('tools_config', 'enabled')).to eq(%w[human_handoff ikas_catalog_search])
+    end
+
+    it 'creates inbox assignments for the voice agent' do
+      inbox = create(:channel_api, account: account).inbox
+      team = create(:team, account: account)
+
+      post "/api/v1/accounts/#{account.id}/voice/agents",
+           params: {
+             name: 'Phone support',
+             enabled: true,
+             inbox_settings: [
+               {
+                 inbox_id: inbox.id,
+                 fallback_team_id: team.id,
+                 recording_enabled: true,
+                 status: 'test_only'
+               }
+             ]
+           },
+           headers: admin.create_new_auth_token,
+           as: :json
+
+      expect(response).to have_http_status(:created)
+      assignment = response.parsed_body['inbox_settings'].first
+      expect(assignment).to include(
+        'inbox_id' => inbox.id,
+        'fallback_team_id' => team.id,
+        'recording_enabled' => true,
+        'status' => 'test_only'
+      )
+      expect(VoiceInboxSetting.find(assignment['id'])).to have_attributes(
+        inbox_id: inbox.id,
+        fallback_team_id: team.id,
+        voice_agent_id: response.parsed_body['id']
+      )
     end
   end
 
@@ -107,6 +154,79 @@ RSpec.describe 'Api::V1::Accounts::Voice::Agents', type: :request do
         voice: 'Charon',
         language: 'tr'
       )
+    end
+
+    it 'moves an inbox assignment from another voice agent to the updated voice agent' do
+      inbox = create(:channel_api, account: account).inbox
+      original_agent = create(:voice_agent, account: account, name: 'Original')
+      target_agent = create(:voice_agent, account: account, name: 'Target')
+      setting = create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: original_agent)
+
+      patch "/api/v1/accounts/#{account.id}/voice/agents/#{target_agent.id}",
+            params: {
+              inbox_settings: [
+                {
+                  inbox_id: inbox.id,
+                  recording_enabled: true,
+                  status: 'ready'
+                }
+              ]
+            },
+            headers: admin.create_new_auth_token,
+            as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(setting.reload).to have_attributes(
+        voice_agent_id: target_agent.id,
+        recording_enabled: true,
+        status: 'ready'
+      )
+      expect(response.parsed_body['inbox_settings'].pluck('id')).to eq([setting.id])
+    end
+
+    it 'removes omitted inbox assignments for the updated voice agent' do
+      voice_agent = create(:voice_agent, account: account)
+      kept_inbox = create(:channel_api, account: account).inbox
+      removed_inbox = create(:channel_api, account: account).inbox
+      kept_setting = create(:voice_inbox_setting, account: account, inbox: kept_inbox, voice_agent: voice_agent)
+      removed_setting = create(:voice_inbox_setting, account: account, inbox: removed_inbox, voice_agent: voice_agent)
+
+      patch "/api/v1/accounts/#{account.id}/voice/agents/#{voice_agent.id}",
+            params: {
+              inbox_settings: [
+                {
+                  inbox_id: kept_inbox.id,
+                  recording_enabled: false,
+                  status: 'test_only'
+                }
+              ]
+            },
+            headers: admin.create_new_auth_token,
+            as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(VoiceInboxSetting.exists?(kept_setting.id)).to be(true)
+      expect(VoiceInboxSetting.exists?(removed_setting.id)).to be(false)
+    end
+
+    it 'rejects cross-account inbox assignments' do
+      voice_agent = create(:voice_agent, account: account)
+      other_inbox = create(:channel_api).inbox
+
+      patch "/api/v1/accounts/#{account.id}/voice/agents/#{voice_agent.id}",
+            params: {
+              inbox_settings: [
+                {
+                  inbox_id: other_inbox.id,
+                  recording_enabled: false,
+                  status: 'test_only'
+                }
+              ]
+            },
+            headers: admin.create_new_auth_token,
+            as: :json
+
+      expect(response).to have_http_status(:not_found)
     end
   end
 

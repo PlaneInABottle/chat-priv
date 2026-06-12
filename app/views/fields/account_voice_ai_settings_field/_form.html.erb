@@ -1,0 +1,48 @@
+<div class="field-unit__label">
+  <%= f.label field.attribute, t('super_admin.account_voice_ai_settings.title') %>
+</div>
+<div class="field-unit__field">
+  <% field_id_prefix = "account_#{field.resource.id || 'new'}_voice_ai_settings" %>
+  <div class="ai-agent-settings-panel">
+    <div class="ai-agent-settings-panel__header">
+      <span class="ai-agent-settings-panel__title"><%= t('super_admin.account_voice_ai_settings.account_access') %></span>
+      <label class="ai-agent-settings-toggle" for="<%= "#{field_id_prefix}_enabled" %>">
+        <%= hidden_field_tag "#{field.html_name}[enabled]", 'false', id: nil %>
+        <%= check_box_tag "#{field.html_name}[enabled]",
+                          'true',
+                          field.resource.voice_ai_enabled?,
+                          id: "#{field_id_prefix}_enabled" %>
+        <span><%= t('super_admin.account_voice_ai_settings.enabled') %></span>
+      </label>
+    </div>
+
+    <div class="ai-agent-settings-panel__body">
+      <div class="ai-agent-settings-control">
+        <%= label_tag "#{field_id_prefix}_monthly_minute_limit", t('super_admin.account_voice_ai_settings.monthly_minute_limit') %>
+        <%= number_field_tag "#{field.html_name}[monthly_minute_limit]",
+                             field.resource.voice_ai_monthly_minute_limit,
+                             id: "#{field_id_prefix}_monthly_minute_limit",
+                             min: 0 %>
+        <span class="ai-agent-settings-control__hint"><%= t('super_admin.account_voice_ai_settings.unlimited_hint') %></span>
+      </div>
+
+      <div class="ai-agent-settings-control">
+        <%= label_tag "#{field_id_prefix}_max_call_duration_minutes", t('super_admin.account_voice_ai_settings.max_call_duration') %>
+        <%= number_field_tag "#{field.html_name}[max_call_duration_minutes]",
+                             field.resource.voice_ai_max_call_duration_minutes,
+                             id: "#{field_id_prefix}_max_call_duration_minutes",
+                             min: 1 %>
+        <span class="ai-agent-settings-control__hint"><%= t('super_admin.account_voice_ai_settings.max_call_duration_hint') %></span>
+      </div>
+
+      <div class="ai-agent-settings-control">
+        <%= label_tag "#{field_id_prefix}_concurrent_call_limit", t('super_admin.account_voice_ai_settings.concurrent_call_limit') %>
+        <%= number_field_tag "#{field.html_name}[concurrent_call_limit]",
+                             field.resource.voice_ai_concurrent_call_limit,
+                             id: "#{field_id_prefix}_concurrent_call_limit",
+                             min: 0 %>
+        <span class="ai-agent-settings-control__hint"><%= t('super_admin.account_voice_ai_settings.unlimited_hint') %></span>
+      </div>
+    </div>
+  </div>
+</div>

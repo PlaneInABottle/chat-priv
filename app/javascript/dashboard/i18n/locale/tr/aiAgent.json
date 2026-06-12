@@ -3,9 +3,9 @@
     "HEADER": "Voice AI",
     "DESCRIPTION": "Telefon sağlayıcısı bağlamadan önce LiveKit sesli AI MVP ayarlarını yapın ve tarayıcı tabanlı test çağrıları çalıştırın.",
     "TABS": {
-      "SETUP": "Kurulum",
       "AGENTS": "Sesli asistanlar",
-      "TEST": "Test çağrısı"
+      "TEST": "Test çağrısı",
+      "USAGE": "Kullanım"
     },
     "SETUP": {
       "TITLE": "Sesli kurulum",
@@ -27,19 +27,39 @@
       "START_SUCCESS": "Test çağrısı oluşturuldu.",
       "START_ERROR": "Test çağrısı oluşturulamadı."
     },
+    "USAGE": {
+      "TITLE": "Voice AI kullanımı",
+      "HELP": "Bu hesabın aylık ses dakikası kullanımı. Sandbox test çağrıları hariç tutulur.",
+      "DISABLED_HELP": "Voice AI yöneticiniz tarafından devre dışı bırakıldı.",
+      "LOADING": "Yükleniyor...",
+      "DISABLED_REMAINING": "Devre dışı",
+      "UNLIMITED_REMAINING": "Sınırsız kullanım",
+      "UNLIMITED_USED": "{used} dakika kullanıldı",
+      "USED_OF_LIMIT": "{used} / {limit} dakika kullanıldı",
+      "REMAINING": "{count} dakika kaldı",
+      "RESET_AT": "Sıfırlanma zamanı",
+      "MAX_DURATION": "Maksimum çağrı süresi",
+      "CONCURRENT_LIMIT": "Eş zamanlı çağrı limiti",
+      "ACTIVE_CALLS": "Aktif çağrılar",
+      "MINUTES": "{count} dakika",
+      "UNLIMITED_SHORT": "Sınırsız"
+    },
     "AGENTS": {
       "TITLE": "Sesli asistanlar",
       "CREATE": "Sesli asistan oluştur",
       "NEW": "Yeni",
       "EMPTY": "Henüz sesli asistan yok.",
+      "LIST_HELP": "Asistanları oluşturun ve yanıtlayabilecekleri gelen kutularını atayın.",
       "EDITOR_TITLE": "Sesli asistan",
       "EDITOR_DESCRIPTION": "Çağrılarda kullanılacak karşılama, prompt ve araçları yapılandırın. Çalışma zamanı ayarlarını yöneticiniz belirler.",
       "STATUS_ENABLED": "Etkin",
       "STATUS_DISABLED": "Devre dışı",
+      "ASSIGNED_COUNT": "{count} atanmış",
       "NAME": "Ad",
       "GREETING": "Karşılama",
       "ENABLED": "Etkin",
       "ENABLED_HELP": "Sadece etkin sesli asistanlar çağrıları yanıtlayabilir.",
+      "DISABLED_BY_ADMIN": "Voice AI yöneticiniz tarafından devre dışı bırakıldı.",
       "PROMPT": "Sesli prompt",
       "TOOLS": "Araçlar",
       "SAVE": "Sesli asistanı kaydet",
@@ -49,9 +69,20 @@
       "IKAS_CATALOG_NOT_SYNCED": "Ikas bağlı, ancak vitrin kataloğu henüz senkronize değil.",
       "IKAS_NOT_CONNECTED": "Bu hesap için Ikas bağlı değil."
     },
+    "ASSIGNMENTS": {
+      "TITLE": "Gelen kutusu atamaları",
+      "DESCRIPTION": "Bu sesli asistanın yanıtlayabileceği API gelen kutularını seçin. Bu test veya gelecekteki ses rotasını bu asistan yönetmeliyse gelen kutusunu buraya taşıyın.",
+      "API_SANDBOX": "API sandbox gelen kutusu",
+      "ASSIGNED_TO": "Şu anda {agent} asistanına atanmış; kaydedince buraya taşınır.",
+      "UNKNOWN_AGENT": "başka bir sesli asistan",
+      "STATUS": "Durum",
+      "STATUS_TEST_ONLY": "Sadece test",
+      "STATUS_READY": "Hazır"
+    },
     "TEST": {
       "TITLE": "Sandbox test çağrısı",
-      "DESCRIPTION": "Seçili sesli asistanı kullanan ve transkript/araç olaylarını burada gösteren tarayıcı test çağrısı başlatın."
+      "DESCRIPTION": "Kaydedilmiş bir sesli asistan gelen kutusu atamasını kullanan tarayıcı test çağrısı başlatın.",
+      "NO_ASSIGNED_INBOX": "Sandbox test çağrısından önce bu sesli asistana bir API gelen kutusu atayın."
     },
     "SESSION": {
       "TITLE": "Tarayıcı test çağrısı",
