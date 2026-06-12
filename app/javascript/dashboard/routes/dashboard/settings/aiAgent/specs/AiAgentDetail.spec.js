@@ -185,7 +185,6 @@ const mountComponent = options => {
             '<div><button v-for="tab in tabs" :key="tab.value" @click="$emit(\'tabChanged\', tab)">{{ tab.label }}</button></div>',
           props: ['tabs', 'initialActiveTab'],
         },
-        AiAgentToolLogs: { template: '<div class="tool-logs" />' },
         Avatar: { template: '<div />' },
         Icon: { template: '<i />' },
         TestConversationLayout: TestConversationLayoutStub,
@@ -251,18 +250,6 @@ describe('AiAgentDetail.vue', () => {
     await nextTick();
 
     expect(wrapper.text()).toContain('already assigned to another agent bot');
-  });
-
-  it('renders the tool logs tab panel when selected', async () => {
-    const { wrapper } = mountComponent();
-    await flushPromises();
-
-    await wrapper
-      .findAll('button')
-      .find(button => button.text() === 'Tool Logs')
-      .trigger('click');
-
-    expect(wrapper.find('.tool-logs').exists()).toBe(true);
   });
 
   it('keeps simulator disabled while form is dirty even if local form looks valid', async () => {

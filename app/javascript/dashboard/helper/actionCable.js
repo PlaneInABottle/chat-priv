@@ -55,8 +55,8 @@ class ActionCableConnector extends BaseActionCableConnector {
       'voice_call.outbound_accepted': this.onVoiceCallOutboundAccepted,
       'voice_call.ended': this.onVoiceCallEnded,
       'voice_call.transcript_segment': this.onVoiceCallTranscriptSegment,
-      'voice_call.tool_event': this.onVoiceCallToolEvent,
       'voice_call.status_changed': this.onVoiceCallStatusChanged,
+      'voice_call.tool_event': this.onVoiceCallToolEvent,
     };
   }
 
@@ -352,13 +352,13 @@ class ActionCableConnector extends BaseActionCableConnector {
   };
 
   // eslint-disable-next-line class-methods-use-this
-  onVoiceCallToolEvent = data => {
-    emitter.emit('voice.tool_event', data);
+  onVoiceCallStatusChanged = data => {
+    emitter.emit('voice.status_changed', data);
   };
 
   // eslint-disable-next-line class-methods-use-this
-  onVoiceCallStatusChanged = data => {
-    emitter.emit('voice.status_changed', data);
+  onVoiceCallToolEvent = data => {
+    emitter.emit('voice.tool_event', data);
   };
 }
 

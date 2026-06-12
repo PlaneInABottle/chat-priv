@@ -1,7 +1,7 @@
 class Voice::CallBroadcaster
   TRANSCRIPT_EVENT = 'voice_call.transcript_segment'
-  TOOL_EVENT = 'voice_call.tool_event'
   STATUS_EVENT = 'voice_call.status_changed'
+  TOOL_EVENT = 'voice_call.tool_event'
 
   def self.transcript_segment(call, segment)
     new(call).broadcast(TRANSCRIPT_EVENT, {
@@ -15,24 +15,27 @@ class Voice::CallBroadcaster
                          })
   end
 
-  def self.tool_event(call, event)
-    new(call).broadcast(TOOL_EVENT, {
-                           tool_event: {
-                             id: event.id,
-                             tool: event.tool,
-                             status: event.status,
-                             arguments: event.arguments,
-                             result: event.result,
-                             error_message: event.error_message,
-                             duration_ms: event.duration_ms,
-                             created_at: event.created_at.iso8601
-                           }
-                         })
-  end
-
   def self.call_status_changed(call)
     payload = Voice::CallSerializer.new(call).payload.merge(call_id: call.id, account_id: call.account_id)
     new(call).broadcast(STATUS_EVENT, payload)
+  end
+
+  def self.tool_event(call, event)
+    return unless call.test_call?
+
+    new(call).broadcast(TOOL_EVENT, {
+                          event: {
+                            id: event.id,
+                            tool: event.tool,
+                            status: event.status,
+                            arguments: event.arguments,
+                            result: event.result,
+                            error_message: event.error_message,
+                            duration_ms: event.duration_ms,
+                            source: event.source,
+                            created_at: event.created_at.iso8601
+                          }.compact
+                        })
   end
 
   def self.safe_call_status_changed(call)

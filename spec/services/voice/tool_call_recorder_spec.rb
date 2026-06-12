@@ -14,6 +14,11 @@ RSpec.describe Voice::ToolCallRecorder do
   end
 
   it 'persists sanitized tool events in the voice_tool_events table' do
+    expect(Voice::CallBroadcaster).to receive(:tool_event) do |broadcast_call, broadcast_event|
+      expect(broadcast_call).to eq(call)
+      expect(broadcast_event.arguments['reason']).to eq('caller gave [email redacted] and [phone redacted]')
+    end
+
     event = described_class.perform!(
       call: call,
       tool: 'request_human_handoff',
@@ -32,7 +37,6 @@ RSpec.describe Voice::ToolCallRecorder do
     )
     expect(event.arguments['reason']).to eq('caller gave [email redacted] and [phone redacted]')
     expect(call.voice_tool_events.order(:created_at)).to eq([event])
-    expect(Voice::CallBroadcaster).to have_received(:tool_event).with(call, event)
   end
 
   it 'is idempotent when the same external_id is posted again' do
