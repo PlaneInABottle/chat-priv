@@ -577,6 +577,7 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
       payload = described_class.new(sqlite_path: sqlite_path).query('bal')
 
       expect(payload.fetch('matched_scope')).to be_nil
+      expect(payload.fetch('candidates')).to be_empty
     end
   end
 
@@ -663,6 +664,17 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
 
       expect(engine.query('cam balkon sineklik').fetch('matched_scope').fetch('id')).to eq('sineklik-balcony')
       expect(engine.query('menteşeli kapı sinekliği').fetch('matched_scope').fetch('id')).to eq('sineklik-hinged-door')
+    end
+  end
+
+  it 'uses cautious fuzzy matching for catalog scope typos' do
+    with_snapshot do |sqlite_path|
+      engine = described_class.new(sqlite_path: sqlite_path)
+
+      expect(engine.query('cam balkom sineklik').fetch('matched_scope').fetch('id')).to eq('sineklik-balcony')
+      expect(engine.query('akordeon sineklik 70x80').fetch('matched_scope').fetch('id')).to eq('sineklik-akordiyon')
+      expect(engine.query('sineklk').fetch('matched_scope').fetch('id')).to eq('sineklik-root')
+      expect(engine.query('bal').fetch('matched_scope')).to be_nil
     end
   end
 end
