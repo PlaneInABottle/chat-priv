@@ -91,6 +91,7 @@ docker compose up -d --build
 - Username: value of `ASTERISK_SOFTPHONE_USER`
 - Password: value of `ASTERISK_SOFTPHONE_PASSWORD`
 - Preferred codecs: G.722, PCMU, or PCMA. Avoid Opus-only softphone profiles for this local harness; the default Asterisk image can transcode G.722 to the LiveKit PCMU/PCMA leg, but does not include an Opus transcoder.
+- Disable SIP proxy/relay/tunnel modes. Asterisk should see the softphone contact as `sip:1001@<your LAN IP>:<port>`, not as a public relay address.
 
 6. Dial:
 
@@ -114,6 +115,14 @@ pjsip show contacts
 pjsip set logger on
 rtp set debug on
 ```
+
+Before debugging AI or Rails, verify the softphone is actually registered locally:
+
+```bash
+dev/voice_sip/bin/check-softphone-registration.sh
+```
+
+If this reports a public IP contact, fix the softphone account first. Public SIP relay/proxy registration can still create LiveKit rooms and transcripts, but live audio back to the phone is often silent or unreliable.
 
 ## Verify In Chatwoot
 

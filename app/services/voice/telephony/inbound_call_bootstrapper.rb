@@ -44,8 +44,15 @@ class Voice::Telephony::InboundCallBootstrapper
       meta: call.meta.merge('livekit_room_name' => provider_call_id)
     )
     Voice::CallMessageBuilder.new(call).update_status!(status: call.status) if call.message_id
+    start_recording!(call)
     Voice::CallBroadcaster.safe_call_status_changed(call)
     call
+  end
+
+  def start_recording!(call)
+    Voice::Recordings::StartService.perform(call: call)
+  rescue StandardError => e
+    Rails.logger.warn("voice recording start failed call_id=#{call.id} error=#{e.class.name}: #{e.message}")
   end
 
   def inbound_meta(setting)
@@ -83,8 +90,8 @@ class Voice::Telephony::InboundCallBootstrapper
   end
 
   def find_voice_number
-    number = VoiceNumber.find_by(id: metadata[:voice_number_id]) if metadata[:voice_number_id].present?
-    return number if number && account_matches?(number)
+    number = voice_number_scope.find_by(id: metadata[:voice_number_id]) if metadata[:voice_number_id].present?
+    return number if number
 
     number = find_voice_number_by_phone
     return number if number
@@ -110,19 +117,19 @@ class Voice::Telephony::InboundCallBootstrapper
   end
 
   def voice_number_scope
-    return VoiceNumber.all if metadata[:account_id].blank?
+    return VoiceNumber.none if scoped_account.blank?
 
-    VoiceNumber.where(account_id: metadata[:account_id])
+    scoped_account.voice_numbers
   end
 
-  def account_matches?(number)
-    metadata[:account_id].blank? || number.account_id.to_s == metadata[:account_id].to_s
+  def scoped_account
+    @scoped_account ||= Account.find_by(id: metadata[:account_id]) if metadata[:account_id].present?
   end
 
   def explicit_voice_inbox_setting
     return unless explicit_voice_inbox_setting_resolvable?
 
-    setting = Account.find_by(id: metadata[:account_id])&.voice_inbox_settings&.find_by(id: metadata[:voice_inbox_setting_id])
+    setting = scoped_account&.voice_inbox_settings&.find_by(id: metadata[:voice_inbox_setting_id])
     return setting if setting && inbox_matches?(setting)
 
     nil

@@ -20,19 +20,22 @@
 - The Python worker entrypoint is `services/voice_agent/agent.py`.
 - The Rails dispatch path is `Voice::Livekit::AgentDispatchService`.
 - Voice agents are separate from text AI agents. Configure them in Settings -> Voice AI -> Voice agents. Assign API sandbox inboxes inside each voice agent; do not use a separate global voice setup tab. Voice inbox settings select `voice_agent_id`; do not expect `ai_agent_id`, setting-level `greeting`, or setting-level `instructions`.
+- Voice inbox assignments do not have a separate readiness `status`. If an inbox is assigned to a voice agent and account Voice AI access is enabled, it is eligible for browser tests and SIP routing.
 - Super Admin controls account-level Voice AI access and limits under `/super_admin/accounts/:id/edit`. Test calls are excluded from monthly minute and concurrent-call limits, but Voice AI must still be enabled for the account.
 - Integration tools such as `ikas_catalog_search` and `ikas_lookup_order` are enabled per voice agent. Ikas tools also require the account `ikas_integration` feature, a connected `ikas` hook, and a completed storefront catalog sync.
 - SIP/phone-number routing is modeled separately from browser test calls:
   - `VoiceProviderConnection` stores the account-level provider connection (`test_sip`, `manual_sip`, `netgsm`, or `livekit_number`).
   - `VoiceNumber` maps a dialed number and optional LiveKit trunk/dispatch IDs to a `VoiceInboxSetting`.
   - Super Admin config pages are `/super_admin/voice_provider_connections` and `/super_admin/voice_numbers`.
-  - Real SIP-dispatched LiveKit calls can be bootstrapped when the worker POSTs `/internal/voice/calls/:provider_call_id/agent_context` with LiveKit job metadata. The bootstrapper resolves the voice number, creates a normal conversation-backed LiveKit `Call`, and returns the voice-agent runtime context.
+  - Real SIP-dispatched LiveKit calls can be bootstrapped when the worker POSTs `/internal/voice/calls/:provider_call_id/agent_context` with LiveKit job metadata. The bootstrapper resolves the voice number inside `account_id`, creates a normal conversation-backed LiveKit `Call`, and returns the voice-agent runtime context.
+  - SIP metadata must include `account_id`. Missing `account_id` should fail closed instead of falling back to a global `VoiceNumber` lookup across tenants.
 - The local SIP harness lives in `dev/voice_sip`. It uses Dockerized Asterisk as a fake SIP provider:
   - Copy `dev/voice_sip/.env.example` to `dev/voice_sip/.env`.
   - Fill `VOICE_SIP_ACCOUNT_ID`, `VOICE_SIP_VOICE_INBOX_SETTING_ID`, `VOICE_SIP_PHONE_NUMBER`, `LIVEKIT_SIP_HOST`, and SIP auth values.
   - Run `dev/voice_sip/bin/setup-local-sip.sh`.
   - Start Asterisk with `cd dev/voice_sip && docker compose up -d --build`.
   - Register a softphone directly to the Mac LAN IP on UDP `5060` using `ASTERISK_SOFTPHONE_USER` / `ASTERISK_SOFTPHONE_PASSWORD`, then dial `ASTERISK_DIAL_EXTENSION`.
+  - Run `dev/voice_sip/bin/check-softphone-registration.sh` before audio testing. It should show the softphone contact using the Mac LAN path, not a public SIP relay/proxy address.
   - The harness uses split SIP transports: UDP `5060` advertises `ASTERISK_SOFTPHONE_*` addresses to the local softphone, while UDP `5061` advertises `ASTERISK_EXTERNAL_*` addresses to LiveKit Cloud.
   - If Asterisk contacts show a Linphone/Flexisip public relay instead of the phone LAN IP, the phone is not testing the local path. Disable the Linphone proxy/tunnel or use a local desktop softphone.
 
@@ -77,7 +80,7 @@ Use `uv lock --check --directory services/voice_agent` after dependency changes.
 1. Open `/app/accounts/:account_id/settings/voice-ai` with `agent-browser`.
 2. Snapshot before clicking.
 3. On the Voice agents tab, select or create the voice agent.
-4. In that agent's Inbox assignments panel, assign an API sandbox inbox, choose fallback team/recording/status, then save the voice agent. The local verified path used account `36`, but always verify current local data.
+4. In that agent's Inbox assignments panel, assign an API sandbox inbox, choose fallback team and recording, then save the voice agent. The local verified path used account `36`, but always verify current local data.
 5. On the Test call tab, choose the same voice agent and one of its assigned API inboxes. For Ikas voice tests, confirm `ikas_catalog_search` and `ikas_lookup_order` are checked after Ikas is connected and synced.
 6. Click `Start test call`.
 7. Confirm no floating incoming-call popup appears. Browser test calls are marked with `test_call: true`, do not create a normal Chatwoot conversation/contact/message, and are owned by the Voice AI settings panel.
@@ -107,7 +110,7 @@ Expected proof:
 For SIP/telephony-provider calls, expected additional proof:
 
 - A `VoiceNumber` exists for the dialed number or LiveKit trunk/dispatch identifiers.
-- The worker POSTs `/internal/voice/calls/:provider_call_id/agent_context` with job metadata containing at least one resolver signal such as `voice_number_id`, `to_number`, `livekit_inbound_trunk_id`, or `livekit_dispatch_rule_id`.
+- The worker POSTs `/internal/voice/calls/:provider_call_id/agent_context` with job metadata containing `account_id` plus at least one resolver signal such as `voice_number_id`, `to_number`, `livekit_inbound_trunk_id`, or `livekit_dispatch_rule_id`.
 - Rails creates or reuses a `Call.livekit` row with `conversation_id`, `contact_id`, and `message_id` present.
 - Call metadata includes `voice_number_id`, `voice_provider_connection_id`, `voice_inbox_setting_id`, `voice_agent_id`, and `livekit_room_name`.
 
@@ -125,7 +128,7 @@ Default browser test calls do not create normal Chatwoot conversations and canno
 Use Rails runner for direct evidence:
 
 ```bash
-set -a; source .env.local; set +a; eval "$(rbenv init -)"; bundle exec rails runner 'call = Call.livekit.where(account_id: 19).order(id: :desc).first; puts({ id: call.id, status: call.status, room: call.livekit_room_name, test_call: call.test_call?, conversation_id: call.conversation_id, contact_id: call.contact_id, message_id: call.message_id, dispatch: call.meta["voice_agent_dispatch"], transcript: call.transcript, tool_events: call.voice_tool_events.order(:id).map { |event| { tool: event.tool, status: event.status, duration_ms: event.duration_ms, source: event.source } }, segments: call.transcript_segments.order(:id).map { |segment| { role: segment.role, text: segment.text, source: segment.source, conversation_id: segment.conversation_id } } }.to_json)'
+set -a; source .env.local; set +a; eval "$(rbenv init -)"; bundle exec rails runner 'call = Call.livekit.where(account_id: 19).order(id: :desc).first; puts({ id: call.id, status: call.status, room: call.livekit_room_name, test_call: call.test_call?, conversation_id: call.conversation_id, contact_id: call.contact_id, message_id: call.message_id, dispatch: call.meta["voice_agent_dispatch"], transcript: call.transcript, tool_events: VoiceToolEvent.where(call_id: call.id).order(:id).map { |event| { tool: event.tool, status: event.status, duration_ms: event.duration_ms, source: event.source } }, recordings: VoiceRecording.where(call_id: call.id).order(:id).map { |recording| { status: recording.status, egress_id: recording.egress_id, object_key: recording.object_key } }, segments: call.transcript_segments.order(:id).map { |segment| { role: segment.role, text: segment.text, source: segment.source, conversation_id: segment.conversation_id } } }.to_json)'
 ```
 
 Report only what is present in the DB/UI/logs. Do not infer audio success from dispatch alone.
@@ -175,9 +178,16 @@ Symptoms:
 Verified causes and fixes:
 
 - **Wrong SIP/NAT shape**: the phone was sometimes reaching Asterisk through Linphone/Flexisip relay while Asterisk advertised one public address to both the local phone and LiveKit. The local harness now uses split transports: local softphone on UDP `5060` with `ASTERISK_SOFTPHONE_*` LAN addresses, LiveKit on UDP `5061` with `ASTERISK_EXTERNAL_*` public addresses.
+- **Softphone relay/proxy registration**: if `pjsip show contacts` shows `1001` at a public IP instead of the phone LAN IP, AI can hear/transcribe and still be silent to the phone. Run `dev/voice_sip/bin/check-softphone-registration.sh` and fix the softphone local SIP account before changing Rails, prompts, or Gemini.
 - **Duplicate contact creation**: SIP-dispatched calls can reuse the same caller number. If `/internal/voice/calls/:provider_call_id/agent_context` returns `422 Phone number has already been taken`, fix or verify `Voice::InboundCallBuilder#ensure_livekit_contact!` reuses `account.contacts.find_by(phone_number: from_number)` before creating a LiveKit-identifier contact.
 - **AI status stuck at waiting**: the worker must post lifecycle events. `agent_listening` or `agent_session_started` should move `ai_status` to `active`; `agent_session_ended` should move it to `completed`. Do not infer active AI from room dispatch alone.
 - **Voice-call serialization crash**: if Rails logs mention `undefined method voice_recordings`, guard recording payload/URL access with `respond_to?(:voice_recordings)` for local class-load/overlay safety.
+- **Tool/recording association crash**: if Rails logs mention `undefined method voice_tool_events` or `undefined method voice_recordings` for `Call`, use direct `VoiceToolEvent.where(call_id: call.id)` / `VoiceRecording.where(call_id: call.id)` lookups in serializers, recorders, and recording services. The local runtime can eager-load an Enterprise `Call` file without the expected OSS associations, so conversation UI, handoff tools, end-call, and recording egress should not depend on those associations.
+- **Recording never appears after SIP call**: for SIP-bootstrapped LiveKit calls, start recording after `InboundCallBootstrapper#activate_call!`, not only inside `InboundCallBuilder`. Existing calls can be reused before recording starts; `Voice::Recordings::StartService` is idempotent and should run when the room name/status are known.
+- **Recording completed but no replay in conversation**: verify `Voice::CallSerializer` returns `recording_url`, then ensure `MessageList.vue` passes fetched call details into the `VoiceCall` bubble. Fetching details for transcript rows is not enough; the call bubble needs the enriched `call` object to render the audio chip.
+- **Catalog tool suddenly returns `catalog_query_failed` after FTS changes**: old Ikas snapshot SQLite files can lack `catalog_items_fts`. `Integrations::Ikas::CatalogSearchService` should repair that virtual table from existing `catalog_items` before failing the tool call. Re-run the exact query in Rails runner before blaming Gemini or prompt wording.
+- **Quantity words poison catalog search**: prompts should tell the model to omit purchase quantities like `2 tane` from catalog queries, and `IkasCatalogMvp::QueryParser` should drop generic quantity-unit tokens (`tane`, `adet`, `çift`) so a bad model query degrades gracefully.
+- **Resolved conversation but phone still connected**: resolving a conversation is a separate Chatwoot status action unless explicitly wired to voice. `Conversation#handle_resolved_status_change` should finalize active LiveKit calls so normal resolve actions also delete the LiveKit room and hang up SIP/browser participants.
 - **Asterisk CDR CSV error after hangup**: `Unable to open /var/log/asterisk/cdr-csv/Master.csv` is local harness logging noise, not a media-path failure. The harness entrypoint should create `/var/log/asterisk/cdr-csv`.
 - **Misread Asterisk context**: `[from-livekit] exten => _.,1,Hangup()` handles inbound INVITEs from LiveKit, not RTP on an already bridged outbound call. Do not treat that line as proof that AI audio is being killed.
 

@@ -26,6 +26,7 @@ RSpec.describe Voice::Telephony::InboundCallBootstrapper do
       call = described_class.perform!(
         provider_call_id: 'sip-room-1',
         metadata: {
+          account_id: account.id,
           from_number: '+905551112233',
           to_number: voice_number.phone_number,
           contact_name: 'SIP Caller'
@@ -49,6 +50,7 @@ RSpec.describe Voice::Telephony::InboundCallBootstrapper do
       )
       expect(call.conversation).to be_present
       expect(call.message).to be_present
+      expect(Voice::Recordings::StartService).to have_received(:perform).with(call: call)
     end
 
     it 'resolves by explicit voice number id and ignores a conflicting account id' do
@@ -66,6 +68,7 @@ RSpec.describe Voice::Telephony::InboundCallBootstrapper do
       call = described_class.perform!(
         provider_call_id: 'sip-room-trunk',
         metadata: {
+          account_id: account.id,
           from_number: '+905551112233',
           livekit_inbound_trunk_id: 'trunk-1',
           livekit_dispatch_rule_id: 'rule-1'
@@ -79,7 +82,7 @@ RSpec.describe Voice::Telephony::InboundCallBootstrapper do
     it 'uses a phone-like token from the LiveKit room name when caller metadata is missing' do
       call = described_class.perform!(
         provider_call_id: 'local-sip-_+905551112233_abc123',
-        metadata: { voice_number_id: voice_number.id }
+        metadata: { account_id: account.id, voice_number_id: voice_number.id }
       )
 
       expect(call.from_number).to eq('+905551112233')
@@ -87,12 +90,21 @@ RSpec.describe Voice::Telephony::InboundCallBootstrapper do
     end
 
     it 'returns an existing call instead of creating a duplicate' do
-      existing = described_class.perform!(provider_call_id: 'sip-room-existing', metadata: { voice_number_id: voice_number.id })
+      existing = described_class.perform!(provider_call_id: 'sip-room-existing', metadata: { account_id: account.id, voice_number_id: voice_number.id })
 
       expect do
-        result = described_class.perform!(provider_call_id: 'sip-room-existing', metadata: { voice_number_id: voice_number.id })
+        result = described_class.perform!(provider_call_id: 'sip-room-existing', metadata: { account_id: account.id, voice_number_id: voice_number.id })
         expect(result).to eq(existing)
       end.not_to change(Call, :count)
+    end
+
+    it 'does not resolve an explicit voice number without an account scope' do
+      expect do
+        described_class.perform!(
+          provider_call_id: 'sip-room-unscoped-number',
+          metadata: { voice_number_id: voice_number.id }
+        )
+      end.to raise_error(ActiveRecord::RecordNotFound, 'Voice number or voice inbox setting not configured')
     end
 
     it 'raises not found when no voice number or scoped setting can be resolved' do
