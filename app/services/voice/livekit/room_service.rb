@@ -1,9 +1,12 @@
 class Voice::Livekit::RoomService
   AGENT_KIND_VALUES = ['AGENT', 'PARTICIPANT_KIND_AGENT', 4, '4'].freeze
-  RoomRef = Struct.new(:livekit_room_name, :provider_call_id, keyword_init: true)
 
   def self.remove_agent_participants(call:)
     new(call: call).remove_agent_participants
+  end
+
+  def self.remove_customer_participants(call:)
+    new(call: call).remove_customer_participants
   end
 
   def self.participant_summary(call:)
@@ -15,11 +18,12 @@ class Voice::Livekit::RoomService
   end
 
   def self.delete_room_name(room_name:)
-    new(call: RoomRef.new(livekit_room_name: room_name, provider_call_id: room_name)).delete_room
+    new(room_name: room_name).delete_room
   end
 
-  def initialize(call:)
+  def initialize(call: nil, room_name: nil)
     @call = call
+    @room_name = room_name
   end
 
   def remove_agent_participants
@@ -33,6 +37,26 @@ class Voice::Livekit::RoomService
       'removed_identities' => removed_identities
     }
   rescue StandardError => e
+    {
+      'status' => 'failed',
+      'error' => e.message.to_s.truncate(500),
+      'error_class' => e.class.name
+    }
+  end
+
+  def remove_customer_participants
+    return skipped_result unless configured?
+
+    customers = list_participants.reject { |participant| agent_participant?(participant) }
+    removed_identities = customers.filter_map { |participant| remove_participant(participant['identity']) }
+
+    {
+      'status' => removed_identities.any? ? 'removed' : 'not_found',
+      'removed_identities' => removed_identities
+    }
+  rescue StandardError => e
+    return not_found_result(e) if room_not_found?(e)
+
     {
       'status' => 'failed',
       'error' => e.message.to_s.truncate(500),
@@ -65,7 +89,7 @@ class Voice::Livekit::RoomService
   def delete_room
     return skipped_result unless configured?
 
-    response = delete_client.post(
+    response = client.post(
       service: 'RoomService',
       method: 'DeleteRoom',
       body: { room: room_name }
@@ -121,17 +145,6 @@ class Voice::Livekit::RoomService
     @client ||= Voice::Livekit::TwirpClient.new(room_name: room_name, subject: 'voice-room-admin')
   end
 
-  def delete_client
-    @delete_client ||= Voice::Livekit::TwirpClient.new(
-      room_name: room_name,
-      subject: 'voice-room-delete',
-      video_grants: {
-        room: room_name,
-        roomCreate: true
-      }
-    )
-  end
-
   def agent_participant?(participant)
     AGENT_KIND_VALUES.include?(participant['kind']) || participant['identity'].to_s.start_with?('agent-')
   end
@@ -160,7 +173,7 @@ class Voice::Livekit::RoomService
   end
 
   def room_name
-    call.livekit_room_name.presence || call.provider_call_id
+    @room_name.presence || call.livekit_room_name.presence || call.provider_call_id
   end
 
   def configured?

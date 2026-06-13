@@ -95,6 +95,55 @@ RSpec.describe Voice::Livekit::RoomService do
     end
   end
 
+  describe '.remove_customer_participants' do
+    it 'removes non-agent participants with a room admin token' do
+      list_request = stub_request(:post, 'https://test.livekit.cloud/twirp/livekit.RoomService/ListParticipants')
+                     .with do |request|
+        body = JSON.parse(request.body)
+        token = request.headers.fetch('Authorization').delete_prefix('Bearer ')
+        claims = JWT.decode(token, 'livekit-secret', true, { algorithm: 'HS256' }).first
+
+        expect(body).to include('room' => 'room-1')
+        expect(claims.dig('video', 'roomAdmin')).to be(true)
+        expect(claims.dig('video', 'room')).to eq('room-1')
+      end.to_return(
+        status: 200,
+        body: {
+          participants: [
+            { identity: 'sip_+905551112233', kind: 'SIP' },
+            { identity: 'caller-account-1-user-1-call-1', kind: 'STANDARD' },
+            { identity: 'agent-worker-1', kind: 'AGENT' },
+            { identity: 'agent-account-1-user-1-call-1', kind: 'STANDARD' }
+          ]
+        }.to_json,
+        headers: { 'Content-Type' => 'application/json' }
+      )
+      remove_request = stub_request(:post, 'https://test.livekit.cloud/twirp/livekit.RoomService/RemoveParticipant')
+                       .with do |request|
+        body = JSON.parse(request.body)
+        expect(body).to include('room' => 'room-1')
+        expect(body['identity']).to be_in(['sip_+905551112233', 'caller-account-1-user-1-call-1'])
+      end.to_return(status: 200, body: '{}', headers: { 'Content-Type' => 'application/json' })
+
+      result = with_modified_env(
+        'LIVEKIT_URL' => 'wss://test.livekit.cloud',
+        'LIVEKIT_API_KEY' => 'livekit-key',
+        'LIVEKIT_API_SECRET' => 'livekit-secret'
+      ) do
+        described_class.remove_customer_participants(call: call)
+      end
+
+      expect(result).to eq(
+        {
+          'status' => 'removed',
+          'removed_identities' => ['sip_+905551112233', 'caller-account-1-user-1-call-1']
+        }
+      )
+      expect(list_request).to have_been_requested
+      expect(remove_request).to have_been_requested.twice
+    end
+  end
+
   describe '.delete_room' do
     it 'skips when LiveKit credentials are missing' do
       result = with_modified_env('LIVEKIT_URL' => nil, 'LIVEKIT_API_KEY' => nil, 'LIVEKIT_API_SECRET' => nil) do
@@ -109,7 +158,7 @@ RSpec.describe Voice::Livekit::RoomService do
       )
     end
 
-    it 'deletes the room with a roomCreate token' do
+    it 'deletes the room with a room admin token' do
       delete_request = stub_request(:post, 'https://test.livekit.cloud/twirp/livekit.RoomService/DeleteRoom')
                        .with do |request|
         body = JSON.parse(request.body)
@@ -117,7 +166,7 @@ RSpec.describe Voice::Livekit::RoomService do
         claims = JWT.decode(token, 'livekit-secret', true, { algorithm: 'HS256' }).first
 
         expect(body).to include('room' => 'room-1')
-        expect(claims.dig('video', 'roomCreate')).to be(true)
+        expect(claims.dig('video', 'roomAdmin')).to be(true)
         expect(claims.dig('video', 'room')).to eq('room-1')
       end.to_return(status: 200, body: '{}', headers: { 'Content-Type' => 'application/json' })
 
@@ -144,7 +193,12 @@ RSpec.describe Voice::Livekit::RoomService do
       delete_request = stub_request(:post, 'https://test.livekit.cloud/twirp/livekit.RoomService/DeleteRoom')
                        .with do |request|
         body = JSON.parse(request.body)
+        token = request.headers.fetch('Authorization').delete_prefix('Bearer ')
+        claims = JWT.decode(token, 'livekit-secret', true, { algorithm: 'HS256' }).first
+
         expect(body).to include('room' => 'sip-room-rejected')
+        expect(claims.dig('video', 'roomAdmin')).to be(true)
+        expect(claims.dig('video', 'room')).to eq('sip-room-rejected')
       end.to_return(status: 200, body: '{}', headers: { 'Content-Type' => 'application/json' })
 
       result = with_modified_env(
