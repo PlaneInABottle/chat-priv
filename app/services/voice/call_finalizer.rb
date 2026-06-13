@@ -56,8 +56,14 @@ class Voice::CallFinalizer
   def terminate_livekit_room
     return unless call.livekit?
 
+    customer_removal_result = Voice::Livekit::RoomService.remove_customer_participants(call: call)
     room_result = Voice::Livekit::RoomService.delete_room(call: call)
-    call.update!(meta: (call.meta || {}).merge('livekit_room_delete' => room_result))
+    call.update!(
+      meta: (call.meta || {}).merge(
+        'livekit_customer_removal' => customer_removal_result,
+        'livekit_room_delete' => room_result
+      )
+    )
   rescue StandardError => e
     Rails.logger.warn("livekit room delete failed call_id=#{call.id} error=#{e.class.name}: #{e.message}")
   end
