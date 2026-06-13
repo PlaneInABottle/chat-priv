@@ -54,6 +54,8 @@ const bubbleClass = computed(() =>
   <li
     class="mb-2 flex w-full list-none"
     :class="alignmentClass"
+    aria-live="polite"
+    aria-atomic="false"
     data-testid="voice-transcript-segment"
   >
     <article

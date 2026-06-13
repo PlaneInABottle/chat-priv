@@ -119,7 +119,14 @@
       "TOOL_ERROR": "başarısız",
       "TOOL_REJECTED": "reddedildi",
       "TRANSCRIPT_SHOW_MORE": "Daha fazla göster",
-      "TRANSCRIPT_SHOW_LESS": "Daha az göster"
+      "TRANSCRIPT_SHOW_LESS": "Daha az göster",
+      "AUDIO_PLAY": "Kaydı oynat",
+      "AUDIO_PAUSE": "Kaydı duraklat",
+      "AUDIO_SEEK": "Kayıtta ilerle",
+      "AUDIO_SPEED": "Oynatma hızını değiştir",
+      "AUDIO_MUTE": "Kaydı sessize al",
+      "AUDIO_UNMUTE": "Kaydın sesini aç",
+      "AUDIO_DOWNLOAD": "Kaydı indir"
     },
     "HEADER": {
       "RESOLVE_ACTION": "Çözüldü",

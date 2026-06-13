@@ -120,7 +120,14 @@
       "TOOL_ERROR": "failed",
       "TOOL_REJECTED": "rejected",
       "TRANSCRIPT_SHOW_MORE": "Show more",
-      "TRANSCRIPT_SHOW_LESS": "Show less"
+      "TRANSCRIPT_SHOW_LESS": "Show less",
+      "AUDIO_PLAY": "Play recording",
+      "AUDIO_PAUSE": "Pause recording",
+      "AUDIO_SEEK": "Seek recording",
+      "AUDIO_SPEED": "Change playback speed",
+      "AUDIO_MUTE": "Mute recording",
+      "AUDIO_UNMUTE": "Unmute recording",
+      "AUDIO_DOWNLOAD": "Download recording"
     },
     "HEADER": {
       "RESOLVE_ACTION": "Resolve",
