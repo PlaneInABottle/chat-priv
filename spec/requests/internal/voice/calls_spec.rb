@@ -200,6 +200,7 @@ RSpec.describe 'Internal voice calls API', type: :request do
           post '/internal/voice/calls/sip-room-agent-context/agent_context',
                params: {
                  metadata: {
+                   account_id: account.id,
                    voice_number_id: voice_number.id,
                    from_number: '+905551112233',
                    to_number: '+908501112234'
@@ -236,6 +237,36 @@ RSpec.describe 'Internal voice calls API', type: :request do
       expect(response.parsed_body['error']).to include('Voice number or voice inbox setting not configured')
     end
 
+    it 'rejects voice number metadata scoped to another account' do
+      provider_connection = create(:voice_provider_connection, account: account, provider: 'test_sip')
+      voice_number = create(
+        :voice_number,
+        account: account,
+        voice_provider_connection: provider_connection,
+        voice_inbox_setting: voice_inbox_setting,
+        phone_number: '+908501112236'
+      )
+      foreign_account = create(:account, settings: { voice_ai_enabled: true })
+
+      with_modified_env VOICE_AGENT_INTERNAL_TOKEN: 'secret' do
+        expect do
+          post '/internal/voice/calls/sip-room-foreign-number/agent_context',
+               params: {
+                 metadata: {
+                   account_id: foreign_account.id,
+                   voice_number_id: voice_number.id,
+                   to_number: '+908501112236'
+                 }
+               },
+               headers: { 'X-Voice-Agent-Token' => 'secret' },
+               as: :json
+        end.not_to change(Call.livekit, :count)
+      end
+
+      expect(response).to have_http_status(:not_found)
+      expect(response.parsed_body['error']).to include('Voice number or voice inbox setting not configured')
+    end
+
     it 'returns a limit response and deletes the LiveKit room when concurrent call admission rejects the call' do
       account.update!(voice_ai_concurrent_call_limit: 1)
       provider_connection = create(:voice_provider_connection, account: account, provider: 'test_sip')
@@ -256,6 +287,7 @@ RSpec.describe 'Internal voice calls API', type: :request do
           post '/internal/voice/calls/sip-room-limit/agent_context',
                params: {
                  metadata: {
+                   account_id: account.id,
                    voice_number_id: voice_number.id,
                    to_number: '+908501112235'
                  }
