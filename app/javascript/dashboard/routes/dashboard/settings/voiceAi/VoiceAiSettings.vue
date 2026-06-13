@@ -1,5 +1,12 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import VoiceAPI from 'dashboard/api/voice';
@@ -23,6 +30,7 @@ const TERMINAL_CALL_STATUSES = [
   'no_answer',
   'failed',
 ];
+const PROMPT_CHARACTER_LIMIT = 50000;
 const TOOL_PAYLOAD_CLASS =
   'm-0 max-h-48 overflow-auto rounded bg-n-solid-1 p-2 whitespace-pre-wrap';
 
@@ -83,6 +91,7 @@ const isRefreshing = ref(false);
 const agentForm = ref(clone(DEFAULT_AGENT));
 const assignmentForm = ref({});
 const editingVoiceAgentId = ref(null);
+const savedAgentSnapshot = ref('');
 
 const {
   remoteAudioRef,
@@ -156,8 +165,12 @@ const voiceAccessEnabled = computed(() => voiceUsage.value?.enabled === true);
 const isVoiceAccessDisabled = computed(
   () => Boolean(voiceUsage.value) && !voiceAccessEnabled.value
 );
+const promptLength = computed(() => agentForm.value.prompt?.length || 0);
 const canSaveAgent = computed(
-  () => voiceAccessEnabled.value && Boolean(agentForm.value.name?.trim())
+  () =>
+    voiceAccessEnabled.value &&
+    Boolean(agentForm.value.name?.trim()) &&
+    promptLength.value <= PROMPT_CHARACTER_LIMIT
 );
 const currentCallStatus = computed(() => currentCall.value?.status || '');
 const isCurrentCallTerminal = computed(() =>
@@ -304,6 +317,44 @@ const assignedCount = agent =>
     setting => Number(setting.voice_agent_id) === Number(agent?.id)
   ).length;
 
+const assignmentPayload = () =>
+  assignmentRows.value
+    .filter(row => row.form?.assigned)
+    .map(row => ({
+      inbox_id: row.inbox.id,
+      fallback_team_id: row.form.fallback_team_id || null,
+      recording_enabled: Boolean(row.form.recording_enabled),
+    }));
+
+const editableAgentPayload = () => ({
+  id: editingVoiceAgentId.value || null,
+  name: agentForm.value.name || '',
+  enabled: Boolean(agentForm.value.enabled),
+  greeting: agentForm.value.greeting || '',
+  prompt: agentForm.value.prompt || '',
+  tools_config: normalizeToolsConfig(agentForm.value.tools_config),
+  inbox_settings: assignmentPayload(),
+});
+
+const currentAgentSnapshot = computed(() =>
+  JSON.stringify(editableAgentPayload())
+);
+const hasUnsavedAgentChanges = computed(
+  () =>
+    Boolean(savedAgentSnapshot.value) &&
+    currentAgentSnapshot.value !== savedAgentSnapshot.value
+);
+
+const resetAgentSnapshot = async () => {
+  await nextTick();
+  savedAgentSnapshot.value = currentAgentSnapshot.value;
+};
+
+const confirmDiscardAgentChanges = () =>
+  !hasUnsavedAgentChanges.value ||
+  // eslint-disable-next-line no-alert
+  window.confirm(t('VOICE_AI.AGENTS.UNSAVED_CHANGES'));
+
 const syncAssignmentForm = agent => {
   const rows = {};
   apiInboxes.value.forEach(inbox => {
@@ -328,6 +379,7 @@ const syncAgentForm = agent => {
     editingVoiceAgentId.value = null;
     agentForm.value = clone(DEFAULT_AGENT);
     syncAssignmentForm(null);
+    resetAgentSnapshot();
     return;
   }
 
@@ -339,6 +391,7 @@ const syncAgentForm = agent => {
     inbox_settings: agent?.inbox_settings || [],
   };
   syncAssignmentForm(agent);
+  resetAgentSnapshot();
 };
 
 const ensureSelectedTestInbox = () => {
@@ -385,15 +438,6 @@ const loadData = async () => {
   }
 };
 
-const assignmentPayload = () =>
-  assignmentRows.value
-    .filter(row => row.form?.assigned)
-    .map(row => ({
-      inbox_id: row.inbox.id,
-      fallback_team_id: row.form.fallback_team_id || null,
-      recording_enabled: Boolean(row.form.recording_enabled),
-    }));
-
 const saveVoiceAgent = async () => {
   if (!canSaveAgent.value) return;
   isSavingAgent.value = true;
@@ -428,6 +472,7 @@ const saveVoiceAgent = async () => {
 
 const createNewVoiceAgent = () => {
   if (!voiceAccessEnabled.value) return;
+  if (!confirmDiscardAgentChanges()) return;
 
   selectedVoiceAgentId.value = '';
   syncAgentForm(null);
@@ -435,10 +480,24 @@ const createNewVoiceAgent = () => {
 };
 
 const editVoiceAgent = agent => {
+  if (
+    Number(editingVoiceAgentId.value) !== Number(agent.id) &&
+    !confirmDiscardAgentChanges()
+  ) {
+    return;
+  }
+
   selectedVoiceAgentId.value = agent.id;
   syncAgentForm(agent);
   ensureSelectedTestInbox();
   activeTab.value = 'agents';
+};
+
+const changeTab = tab => {
+  if (tab.value === activeTab.value) return;
+  if (activeTab.value === 'agents' && !confirmDiscardAgentChanges()) return;
+
+  activeTab.value = tab.value;
 };
 
 const toggleTool = toolKey => {
@@ -499,6 +558,9 @@ const refreshUsage = async () => {
 
 const endCall = async () => {
   if (!canUseLiveControls.value || isEnding.value) return;
+  // eslint-disable-next-line no-alert
+  if (!window.confirm(t('VOICE_AI.SESSION.END_CALL_CONFIRM'))) return;
+
   isEnding.value = true;
   try {
     const response = await VoiceAPI.endCall(currentCall.value.id, {
@@ -541,6 +603,13 @@ const onToolEvent = data => {
   };
 };
 
+const onBeforeUnload = event => {
+  if (!hasUnsavedAgentChanges.value) return;
+
+  event.preventDefault();
+  event.returnValue = '';
+};
+
 const formatToolPayload = value => {
   if (!value || Object.keys(value).length === 0) return '{}';
   return JSON.stringify(value, null, 2);
@@ -574,8 +643,12 @@ const unsubscribeFromVoiceEvents = () => {
 onMounted(() => {
   loadData();
   subscribeToVoiceEvents();
+  window.addEventListener('beforeunload', onBeforeUnload);
 });
-onBeforeUnmount(unsubscribeFromVoiceEvents);
+onBeforeUnmount(() => {
+  unsubscribeFromVoiceEvents();
+  window.removeEventListener('beforeunload', onBeforeUnload);
+});
 </script>
 
 <template>
@@ -593,14 +666,16 @@ onBeforeUnmount(unsubscribeFromVoiceEvents);
         <TabBar
           :tabs="tabs"
           :initial-active-tab="activeTabIndex"
-          @tab-changed="tab => (activeTab = tab.value)"
+          @tab-changed="changeTab"
         />
 
         <section
           v-if="activeTab === 'agents'"
           class="grid grid-cols-1 gap-6 xl:grid-cols-[320px_minmax(0,1fr)]"
         >
-          <aside class="rounded-xl border border-n-weak bg-n-solid-1 p-4">
+          <aside
+            class="flex max-h-[calc(100vh-12rem)] flex-col rounded-xl border border-n-weak bg-n-solid-1 p-4"
+          >
             <div class="mb-4 flex items-center justify-between gap-3">
               <div>
                 <h2 class="m-0 text-heading-2 text-n-slate-12">
@@ -623,7 +698,7 @@ onBeforeUnmount(unsubscribeFromVoiceEvents);
             <div v-if="!voiceAgents.length" class="text-sm text-n-slate-11">
               {{ t('VOICE_AI.AGENTS.EMPTY') }}
             </div>
-            <div v-else class="flex flex-col gap-2">
+            <div v-else class="flex flex-col gap-2 overflow-y-auto pr-1">
               <button
                 v-for="agent in voiceAgents"
                 :key="agent.id"
@@ -712,9 +787,18 @@ onBeforeUnmount(unsubscribeFromVoiceEvents);
               <textarea
                 v-model="agentForm.prompt"
                 rows="10"
+                :maxlength="PROMPT_CHARACTER_LIMIT"
                 :disabled="!voiceAccessEnabled"
                 class="rounded-lg border-0 outline outline-1 outline-n-weak bg-n-alpha-black2 px-3 py-2 text-sm text-n-slate-12 resize-y"
               />
+              <span class="text-right text-xs text-n-slate-10">
+                {{
+                  t('VOICE_AI.AGENTS.PROMPT_CHAR_COUNT', {
+                    count: promptLength,
+                    limit: PROMPT_CHARACTER_LIMIT,
+                  })
+                }}
+              </span>
             </label>
 
             <div>
@@ -1078,7 +1162,13 @@ onBeforeUnmount(unsubscribeFromVoiceEvents);
             >
               {{ t('VOICE_AI.TRANSCRIPT.EMPTY') }}
             </div>
-            <div v-else class="mt-4 flex flex-col gap-3">
+            <div
+              v-else
+              class="mt-4 flex flex-col gap-3"
+              role="log"
+              aria-live="polite"
+              aria-relevant="additions text"
+            >
               <div
                 v-for="item in timelineEvents"
                 :key="item.timelineId"
