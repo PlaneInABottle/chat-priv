@@ -1,5 +1,6 @@
 class Api::V1::Accounts::AiAgentUsageController < Api::V1::Accounts::BaseController
   before_action :current_account
+  before_action :ensure_ai_agent_enabled
   before_action :check_authorization
 
   def show

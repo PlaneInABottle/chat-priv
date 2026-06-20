@@ -48,13 +48,12 @@ RSpec.describe 'Api::V1::Accounts::Voice::Usage', type: :request do
       expect(response).to have_http_status(:unauthorized)
     end
 
-    it 'returns disabled summary instead of forbidden when account access is off' do
+    it 'returns forbidden when account access is off' do
       account.update!(voice_ai_enabled: false)
 
       get "/api/v1/accounts/#{account.id}/voice/usage", headers: admin.create_new_auth_token, as: :json
 
-      expect(response).to have_http_status(:ok)
-      expect(response.parsed_body).to include('enabled' => false, 'status' => 'disabled')
+      expect(response).to have_http_status(:forbidden)
     end
   end
 end
