@@ -13,6 +13,19 @@
     require_evidence:
       - fact: color
 
+- id: beyaz_plise_perde_color_category
+  query: "beyaz plise perde"
+  expect:
+    result_type:
+      - show_candidates
+      - show_compatible_candidates
+    min_results: 1
+    top_results_include:
+      - "Orjin Pliseli Perde Beyaz"
+    require_links: true
+    require_evidence:
+      - fact: color
+
 - id: en_ucuz_beyaz_perde
   query: "en ucuz beyaz perde"
   expect:
