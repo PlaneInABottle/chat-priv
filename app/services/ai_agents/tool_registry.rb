@@ -16,10 +16,23 @@ class AiAgents::ToolRegistry
   HUMAN_HANDOFF_INPUT_SCHEMA = {
     type: 'object',
     properties: {
-      reason: { type: 'string' },
-      customer_message: { type: 'string' },
-      internal_note: { type: 'string' },
-      labels: { type: 'array', items: { type: 'string' } }
+      reason: {
+        type: 'string',
+        description: 'Short internal reason for why automated assistance should stop.'
+      },
+      customer_message: {
+        type: 'string',
+        description: 'Customer-facing assistant message, for example "Sizi bir temsilciye aktarıyorum." Do not repeat the customer request as if the assistant said it.'
+      },
+      internal_note: {
+        type: 'string',
+        description: 'Private note for the human agent with the useful context needed to continue.'
+      },
+      labels: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Optional labels to apply. Use only configured or existing account labels.'
+      }
     },
     required: %w[reason customer_message internal_note],
     additionalProperties: false
