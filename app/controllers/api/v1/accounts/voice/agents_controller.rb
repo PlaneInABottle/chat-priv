@@ -1,7 +1,7 @@
 class Api::V1::Accounts::Voice::AgentsController < Api::V1::Accounts::BaseController
   before_action :current_account
   before_action :check_admin_authorization?
-  before_action :ensure_voice_ai_enabled, only: [:create, :update, :destroy]
+  before_action :ensure_voice_ai_enabled
   before_action :set_voice_agent, only: [:show, :update, :destroy]
 
   def index

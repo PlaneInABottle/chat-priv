@@ -54,6 +54,7 @@ export const FEATURE_FLAGS = {
   CONVERSATION_UNREAD_COUNTS: 'conversation_unread_counts',
   UNREAD_COUNT_FOR_FILTERS: 'unread_count_for_filters',
   AI_AGENT: 'ai_agent',
+  VOICE_AI: 'voice_ai',
 };
 
 export const PREMIUM_FEATURES = [
