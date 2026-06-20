@@ -63,5 +63,47 @@ RSpec.describe VoiceAgents::ToolExecutor do
         status: 'executed'
       )
     end
+
+    it 'executes ikas order lookup and masks customer identifiers in voice tool events' do
+      account.enable_features('ikas_integration')
+      voice_agent.update!(
+        tools_config: VoiceAgents::Config.new('enabled' => [VoiceAgents::Config::IKAS_LOOKUP_ORDER_TOOL]).normalized_config
+      )
+      connection_status = instance_double(Integrations::Ikas::ConnectionStatus, payload: { state: 'connected' })
+      lookup_service = instance_double(Integrations::Ikas::OrderLookupService)
+      allow(Integrations::Ikas::ConnectionStatus).to receive(:new).with(account: account).and_return(connection_status)
+      allow(Integrations::Ikas::OrderLookupService).to receive(:new).and_return(lookup_service)
+      allow(lookup_service).to receive(:call).and_return(status: 'ok', result_type: 'show_order_status')
+
+      result = described_class.perform!(
+        call: call,
+        voice_agent: voice_agent,
+        tool_key: VoiceAgents::Config::IKAS_LOOKUP_ORDER_TOOL,
+        args: { order_identifier: '30564', email: 'buyer@example.com', phone: '+905419719978', limit: 3 },
+        external_id: 'tool-3'
+      )
+
+      expect(result[:status]).to eq('executed')
+      expect(Integrations::Ikas::OrderLookupService).to have_received(:new).with(
+        account: account,
+        conversation: conversation,
+        identifiers: {
+          'order_identifier' => '30564',
+          'email' => 'buyer@example.com',
+          'phone' => '+905419719978'
+        },
+        limit: 3
+      )
+      expect(call.voice_tool_events.find_by!(external_id: 'tool-3')).to have_attributes(
+        tool: VoiceAgents::Config::IKAS_LOOKUP_ORDER_TOOL,
+        status: 'executed',
+        arguments: {
+          'order_identifier' => '30564',
+          'email' => 'b***@example.com',
+          'phone' => '***9978',
+          'limit' => 3
+        }
+      )
+    end
   end
 end
