@@ -5,7 +5,7 @@ RSpec.describe Voice::Livekit::StaleCallFinalizer do
   let(:api_channel) { create(:channel_api, account: account) }
   let(:inbox) { api_channel.inbox }
   let(:voice_agent) { account.voice_agents.first! }
-  let!(:voice_inbox_setting) { create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: voice_agent) }
+  let(:voice_inbox_setting) { create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: voice_agent) }
 
   before do
     allow(Voice::Livekit::AgentDispatchService).to receive(:perform).and_return({ 'status' => 'skipped' })
@@ -22,6 +22,7 @@ RSpec.describe Voice::Livekit::StaleCallFinalizer do
     expect(result).to contain_exactly(call)
     expect(call.reload).to have_attributes(status: 'completed', end_reason: 'livekit_room_not_found')
     expect(call.meta.dig('livekit_stale_check', 'status')).to eq('not_found')
+    expect(call.meta.dig('livekit_stale_check', 'ended_reason')).to eq('livekit_room_not_found')
   end
 
   it 'finalizes active calls without customer participants' do
@@ -71,6 +72,7 @@ RSpec.describe Voice::Livekit::StaleCallFinalizer do
   end
 
   def stale_call(started_at: 10.minutes.ago)
+    voice_inbox_setting
     Voice::TestCallBuilder.perform!(account: account, inbox: inbox, voice_agent: voice_agent).tap do |call|
       call.update!(started_at: started_at)
     end

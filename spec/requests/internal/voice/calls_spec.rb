@@ -92,6 +92,25 @@ RSpec.describe 'Internal voice calls API', type: :request do
       )
       expect(conversation_call.message.content_attributes.dig('data', 'ai_status')).to eq('active')
     end
+
+    it 'records agent session end without marking an active call completed' do
+      conversation_call.update!(ai_status: 'active')
+
+      with_modified_env VOICE_AGENT_INTERNAL_TOKEN: 'secret' do
+        post path,
+             params: { event: 'agent_session_ended', payload: { reason: 'worker_shutdown' } },
+             headers: { 'X-Voice-Agent-Token' => 'secret' },
+             as: :json
+      end
+
+      expect(response).to have_http_status(:ok)
+      conversation_call.reload
+      expect(conversation_call.ai_status).to eq('active')
+      expect(conversation_call.meta).to include(
+        'last_voice_agent_event' => 'agent_session_ended',
+        'last_voice_agent_payload' => { 'reason' => 'worker_shutdown' }
+      )
+    end
   end
 
   describe 'POST /internal/voice/calls/:provider_call_id/tool_call' do

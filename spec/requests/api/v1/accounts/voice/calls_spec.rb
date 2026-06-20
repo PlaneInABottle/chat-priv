@@ -191,6 +191,7 @@ RSpec.describe 'Api::V1::Accounts::Voice::Calls', type: :request do
         status: 'completed',
         end_reason: 'agent_ended'
       )
+      expect(conversation_call.meta['finalized_by']).to eq('agent')
       expect(conversation_call.message.reload.content_attributes['data']).to include(
         'status' => 'completed'
       )

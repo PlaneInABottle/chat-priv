@@ -29,8 +29,8 @@ class Voice::Livekit::StaleCallFinalizer
     reason = stale_reason(call, summary)
     return unless reason
 
-    Voice::CallFinalizer.perform!(call: call, end_reason: reason)
     call.update!(meta: (call.meta || {}).merge('livekit_stale_check' => summary.merge('ended_reason' => reason)))
+    Voice::CallFinalizer.perform!(call: call, end_reason: reason)
     call
   end
 

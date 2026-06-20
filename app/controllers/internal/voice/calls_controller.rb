@@ -191,7 +191,7 @@ class Internal::Voice::CallsController < Internal::Voice::BaseController
     when 'agent_session_started', 'agent_listening'
       'active'
     when 'agent_session_ended'
-      'completed'
+      'completed' if @call.terminal?
     end
   end
 end
