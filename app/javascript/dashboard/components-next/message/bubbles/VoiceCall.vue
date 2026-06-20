@@ -320,6 +320,22 @@ const recordingAttachment = computed(() => {
   };
 });
 
+const recordingStatus = computed(() => {
+  const recording = callField('recording') || {};
+  return recording.status || null;
+});
+
+const recordingStatusLabel = computed(() => {
+  if (recordingAttachment.value) return '';
+  if (['starting', 'active'].includes(recordingStatus.value)) {
+    return t('CONVERSATION.VOICE_CALL.RECORDING_PROCESSING');
+  }
+  if (recordingStatus.value === 'failed') {
+    return t('CONVERSATION.VOICE_CALL.RECORDING_FAILED');
+  }
+  return '';
+});
+
 const refreshLivekitCallDetails = async () => {
   if (!isLivekit.value || !livekitCallId.value) return;
 
@@ -501,6 +517,12 @@ const handleEndLivekit = async () => {
           show-transcribed-text
           :on-before-play="refreshLivekitCallDetails"
         />
+      </div>
+      <div
+        v-else-if="recordingStatusLabel"
+        class="rounded-lg bg-n-alpha-2 px-3 py-2 text-xs text-n-slate-11"
+      >
+        {{ recordingStatusLabel }}
       </div>
 
       <div v-if="isLivekit" ref="remoteAudioRef" class="hidden" />
