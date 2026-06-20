@@ -102,7 +102,9 @@ module IkasCatalogMvp
       checks = []
       checks.concat(result_type_failures(expectations, result))
       checks.concat(min_result_failures(expectations, result))
+      checks.concat(first_result_failures(expectations, result))
       checks.concat(top_result_failures(expectations, result))
+      checks.concat(candidate_exclusion_failures(expectations, result))
       checks.concat(link_failures(expectations, result))
       checks.concat(evidence_failures(expectations, result))
       checks.concat(bucket_failures(expectations, result))
@@ -128,9 +130,27 @@ module IkasCatalogMvp
       expected = Array(expectations['top_results_include']).map { |value| Text.fold(value) }.reject(&:empty?)
       return [] if expected.empty?
 
-      top_text = Text.fold(top_candidates_for(result).map { |candidate| candidate['display_name'] }.join(' '))
-      expected.select { |value| !top_text.include?(value) }
+      top_text = Text.fold(top_candidates_for(result).filter_map { |candidate| candidate['display_name'] }.join(' '))
+      expected.reject { |value| top_text.include?(value) }
               .map { |value| "expected_text_not_found_in_top_results: #{value}" }
+    end
+
+    def first_result_failures(expectations, result)
+      expected = Array(expectations['first_result_include']).map { |value| Text.fold(value) }.reject(&:empty?)
+      return [] if expected.empty?
+
+      first_text = Text.fold(candidates_for(result).first&.fetch('display_name', '').to_s)
+      expected.reject { |value| first_text.include?(value) }
+              .map { |value| "expected_text_not_found_in_first_result: #{value}" }
+    end
+
+    def candidate_exclusion_failures(expectations, result)
+      excluded = Array(expectations['candidate_text_excludes']).map { |value| Text.fold(value) }.reject(&:empty?)
+      return [] if excluded.empty?
+
+      candidate_text = Text.fold(candidates_for(result).filter_map { |candidate| candidate['display_name'] }.join(' '))
+      excluded.select { |value| candidate_text.include?(value) }
+              .map { |value| "excluded_text_found_in_candidates: #{value}" }
     end
 
     def link_failures(expectations, result)
@@ -169,7 +189,7 @@ module IkasCatalogMvp
 
       expected_labels = Array(expectations['bucket_labels_include']).map { |value| Text.fold(value) }.reject(&:empty?)
       bucket_text = Text.fold(bucket_labels_for(result).join(' '))
-      failures.concat(expected_labels.select { |label| !bucket_text.include?(label) }.map { |label| "expected_bucket_not_found: #{label}" })
+      failures.concat(expected_labels.reject { |label| bucket_text.include?(label) }.map { |label| "expected_bucket_not_found: #{label}" })
       failures
     end
 
