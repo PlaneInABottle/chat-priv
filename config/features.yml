@@ -69,7 +69,7 @@
   help_url: https://chwt.app/hc/canned
 - name: integrations
   display_name: Integrations
-  enabled: false
+  enabled: true
   help_url: https://chwt.app/hc/integrations
 - name: voice_recorder
   display_name: Voice Recorder

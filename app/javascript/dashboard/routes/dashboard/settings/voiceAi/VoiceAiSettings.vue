@@ -134,6 +134,22 @@ const availableTools = computed(
     voiceAgents.value[0]?.available_tools ||
     []
 );
+const availableToolKeys = computed(() =>
+  availableTools.value.map(tool => tool.key)
+);
+const normalizeToolsConfigForAvailableTools = toolsConfig => {
+  const config = normalizeToolsConfig(toolsConfig);
+  if (!availableToolKeys.value.length) return config;
+
+  config.enabled = config.enabled.filter(key =>
+    availableToolKeys.value.includes(key)
+  );
+  config.ikas_lookup_order.enabled =
+    config.ikas_lookup_order.enabled &&
+    config.enabled.includes('ikas_lookup_order');
+
+  return config;
+};
 
 const selectedAgentSavedApiSettings = computed(() =>
   settings.value.filter(
@@ -160,6 +176,7 @@ const isIkasCatalogReady = computed(
     selectedVoiceAgent.value?.ikas_integration?.catalog_sync?.status ===
     'completed'
 );
+const shouldShowIkasToolStatus = computed(() => isIkasAvailable.value);
 
 const voiceAccessEnabled = computed(() => voiceUsage.value?.enabled === true);
 const isVoiceAccessDisabled = computed(
@@ -332,7 +349,9 @@ const editableAgentPayload = () => ({
   enabled: Boolean(agentForm.value.enabled),
   greeting: agentForm.value.greeting || '',
   prompt: agentForm.value.prompt || '',
-  tools_config: normalizeToolsConfig(agentForm.value.tools_config),
+  tools_config: normalizeToolsConfigForAvailableTools(
+    agentForm.value.tools_config
+  ),
   inbox_settings: assignmentPayload(),
 });
 
@@ -387,7 +406,7 @@ const syncAgentForm = agent => {
   agentForm.value = {
     ...clone(DEFAULT_AGENT),
     ...agent,
-    tools_config: normalizeToolsConfig(agent?.tools_config),
+    tools_config: normalizeToolsConfigForAvailableTools(agent?.tools_config),
     inbox_settings: agent?.inbox_settings || [],
   };
   syncAssignmentForm(agent);
@@ -447,7 +466,9 @@ const saveVoiceAgent = async () => {
       enabled: agentForm.value.enabled,
       greeting: agentForm.value.greeting,
       prompt: agentForm.value.prompt,
-      tools_config: agentForm.value.tools_config,
+      tools_config: normalizeToolsConfigForAvailableTools(
+        agentForm.value.tools_config
+      ),
       inbox_settings: assignmentPayload(),
     };
     const response = editingVoiceAgentId.value
@@ -501,6 +522,8 @@ const changeTab = tab => {
 };
 
 const toggleTool = toolKey => {
+  if (!availableToolKeys.value.includes(toolKey)) return;
+
   const enabled = new Set(agentForm.value.tools_config.enabled);
   if (enabled.has(toolKey)) {
     enabled.delete(toolKey);
@@ -510,8 +533,10 @@ const toggleTool = toolKey => {
   agentForm.value = {
     ...agentForm.value,
     tools_config: {
-      ...agentForm.value.tools_config,
-      enabled: Array.from(enabled),
+      ...normalizeToolsConfigForAvailableTools(agentForm.value.tools_config),
+      enabled: Array.from(enabled).filter(key =>
+        availableToolKeys.value.includes(key)
+      ),
       ikas_lookup_order: {
         ...agentForm.value.tools_config.ikas_lookup_order,
         enabled: enabled.has('ikas_lookup_order'),
@@ -828,7 +853,10 @@ onBeforeUnmount(() => {
                   </span>
                 </label>
               </div>
-              <p class="mb-0 mt-3 text-xs text-n-slate-11">
+              <p
+                v-if="shouldShowIkasToolStatus"
+                class="mb-0 mt-3 text-xs text-n-slate-11"
+              >
                 {{
                   isIkasAvailable
                     ? isIkasCatalogReady

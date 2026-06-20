@@ -1,5 +1,12 @@
 tool_config = AiAgents::Config.new(@ai_agent.config)
 ikas_summary = Integrations::Ikas::ConnectionStatus.new(account: @ai_agent.account).payload
+tool_availability = AiAgents::ToolAvailability.new(account: @ai_agent.account)
+available_tools = tool_availability.available_definitions(AiAgents::ToolRegistry.available_definitions)
+tools_summary = tool_config.tools_summary
+tools_summary[AiAgents::Config::ENABLED_KEY] = tool_availability.filter_enabled_keys(
+  tools_summary[AiAgents::Config::ENABLED_KEY],
+  AiAgents::ToolRegistry.available_definitions
+)
 
 json.id @ai_agent.id
 json.account_id @ai_agent.account_id
@@ -7,8 +14,8 @@ json.name @ai_agent.name
 json.prompt @ai_agent.prompt
 json.enabled @ai_agent.enabled
 json.config @ai_agent.config
-json.tools_config tool_config.tools_summary
-json.available_tools AiAgents::ToolRegistry.available_definitions do |tool|
+json.tools_config tools_summary
+json.available_tools available_tools do |tool|
   json.key tool.key
   json.name tool.name
   json.description tool.description
