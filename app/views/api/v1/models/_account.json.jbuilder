@@ -23,6 +23,7 @@ end
 json.domain @account.domain
 features = @account.enabled_features.dup
 features['ai_agent'] = true if @account.ai_agent_enabled?
+features['voice_ai'] = true if @account.voice_ai_enabled?
 json.features features
 json.id @account.id
 json.locale @account.locale

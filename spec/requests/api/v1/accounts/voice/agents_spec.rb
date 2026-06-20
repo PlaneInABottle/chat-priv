@@ -16,6 +16,17 @@ RSpec.describe 'Api::V1::Accounts::Voice::Agents', type: :request do
       expect(response.parsed_body['payload']).to eq([])
       expect(account.voice_agents.count).to eq(0)
     end
+
+    it 'rejects requests when account Voice AI access is disabled' do
+      account.update!(voice_ai_enabled: false)
+
+      get "/api/v1/accounts/#{account.id}/voice/agents",
+          headers: admin.create_new_auth_token,
+          as: :json
+
+      expect(response).to have_http_status(:forbidden)
+      expect(response.parsed_body['error']).to eq('Voice AI is disabled for this account.')
+    end
   end
 
   describe 'GET /api/v1/accounts/:account_id/voice/agents/:id' do

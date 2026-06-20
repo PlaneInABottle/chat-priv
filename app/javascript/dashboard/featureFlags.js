@@ -48,6 +48,7 @@ export const FEATURE_FLAGS = {
   CONVERSATION_REQUIRED_ATTRIBUTES: 'conversation_required_attributes',
   CONVERSATION_UNREAD_COUNTS: 'conversation_unread_counts',
   AI_AGENT: 'ai_agent',
+  VOICE_AI: 'voice_ai',
 };
 
 export const PREMIUM_FEATURES = [
