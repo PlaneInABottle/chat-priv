@@ -66,7 +66,17 @@ class Api::V1::Accounts::Voice::AgentsController < Api::V1::Accounts::BaseContro
   def normalize_voice_agent_params(permitted)
     return permitted unless permitted.key?('tools_config')
 
-    permitted.merge('tools_config' => VoiceAgents::Config.new(permitted['tools_config']).normalized_config)
+    normalized_tools_config = VoiceAgents::Config.new(permitted['tools_config']).normalized_config
+    permitted.merge(
+      'tools_config' => tool_availability.filter_tools_config(
+        normalized_tools_config,
+        VoiceAgents::ToolRegistry.available_definitions
+      )
+    )
+  end
+
+  def tool_availability
+    @tool_availability ||= AiAgents::ToolAvailability.new(account: Current.account)
   end
 
   def inbox_settings_provided?

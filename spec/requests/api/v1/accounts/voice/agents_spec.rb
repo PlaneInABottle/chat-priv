@@ -51,7 +51,7 @@ RSpec.describe 'Api::V1::Accounts::Voice::Agents', type: :request do
       expect(response.parsed_body['error']).to eq('Voice AI is disabled for this account.')
     end
 
-    it 'creates a voice agent with normalized tools config' do
+    it 'creates a voice agent and strips unavailable integration tools' do
       post "/api/v1/accounts/#{account.id}/voice/agents",
            params: {
              name: 'Phone support',
@@ -70,7 +70,7 @@ RSpec.describe 'Api::V1::Accounts::Voice::Agents', type: :request do
         'enabled' => true,
         'prompt' => 'Only speak Turkish.'
       )
-      expect(response.parsed_body.dig('tools_config', 'enabled')).to eq(%w[human_handoff ikas_catalog_search])
+      expect(response.parsed_body.dig('tools_config', 'enabled')).to eq(['human_handoff'])
     end
 
     it 'creates inbox assignments for the voice agent' do
