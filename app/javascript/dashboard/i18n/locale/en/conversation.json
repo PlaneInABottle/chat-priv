@@ -93,6 +93,7 @@
       "INCOMING_CALL": "Incoming call",
       "OUTGOING_CALL": "Outgoing call",
       "CALL_IN_PROGRESS": "Call in progress",
+      "LIVE_BADGE": "Live",
       "NO_ANSWER": "No answer",
       "NO_ANSWER_OUTBOUND_LABEL": "No answer",
       "NO_ANSWER_OUTBOUND_SUBTEXT": "Contact didn't pick up",

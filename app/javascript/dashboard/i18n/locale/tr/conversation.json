@@ -81,6 +81,7 @@
       "INCOMING_CALL": "Gelen arama",
       "OUTGOING_CALL": "Giden arama",
       "CALL_IN_PROGRESS": "Arama devam ediyor",
+      "LIVE_BADGE": "Canlı",
       "NO_ANSWER": "Yanıt yok",
       "NO_ANSWER_OUTBOUND_LABEL": "Yanıt yok",
       "NO_ANSWER_OUTBOUND_SUBTEXT": "Kişi aramayı yanıtlamadı",

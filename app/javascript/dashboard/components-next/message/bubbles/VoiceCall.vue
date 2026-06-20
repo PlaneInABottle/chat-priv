@@ -154,6 +154,9 @@ const durationSeconds = computed(() => {
 });
 
 const formattedDuration = computed(() => formatDuration(durationSeconds.value));
+const showLiveBadge = computed(
+  () => isLivekit.value && status.value === VOICE_CALL_STATUS.IN_PROGRESS
+);
 
 // Agent who handled the call (initiator on outbound, answerer on inbound), taken
 // strictly from the persisted accept fields — never the conversation's current
@@ -498,11 +501,19 @@ const handleEndLivekit = async () => {
           <Icon class="size-4" :icon="iconName" />
         </div>
         <div class="flex flex-col flex-1 min-w-0 self-center">
-          <span
-            class="font-display text-sm font-medium leading-tight truncate tracking-tight"
-          >
-            {{ label }}
-          </span>
+          <div class="flex min-w-0 items-center gap-2">
+            <span
+              class="min-w-0 truncate font-display text-sm font-medium leading-tight tracking-tight"
+            >
+              {{ label }}
+            </span>
+            <span
+              v-if="showLiveBadge"
+              class="shrink-0 rounded-full bg-n-teal-3 px-2 py-0.5 text-[11px] font-medium leading-4 text-n-teal-11"
+            >
+              {{ $t('CONVERSATION.VOICE_CALL.LIVE_BADGE') }}
+            </span>
+          </div>
           <span
             v-if="subtext"
             class="text-sm leading-tight truncate tracking-tight opacity-75"
