@@ -323,6 +323,39 @@ RSpec.describe 'Internal voice calls API', type: :request do
       expect(event).to have_attributes(tool: 'human_handoff', status: 'executed')
       expect(call.handoff_status).to eq('requested')
     end
+
+    it 'rejects tool execution when Voice AI is disabled' do
+      call
+      account.update!(voice_ai_enabled: false)
+      allow(VoiceAgents::ToolExecutor).to receive(:perform!)
+
+      with_modified_env VOICE_AGENT_INTERNAL_TOKEN: 'secret' do
+        post path,
+             params: { arguments: { reason: 'caller requested a human' }, external_id: 'runtime-tool-disabled' },
+             headers: { 'X-Voice-Agent-Token' => 'secret' },
+             as: :json
+      end
+
+      expect(response).to have_http_status(:forbidden)
+      expect(response.parsed_body).to eq('error' => 'Voice AI is disabled for this account.')
+      expect(VoiceAgents::ToolExecutor).not_to have_received(:perform!)
+    end
+
+    it 'rejects tool execution for terminal calls' do
+      call.update!(status: 'completed')
+      allow(VoiceAgents::ToolExecutor).to receive(:perform!)
+
+      with_modified_env VOICE_AGENT_INTERNAL_TOKEN: 'secret' do
+        post path,
+             params: { arguments: { reason: 'caller requested a human' }, external_id: 'runtime-tool-terminal' },
+             headers: { 'X-Voice-Agent-Token' => 'secret' },
+             as: :json
+      end
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.parsed_body).to eq('error' => 'Call has already ended')
+      expect(VoiceAgents::ToolExecutor).not_to have_received(:perform!)
+    end
   end
 
   describe 'POST /internal/voice/calls/:provider_call_id/handoff' do
@@ -373,6 +406,36 @@ RSpec.describe 'Internal voice calls API', type: :request do
         'test_mode' => true,
         'reason' => 'caller requested a human'
       )
+    end
+
+    it 'rejects handoff when Voice AI is disabled' do
+      account.update!(voice_ai_enabled: false)
+
+      with_modified_env VOICE_AGENT_INTERNAL_TOKEN: 'secret' do
+        post path,
+             params: { reason: 'caller requested a human' },
+             headers: { 'X-Voice-Agent-Token' => 'secret' },
+             as: :json
+      end
+
+      expect(response).to have_http_status(:forbidden)
+      expect(response.parsed_body).to eq('error' => 'Voice AI is disabled for this account.')
+      expect(conversation_call.reload.handoff_status).to eq('none')
+    end
+
+    it 'rejects handoff for terminal calls' do
+      conversation_call.update!(status: 'completed')
+
+      with_modified_env VOICE_AGENT_INTERNAL_TOKEN: 'secret' do
+        post path,
+             params: { reason: 'caller requested a human' },
+             headers: { 'X-Voice-Agent-Token' => 'secret' },
+             as: :json
+      end
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.parsed_body).to eq('error' => 'Call has already ended')
+      expect(conversation_call.reload.handoff_status).to eq('none')
     end
   end
 end
