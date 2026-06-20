@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe AiAgents::EffectivePromptPreview do
   describe '#effective_system_prompt' do
-    it 'combines the base prompt, global instructions, agent prompt, and enabled tool policies' do
+    it 'combines the configured base prompt, agent prompt, and enabled tool policies' do
       upsert_config('AI_AGENT_GLOBAL_INSTRUCTIONS', 'Always answer in Turkish unless the customer uses English.')
       ai_agent = create(
         :ai_agent,
@@ -18,25 +18,26 @@ RSpec.describe AiAgents::EffectivePromptPreview do
 
       preview = described_class.new(ai_agent: ai_agent)
 
-      expect(preview.global_instructions_prompt).to include('Always answer in Turkish unless the customer uses English.')
+      expect(preview.base_prompt).to eq('Always answer in Turkish unless the customer uses English.')
+      expect(preview.global_instructions_prompt).to be_nil
       expect(preview.agent_prompt).to include('Only answer from verified catalog evidence.')
       expect(preview.tool_policy_prompt).to include('Catalog tool rules')
       expect(preview.effective_system_prompt).to include(
-        'Platform global AI instructions',
         'Always answer in Turkish unless the customer uses English.',
         'Only answer from verified catalog evidence.',
         'Never write ₺, TL, TRY, $, €, or any currency symbol/code unless price.currency is present'
       )
       effective_prompt = preview.effective_system_prompt
-      expect(effective_prompt.index('Platform global AI instructions')).to be < effective_prompt.index('AI agent instructions')
+      expect(effective_prompt.index('Always answer in Turkish')).to be < effective_prompt.index('AI agent instructions')
       expect(effective_prompt.index('AI agent instructions')).to be < effective_prompt.index('Catalog tool rules')
     end
 
-    it 'omits blank global instructions' do
+    it 'omits a blank base prompt' do
       upsert_config('AI_AGENT_GLOBAL_INSTRUCTIONS', nil)
       ai_agent = create(:ai_agent, prompt: 'Answer briefly.')
       preview = described_class.new(ai_agent: ai_agent)
 
+      expect(preview.base_prompt).to be_nil
       expect(preview.global_instructions_prompt).to be_nil
       expect(preview.effective_system_prompt).to include('AI agent instructions')
     end

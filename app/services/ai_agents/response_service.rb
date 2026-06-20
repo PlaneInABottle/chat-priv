@@ -1,16 +1,6 @@
 # frozen_string_literal: true
 
 class AiAgents::ResponseService
-  SYSTEM_PROMPT_TEMPLATE = <<~PROMPT
-    You are a helpful AI assistant for a customer support team.
-    Follow these instructions carefully:
-
-    %<prompt>s
-
-    Be concise, professional, and helpful. If you cannot answer something,
-    politely say so and suggest handing off to a human agent.
-  PROMPT
-
   def initialize(ai_agent:, messages: [], conversation: nil)
     @ai_agent = ai_agent
     @messages = messages
