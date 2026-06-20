@@ -17,6 +17,7 @@ class AiAgents::Usage::Summary
       period_start_at: period.start_at.iso8601,
       period_end_at: period.end_at.iso8601,
       reset_at: period.reset_at.iso8601,
+      enabled: account.ai_agent_enabled?,
       limit: limit,
       used: used,
       remaining: remaining,
@@ -60,6 +61,7 @@ class AiAgents::Usage::Summary
   end
 
   def status
+    return 'disabled' unless account.ai_agent_enabled?
     return 'unlimited' if unlimited?
     return 'exhausted' if remaining.zero?
     return 'warning' if remaining <= (limit * WARNING_REMAINING_RATIO).ceil
