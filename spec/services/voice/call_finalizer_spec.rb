@@ -70,11 +70,13 @@ RSpec.describe Voice::CallFinalizer do
   it 'stops active LiveKit recordings when ending a call' do
     call = build_conversation_call
     create(:voice_recording, call: call, status: 'active', egress_id: 'EG_active')
-    allow(Voice::Recordings::StopService).to receive(:perform).and_return({ 'status' => 'ok' })
+    allow(Voice::Recordings::StopService).to receive(:perform).and_return({ 'status' => 'ok', 'egress_id' => 'EG_active' })
 
     described_class.perform!(call: call, end_reason: 'agent_ended')
 
     expect(Voice::Recordings::StopService).to have_received(:perform).with(call: call)
+    expect(call.reload.meta['recording_stop']).to eq('status' => 'ok', 'egress_id' => 'EG_active')
+    expect(call.meta['finalized_by']).to eq('system')
   end
 
   it 'terminates the LiveKit room when ending a LiveKit call' do
@@ -98,6 +100,11 @@ RSpec.describe Voice::CallFinalizer do
       'status' => 'deleted',
       'room' => call.livekit_room_name
     )
+    expect(call.meta['recording_stop']).to eq(
+      'status' => 'skipped',
+      'reason' => 'no_active_recording'
+    )
+    expect(call.meta['finalized_at']).to be_present
   end
 
   it 'keeps terminal calls idempotent' do

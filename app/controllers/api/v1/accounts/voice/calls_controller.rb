@@ -51,7 +51,7 @@ class Api::V1::Accounts::Voice::CallsController < Api::V1::Accounts::BaseControl
     authorize @call.inbox, :show?
     return render json: Voice::CallSerializer.new(@call).payload if @call.terminal?
 
-    Voice::CallFinalizer.perform!(call: @call, end_reason: params[:end_reason].presence)
+    Voice::CallFinalizer.perform!(call: @call, end_reason: params[:end_reason].presence, agent: Current.user)
     render json: Voice::CallSerializer.new(@call).payload
   end
 

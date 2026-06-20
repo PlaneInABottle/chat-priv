@@ -16,7 +16,8 @@ class Voice::CallFinalizer
     return call unless mark_terminal!
 
     terminate_livekit_room
-    stop_recording
+    recording_result = stop_recording
+    persist_finalization_meta(recording_result)
     Voice::CallMessageBuilder.new(call).update_status!(
       status: call.status,
       agent: agent || call.accepted_by_agent,
@@ -61,6 +62,21 @@ class Voice::CallFinalizer
     Voice::Recordings::StopService.perform(call: call)
   rescue StandardError => e
     Rails.logger.warn("voice recording stop failed call_id=#{call.id} error=#{e.class.name}: #{e.message}")
+    {
+      'status' => 'failed',
+      'error' => e.message.to_s.truncate(500),
+      'error_class' => e.class.name
+    }
+  end
+
+  def persist_finalization_meta(recording_result)
+    call.update!(
+      meta: (call.meta || {}).merge(
+        'finalized_by' => agent ? 'agent' : 'system',
+        'finalized_at' => Time.zone.now.iso8601(3),
+        'recording_stop' => recording_result
+      ).compact
+    )
   end
 
   def terminate_livekit_room
