@@ -60,6 +60,27 @@ const fetchedReplyMessages = reactive(new Map());
 const callDetailsById = reactive({});
 const fetchingCallIds = reactive({});
 
+const mergeUniqueById = (existingItems = [], incomingItems = []) => {
+  const byId = new Map();
+  [...existingItems, ...incomingItems].forEach(item => {
+    if (item?.id) byId.set(item.id, item);
+  });
+  return Array.from(byId.values());
+};
+
+const mergeCallDetails = (existing = {}, incoming = {}) => ({
+  ...existing,
+  ...incoming,
+  transcriptSegments: mergeUniqueById(
+    existing.transcriptSegments,
+    incoming.transcriptSegments
+  ),
+  toolEventSummaries: mergeUniqueById(
+    existing.toolEventSummaries,
+    incoming.toolEventSummaries
+  ),
+});
+
 const getCallId = message =>
   message?.call?.id ||
   message?.contentAttributes?.data?.callId ||
@@ -82,7 +103,10 @@ const ensureCallDetails = async message => {
   fetchingCallIds[callId] = true;
   try {
     const response = await VoiceAPI.getCall(callId);
-    callDetailsById[callId] = useCamelCase(response.data, { deep: true });
+    callDetailsById[callId] = mergeCallDetails(
+      callDetailsById[callId],
+      useCamelCase(response.data, { deep: true })
+    );
     if (callDetailsById[callId]?.transcriptSegments?.length) {
       emit('voiceTranscriptUpdated');
     }
@@ -168,10 +192,9 @@ const onTranscriptSegment = data => {
   const segments = existing.transcriptSegments || [];
   if (segments.some(item => item.id === segment.id)) return;
 
-  callDetailsById[callId] = {
-    ...existing,
+  callDetailsById[callId] = mergeCallDetails(existing, {
     transcriptSegments: [...segments, segment],
-  };
+  });
   emit('voiceTranscriptUpdated');
 };
 
@@ -179,10 +202,10 @@ const onStatusChanged = data => {
   const callId = data.id || data.call_id || data.callId;
   if (!callId || !hasVoiceCallForCallId(callId)) return;
 
-  callDetailsById[callId] = {
-    ...(callDetailsById[callId] || {}),
-    ...useCamelCase(data, { deep: true }),
-  };
+  callDetailsById[callId] = mergeCallDetails(
+    callDetailsById[callId],
+    useCamelCase(data, { deep: true })
+  );
 };
 
 const onToolEvent = data => {
@@ -194,10 +217,9 @@ const onToolEvent = data => {
   const events = existing.toolEventSummaries || [];
   if (events.some(item => item.id === event.id)) return;
 
-  callDetailsById[callId] = {
-    ...existing,
+  callDetailsById[callId] = mergeCallDetails(existing, {
     toolEventSummaries: [...events, event],
-  };
+  });
   emit('voiceTranscriptUpdated');
 };
 

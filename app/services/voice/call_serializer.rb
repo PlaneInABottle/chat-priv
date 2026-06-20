@@ -141,5 +141,4 @@ class Voice::CallSerializer
   def voice_tool_events
     @voice_tool_events ||= VoiceToolEvent.where(call_id: call.id).order(:created_at, :id)
   end
-
 end
