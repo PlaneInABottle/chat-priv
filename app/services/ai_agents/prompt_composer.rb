@@ -1,13 +1,6 @@
 # frozen_string_literal: true
 
 class AiAgents::PromptComposer
-  BASE_PROMPT = <<~PROMPT
-    You are a helpful AI assistant for a customer support team.
-    Follow these instructions carefully.
-    Be concise, professional, and helpful. If you cannot answer something,
-    politely say so and suggest handing off to a human agent.
-  PROMPT
-
   def initialize(ai_agent:)
     @ai_agent = ai_agent
   end
@@ -15,14 +8,11 @@ class AiAgents::PromptComposer
   attr_reader :ai_agent
 
   def base_prompt
-    BASE_PROMPT
+    AiAgents::Settings.global_instructions
   end
 
   def global_instructions_prompt
-    instructions = AiAgents::Settings.global_instructions
-    return if instructions.blank?
-
-    "Platform global AI instructions:\n#{instructions}"
+    nil
   end
 
   def agent_prompt
@@ -36,7 +26,7 @@ class AiAgents::PromptComposer
   end
 
   def effective_system_prompt
-    [base_prompt, global_instructions_prompt, agent_prompt, tool_policy_prompt].compact.join("\n\n")
+    [base_prompt, agent_prompt, tool_policy_prompt].compact.join("\n\n")
   end
 
   private

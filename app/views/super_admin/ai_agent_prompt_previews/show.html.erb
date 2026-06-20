@@ -131,18 +131,15 @@
 
     <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-5">
       <div class="border border-slate-200 rounded-lg p-4 bg-white">
-        <h2 class="text-base font-semibold text-slate-900 mb-2">Global AI instructions</h2>
-        <pre class="max-h-80 overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 border border-slate-200 p-3 text-xs"><code><%= @preview.global_instructions_prompt.presence || 'No global AI instructions configured.' %></code></pre>
-      </div>
-      <div class="border border-slate-200 rounded-lg p-4 bg-white">
         <h2 class="text-base font-semibold text-slate-900 mb-2">Tool policy prompt</h2>
         <pre class="max-h-80 overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 border border-slate-200 p-3 text-xs"><code><%= @preview.tool_policy_prompt.presence || 'No extra tool policy prompt for the enabled tools.' %></code></pre>
       </div>
     </div>
 
     <div class="border border-slate-200 rounded-lg p-4 mb-5 bg-white">
-      <h2 class="text-base font-semibold text-slate-900 mb-2">Base system prompt</h2>
-      <pre class="max-h-96 overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 border border-slate-200 p-3 text-xs"><code><%= @preview.base_prompt %></code></pre>
+      <h2 class="text-base font-semibold text-slate-900 mb-2">Global base prompt</h2>
+      <p class="text-sm text-slate-500 mb-3">Configured by Super Admin through AI_AGENT_GLOBAL_INSTRUCTIONS and applied before the agent prompt and tool policies.</p>
+      <pre class="max-h-96 overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 border border-slate-200 p-3 text-xs"><code><%= @preview.base_prompt.presence || 'No base system prompt configured.' %></code></pre>
     </div>
 
     <div class="border border-slate-200 rounded-lg p-4 mb-5 bg-white">
