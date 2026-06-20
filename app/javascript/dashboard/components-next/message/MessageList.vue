@@ -46,13 +46,6 @@ const props = defineProps({
 
 const emit = defineEmits(['retry', 'voiceTranscriptUpdated']);
 
-const TERMINAL_CALL_STATUSES = [
-  'completed',
-  'no-answer',
-  'no_answer',
-  'failed',
-];
-
 const allMessages = computed(() => {
   return useCamelCase(props.messages, {
     deep: true,
@@ -126,16 +119,6 @@ const messageWithCallDetails = message => {
 const voiceAgentNameForMessage = message =>
   callDetailsForMessage(message).voiceAgentName || '';
 
-const callStatusForMessage = message =>
-  callDetailsForMessage(message).status ||
-  message?.call?.status ||
-  message?.contentAttributes?.data?.status ||
-  '';
-
-const isTerminalVoiceCallMessage = message =>
-  isVoiceCallMessage(message) &&
-  TERMINAL_CALL_STATUSES.includes(callStatusForMessage(message));
-
 const toolEventSummariesForMessage = message =>
   callDetailsForMessage(message).toolEventSummaries || [];
 
@@ -172,10 +155,6 @@ const timelineItems = computed(() =>
       messageIndex,
     };
     const callTimelineRows = callTimelineRowsForMessage(message);
-    if (isTerminalVoiceCallMessage(message)) {
-      return [...callTimelineRows, messageItem];
-    }
-
     return [messageItem, ...callTimelineRows];
   })
 );
