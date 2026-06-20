@@ -114,12 +114,14 @@ RSpec.describe AiAgents::ToolExecutor do
   end
 
   it 'rejects ikas catalog search when ikas is not connected' do
+    account.enable_features('ikas_integration')
+    account.save!
     ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'], 'ikas_catalog_search' => {} } })
 
     result = executor.execute(tool_call(name: 'ikas_catalog_search', arguments: { query: '70x90 sineklik' }))
 
     expect(result.status).to eq('rejected')
-    expect(AiAgentToolExecution.last.error_code).to eq('ikas_feature_disabled')
+    expect(AiAgentToolExecution.last.error_code).to eq('ikas_not_connected')
   end
 
   it 'executes ikas catalog search when ikas is connected' do

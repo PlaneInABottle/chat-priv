@@ -7,6 +7,10 @@ class VoiceAgents::Serializer
 
   def payload
     tool_config = VoiceAgents::Config.new(voice_agent.tools_config)
+    normalized_tools_config = tool_config.normalized_config
+    visible_tool_keys = tool_availability.available_keys(VoiceAgents::ToolRegistry.available_definitions)
+    normalized_tools_config[VoiceAgents::Config::ENABLED_KEY] &= visible_tool_keys
+
     {
       id: voice_agent.id,
       account_id: voice_agent.account_id,
@@ -20,8 +24,8 @@ class VoiceAgents::Serializer
       voice: voice_agent.voice,
       language: voice_agent.language,
       config: voice_agent.config,
-      tools_config: tool_config.normalized_config,
-      enabled_tool_keys: tool_config.enabled_tool_keys,
+      tools_config: normalized_tools_config,
+      enabled_tool_keys: tool_config.enabled_tool_keys & visible_tool_keys,
       available_tools: available_tools,
       inbox_settings: inbox_settings,
       ikas_integration: ikas_integration,
@@ -35,7 +39,7 @@ class VoiceAgents::Serializer
   attr_reader :voice_agent
 
   def available_tools
-    VoiceAgents::ToolRegistry.available_definitions.map do |tool|
+    tool_availability.available_definitions(VoiceAgents::ToolRegistry.available_definitions).map do |tool|
       {
         key: tool.key,
         name: tool.name,
@@ -44,6 +48,10 @@ class VoiceAgents::Serializer
         terminal: tool.terminal
       }
     end
+  end
+
+  def tool_availability
+    @tool_availability ||= AiAgents::ToolAvailability.new(account: voice_agent.account)
   end
 
   def inbox_settings

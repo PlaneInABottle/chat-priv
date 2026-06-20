@@ -62,7 +62,17 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
     permitted = ai_agent_params.to_h.deep_stringify_keys
     return permitted unless permitted.key?('config')
 
-    permitted.merge('config' => existing_config.deep_merge(permitted['config'] || {}))
+    merged_config = existing_config.deep_merge(permitted['config'] || {})
+    merged_config['tools'] = tool_availability.filter_tools_config(
+      merged_config['tools'],
+      AiAgents::ToolRegistry.available_definitions
+    ) if merged_config.key?('tools')
+
+    permitted.merge('config' => merged_config)
+  end
+
+  def tool_availability
+    @tool_availability ||= AiAgents::ToolAvailability.new(account: Current.account)
   end
 
   def existing_config

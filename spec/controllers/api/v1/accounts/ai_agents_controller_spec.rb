@@ -9,6 +9,31 @@ RSpec.describe 'Ai Agents API', type: :request do
     response.parsed_body['available_inboxes'].index_by { |item| item['name'] }
   end
 
+  def stub_ikas_status(state:, hook: nil)
+    allow_any_instance_of(Integrations::Ikas::ConnectionStatus).to receive(:payload).and_return(
+      state: state,
+      hook: hook,
+      can_connect: true
+    )
+  end
+
+  def ikas_hook_with_catalog
+    snapshot = instance_double(
+      IkasCatalogSnapshot,
+      status: 'completed',
+      completed_at: Time.current,
+      counts: { 'products' => 1, 'catalog_items' => 1 },
+      error_message: nil,
+      failed?: false,
+      sqlite_exists?: true
+    )
+    snapshots = double
+    allow(snapshots).to receive(:order).and_return(double(first: snapshot))
+    allow(snapshots).to receive_message_chain(:storefront_catalog, :latest_completed, :first).and_return(snapshot)
+
+    instance_double(Integrations::Hook, ikas_catalog_snapshots: snapshots)
+  end
+
   describe 'GET /api/v1/accounts/{account.id}/ai_agents' do
     context 'when it is an unauthenticated user' do
       it 'returns unauthorized' do
@@ -111,8 +136,20 @@ RSpec.describe 'Ai Agents API', type: :request do
         expect(json['agent_bot']['bot_type']).to eq('ai')
         expect(json['agent_bot']['inbox_ids']).to include(inbox.id)
         expect(json['tools_config']).to include('enabled' => ['human_handoff'])
-        expect(json['available_tools'].map { |tool| tool['key'] }).to match_array(%w[human_handoff ikas_lookup_order ikas_catalog_search])
+        expect(json['available_tools'].map { |tool| tool['key'] }).to match_array(%w[human_handoff])
         expect(json['ikas_integration']).to include('feature_enabled', 'state', 'can_connect')
+      end
+
+      it 'returns ikas tools only when the integration and catalog are usable' do
+        account.enable_features('ikas_integration')
+        stub_ikas_status(state: 'connected', hook: ikas_hook_with_catalog)
+
+        get "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}", headers: admin.create_new_auth_token, as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(response.parsed_body['available_tools'].map { |tool| tool['key'] }).to match_array(
+          %w[human_handoff ikas_lookup_order ikas_catalog_search]
+        )
       end
 
       it 'returns available inbox ownership metadata for the detail page' do
