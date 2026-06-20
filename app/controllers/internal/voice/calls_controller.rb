@@ -1,26 +1,13 @@
 class Internal::Voice::CallsController < Internal::Voice::BaseController
   BOOTSTRAP_METADATA_KEYS = %i[
-    account_id
-    inbox_id
-    voice_number_id
-    voice_inbox_setting_id
-    contact_name
-    sip_call_id
-    sip_trunk_id
-    sip_rule_id
-    sip_phone_number
-    sip_trunk_phone_number
-    livekit_inbound_trunk_id
-    livekit_dispatch_rule_id
-    from_number
-    to_number
-    phone_number
-    caller_number
-    called_number
+    account_id inbox_id voice_number_id voice_inbox_setting_id contact_name sip_call_id sip_trunk_id sip_rule_id
+    sip_phone_number sip_trunk_phone_number livekit_inbound_trunk_id livekit_dispatch_rule_id
+    from_number to_number phone_number caller_number called_number
   ].freeze
   TRANSCRIPT_METADATA_KEYS = %i[livekit_role external_segment_id].freeze
 
   before_action :set_call, except: [:agent_context]
+  before_action :ensure_runtime_action_allowed, only: %i[execute_tool handoff]
 
   def agent_context
     set_or_bootstrap_call
@@ -192,6 +179,11 @@ class Internal::Voice::CallsController < Internal::Voice::BaseController
   def terminal_status
     status = params[:status].presence || 'completed'
     Call::TERMINAL_STATUSES.include?(status) ? status : 'completed'
+  end
+
+  def ensure_runtime_action_allowed
+    return render json: { error: 'Voice AI is disabled for this account.' }, status: :forbidden unless @call.account.voice_ai_enabled?
+    return render json: { error: 'Call has already ended' }, status: :unprocessable_content if @call.terminal?
   end
 
   def ai_status_for_event(event_name)

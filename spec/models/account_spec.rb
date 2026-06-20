@@ -509,6 +509,29 @@ RSpec.describe Account do
       expect(account.voice_ai_max_call_duration_minutes).to eq(15)
       expect(account.voice_ai_concurrent_call_limit).to eq(0)
     end
+
+    it 'finalizes active voice calls when voice AI is disabled' do
+      account.update!(voice_ai_enabled: true)
+
+      expect { account.update!(voice_ai_enabled: false) }
+        .to have_enqueued_job(Voice::AccountCallFinalizerJob).with(account).on_queue('default')
+    end
+
+    it 'finalizes active voice calls when voice AI is disabled through the settings field' do
+      account.update!(voice_ai_enabled: true)
+
+      expect do
+        account.voice_ai_settings = { enabled: false }
+        account.save!
+      end.to have_enqueued_job(Voice::AccountCallFinalizerJob).with(account).on_queue('default')
+    end
+
+    it 'does not finalize active voice calls when other voice settings change' do
+      account.update!(voice_ai_enabled: true)
+
+      expect { account.update!(voice_ai_monthly_minute_limit: 100) }
+        .not_to have_enqueued_job(Voice::AccountCallFinalizerJob)
+    end
   end
 
   describe '#voice_inbox_setting_for' do
