@@ -188,9 +188,13 @@
   value: 5
   locked: false
 - name: AI_AGENT_GLOBAL_INSTRUCTIONS
-  display_title: 'Global AI Agent Instructions'
-  description: 'Super Admin instructions applied to every Kozmopath AI Agent before account-specific prompts and immutable tool policies.'
-  value:
+  display_title: 'Global AI Agent Base Prompt'
+  description: 'Super Admin-controlled global base prompt applied to every Kozmopath AI Agent before account-specific prompts and immutable tool policies.'
+  value: |
+    You are a helpful AI assistant for a customer support team.
+    Follow these instructions carefully.
+    Be concise, professional, and helpful. If you cannot answer something,
+    politely say so and suggest handing off to a human agent.
   locked: false
   type: code
 - name: AI_AGENT_LLM_API_KEY

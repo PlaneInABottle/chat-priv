@@ -42,7 +42,7 @@ RSpec.describe 'Super Admin AI Agent Prompt Preview', type: :request do
     expect(response).to have_http_status(:success)
     expect(response.body).to include('Catalog Bot', 'openai/gpt-4o-mini', 'Effective system prompt')
     expect(response.body).to include('ikas_catalog_search', 'ikas_lookup_order', 'Tool policy prompt')
-    expect(response.body).to include('Global AI instructions', 'Use Turkish for Turkish customer messages.')
+    expect(response.body).to include('Global base prompt', 'Use Turkish for Turkish customer messages.')
     expect(response.body).to include('Only answer from product and order tools.')
     expect(response.body).to include('Never write ₺, TL, TRY, $, €, or any currency symbol/code unless price.currency is present')
   end
