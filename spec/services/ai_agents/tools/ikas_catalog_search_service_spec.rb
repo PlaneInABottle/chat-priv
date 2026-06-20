@@ -78,7 +78,7 @@ RSpec.describe AiAgents::Tools::IkasCatalogSearchService do
     )
   end
 
-  it 'preserves the latest customer phrase when the tool query drops product descriptors' do
+  it 'does not rewrite the tool query from the latest customer phrase' do
     conversation = create(:conversation, account: account)
     trigger_message = create(:message, account: account, conversation: conversation, content: 'sineklik kasasi ne', created_at: 1.minute.ago)
     search_service = instance_double(Integrations::Ikas::CatalogSearchService)
@@ -96,7 +96,7 @@ RSpec.describe AiAgents::Tools::IkasCatalogSearchService do
 
     expect(Integrations::Ikas::CatalogSearchService).to have_received(:new).with(
       account: account,
-      query_text: 'sineklik kasasi ne',
+      query_text: 'sineklik',
       context_query_text: nil,
       limit: 8
     )
