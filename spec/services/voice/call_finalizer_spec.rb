@@ -102,10 +102,30 @@ RSpec.describe Voice::CallFinalizer do
 
   it 'keeps terminal calls idempotent' do
     call = Voice::TestCallBuilder.perform!(account: account, inbox: inbox, voice_agent: voice_agent)
+    allow(Voice::Recordings::StopService).to receive(:perform)
     described_class.perform!(call: call, end_reason: 'first_end')
 
     expect do
       described_class.perform!(call: call.reload, end_reason: 'second_end')
     end.not_to(change { call.reload.end_reason })
+    expect(Voice::Livekit::RoomService).to have_received(:delete_room).once
+    expect(Voice::Recordings::StopService).to have_received(:perform).once
+  end
+
+  it 'does not run cleanup for an already terminal call' do
+    call = build_conversation_call
+    call.update!(status: 'completed', duration_seconds: 10, end_reason: 'already_ended')
+    allow(Voice::Recordings::StopService).to receive(:perform)
+
+    described_class.perform!(call: call, end_reason: 'second_end')
+
+    expect(Voice::Livekit::RoomService).not_to have_received(:remove_customer_participants)
+    expect(Voice::Livekit::RoomService).not_to have_received(:delete_room)
+    expect(Voice::Recordings::StopService).not_to have_received(:perform)
+    expect(call.reload).to have_attributes(
+      status: 'completed',
+      duration_seconds: 10,
+      end_reason: 'already_ended'
+    )
   end
 end

@@ -143,6 +143,7 @@ class Account < ApplicationRecord
   after_create_commit :notify_creation
   after_save :apply_voice_agent_runtime_settings, if: -> { @voice_agent_runtime_settings.present? }
   after_update_commit :clear_unread_conversation_counts_cache, if: :saved_change_to_feature_conversation_unread_counts?
+  after_update_commit :finalize_active_voice_ai_calls, if: :voice_ai_access_disabled_after_update?
   after_destroy :remove_account_sequences
 
   def agents
@@ -332,6 +333,20 @@ class Account < ApplicationRecord
 
   def clear_unread_conversation_counts_cache
     ::Conversations::UnreadCounts::Store.clear_account!(id)
+  end
+
+  def voice_ai_access_disabled_after_update?
+    return false unless saved_change_to_settings?
+
+    previous_settings, current_settings = saved_change_to_settings
+    previous_enabled = ActiveModel::Type::Boolean.new.cast((previous_settings || {})['voice_ai_enabled'])
+    current_enabled = ActiveModel::Type::Boolean.new.cast((current_settings || {})['voice_ai_enabled'])
+
+    previous_enabled && !current_enabled
+  end
+
+  def finalize_active_voice_ai_calls
+    Voice::AccountCallFinalizerJob.perform_later(self)
   end
 
   trigger.after(:insert).for_each(:row) do

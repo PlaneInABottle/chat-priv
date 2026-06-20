@@ -13,14 +13,8 @@ class Voice::CallFinalizer
   end
 
   def perform!
-    return call if call.terminal?
+    return call unless mark_terminal!
 
-    call.update!(
-      status: terminal_status,
-      ended_at: ended_at.to_i,
-      duration_seconds: resolved_duration_seconds,
-      end_reason: end_reason
-    )
     terminate_livekit_room
     stop_recording
     Voice::CallMessageBuilder.new(call).update_status!(
@@ -35,6 +29,22 @@ class Voice::CallFinalizer
   private
 
   attr_reader :call, :status, :end_reason, :ended_at, :duration_seconds, :agent
+
+  def mark_terminal!
+    finalized = false
+    call.with_lock do
+      next if call.terminal?
+
+      call.update!(
+        status: terminal_status,
+        ended_at: ended_at.to_i,
+        duration_seconds: resolved_duration_seconds,
+        end_reason: end_reason
+      )
+      finalized = true
+    end
+    finalized
+  end
 
   def terminal_status
     Call::TERMINAL_STATUSES.include?(status.to_s) ? status.to_s : 'completed'
