@@ -20,11 +20,28 @@
       - show_candidates
       - show_compatible_candidates
     min_results: 1
+    first_result_include:
+      - "Orjin Pliseli Perde Beyaz"
     top_results_include:
       - "Orjin Pliseli Perde Beyaz"
     require_links: true
     require_evidence:
       - fact: color
+
+- id: orjin_pliseli_perde_beyaz_link
+  query: "orjin pliseli perde beyaz link"
+  expect:
+    result_type:
+      - show_candidates
+      - show_compatible_candidates
+    min_results: 1
+    first_result_include:
+      - "Orjin Pliseli Perde Beyaz"
+    require_links: true
+    require_evidence:
+      - fact: color
+    candidate_text_excludes:
+      - "Sineklik"
 
 - id: en_ucuz_beyaz_perde
   query: "en ucuz beyaz perde"
@@ -85,6 +102,22 @@
     require_evidence:
       - fact: dimension_max
 
+- id: akordiyon_sineklik_beyaz_70x80
+  query: "akordiyon sineklik beyaz 70x80"
+  expect:
+    result_type:
+      - show_compatible_candidates
+    min_results: 3
+    first_result_include:
+      - "Akordeon Pencere Sineklik Beyaz"
+    top_results_include:
+      - "Beyaz"
+      - "Sineklik"
+    require_links: true
+    require_evidence:
+      - fact: dimension_max
+      - fact: color
+
 - id: sabit_sok_tak_pencere_sineklik_70x100
   query: "sabit sök tak pencere sineklik 70x100"
   expect:
@@ -115,6 +148,20 @@
     min_buckets: 2
     bucket_labels_include:
       - "Cam Balkon Kasalı Akordiyon Sineklik"
+
+- id: kedi_sinekligi_pencere_70x100
+  query: "kedi sinekliği pencere 70x100"
+  expect:
+    result_type:
+      - show_compatible_candidates
+    min_results: 1
+    first_result_include:
+      - "KEDİ Tüllü Menteşeli PENCERE"
+    require_links: true
+    require_evidence:
+      - fact: dimension_max
+    candidate_text_excludes:
+      - "Kapı"
 
 - id: beyaz_olanin_linki_followup
   query: "beyaz olanın linki"

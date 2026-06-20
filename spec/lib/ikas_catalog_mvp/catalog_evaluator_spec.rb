@@ -74,6 +74,32 @@ RSpec.describe IkasCatalogMvp::CatalogEvaluator do
     end
   end
 
+  it 'passes first result and candidate exclusion expectations' do
+    cases = <<~YAML
+      - id: strict_ranking
+        query: "beyaz plise perde"
+        expect:
+          first_result_include: ["Orjin Pliseli Perde Beyaz"]
+          candidate_text_excludes: ["Sineklik"]
+    YAML
+    payload = {
+      'result_type' => 'show_candidates',
+      'parsed' => { 'terms' => %w[beyaz perde] },
+      'candidates' => [
+        candidate,
+        candidate.merge('display_name' => 'Blackout Perde Antrasit')
+      ],
+      'buckets' => []
+    }
+
+    with_cases(cases) do |path|
+      evaluator, = evaluator_for(path, 'beyaz plise perde' => payload)
+      report = evaluator.evaluate
+
+      expect(report.fetch('status')).to eq('passed')
+    end
+  end
+
   it 'reports clear failures for mismatched expectations' do
     cases = <<~YAML
       - id: missing_link
@@ -81,7 +107,9 @@ RSpec.describe IkasCatalogMvp::CatalogEvaluator do
         expect:
           result_type: ["show_compatible_candidates"]
           min_results: 2
+          first_result_include: ["Blackout"]
           top_results_include: ["Sineklik"]
+          candidate_text_excludes: ["Antrasit"]
           require_links: true
           require_evidence:
             - fact: dimension_max
@@ -89,7 +117,10 @@ RSpec.describe IkasCatalogMvp::CatalogEvaluator do
     payload = {
       'result_type' => 'show_candidates',
       'parsed' => {},
-      'candidates' => [candidate.merge('link' => {})],
+      'candidates' => [
+        candidate.merge('link' => {}),
+        candidate.merge('display_name' => 'Blackout Perde Antrasit')
+      ],
       'buckets' => []
     }
 
@@ -101,10 +132,11 @@ RSpec.describe IkasCatalogMvp::CatalogEvaluator do
       expect(report.fetch('status')).to eq('failed')
       expect(failures).to include(
         'wrong_result_type: expected show_compatible_candidates, got show_candidates',
-        'too_few_results: expected at least 2, got 1',
+        'expected_text_not_found_in_first_result: blackout',
+        'expected_text_not_found_in_top_results: sineklik',
+        'excluded_text_found_in_candidates: antrasit',
         'missing_link'
       )
-      expect(failures).to include('expected_text_not_found_in_top_results: sineklik')
       expect(failures).to include('missing_evidence: fact=dimension_max')
     end
   end
