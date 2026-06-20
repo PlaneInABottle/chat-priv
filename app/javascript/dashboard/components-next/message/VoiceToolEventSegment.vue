@@ -35,6 +35,26 @@ const statusLabel = computed(() => {
   return t('CONVERSATION.VOICE_CALL.TOOL_EXECUTED');
 });
 
+const eventClass = computed(() => {
+  if (props.event.status === 'error') {
+    return 'border-n-ruby-5 bg-n-ruby-2 text-n-ruby-12';
+  }
+  if (props.event.status === 'rejected') {
+    return 'border-n-slate-5 bg-n-alpha-2 text-n-slate-12';
+  }
+  if (props.event.status === 'started') {
+    return 'border-n-amber-5 bg-n-amber-2 text-n-amber-12';
+  }
+  return 'border-n-teal-5 bg-n-teal-2 text-n-teal-12';
+});
+
+const mutedTextClass = computed(() => {
+  if (props.event.status === 'error') return 'text-n-ruby-11';
+  if (props.event.status === 'rejected') return 'text-n-slate-10';
+  if (props.event.status === 'started') return 'text-n-amber-11';
+  return 'text-n-teal-11';
+});
+
 const description = computed(() => {
   const params = {
     agent: agentName.value,
@@ -72,12 +92,13 @@ const formattedTime = computed(() => {
     data-testid="voice-tool-event-segment"
   >
     <article
-      class="max-w-lg rounded-full border border-n-amber-5 bg-n-amber-2 px-3 py-2 text-xs text-n-amber-12"
+      class="max-w-lg rounded-full border px-3 py-2 text-xs"
+      :class="eventClass"
     >
       <div class="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
         <span class="font-medium">{{ description }}</span>
-        <span class="text-n-amber-11">{{ statusLabel }}</span>
-        <span v-if="formattedTime" class="tabular-nums text-n-amber-10">
+        <span :class="mutedTextClass">{{ statusLabel }}</span>
+        <span v-if="formattedTime" class="tabular-nums" :class="mutedTextClass">
           {{ formattedTime }}
         </span>
       </div>
