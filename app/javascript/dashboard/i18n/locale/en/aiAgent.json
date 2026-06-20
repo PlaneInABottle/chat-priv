@@ -58,6 +58,8 @@
       "HELP": "Monthly AI conversation usage for this account.",
       "EXHAUSTED_HELP": "AI replies are paused until the monthly limit resets. New customer messages are routed to humans.",
       "LOADING": "Loading...",
+      "DISABLED": "Disabled",
+      "DISABLED_HELP": "AI Assistant is disabled for this account.",
       "UNLIMITED_REMAINING": "Unlimited",
       "UNLIMITED_USED": "{used} used",
       "REMAINING": "{count} left",

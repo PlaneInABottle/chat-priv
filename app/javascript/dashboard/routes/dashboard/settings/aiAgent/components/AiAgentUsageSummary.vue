@@ -13,6 +13,9 @@ const props = defineProps({
 const { t } = useI18n();
 
 const isLoading = computed(() => !props.usage);
+const isDisabled = computed(
+  () => props.usage?.enabled === false || props.usage?.status === 'disabled'
+);
 const isUnlimited = computed(() => Boolean(props.usage?.unlimited));
 const isExhausted = computed(() => props.usage?.status === 'exhausted');
 const isWarning = computed(() => props.usage?.status === 'warning');
@@ -27,6 +30,7 @@ const progressPercent = computed(() => {
 
 const remainingText = computed(() => {
   if (isLoading.value) return t('AI_AGENT.USAGE_REPORT.LOADING');
+  if (isDisabled.value) return t('AI_AGENT.USAGE_REPORT.DISABLED');
   if (isUnlimited.value) return t('AI_AGENT.USAGE_REPORT.UNLIMITED_REMAINING');
 
   return t('AI_AGENT.USAGE_REPORT.REMAINING', {
@@ -36,6 +40,7 @@ const remainingText = computed(() => {
 
 const usageText = computed(() => {
   if (isLoading.value) return t('AI_AGENT.USAGE_REPORT.LOADING');
+  if (isDisabled.value) return t('AI_AGENT.USAGE_REPORT.DISABLED_HELP');
   if (isUnlimited.value) {
     return t('AI_AGENT.USAGE_REPORT.UNLIMITED_USED', {
       used: props.usage.used,
@@ -71,12 +76,17 @@ const cardClasses = computed(() => {
     return 'border-n-amber-5 bg-n-amber-2';
   }
 
+  if (isDisabled.value) {
+    return 'border-n-weak bg-n-slate-2';
+  }
+
   return 'border-n-weak bg-n-alpha-1';
 });
 
 const iconClasses = computed(() => {
   if (isExhausted.value) return 'bg-n-ruby-4 text-n-ruby-11';
   if (isWarning.value) return 'bg-n-amber-4 text-n-amber-11';
+  if (isDisabled.value) return 'bg-n-slate-4 text-n-slate-11';
   return 'bg-n-blue-3 text-n-brand';
 });
 </script>
@@ -95,7 +105,13 @@ const iconClasses = computed(() => {
           :class="iconClasses"
         >
           <Icon
-            :icon="isExhausted ? 'i-lucide-circle-alert' : 'i-lucide-gauge'"
+            :icon="
+              isExhausted
+                ? 'i-lucide-circle-alert'
+                : isDisabled
+                  ? 'i-lucide-lock'
+                  : 'i-lucide-gauge'
+            "
             class="size-5"
           />
         </div>
