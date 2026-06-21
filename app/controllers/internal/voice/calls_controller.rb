@@ -7,10 +7,13 @@ class Internal::Voice::CallsController < Internal::Voice::BaseController
   TRANSCRIPT_METADATA_KEYS = %i[livekit_role external_segment_id].freeze
 
   before_action :set_call, except: [:agent_context]
-  before_action :ensure_runtime_action_allowed, only: %i[execute_tool handoff]
+  before_action :ensure_runtime_action_allowed, only: %i[transcript tool_call execute_tool handoff]
 
   def agent_context
     set_or_bootstrap_call
+    ensure_runtime_action_allowed
+    return if performed?
+
     render json: VoiceAgents::RuntimeContext.new(call: @call).payload
   end
 
@@ -30,8 +33,10 @@ class Internal::Voice::CallsController < Internal::Voice::BaseController
   end
 
   def event
-    meta = @call.meta || {}
     event_name = params.require(:event)
+    return if reject_voice_event?(event_name)
+
+    meta = @call.meta || {}
     ai_status = ai_status_for_event(event_name)
     meta['last_voice_agent_event'] = event_name
     meta['last_voice_agent_event_at'] = Time.zone.now.iso8601
@@ -184,6 +189,13 @@ class Internal::Voice::CallsController < Internal::Voice::BaseController
   def ensure_runtime_action_allowed
     return render json: { error: 'Voice AI is disabled for this account.' }, status: :forbidden unless @call.account.voice_ai_enabled?
     return render json: { error: 'Call has already ended' }, status: :unprocessable_content if @call.terminal?
+  end
+
+  def reject_voice_event?(event_name)
+    return false if @call.terminal? && event_name.to_s == 'agent_session_ended'
+
+    ensure_runtime_action_allowed
+    performed?
   end
 
   def ai_status_for_event(event_name)

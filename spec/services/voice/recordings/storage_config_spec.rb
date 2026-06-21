@@ -42,5 +42,38 @@ RSpec.describe Voice::Recordings::StorageConfig do
 
       expect(result).to be_nil
     end
+
+    it 'uses a short-lived signed URL for completed recording playback' do
+      recording = create(
+        :voice_recording,
+        status: 'completed',
+        bucket: 'recordings',
+        object_key: 'voice-recordings/account-1/call-1/room.mp4',
+        content_type: 'audio/mp4'
+      )
+      presigner = instance_double(Aws::S3::Presigner)
+      allow(Aws::S3::Presigner).to receive(:new).and_return(presigner)
+      allow(presigner).to receive(:presigned_url).and_return('https://recordings.example/signed-url')
+
+      result = with_modified_env(
+        'VOICE_RECORDING_S3_ACCESS_KEY_ID' => 'recording-access',
+        'VOICE_RECORDING_S3_SECRET_ACCESS_KEY' => 'recording-secret',
+        'VOICE_RECORDING_S3_BUCKET' => 'recordings',
+        'VOICE_RECORDING_S3_ENDPOINT' => 'https://recordings.example'
+      ) do
+        described_class.new.signed_url(recording)
+      end
+
+      expect(result).to eq('https://recordings.example/signed-url')
+      expect(presigner).to have_received(:presigned_url).with(
+        :get_object,
+        hash_including(
+          bucket: 'recordings',
+          key: 'voice-recordings/account-1/call-1/room.mp4',
+          expires_in: described_class::SIGNED_URL_EXPIRES_IN,
+          response_content_type: 'audio/mp4'
+        )
+      )
+    end
   end
 end

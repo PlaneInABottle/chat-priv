@@ -37,7 +37,7 @@ RSpec.describe 'Super Admin voice numbers', type: :request do
     expect(response.body).to include('Voice Telephony', '/super_admin/voice_numbers')
   end
 
-  it 'creates a voice number with JSON settings' do
+  it 'creates a voice number without accepting raw JSON settings' do
     sign_in(super_admin, scope: :super_admin)
     phone_number = generate(:voice_phone_number)
 
@@ -67,10 +67,10 @@ RSpec.describe 'Super Admin voice numbers', type: :request do
       livekit_inbound_trunk_id: 'trunk-123',
       livekit_dispatch_rule_id: 'rule-123'
     )
-    expect(number.settings).to include('routing_note' => 'local softphone')
+    expect(number.settings).to eq({})
   end
 
-  it 'falls back to empty settings when JSON is invalid' do
+  it 'ignores invalid settings JSON submitted outside the form' do
     sign_in(super_admin, scope: :super_admin)
     phone_number = generate(:voice_phone_number)
 
@@ -88,5 +88,26 @@ RSpec.describe 'Super Admin voice numbers', type: :request do
 
     expect(response).to have_http_status(:redirect)
     expect(VoiceNumber.last.settings).to eq({})
+  end
+
+  it 'redacts secret-like settings on the show page' do
+    number = create(
+      :voice_number,
+      account: account,
+      voice_provider_connection: provider_connection,
+      voice_inbox_setting: voice_inbox_setting,
+      settings: {
+        'routing_note' => 'local softphone',
+        'auth_token' => 'secret-token',
+        'access_key' => 'secret-access'
+      }
+    )
+    sign_in(super_admin, scope: :super_admin)
+
+    get "/super_admin/voice_numbers/#{number.id}"
+
+    expect(response).to have_http_status(:success)
+    expect(response.body).to include('local softphone', '[redacted]')
+    expect(response.body).not_to include('secret-token', 'secret-access')
   end
 end
