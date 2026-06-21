@@ -584,6 +584,21 @@ en:
     ssl_status:
       custom_domain_not_configured: 'Custom domain is not configured'
   super_admin:
+    account_ai_agent_settings:
+      title: "AI Agent Settings"
+      account_access: "Account access"
+      enabled: "Enabled"
+      yes: "Yes"
+      no: "No"
+      model: "Model"
+      monthly_conversation_limit: "Monthly Conversation Limit"
+      same_customer_reuse_window: "Same Customer Reuse Window"
+      current_month_usage: "Current Month Usage"
+      resets_at: "Resets At"
+      unlimited: "Unlimited"
+      hours: "hours"
+      unlimited_hint: "0 = unlimited"
+      reuse_window_hint: "Hours. New AI conversations from the same contact inside this window count once."
     account_voice_ai_settings:
       title: "Voice AI Settings"
       account_access: "Account access"
@@ -602,6 +617,21 @@ en:
       minutes: "minutes"
       unlimited_hint: "0 = unlimited. Test calls are excluded."
       max_call_duration_hint: "Minutes per call."
+    account_voice_agent_runtime_settings:
+      title: "Voice AI Runtime"
+      panel_title: "Voice agent runtime settings"
+      help: "Super Admins can change architecture, provider, model, voice, and language separately for each voice agent in this account."
+      no_agents: "No voice agents have been created for this account yet."
+      no_agents_configured: "No voice agents configured."
+      id: "ID %{id}"
+      enabled: "Enabled"
+      disabled: "Disabled"
+      architecture: "Architecture"
+      provider: "Provider"
+      model: "Model"
+      voice: "Voice"
+      language: "Language"
+      default_from_worker_env: "Default from worker env"
     push_diagnostics:
       user_not_found: 'User not found.'
       no_subscriptions_to_test: 'Select at least one subscription to test.'
