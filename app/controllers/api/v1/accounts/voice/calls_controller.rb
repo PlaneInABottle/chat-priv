@@ -6,6 +6,7 @@ class Api::V1::Accounts::Voice::CallsController < Api::V1::Accounts::BaseControl
 
   before_action :current_account
   before_action :set_call
+  before_action :ensure_voice_ai_enabled, only: %i[token take_over]
 
   def show
     authorize @call.inbox, :show?

@@ -20,7 +20,7 @@ RSpec.describe 'Super Admin voice provider connections', type: :request do
     expect(response.body).to include(connection.name)
   end
 
-  it 'creates a provider connection with JSON settings' do
+  it 'creates a provider connection without accepting raw JSON settings' do
     sign_in(super_admin, scope: :super_admin)
 
     expect do
@@ -38,10 +38,10 @@ RSpec.describe 'Super Admin voice provider connections', type: :request do
 
     connection = VoiceProviderConnection.last
     expect(connection).to have_attributes(account: account, provider: 'test_sip', name: 'Local SIP', status: 'active')
-    expect(connection.settings).to include('sip_domain' => 'local.test', 'port' => 5060)
+    expect(connection.settings).to eq({})
   end
 
-  it 'falls back to empty settings when JSON is invalid' do
+  it 'ignores invalid settings JSON submitted outside the form' do
     sign_in(super_admin, scope: :super_admin)
 
     post '/super_admin/voice_provider_connections',
@@ -57,5 +57,24 @@ RSpec.describe 'Super Admin voice provider connections', type: :request do
 
     expect(response).to have_http_status(:redirect)
     expect(VoiceProviderConnection.last.settings).to eq({})
+  end
+
+  it 'redacts secret-like settings on the show page' do
+    connection = create(
+      :voice_provider_connection,
+      account: account,
+      settings: {
+        'sip_domain' => 'local.test',
+        'password' => 'super-secret',
+        'api_key' => 'provider-key'
+      }
+    )
+    sign_in(super_admin, scope: :super_admin)
+
+    get "/super_admin/voice_provider_connections/#{connection.id}"
+
+    expect(response).to have_http_status(:success)
+    expect(response.body).to include('local.test', '[redacted]')
+    expect(response.body).not_to include('super-secret', 'provider-key')
   end
 end

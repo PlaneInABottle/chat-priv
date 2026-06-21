@@ -8,7 +8,7 @@ class VoiceProviderConnectionDashboard < Administrate::BaseDashboard
     provider: Field::Select.with_options(collection: VoiceProviderConnection::PROVIDERS),
     name: Field::String,
     status: Field::Select.with_options(collection: VoiceProviderConnection::STATUSES),
-    settings: Field::String,
+    settings: RedactedJsonField,
     last_error: Field::Text,
     created_at: Field::DateTime,
     updated_at: Field::DateTime
@@ -40,7 +40,6 @@ class VoiceProviderConnectionDashboard < Administrate::BaseDashboard
     provider
     name
     status
-    settings
     last_error
   ].freeze
 

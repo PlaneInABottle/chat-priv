@@ -12,7 +12,7 @@ class VoiceNumberDashboard < Administrate::BaseDashboard
     status: Field::Select.with_options(collection: VoiceNumber::STATUSES),
     livekit_inbound_trunk_id: Field::String,
     livekit_dispatch_rule_id: Field::String,
-    settings: Field::String,
+    settings: RedactedJsonField,
     last_error: Field::Text,
     created_at: Field::DateTime,
     updated_at: Field::DateTime
@@ -31,8 +31,6 @@ class VoiceNumberDashboard < Administrate::BaseDashboard
     account
     voice_provider_connection
     voice_inbox_setting
-    inbox
-    voice_agent
     phone_number
     status
     livekit_inbound_trunk_id
@@ -51,7 +49,6 @@ class VoiceNumberDashboard < Administrate::BaseDashboard
     status
     livekit_inbound_trunk_id
     livekit_dispatch_rule_id
-    settings
     last_error
   ].freeze
 

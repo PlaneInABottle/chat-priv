@@ -82,6 +82,26 @@ RSpec.describe Voice::CallSerializer do
     )
   end
 
+  it 'does not expose a replay URL for non-completed recordings' do
+    create(
+      :voice_recording,
+      account: account,
+      call: call,
+      status: 'active',
+      object_key: 'voice/calls/in-progress.mp4',
+      storage_provider: 's3_compatible'
+    )
+
+    payload = described_class.new(call).payload
+
+    expect(payload).not_to have_key(:recording_url)
+    expect(payload[:recording]).to include(
+      status: 'active',
+      storage_provider: 's3_compatible'
+    )
+    expect(payload[:recording]).not_to have_key(:url)
+  end
+
   def create_transcript_segment!
     call.transcript_segments.create!(
       account: account,

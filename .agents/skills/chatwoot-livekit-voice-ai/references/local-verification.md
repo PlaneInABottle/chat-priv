@@ -22,11 +22,12 @@
 - Voice agents are separate from text AI agents. Configure them in Settings -> Voice AI -> Voice agents. Assign API sandbox inboxes inside each voice agent; do not use a separate global voice setup tab. Voice inbox settings select `voice_agent_id`; do not expect `ai_agent_id`, setting-level `greeting`, or setting-level `instructions`.
 - Voice inbox assignments do not have a separate readiness `status`. If an inbox is assigned to a voice agent and account Voice AI access is enabled, it is eligible for browser tests and SIP routing.
 - Super Admin controls account-level Voice AI access and limits under `/super_admin/accounts/:id/edit`. Test calls are excluded from monthly minute and concurrent-call limits, but Voice AI must still be enabled for the account.
+- If Voice AI is disabled after a call is already active, account users and the voice worker should not be able to join, take over, fetch runtime context, append transcript, post events, or record tool calls. Ending/finalizing the call remains allowed so LiveKit/SIP cleanup can complete.
 - Integration tools such as `ikas_catalog_search` and `ikas_lookup_order` are enabled per voice agent. Ikas tools also require the account `ikas_integration` feature, a connected `ikas` hook, and a completed storefront catalog sync.
 - SIP/phone-number routing is modeled separately from browser test calls:
   - `VoiceProviderConnection` stores the account-level provider connection (`test_sip`, `manual_sip`, `netgsm`, or `livekit_number`).
   - `VoiceNumber` maps a dialed number and optional LiveKit trunk/dispatch IDs to a `VoiceInboxSetting`.
-  - Super Admin config pages are `/super_admin/voice_provider_connections` and `/super_admin/voice_numbers`.
+  - Super Admin config pages are `/super_admin/voice_provider_connections` and `/super_admin/voice_numbers`. Their `settings` payloads are read-only/redacted in the UI; keep provider secrets in env/credentials or reference them by non-secret key names.
   - Real SIP-dispatched LiveKit calls can be bootstrapped when the worker POSTs `/internal/voice/calls/:provider_call_id/agent_context` with LiveKit job metadata. The bootstrapper resolves the voice number inside `account_id`, creates a normal conversation-backed LiveKit `Call`, and returns the voice-agent runtime context.
   - SIP metadata must include `account_id`. Missing `account_id` should fail closed instead of falling back to a global `VoiceNumber` lookup across tenants.
 - The local SIP harness lives in `dev/voice_sip`. It uses Dockerized Asterisk as a fake SIP provider:
