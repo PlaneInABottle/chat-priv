@@ -100,6 +100,18 @@ const hasDataImport = computed(() => {
   );
 });
 
+const hasAiAgent = computed(() =>
+  isFeatureEnabledonAccount.value(accountId.value, FEATURE_FLAGS.AI_AGENT)
+);
+
+const hasVoiceAi = computed(() =>
+  isFeatureEnabledonAccount.value(accountId.value, FEATURE_FLAGS.VOICE_AI)
+);
+
+const hasIntegrations = computed(() =>
+  isFeatureEnabledonAccount.value(accountId.value, FEATURE_FLAGS.INTEGRATIONS)
+);
+
 const fetchConversationUnreadCounts = ([currentAccountId, isEnabled]) => {
   if (!currentAccountId) return;
 
@@ -862,18 +874,26 @@ const menuItems = computed(() => {
           icon: 'i-lucide-bot',
           to: accountScopedRoute('agent_bots'),
         },
-        {
-          name: 'Settings AI Agent',
-          label: t('SIDEBAR.AI_ASISTAN'),
-          icon: 'i-lucide-sparkles',
-          to: accountScopedRoute('ai_agents'),
-        },
-        {
-          name: 'Settings Voice AI',
-          label: t('SIDEBAR.VOICE_AI'),
-          icon: 'i-lucide-phone-call',
-          to: accountScopedRoute('voice_ai_settings'),
-        },
+        ...(hasAiAgent.value
+          ? [
+              {
+                name: 'Settings AI Agent',
+                label: t('SIDEBAR.AI_ASISTAN'),
+                icon: 'i-lucide-sparkles',
+                to: accountScopedRoute('ai_agents'),
+              },
+            ]
+          : []),
+        ...(hasVoiceAi.value
+          ? [
+              {
+                name: 'Settings Voice AI',
+                label: t('SIDEBAR.VOICE_AI'),
+                icon: 'i-lucide-phone-call',
+                to: accountScopedRoute('voice_ai_settings'),
+              },
+            ]
+          : []),
         {
           name: 'Settings Macros',
           label: t('SIDEBAR.MACROS'),
@@ -886,12 +906,16 @@ const menuItems = computed(() => {
           icon: 'i-lucide-message-square-quote',
           to: accountScopedRoute('canned_list'),
         },
-        {
-          name: 'Settings Integrations',
-          label: t('SIDEBAR.INTEGRATIONS'),
-          icon: 'i-lucide-blocks',
-          to: accountScopedRoute('settings_applications'),
-        },
+        ...(hasIntegrations.value
+          ? [
+              {
+                name: 'Settings Integrations',
+                label: t('SIDEBAR.INTEGRATIONS'),
+                icon: 'i-lucide-blocks',
+                to: accountScopedRoute('settings_applications'),
+              },
+            ]
+          : []),
         ...(hasDataImport.value
           ? [
               {

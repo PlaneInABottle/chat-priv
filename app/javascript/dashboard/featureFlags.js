@@ -55,6 +55,7 @@ export const FEATURE_FLAGS = {
   UNREAD_COUNT_FOR_FILTERS: 'unread_count_for_filters',
   AI_AGENT: 'ai_agent',
   VOICE_AI: 'voice_ai',
+  IKAS_INTEGRATION: 'ikas_integration',
 };
 
 export const PREMIUM_FEATURES = [

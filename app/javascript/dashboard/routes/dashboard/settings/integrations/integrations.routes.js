@@ -10,6 +10,7 @@ import Linear from './Linear.vue';
 import Notion from './Notion.vue';
 import Shopify from './Shopify.vue';
 import Ikas from './Ikas.vue';
+import { redirectIfFeatureDisabled } from '../featureAccessGuard';
 
 export default {
   routes: [
@@ -17,6 +18,10 @@ export default {
       path: frontendURL('accounts/:accountId/settings/integrations'),
       component: SettingsWrapper,
       props: {},
+      beforeEnter: redirectIfFeatureDisabled,
+      meta: {
+        featureFlag: FEATURE_FLAGS.INTEGRATIONS,
+      },
       children: [
         {
           path: '',
@@ -50,6 +55,10 @@ export default {
     {
       path: frontendURL('accounts/:accountId/settings/integrations'),
       component: SettingsWrapper,
+      beforeEnter: redirectIfFeatureDisabled,
+      meta: {
+        featureFlag: FEATURE_FLAGS.INTEGRATIONS,
+      },
       children: [
         {
           path: 'slack',
@@ -94,7 +103,10 @@ export default {
           name: 'settings_integrations_ikas',
           component: Ikas,
           meta: {
-            featureFlag: FEATURE_FLAGS.INTEGRATIONS,
+            featureFlags: [
+              FEATURE_FLAGS.INTEGRATIONS,
+              FEATURE_FLAGS.IKAS_INTEGRATION,
+            ],
             permissions: ['administrator'],
           },
         },
