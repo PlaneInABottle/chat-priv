@@ -114,6 +114,21 @@ For SIP/telephony-provider calls, expected additional proof:
 - Rails creates or reuses a `Call.livekit` row with `conversation_id`, `contact_id`, and `message_id` present.
 - Call metadata includes `voice_number_id`, `voice_provider_connection_id`, `voice_inbox_setting_id`, `voice_agent_id`, and `livekit_room_name`.
 
+## AI Diagnostics Bundle
+
+Use the Super Admin diagnostic JSON before manually correlating Rails, PM2, LiveKit, and database state:
+
+```bash
+curl -fsS 'http://localhost:3000/super_admin/voice_ai_calls/<call_id>/diagnostics.json'
+```
+
+Expected shape:
+
+- `summary`, `failure_reasons`, and `next_checks` provide the AI-readable diagnosis.
+- `call`, `livekit`, `sip`, `voice_agent`, `usage`, `timeline`, `transcript_segments`, `tool_events`, `recordings`, and `system_health` gather the main evidence sources.
+- The default payload is redacted with `AiAgents::PrivacyRedactor`.
+- Super Admin raw mode is explicit: `/super_admin/voice_ai_calls/<call_id>/diagnostics.json?raw=true`. Raw access is logged by Rails and should be used only when redacted evidence is insufficient.
+
 ## Handoff Rehearsal
 
 Default browser test calls do not create normal Chatwoot conversations and cannot be handed off. Handoff testing should use a separate rehearsal flow or a real conversation-backed LiveKit call. For conversation-backed calls, verify:

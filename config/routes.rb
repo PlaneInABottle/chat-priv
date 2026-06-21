@@ -778,7 +778,9 @@ Rails.application.routes.draw do
       resources :ai_agent_tool_executions, only: [:index]
       resources :voice_provider_connections, only: [:index, :new, :create, :show, :edit, :update, :destroy]
       resources :voice_numbers, only: [:index, :new, :create, :show, :edit, :update, :destroy]
-      resources :voice_ai_calls, only: [:index, :show]
+      resources :voice_ai_calls, only: [:index, :show] do
+        get :diagnostics, on: :member
+      end
       resource :ai_agent_prompt_preview, only: [:show]
 
       # resources that doesn't appear in primary navigation in super admin

@@ -103,5 +103,47 @@ RSpec.describe 'Super Admin Voice AI Calls', type: :request do
 
     expect(response).to have_http_status(:success)
     expect(response.body).to include('request_human_handoff', 'private reason', 'private note', 'Merhaba', 'voice/calls/test.ogg')
+    expect(response.body).to include('AI diagnostic summary', 'Download redacted JSON', 'View raw JSON')
+  end
+
+  it 'returns redacted diagnostics JSON by default' do
+    call = create(:call, provider: :livekit, status: 'completed', meta: { 'livekit_room_name' => 'room-diagnostics' })
+    call.transcript_segments.create!(
+      account: call.account,
+      conversation: call.conversation,
+      role: 'caller',
+      source: 'livekit_agent',
+      text: 'Email test@example.com telefon +90 555 111 22 33'
+    )
+    sign_in(super_admin, scope: :super_admin)
+
+    get "/super_admin/voice_ai_calls/#{call.id}/diagnostics.json"
+
+    expect(response).to have_http_status(:success)
+    body = response.parsed_body
+    expect(body['redaction']).to include('mode' => 'redacted')
+    expect(body['transcript_segments'].first['text']).to eq('Email [email redacted] telefon [phone redacted]')
+    expect(body).to include('summary', 'failure_reasons', 'next_checks', 'timeline')
+  end
+
+  it 'returns raw diagnostics only when explicitly requested by a super admin' do
+    call = create(:call, provider: :livekit, status: 'completed', meta: { 'livekit_room_name' => 'room-raw-diagnostics' })
+    call.transcript_segments.create!(
+      account: call.account,
+      conversation: call.conversation,
+      role: 'caller',
+      source: 'livekit_agent',
+      text: 'Email test@example.com telefon +90 555 111 22 33'
+    )
+    sign_in(super_admin, scope: :super_admin)
+
+    allow(Rails.logger).to receive(:info).and_call_original
+    get "/super_admin/voice_ai_calls/#{call.id}/diagnostics.json", params: { raw: true }
+
+    expect(response).to have_http_status(:success)
+    body = response.parsed_body
+    expect(body['redaction']).to include('mode' => 'raw')
+    expect(body['transcript_segments'].first['text']).to eq('Email test@example.com telefon +90 555 111 22 33')
+    expect(Rails.logger).to have_received(:info).with(/raw voice diagnostics accessed call_id=#{call.id}/)
   end
 end
