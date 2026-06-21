@@ -49,6 +49,7 @@ export const FEATURE_FLAGS = {
   CONVERSATION_UNREAD_COUNTS: 'conversation_unread_counts',
   AI_AGENT: 'ai_agent',
   VOICE_AI: 'voice_ai',
+  IKAS_INTEGRATION: 'ikas_integration',
 };
 
 export const PREMIUM_FEATURES = [

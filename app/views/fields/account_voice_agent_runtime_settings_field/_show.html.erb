@@ -1,32 +1,32 @@
 <% if field.voice_agents.empty? %>
-  No voice agents configured.
+  <%= t('super_admin.account_voice_agent_runtime_settings.no_agents_configured') %>
 <% else %>
   <div class="voice-agent-runtime-summary">
     <% field.voice_agents.each do |voice_agent| %>
       <section class="voice-agent-runtime-summary__card">
         <header>
           <strong><%= voice_agent.name %></strong>
-          <span>ID <%= voice_agent.id %></span>
+          <span><%= t('super_admin.account_voice_agent_runtime_settings.id', id: voice_agent.id) %></span>
         </header>
         <dl class="super-admin-field-summary">
           <div>
-            <dt>Architecture</dt>
+            <dt><%= t('super_admin.account_voice_agent_runtime_settings.architecture') %></dt>
             <dd><%= voice_agent.architecture %></dd>
           </div>
           <div>
-            <dt>Provider</dt>
+            <dt><%= t('super_admin.account_voice_agent_runtime_settings.provider') %></dt>
             <dd><%= voice_agent.provider %></dd>
           </div>
           <div>
-            <dt>Model</dt>
-            <dd><%= voice_agent.model.presence || 'Default from worker env' %></dd>
+            <dt><%= t('super_admin.account_voice_agent_runtime_settings.model') %></dt>
+            <dd><%= voice_agent.model.presence || t('super_admin.account_voice_agent_runtime_settings.default_from_worker_env') %></dd>
           </div>
           <div>
-            <dt>Voice</dt>
+            <dt><%= t('super_admin.account_voice_agent_runtime_settings.voice') %></dt>
             <dd><%= voice_agent.voice %></dd>
           </div>
           <div>
-            <dt>Language</dt>
+            <dt><%= t('super_admin.account_voice_agent_runtime_settings.language') %></dt>
             <dd><%= voice_agent.language %></dd>
           </div>
         </dl>

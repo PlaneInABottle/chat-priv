@@ -1,8 +1,9 @@
 import store from '../../../store';
 
 export const redirectIfFeatureDisabled = async to => {
-  const { featureFlag } = to.meta || {};
-  if (!featureFlag) return true;
+  const { featureFlag, featureFlags } = to.meta || {};
+  const requiredFlags = featureFlags || (featureFlag ? [featureFlag] : []);
+  if (!requiredFlags.length) return true;
 
   const accountId = Number(to.params.accountId);
   const account = store.getters['accounts/getAccount'](accountId);
@@ -12,7 +13,9 @@ export const redirectIfFeatureDisabled = async to => {
   }
 
   if (
-    store.getters['accounts/isFeatureEnabledonAccount'](accountId, featureFlag)
+    requiredFlags.every(flag =>
+      store.getters['accounts/isFeatureEnabledonAccount'](accountId, flag)
+    )
   ) {
     return true;
   }
