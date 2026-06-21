@@ -14,11 +14,41 @@
       <p class="text-xs text-slate-600 m-0 -mt-0.5">Raw Super Admin diagnostics for this LiveKit call.</p>
     </div>
   </div>
-  <%= link_to 'Back to Voice AI Calls', super_admin_voice_ai_calls_path, class: 'button button--secondary' %>
+  <div class="flex flex-wrap gap-2">
+    <%= link_to 'Download redacted JSON',
+                diagnostics_super_admin_voice_ai_call_path(@call, format: :json),
+                class: 'button button--secondary' %>
+    <%= link_to 'View raw JSON',
+                diagnostics_super_admin_voice_ai_call_path(@call, format: :json, raw: true),
+                class: 'button button--secondary' %>
+    <%= link_to 'Back to Voice AI Calls', super_admin_voice_ai_calls_path, class: 'button button--secondary' %>
+  </div>
 </header>
 
 <section class="main-content__body">
   <div class="grid grid-cols-1 gap-5">
+    <div class="bg-white border border-slate-200 rounded-lg shadow-sm p-5">
+      <h2 class="text-base font-semibold text-slate-900 m-0 mb-4">AI diagnostic summary</h2>
+      <p class="text-sm text-slate-700 mt-0 mb-4"><%= @diagnostics[:summary] %></p>
+      <% if @diagnostics[:failure_reasons].present? %>
+        <div class="flex flex-wrap gap-2 mb-4">
+          <% @diagnostics[:failure_reasons].each do |reason| %>
+            <span class="inline-flex rounded-full bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700"><%= reason.humanize %></span>
+          <% end %>
+        </div>
+      <% else %>
+        <span class="inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">No detected failure reason</span>
+      <% end %>
+      <div class="mt-4">
+        <h3 class="text-xs font-semibold uppercase text-slate-500">Next checks</h3>
+        <ul class="text-sm text-slate-700 mb-0">
+          <% @diagnostics[:next_checks].each do |check| %>
+            <li><%= check %></li>
+          <% end %>
+        </ul>
+      </div>
+    </div>
+
     <div class="bg-white border border-slate-200 rounded-lg shadow-sm p-5">
       <h2 class="text-base font-semibold text-slate-900 m-0 mb-4">Call metadata</h2>
       <dl class="super-admin-field-summary">
