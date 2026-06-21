@@ -129,6 +129,20 @@ RSpec.describe 'Api::V1::Accounts::Voice::Calls', type: :request do
       )
     end
 
+    it 'rejects takeover when Voice AI is disabled' do
+      conversation_call
+      account.update!(voice_ai_enabled: false)
+
+      post "/api/v1/accounts/#{account.id}/voice/calls/#{conversation_call.id}/take_over",
+           headers: agent.create_new_auth_token,
+           as: :json
+
+      expect(response).to have_http_status(:forbidden)
+      expect(response.parsed_body).to eq('error' => 'Voice AI is disabled for this account.')
+      expect(Voice::Livekit::RoomService).not_to have_received(:remove_agent_participants)
+      expect(conversation_call.reload.accepted_by_agent).to be_nil
+    end
+
     it 'rejects sandbox test calls because they have no conversation to hand off' do
       post "/api/v1/accounts/#{account.id}/voice/calls/#{call.id}/take_over",
            headers: agent.create_new_auth_token,
@@ -171,6 +185,19 @@ RSpec.describe 'Api::V1::Accounts::Voice::Calls', type: :request do
       expect(response).to have_http_status(:unprocessable_content)
       expect(response.parsed_body).to eq('error' => 'Call has already ended')
     end
+
+    it 'does not issue a LiveKit token when Voice AI is disabled' do
+      call
+      account.update!(voice_ai_enabled: false)
+
+      post "/api/v1/accounts/#{account.id}/voice/calls/#{call.id}/token",
+           params: { participant_type: 'agent' },
+           headers: agent.create_new_auth_token,
+           as: :json
+
+      expect(response).to have_http_status(:forbidden)
+      expect(response.parsed_body).to eq('error' => 'Voice AI is disabled for this account.')
+    end
   end
 
   describe 'POST /api/v1/accounts/:account_id/voice/calls/:id/end' do
@@ -210,6 +237,23 @@ RSpec.describe 'Api::V1::Accounts::Voice::Calls', type: :request do
         status: 'completed',
         duration_seconds: 10,
         end_reason: 'already_ended'
+      )
+    end
+
+    it 'still ends an active call when Voice AI is disabled' do
+      conversation_call
+      account.update!(voice_ai_enabled: false)
+
+      post "/api/v1/accounts/#{account.id}/voice/calls/#{conversation_call.id}/end",
+           params: { end_reason: 'voice_ai_disabled' },
+           headers: agent.create_new_auth_token,
+           as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(Voice::Livekit::RoomService).to have_received(:delete_room).with(call: conversation_call)
+      expect(conversation_call.reload).to have_attributes(
+        status: 'completed',
+        end_reason: 'voice_ai_disabled'
       )
     end
   end

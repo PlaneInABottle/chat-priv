@@ -46,6 +46,37 @@ RSpec.describe 'Internal voice calls API', type: :request do
       expect(call.reload.transcript).to eq('caller: Merhaba')
     end
 
+    it 'rejects transcript writes when Voice AI is disabled' do
+      call
+      account.update!(voice_ai_enabled: false)
+
+      with_modified_env VOICE_AGENT_INTERNAL_TOKEN: 'secret' do
+        post path,
+             params: { role: 'caller', text: 'Merhaba' },
+             headers: { 'X-Voice-Agent-Token' => 'secret' },
+             as: :json
+      end
+
+      expect(response).to have_http_status(:forbidden)
+      expect(response.parsed_body).to eq('error' => 'Voice AI is disabled for this account.')
+      expect(call.transcript_segments.count).to eq(0)
+    end
+
+    it 'rejects transcript writes for terminal calls' do
+      call.update!(status: 'completed')
+
+      with_modified_env VOICE_AGENT_INTERNAL_TOKEN: 'secret' do
+        post path,
+             params: { role: 'caller', text: 'Merhaba' },
+             headers: { 'X-Voice-Agent-Token' => 'secret' },
+             as: :json
+      end
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.parsed_body).to eq('error' => 'Call has already ended')
+      expect(call.transcript_segments.count).to eq(0)
+    end
+
     it 'rejects missing or wrong tokens' do
       with_modified_env VOICE_AGENT_INTERNAL_TOKEN: 'secret' do
         post path,
@@ -111,6 +142,41 @@ RSpec.describe 'Internal voice calls API', type: :request do
         'last_voice_agent_payload' => { 'reason' => 'worker_shutdown' }
       )
     end
+
+    it 'allows terminal agent session end events to mark AI status completed' do
+      conversation_call.update!(status: 'completed', ai_status: 'active')
+
+      with_modified_env VOICE_AGENT_INTERNAL_TOKEN: 'secret' do
+        post path,
+             params: { event: 'agent_session_ended', payload: { reason: 'worker_shutdown' } },
+             headers: { 'X-Voice-Agent-Token' => 'secret' },
+             as: :json
+      end
+
+      expect(response).to have_http_status(:ok)
+      conversation_call.reload
+      expect(conversation_call.ai_status).to eq('completed')
+      expect(conversation_call.meta).to include(
+        'last_voice_agent_event' => 'agent_session_ended',
+        'last_voice_agent_payload' => { 'reason' => 'worker_shutdown' }
+      )
+      expect(conversation_call.message.reload.content_attributes.dig('data', 'ai_status')).to eq('completed')
+    end
+
+    it 'rejects lifecycle events for terminal calls' do
+      conversation_call.update!(status: 'completed')
+
+      with_modified_env VOICE_AGENT_INTERNAL_TOKEN: 'secret' do
+        post path,
+             params: { event: 'agent_listening', payload: { participant_identity: 'sip_+905551112233' } },
+             headers: { 'X-Voice-Agent-Token' => 'secret' },
+             as: :json
+      end
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.parsed_body).to eq('error' => 'Call has already ended')
+      expect(conversation_call.reload.ai_status).to eq('waiting')
+    end
   end
 
   describe 'POST /internal/voice/calls/:provider_call_id/tool_call' do
@@ -145,6 +211,25 @@ RSpec.describe 'Internal voice calls API', type: :request do
         tool: 'request_human_handoff',
         arguments: { 'reason' => 'caller gave [email redacted] and [phone redacted]' }
       )
+    end
+
+    it 'rejects tool event writes for terminal calls' do
+      call.update!(status: 'completed')
+
+      with_modified_env VOICE_AGENT_INTERNAL_TOKEN: 'secret' do
+        post path,
+             params: {
+               tool: 'request_human_handoff',
+               status: 'executed',
+               arguments: { reason: 'late tool' }
+             },
+             headers: { 'X-Voice-Agent-Token' => 'secret' },
+             as: :json
+      end
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.parsed_body).to eq('error' => 'Call has already ended')
+      expect(call.voice_tool_events.count).to eq(0)
     end
   end
 
@@ -199,6 +284,33 @@ RSpec.describe 'Internal voice calls API', type: :request do
 
       expect(response).to have_http_status(:not_found)
       expect(response.parsed_body['error']).to include('Voice agent not configured')
+    end
+
+    it 'rejects existing call context when Voice AI is disabled' do
+      call
+      account.update!(voice_ai_enabled: false)
+
+      with_modified_env VOICE_AGENT_INTERNAL_TOKEN: 'secret' do
+        get path,
+            headers: { 'X-Voice-Agent-Token' => 'secret' },
+            as: :json
+      end
+
+      expect(response).to have_http_status(:forbidden)
+      expect(response.parsed_body).to eq('error' => 'Voice AI is disabled for this account.')
+    end
+
+    it 'rejects context for terminal calls' do
+      call.update!(status: 'completed')
+
+      with_modified_env VOICE_AGENT_INTERNAL_TOKEN: 'secret' do
+        get path,
+            headers: { 'X-Voice-Agent-Token' => 'secret' },
+            as: :json
+      end
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.parsed_body).to eq('error' => 'Call has already ended')
     end
   end
 
