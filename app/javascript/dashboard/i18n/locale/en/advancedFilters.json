@@ -59,6 +59,7 @@
       "PRIORITY": "Priority",
       "COUNTRY_NAME": "Country name",
       "REFERER_LINK": "Referer link",
+      "VOICE_AI_HANDOFF": "Voice AI handoff",
       "CUSTOM_ATTRIBUTE_LIST": "List",
       "CUSTOM_ATTRIBUTE_TEXT": "Text",
       "CUSTOM_ATTRIBUTE_NUMBER": "Number",

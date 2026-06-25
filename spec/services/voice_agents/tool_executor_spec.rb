@@ -58,6 +58,10 @@ RSpec.describe VoiceAgents::ToolExecutor do
       expect(result[:status]).to eq('executed')
       expect(conversation.reload.team).to eq(local_team)
       expect(call.reload.handoff_status).to eq('requested')
+      expect(conversation.reload.additional_attributes).to include(
+        'voice_ai_handoff_status' => 'requested',
+        'voice_ai_handoff_call_id' => call.id
+      )
       expect(call.voice_tool_events.find_by!(external_id: 'tool-2')).to have_attributes(
         tool: VoiceAgents::Config::HUMAN_HANDOFF_TOOL,
         status: 'executed'

@@ -546,6 +546,21 @@ describe('filterHelpers', () => {
       expect(matchesFilters(conversation, filters)).toBe(true);
     });
 
+    it('should match conversation with equal_to operator for voice AI handoff status', () => {
+      const conversation = {
+        additional_attributes: { voice_ai_handoff_status: 'requested' },
+      };
+      const filters = [
+        {
+          attribute_key: 'voice_ai_handoff_status',
+          filter_operator: 'equal_to',
+          values: 'requested',
+          query_operator: 'and',
+        },
+      ];
+      expect(matchesFilters(conversation, filters)).toBe(true);
+    });
+
     it('should not match conversation with does_not_contain operator for referer', () => {
       const conversation = {
         additional_attributes: { referer: 'https://www.chatwoot.com/pricing' },

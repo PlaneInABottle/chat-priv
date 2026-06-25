@@ -343,6 +343,11 @@ const recordingStatusLabel = computed(() => {
   }
   return '';
 });
+const callSummary = computed(() => {
+  const summary = callField('summary') || {};
+  if (typeof summary === 'string') return summary;
+  return summary.text || '';
+});
 
 const refreshLivekitCallDetails = async () => {
   if (!isLivekit.value || !livekitCallId.value) return;
@@ -539,6 +544,18 @@ const handleEndLivekit = async () => {
         class="rounded-lg bg-n-alpha-2 px-3 py-2 text-xs text-n-slate-11"
       >
         {{ recordingStatusLabel }}
+      </div>
+
+      <div
+        v-if="callSummary"
+        class="rounded-lg bg-n-alpha-2 px-3 py-2 text-sm text-n-slate-12"
+      >
+        <span class="mb-1 block text-xs font-medium text-n-slate-11">
+          {{ $t('CONVERSATION.VOICE_CALL.SUMMARY') }}
+        </span>
+        <p class="m-0 whitespace-pre-wrap leading-5">
+          {{ callSummary }}
+        </p>
       </div>
 
       <div v-if="isLivekit" ref="remoteAudioRef" class="hidden" />

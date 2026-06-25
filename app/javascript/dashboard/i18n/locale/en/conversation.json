@@ -123,6 +123,7 @@
       "REPLAY_RECORDING": "Replay recording",
       "RECORDING_PROCESSING": "Recording is processing",
       "RECORDING_FAILED": "Recording failed",
+      "SUMMARY": "Call summary",
       "TRANSCRIPT_CALLER": "Caller",
       "TRANSCRIPT_AI": "AI",
       "TRANSCRIPT_AGENT": "Agent",

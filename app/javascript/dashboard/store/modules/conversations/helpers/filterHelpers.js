@@ -85,6 +85,7 @@ const getValueFromConversation = (conversation, attributeKey) => {
       return conversation.meta?.team?.id;
     case 'browser_language':
     case 'referer':
+    case 'voice_ai_handoff_status':
       return conversation.additional_attributes?.[attributeKey];
     default:
       // Check if it's a custom attribute

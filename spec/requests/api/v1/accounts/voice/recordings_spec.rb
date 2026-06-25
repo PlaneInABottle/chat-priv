@@ -23,6 +23,7 @@ RSpec.describe 'Api::V1::Accounts::Voice::Recordings', type: :request do
   end
 
   it 'lists completed account recordings with signed replay URLs' do
+    call.update!(summary: { 'text' => 'Customer gave buyer@example.com and +905551112233' })
     create(
       :voice_recording,
       call: call,
@@ -49,7 +50,10 @@ RSpec.describe 'Api::V1::Accounts::Voice::Recordings', type: :request do
       'duration_seconds' => 30,
       'call' => include(
         'id' => call.id,
-        'inbox_id' => inbox.id
+        'inbox_id' => inbox.id,
+        'summary' => include(
+          'text' => 'Customer gave [email redacted] and [phone redacted]'
+        )
       )
     )
     expect(response.parsed_body.first['url']).to include('voice-recordings-test')

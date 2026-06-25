@@ -42,6 +42,14 @@ class Voice::CallMessageBuilder
   end
 
   def build_data_payload
+    call_payload.merge(status_payload).merge(
+      'summary' => summary_payload,
+      'recording' => recording_payload,
+      'duration_seconds' => call.duration_seconds
+    ).compact
+  end
+
+  def call_payload
     {
       'call_id' => call.id,
       'call_sid' => call.provider_call_id,
@@ -51,12 +59,25 @@ class Voice::CallMessageBuilder
       'livekit_room_name' => call.livekit_room_name,
       'test_call' => call.test_call?,
       'test_call_source' => call.test_call_source,
-      'test_call_initiated_by_user_id' => call.test_call_initiated_by_user_id,
+      'test_call_initiated_by_user_id' => call.test_call_initiated_by_user_id
+    }
+  end
+
+  def status_payload
+    {
       'handoff_status' => call.handoff_status,
-      'ai_status' => call.ai_status,
-      'recording' => recording_payload,
-      'duration_seconds' => call.duration_seconds
-    }.compact
+      'ai_status' => call.ai_status
+    }
+  end
+
+  def summary_payload
+    summary = call.summary
+    return if summary.blank?
+    return { 'text' => AiAgents::PrivacyRedactor.redact_text(summary) } if summary.is_a?(String)
+
+    summary.slice('text', 'generated_at', 'source', 'model').tap do |payload|
+      payload['text'] = AiAgents::PrivacyRedactor.redact_text(payload['text']) if payload['text'].present?
+    end
   end
 
   def recording_payload

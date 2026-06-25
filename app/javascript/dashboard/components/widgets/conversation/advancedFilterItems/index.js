@@ -95,6 +95,14 @@ const filterTypes = [
     attributeModel: 'additional',
   },
   {
+    attributeKey: 'voice_ai_handoff_status',
+    attributeI18nKey: 'VOICE_AI_HANDOFF',
+    inputType: 'plain_text',
+    dataType: 'text',
+    filterOperators: OPERATOR_TYPES_1,
+    attributeModel: 'additional',
+  },
+  {
     attributeKey: 'created_at',
     attributeI18nKey: 'CREATED_AT',
     inputType: 'date',
@@ -178,6 +186,10 @@ export const filterAttributeGroups = [
       {
         key: 'referer',
         i18nKey: 'REFERER_LINK',
+      },
+      {
+        key: 'voice_ai_handoff_status',
+        i18nKey: 'VOICE_AI_HANDOFF',
       },
     ],
   },
