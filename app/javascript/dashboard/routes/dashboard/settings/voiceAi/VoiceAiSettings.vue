@@ -30,6 +30,8 @@ const TERMINAL_CALL_STATUSES = [
   'no_answer',
   'failed',
 ];
+const RECORDING_STATUSES = ['completed', 'active', 'starting', 'failed'];
+const HANDOFF_STATUSES = ['requested', 'accepted', 'none'];
 const PROMPT_CHARACTER_LIMIT = 50000;
 const TOOL_PAYLOAD_CLASS =
   'm-0 max-h-48 overflow-auto rounded bg-n-solid-1 p-2 whitespace-pre-wrap';
@@ -76,6 +78,7 @@ const { t } = useI18n();
 const settings = ref([]);
 const voiceAgents = ref([]);
 const voiceUsage = ref(null);
+const recordings = ref([]);
 const selectedVoiceAgentId = ref('');
 const selectedTestInboxId = ref('');
 const callerName = ref('Test caller');
@@ -83,10 +86,17 @@ const callerNumber = ref('+900000000000');
 const activeTab = ref('agents');
 const currentCall = ref(null);
 const isLoading = ref(false);
+const isLoadingRecordings = ref(false);
 const isSavingAgent = ref(false);
 const isCreatingCall = ref(false);
 const isEnding = ref(false);
 const isRefreshing = ref(false);
+const recordingFilters = ref({
+  status: '',
+  handoff_status: '',
+  phone: '',
+  limit: 25,
+});
 
 const agentForm = ref(clone(DEFAULT_AGENT));
 const assignmentForm = ref({});
@@ -112,6 +122,7 @@ const teams = useMapGetter('teams/getTeams');
 const tabs = computed(() => [
   { label: t('VOICE_AI.TABS.AGENTS'), value: 'agents' },
   { label: t('VOICE_AI.TABS.TEST'), value: 'test' },
+  { label: t('VOICE_AI.TABS.RECORDINGS'), value: 'recordings' },
   { label: t('VOICE_AI.TABS.USAGE'), value: 'usage' },
 ]);
 const activeTabIndex = computed(() =>
@@ -221,6 +232,40 @@ const transcriptSegments = computed(
   () => currentCall.value?.transcript_segments || []
 );
 const testToolEvents = computed(() => currentCall.value?.tool_events || []);
+const callAiStatus = computed(() => currentCall.value?.ai_status || '');
+const hasAgentActivity = computed(
+  () =>
+    ['active', 'completed'].includes(callAiStatus.value) ||
+    transcriptSegments.value.length > 0 ||
+    testToolEvents.value.length > 0
+);
+const testSteps = computed(() => [
+  {
+    key: 'setup',
+    label: t('VOICE_AI.TEST_STEPS.SETUP'),
+    complete: Boolean(selectedTestInboxSetting.value),
+  },
+  {
+    key: 'created',
+    label: t('VOICE_AI.TEST_STEPS.CREATED'),
+    complete: hasCall.value,
+  },
+  {
+    key: 'joined',
+    label: t('VOICE_AI.TEST_STEPS.JOINED'),
+    complete: isConnected.value || hasAgentActivity.value,
+  },
+  {
+    key: 'agent',
+    label: t('VOICE_AI.TEST_STEPS.AGENT_ACTIVE'),
+    complete: hasAgentActivity.value,
+  },
+  {
+    key: 'ended',
+    label: t('VOICE_AI.TEST_STEPS.ENDED'),
+    complete: isCurrentCallTerminal.value,
+  },
+]);
 const timelineEvents = computed(() => {
   const transcriptItems = transcriptSegments.value.map(segment => ({
     ...segment,
@@ -334,6 +379,13 @@ const assignedCount = agent =>
     setting => Number(setting.voice_agent_id) === Number(agent?.id)
   ).length;
 
+const compactParams = params =>
+  Object.fromEntries(
+    Object.entries(params).filter(
+      ([, value]) => value !== '' && value !== null && value !== undefined
+    )
+  );
+
 const assignmentPayload = () =>
   assignmentRows.value
     .filter(row => row.form?.assigned)
@@ -431,6 +483,22 @@ const refreshSettings = async () => {
   settings.value = response.data?.payload || [];
 };
 
+const fetchRecordings = async () => {
+  if (!voiceAccessEnabled.value || isLoadingRecordings.value) return;
+
+  isLoadingRecordings.value = true;
+  try {
+    const response = await VoiceAPI.getRecordings(
+      compactParams(recordingFilters.value)
+    );
+    recordings.value = response.data || [];
+  } catch {
+    useAlert(t('VOICE_AI.RECORDINGS.LOAD_ERROR'));
+  } finally {
+    isLoadingRecordings.value = false;
+  }
+};
+
 const loadData = async () => {
   isLoading.value = true;
   try {
@@ -519,6 +587,9 @@ const changeTab = tab => {
   if (activeTab.value === 'agents' && !confirmDiscardAgentChanges()) return;
 
   activeTab.value = tab.value;
+  if (tab.value === 'recordings') {
+    fetchRecordings();
+  }
 };
 
 const toggleTool = toolKey => {
@@ -579,6 +650,25 @@ const refreshCall = async () => {
 const refreshUsage = async () => {
   const response = await VoiceAPI.getUsage();
   voiceUsage.value = response.data;
+};
+
+const formatDurationSeconds = seconds => {
+  if (seconds == null) return '-';
+
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`;
+};
+
+const recordingCallSummary = recording => recording.call?.summary?.text || '';
+
+const testStepClass = step => {
+  if (step.complete) return 'border-n-teal-5 bg-n-teal-2 text-n-teal-11';
+  const firstIncomplete = testSteps.value.find(item => !item.complete);
+  if (firstIncomplete?.key === step.key) {
+    return 'border-n-amber-5 bg-n-amber-2 text-n-amber-11';
+  }
+  return 'border-n-weak bg-n-alpha-2 text-n-slate-11';
 };
 
 const endCall = async () => {
@@ -1043,6 +1133,17 @@ onBeforeUnmount(() => {
               {{ t('VOICE_AI.TEST.NO_ASSIGNED_INBOX') }}
             </div>
 
+            <div class="grid grid-cols-1 gap-2 md:grid-cols-5">
+              <div
+                v-for="step in testSteps"
+                :key="step.key"
+                class="rounded-lg border px-3 py-2 text-xs font-medium"
+                :class="testStepClass(step)"
+              >
+                {{ step.label }}
+              </div>
+            </div>
+
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
               <Input
                 v-model="callerName"
@@ -1269,6 +1370,201 @@ onBeforeUnmount(() => {
               </div>
             </div>
           </section>
+        </section>
+
+        <section
+          v-if="activeTab === 'recordings'"
+          class="rounded-xl border border-n-weak bg-n-solid-1 p-5"
+        >
+          <div
+            class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between"
+          >
+            <div>
+              <h2 class="m-0 text-heading-2 text-n-slate-12">
+                {{ t('VOICE_AI.RECORDINGS.TITLE') }}
+              </h2>
+              <p class="m-0 mt-1 text-sm text-n-slate-11">
+                {{ t('VOICE_AI.RECORDINGS.DESCRIPTION') }}
+              </p>
+            </div>
+            <Button
+              :label="t('VOICE_AI.RECORDINGS.REFRESH')"
+              icon="i-lucide-refresh-cw"
+              variant="outline"
+              color="slate"
+              :is-loading="isLoadingRecordings"
+              :disabled="!voiceAccessEnabled"
+              @click="fetchRecordings"
+            />
+          </div>
+
+          <div
+            class="mt-5 grid grid-cols-1 gap-3 md:grid-cols-[160px_160px_minmax(0,1fr)_120px]"
+          >
+            <label class="flex flex-col gap-1">
+              <span class="text-xs text-n-slate-11">
+                {{ t('VOICE_AI.RECORDINGS.STATUS') }}
+              </span>
+              <select
+                v-model="recordingFilters.status"
+                class="h-10 rounded-lg border-0 outline outline-1 outline-n-weak bg-n-alpha-black2 px-3 text-sm text-n-slate-12"
+              >
+                <option value="">{{ t('VOICE_AI.SETUP.NONE') }}</option>
+                <option
+                  v-for="statusOption in RECORDING_STATUSES"
+                  :key="statusOption"
+                  :value="statusOption"
+                >
+                  {{ statusOption }}
+                </option>
+              </select>
+            </label>
+
+            <label class="flex flex-col gap-1">
+              <span class="text-xs text-n-slate-11">
+                {{ t('VOICE_AI.RECORDINGS.HANDOFF') }}
+              </span>
+              <select
+                v-model="recordingFilters.handoff_status"
+                class="h-10 rounded-lg border-0 outline outline-1 outline-n-weak bg-n-alpha-black2 px-3 text-sm text-n-slate-12"
+              >
+                <option value="">{{ t('VOICE_AI.SETUP.NONE') }}</option>
+                <option
+                  v-for="handoffOption in HANDOFF_STATUSES"
+                  :key="handoffOption"
+                  :value="handoffOption"
+                >
+                  {{ handoffOption }}
+                </option>
+              </select>
+            </label>
+
+            <Input
+              v-model="recordingFilters.phone"
+              :label="t('VOICE_AI.RECORDINGS.PHONE')"
+            />
+
+            <label class="flex flex-col gap-1">
+              <span class="text-xs text-n-slate-11">
+                {{ t('VOICE_AI.RECORDINGS.LIMIT') }}
+              </span>
+              <input
+                v-model.number="recordingFilters.limit"
+                type="number"
+                min="1"
+                max="100"
+                class="h-10 rounded-lg border-0 outline outline-1 outline-n-weak bg-n-alpha-black2 px-3 text-sm text-n-slate-12"
+              />
+            </label>
+          </div>
+
+          <div class="mt-4 flex justify-end">
+            <Button
+              :label="t('VOICE_AI.RECORDINGS.APPLY')"
+              icon="i-lucide-search"
+              :disabled="!voiceAccessEnabled"
+              :is-loading="isLoadingRecordings"
+              @click="fetchRecordings"
+            />
+          </div>
+
+          <div
+            v-if="!voiceAccessEnabled"
+            class="mt-5 rounded-lg border border-n-slate-5 bg-n-slate-2 p-4 text-sm text-n-slate-11"
+          >
+            {{ t('VOICE_AI.AGENTS.DISABLED_BY_ADMIN') }}
+          </div>
+          <div
+            v-else-if="!recordings.length"
+            class="mt-5 rounded-lg bg-n-alpha-2 p-4 text-sm text-n-slate-11"
+          >
+            {{
+              isLoadingRecordings
+                ? t('VOICE_AI.RECORDINGS.LOADING')
+                : t('VOICE_AI.RECORDINGS.EMPTY')
+            }}
+          </div>
+          <div v-else class="mt-5 overflow-x-auto">
+            <table class="min-w-full border-separate border-spacing-0 text-sm">
+              <thead>
+                <tr class="text-left text-xs text-n-slate-11">
+                  <th class="border-b border-n-weak px-3 py-2 font-medium">
+                    {{ t('VOICE_AI.RECORDINGS.CALL') }}
+                  </th>
+                  <th class="border-b border-n-weak px-3 py-2 font-medium">
+                    {{ t('VOICE_AI.RECORDINGS.STATUS') }}
+                  </th>
+                  <th class="border-b border-n-weak px-3 py-2 font-medium">
+                    {{ t('VOICE_AI.RECORDINGS.DURATION') }}
+                  </th>
+                  <th class="border-b border-n-weak px-3 py-2 font-medium">
+                    {{ t('VOICE_AI.RECORDINGS.SUMMARY') }}
+                  </th>
+                  <th class="border-b border-n-weak px-3 py-2 font-medium">
+                    {{ t('VOICE_AI.RECORDINGS.AUDIO') }}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="recording in recordings"
+                  :key="recording.id"
+                  class="align-top"
+                >
+                  <td class="border-b border-n-weak px-3 py-3">
+                    <div class="font-medium text-n-slate-12">
+                      {{
+                        t('VOICE_AI.RECORDINGS.CALL_NUMBER', {
+                          id:
+                            recording.call?.conversation_id ||
+                            recording.call?.id,
+                        })
+                      }}
+                    </div>
+                    <div class="mt-1 text-xs text-n-slate-11">
+                      {{ recording.call?.from_number || '-' }}
+                    </div>
+                    <div class="text-xs text-n-slate-10">
+                      {{ formatDateTime(recording.completed_at) }}
+                    </div>
+                  </td>
+                  <td class="border-b border-n-weak px-3 py-3">
+                    <div class="capitalize text-n-slate-12">
+                      {{ recording.status }}
+                    </div>
+                    <div class="mt-1 text-xs text-n-slate-11">
+                      {{ recording.call?.handoff_status || '-' }}
+                    </div>
+                  </td>
+                  <td class="border-b border-n-weak px-3 py-3 text-n-slate-12">
+                    {{ formatDurationSeconds(recording.duration_seconds) }}
+                  </td>
+                  <td class="max-w-md border-b border-n-weak px-3 py-3">
+                    <p
+                      v-if="recordingCallSummary(recording)"
+                      class="m-0 line-clamp-3 text-n-slate-12"
+                    >
+                      {{ recordingCallSummary(recording) }}
+                    </p>
+                    <span v-else class="text-n-slate-10">
+                      {{ t('VOICE_AI.RECORDINGS.NO_VALUE') }}
+                    </span>
+                  </td>
+                  <td class="border-b border-n-weak px-3 py-3">
+                    <audio
+                      v-if="recording.url"
+                      class="w-56 max-w-full"
+                      controls
+                      :src="recording.url"
+                    />
+                    <span v-else class="text-xs text-n-slate-10">
+                      {{ t('VOICE_AI.RECORDINGS.NO_AUDIO') }}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </section>
 
         <section

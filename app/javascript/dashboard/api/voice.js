@@ -14,6 +14,10 @@ class VoiceAPI extends ApiClient {
     return axios.get(`${this.url}/usage`);
   }
 
+  getRecordings(params = {}) {
+    return axios.get(`${this.url}/recordings`, { params });
+  }
+
   getAgents() {
     return axios.get(`${this.url}/agents`);
   }

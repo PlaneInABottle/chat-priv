@@ -64,28 +64,35 @@ class VoiceAgents::ToolExecutor
   end
 
   def request_handoff
-    if call.test_call? && call.conversation.blank?
-      meta = (call.meta || {}).merge(
-        'handoff_status' => 'requested',
-        'ai_status' => 'handoff_requested',
-        'test_handoff_requested_at' => Time.zone.now.iso8601(3),
-        'test_handoff_reason' => args['reason'].to_s
-      )
-      call.update!(meta: meta)
-      return {
-        status: 'ok',
-        terminal_action: 'handoff',
-        test_mode: true,
-        customer_message: 'Human handoff requested in the sandbox test call.',
-        reason: args['reason'].to_s
-      }
-    end
+    return request_test_handoff if call.test_call? && call.conversation.blank?
 
     raise ArgumentError, 'Call handoff requires a conversation' unless call.conversation
 
+    request_conversation_handoff
+  end
+
+  def request_test_handoff
+    meta = (call.meta || {}).merge(
+      'handoff_status' => 'requested',
+      'ai_status' => 'handoff_requested',
+      'test_handoff_requested_at' => Time.zone.now.iso8601(3),
+      'test_handoff_reason' => args['reason'].to_s
+    )
+    call.update!(meta: meta)
+    {
+      status: 'ok',
+      terminal_action: 'handoff',
+      test_mode: true,
+      customer_message: 'Human handoff requested in the sandbox test call.',
+      reason: args['reason'].to_s
+    }
+  end
+
+  def request_conversation_handoff
     setting = voice_setting
     call.update!(handoff_status: 'requested', ai_status: 'handoff_requested')
     call.conversation.update!(team: setting&.fallback_team) if setting&.fallback_team
+    Voice::ConversationHandoffState.mark_requested!(call)
     Voice::CallMessageBuilder.new(call).update_status!(status: call.status)
     Voice::CallBroadcaster.safe_call_status_changed(call)
     { status: 'ok', terminal_action: 'handoff', reason: args['reason'].to_s }

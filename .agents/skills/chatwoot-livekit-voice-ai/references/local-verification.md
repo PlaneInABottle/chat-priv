@@ -143,7 +143,8 @@ Default browser test calls do not create normal Chatwoot conversations and canno
 1. The LiveKit voice-call message shows `Join live call`, `Take over`, and `End call`.
 2. `POST /internal/voice/calls/<livekit_room_name>/handoff` marks `handoff_status: requested`.
 3. `POST /api/v1/accounts/:account_id/voice/calls/:id/take_over` marks `handoff_status: accepted`, `ai_status: silent`, assigns the conversation, and removes agent worker participants when present.
-4. `POST /api/v1/accounts/:account_id/voice/calls/:id/end` marks the call completed, refreshes the voice-call message payload, and calls LiveKit `DeleteRoom` so browser/SIP/agent participants leave the media room.
+4. Handoff state is also mirrored into `conversation.additional_attributes` as `voice_ai_handoff_status`, `voice_ai_handoff_call_id`, and timestamps. The conversation list should show `AI requested handoff` while the current call is awaiting takeover.
+5. `POST /api/v1/accounts/:account_id/voice/calls/:id/end` marks the call completed, refreshes the voice-call message payload, clears current durable handoff state, and calls LiveKit `DeleteRoom` so browser/SIP/agent participants leave the media room.
 
 ## Datastore Proof
 
@@ -231,6 +232,7 @@ Healthy evidence from a real local SIP call:
 - Voice agent logs show `start reading stream`, realtime provider connection, user and assistant transcript segments, optional `executing tool`, and `session closed` with `error: null`.
 - Rails logs show successful `agent_context`, `transcript`, optional `execute_tool`, `end`, and `event` requests.
 - The `Call.livekit` row ends with `status: completed`, `from_number` set to the real caller number, `ai_status: completed`, transcript segments present, and a sane `end_reason` such as `caller_disconnected`.
+- Conversation-backed completed calls with transcript segments can get `call.summary` from `Voice::CallSummaryGenerator` using the account AI-agent LLM settings. The summary is redacted before persistence and appears in call payloads, recording metadata, and the voice-call bubble.
 
 Ignore or de-prioritize these during local SIP debugging unless the call path itself fails:
 

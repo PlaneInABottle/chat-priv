@@ -106,6 +106,10 @@ RSpec.describe 'Api::V1::Accounts::Voice::Calls', type: :request do
       )
       expect(conversation_call.meta.dig('livekit_agent_removal', 'status')).to eq('removed')
       expect(conversation_call.conversation.reload.assignee).to eq(agent)
+      expect(conversation_call.conversation.additional_attributes).to include(
+        'voice_ai_handoff_status' => 'accepted',
+        'voice_ai_handoff_call_id' => conversation_call.id
+      )
       expect(conversation_call.message.reload.content_attributes['data']).to include(
         'status' => 'in-progress',
         'handoff_status' => 'accepted',

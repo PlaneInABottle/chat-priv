@@ -11,6 +11,7 @@ RSpec.describe Voice::CallFinalizer do
     allow(Voice::Livekit::AgentDispatchService).to receive(:perform).and_return({ 'status' => 'skipped' })
     allow(Voice::Livekit::RoomService).to receive(:remove_customer_participants).and_return({ 'status' => 'skipped' })
     allow(Voice::Livekit::RoomService).to receive(:delete_room).and_return({ 'status' => 'skipped' })
+    allow(Voice::CallSummaryGenerator).to receive(:perform)
   end
 
   def build_conversation_call
@@ -64,6 +65,26 @@ RSpec.describe Voice::CallFinalizer do
     expect(call.message.reload.content_attributes['data']).to include(
       'status' => 'completed',
       'duration_seconds' => 45
+    )
+    expect(Voice::CallSummaryGenerator).to have_received(:perform).with(call: call)
+  end
+
+  it 'clears current durable handoff state when finalizing a conversation call' do
+    call = build_conversation_call
+    call.conversation.update!(
+      additional_attributes: {
+        'voice_ai_handoff_status' => 'requested',
+        'voice_ai_handoff_call_id' => call.id,
+        'voice_ai_handoff_requested_at' => Time.zone.now.iso8601
+      }
+    )
+
+    described_class.perform!(call: call, end_reason: 'agent_ended')
+
+    expect(call.conversation.reload.additional_attributes).not_to include(
+      'voice_ai_handoff_status',
+      'voice_ai_handoff_call_id',
+      'voice_ai_handoff_requested_at'
     )
   end
 
@@ -129,6 +150,7 @@ RSpec.describe Voice::CallFinalizer do
     expect(Voice::Livekit::RoomService).not_to have_received(:remove_customer_participants)
     expect(Voice::Livekit::RoomService).not_to have_received(:delete_room)
     expect(Voice::Recordings::StopService).not_to have_received(:perform)
+    expect(Voice::CallSummaryGenerator).not_to have_received(:perform).with(call: call)
     expect(call.reload).to have_attributes(
       status: 'completed',
       duration_seconds: 10,

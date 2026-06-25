@@ -46,6 +46,13 @@ const unreadMessagesCount = computed(() => {
   const { unreadCount } = props.conversation;
   return unreadCount;
 });
+const hasVoiceAiHandoff = computed(
+  () =>
+    props.conversation.additionalAttributes?.voiceAiHandoffStatus ===
+      'requested' ||
+    props.conversation.additional_attributes?.voice_ai_handoff_status ===
+      'requested'
+);
 
 const hasSlaThreshold = computed(() => {
   return (
@@ -74,6 +81,12 @@ defineExpose({
         </span>
       </div>
     </div>
+    <span
+      v-if="hasVoiceAiHandoff"
+      class="inline-flex w-fit rounded-full bg-n-amber-3 px-2 py-0.5 text-xs font-medium text-n-amber-11"
+    >
+      {{ t('CONVERSATION.VOICE_CALL.HANDOFF_REQUESTED') }}
+    </span>
 
     <div
       class="grid items-center gap-2.5 h-7"

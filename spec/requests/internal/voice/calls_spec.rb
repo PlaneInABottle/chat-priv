@@ -511,6 +511,10 @@ RSpec.describe 'Internal voice calls API', type: :request do
       expect(conversation_call.reload.handoff_status).to eq('requested')
       expect(conversation_call.ai_status).to eq('handoff_requested')
       expect(conversation_call.conversation.reload.team).to eq(team)
+      expect(conversation_call.conversation.additional_attributes).to include(
+        'voice_ai_handoff_status' => 'requested',
+        'voice_ai_handoff_call_id' => conversation_call.id
+      )
       expect(conversation_call.message.reload.content_attributes['data']).to include(
         'call_id' => conversation_call.id,
         'call_source' => 'livekit',
