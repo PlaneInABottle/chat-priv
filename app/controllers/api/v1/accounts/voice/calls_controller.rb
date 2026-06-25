@@ -42,6 +42,7 @@ class Api::V1::Accounts::Voice::CallsController < Api::V1::Accounts::BaseControl
       status: 'in_progress',
       meta: meta
     )
+    Voice::ConversationHandoffState.mark_accepted!(@call)
     @call.conversation.update!(assignee: Current.user)
     Voice::CallMessageBuilder.new(@call).update_status!(status: @call.status, agent: Current.user)
     Voice::CallBroadcaster.safe_call_status_changed(@call)

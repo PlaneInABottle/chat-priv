@@ -18,6 +18,10 @@ class Voice::CallSerializer
   attr_reader :call
 
   def identity_payload
+    base_identity_payload.merge(voice_identity_payload)
+  end
+
+  def base_identity_payload
     {
       id: call.id,
       provider: call.provider,
@@ -28,7 +32,12 @@ class Voice::CallSerializer
       conversation_id: call.conversation&.display_id,
       contact_id: call.contact_id,
       message_id: call.message_id,
-      livekit_room_name: call.livekit_room_name,
+      livekit_room_name: call.livekit_room_name
+    }
+  end
+
+  def voice_identity_payload
+    {
       voice_agent_id: call.meta&.fetch('voice_agent_id', nil),
       voice_agent_name: voice_agent&.name,
       voice_number_id: call.meta&.fetch('voice_number_id', nil),
@@ -44,6 +53,7 @@ class Voice::CallSerializer
       test_call_initiated_by_user_id: call.test_call_initiated_by_user_id,
       handoff_status: call.handoff_status,
       ai_status: call.ai_status,
+      summary: summary_payload,
       started_at: call.started_at&.iso8601,
       duration_seconds: call.duration_seconds,
       end_reason: call.end_reason
@@ -128,6 +138,16 @@ class Voice::CallSerializer
       AiAgents::PrivacyRedactor.redact_text(value)
     else
       value
+    end
+  end
+
+  def summary_payload
+    summary = call.summary
+    return if summary.blank?
+    return { text: AiAgents::PrivacyRedactor.redact_text(summary) } if summary.is_a?(String)
+
+    summary.slice('text', 'generated_at', 'source', 'model').tap do |payload|
+      payload['text'] = AiAgents::PrivacyRedactor.redact_text(payload['text']) if payload['text'].present?
     end
   end
 

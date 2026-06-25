@@ -28,6 +28,7 @@ RSpec.describe Voice::CallSerializer do
   it 'returns conversation-safe transcript, tool summary, and recording metadata' do
     create_transcript_segment!
     create_tool_event!
+    call.update!(summary: { 'text' => 'Customer gave buyer@example.com and +905551112233', 'source' => 'ai_agent_llm' })
     recording = create_completed_recording!
     storage_config = instance_double(Voice::Recordings::StorageConfig)
     allow(Voice::Recordings::StorageConfig).to receive(:new).and_return(storage_config)
@@ -61,6 +62,10 @@ RSpec.describe Voice::CallSerializer do
       url: 'https://recording.example/test.mp4'
     )
     expect(payload[:recording_url]).to eq('https://recording.example/test.mp4')
+    expect(payload[:summary]).to include(
+      'text' => 'Customer gave [email redacted] and [phone redacted]',
+      'source' => 'ai_agent_llm'
+    )
   end
 
   it 'exposes redacted raw tool events only for sandbox test calls' do

@@ -88,8 +88,9 @@ Handled events:
 
 - `recording`
 - `recording_url`
+- `summary`
 
-Completed recordings use short-lived signed S3-compatible URLs from `Voice::Recordings::StorageConfig`. Do not persist signed URLs into `Message#content_attributes`; the voice-call bubble fetches fresh call details for terminal LiveKit calls and reads `recording_url` from that response.
+Completed recordings use short-lived signed S3-compatible URLs from `Voice::Recordings::StorageConfig`. Do not persist signed URLs into `Message#content_attributes`; the voice-call bubble fetches fresh call details for terminal LiveKit calls and reads `recording_url` from that response. Redacted call summaries may be persisted into message data, because they do not contain signed URLs.
 
 ## Metadata Search
 
@@ -112,6 +113,8 @@ Supported filters:
 - `limit`
 
 This is metadata filtering only. Do not add transcript full-text or semantic search here without a separate search design.
+
+The dashboard Voice AI settings page has a Recordings tab backed by this endpoint. Verify non-empty states with a conversation-backed `VoiceRecording`, and verify that `call.summary.text`, `call.handoff_status`, duration, and replay/no-replay state render without needing SIP setup.
 
 ## Focused Verification
 

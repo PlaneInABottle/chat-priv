@@ -40,7 +40,13 @@ RSpec.describe Voice::CallMessageBuilder do
 
   it 'refreshes terminal status and recording metadata without signed URLs' do
     message = described_class.new(call).perform!
-    call.update!(message_id: message.id, status: 'completed', duration_seconds: 64, ai_status: 'silent')
+    call.update!(
+      message_id: message.id,
+      status: 'completed',
+      duration_seconds: 64,
+      ai_status: 'silent',
+      summary: { 'text' => 'Customer gave buyer@example.com and +905551112233' }
+    )
     recording = create(:voice_recording, account: account, call: call, status: 'completed', duration_seconds: 61)
 
     described_class.new(call).update_status!(status: call.status, duration_seconds: call.duration_seconds)
@@ -57,5 +63,6 @@ RSpec.describe Voice::CallMessageBuilder do
       'duration_seconds' => 61
     )
     expect(data['recording']).not_to have_key('url')
+    expect(data['summary']).to eq('text' => 'Customer gave [email redacted] and [phone redacted]')
   end
 end

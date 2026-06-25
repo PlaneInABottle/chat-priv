@@ -24,8 +24,7 @@ class Internal::Voice::CallsController < Internal::Voice::BaseController
       text: params.require(:text),
       source: params[:source].presence || 'livekit_agent',
       confidence: params[:confidence],
-      started_at: parse_time(params[:started_at]),
-      ended_at: parse_time(params[:ended_at]),
+      started_at: parse_time(params[:started_at]), ended_at: parse_time(params[:ended_at]),
       external_segment_id: params[:external_segment_id],
       metadata: transcript_metadata_param
     )
@@ -81,6 +80,7 @@ class Internal::Voice::CallsController < Internal::Voice::BaseController
     setting = voice_setting
     @call.update!(handoff_status: 'requested', ai_status: 'handoff_requested')
     @call.conversation.update!(team: setting&.fallback_team) if setting&.fallback_team
+    Voice::ConversationHandoffState.mark_requested!(@call)
     Voice::CallMessageBuilder.new(@call).update_status!(status: @call.status)
     Voice::CallBroadcaster.safe_call_status_changed(@call)
     render json: Voice::CallSerializer.new(@call).payload

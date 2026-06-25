@@ -145,6 +145,7 @@
     "TABS": {
       "AGENTS": "Voice agents",
       "TEST": "Test call",
+      "RECORDINGS": "Recordings",
       "USAGE": "Usage"
     },
     "SETUP": {
@@ -222,6 +223,33 @@
       "TITLE": "Sandbox test call",
       "DESCRIPTION": "Start a browser-only call using a saved voice-agent inbox assignment.",
       "NO_ASSIGNED_INBOX": "Assign an API inbox to this voice agent before starting a sandbox test call."
+    },
+    "TEST_STEPS": {
+      "SETUP": "Inbox assigned",
+      "CREATED": "Call created",
+      "JOINED": "Caller joined",
+      "AGENT_ACTIVE": "AI active",
+      "ENDED": "Ended"
+    },
+    "RECORDINGS": {
+      "TITLE": "Recordings",
+      "DESCRIPTION": "Review completed LiveKit call recordings, handoff state, and generated summaries.",
+      "REFRESH": "Refresh",
+      "APPLY": "Apply filters",
+      "LOADING": "Loading recordings...",
+      "EMPTY": "No recordings match these filters.",
+      "LOAD_ERROR": "Failed to load recordings.",
+      "STATUS": "Recording status",
+      "HANDOFF": "Handoff",
+      "PHONE": "Phone number",
+      "LIMIT": "Limit",
+      "CALL": "Call",
+      "CALL_NUMBER": "#{id}",
+      "DURATION": "Duration",
+      "SUMMARY": "Summary",
+      "AUDIO": "Audio",
+      "NO_VALUE": "-",
+      "NO_AUDIO": "No replay available"
     },
     "SESSION": {
       "TITLE": "Browser test call",

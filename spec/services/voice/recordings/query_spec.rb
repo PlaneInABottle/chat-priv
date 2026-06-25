@@ -45,6 +45,7 @@ RSpec.describe Voice::Recordings::Query do
     results = described_class.new(account: account, params: {}, inbox_ids: [inbox.id]).results
 
     expect(results).to contain_exactly(recording)
+    expect(results).not_to include(other_recording)
   end
 
   it 'filters by status, call status, handoff status, contact, and inbox' do

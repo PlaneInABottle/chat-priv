@@ -18,6 +18,8 @@ class Voice::CallFinalizer
     terminate_livekit_room
     recording_result = stop_recording
     persist_finalization_meta(recording_result)
+    generate_summary
+    Voice::ConversationHandoffState.clear_if_current!(call)
     Voice::CallMessageBuilder.new(call).update_status!(
       status: call.status,
       agent: agent || call.accepted_by_agent,
@@ -77,6 +79,10 @@ class Voice::CallFinalizer
         'recording_stop' => recording_result
       ).compact
     )
+  end
+
+  def generate_summary
+    Voice::CallSummaryGenerator.perform(call: call)
   end
 
   def terminate_livekit_room

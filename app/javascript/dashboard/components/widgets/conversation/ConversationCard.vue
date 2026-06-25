@@ -48,6 +48,10 @@ const voiceCallData = computed(() => {
     direction: last.call.direction === 'outgoing' ? 'outbound' : 'inbound',
   };
 });
+const hasVoiceAiHandoff = computed(
+  () =>
+    props.chat.additional_attributes?.voice_ai_handoff_status === 'requested'
+);
 
 const showMetaSection = computed(() => {
   return (
@@ -203,6 +207,12 @@ watch(
           {{ $t(`CHAT_LIST.NO_MESSAGES`) }}
         </span>
       </p>
+      <span
+        v-if="hasVoiceAiHandoff"
+        class="mx-2 mt-1 inline-flex w-fit rounded-full bg-n-amber-3 px-2 py-0.5 text-xs font-medium text-n-amber-11"
+      >
+        {{ $t('CONVERSATION.VOICE_CALL.HANDOFF_REQUESTED') }}
+      </span>
       <div
         class="absolute flex flex-col ltr:right-3 rtl:left-3"
         :class="showMetaSection ? 'top-8' : 'top-4'"

@@ -6,7 +6,7 @@ class Voice::Recordings::Query
   end
 
   def results
-    scope = account.voice_recordings.includes(call: [:contact, :inbox]).latest_first
+    scope = account.voice_recordings.includes(:call).latest_first
     scope = filter_by_allowed_inboxes(scope)
     scope = filter_by_status(scope)
     scope = filter_by_inbox(scope)
