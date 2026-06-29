@@ -1,4 +1,5 @@
 <script setup>
+import Icon from 'dashboard/components-next/icon/Icon.vue';
 import { computed, useTemplateRef } from 'vue';
 import { useWindowSize, useElementBounding } from '@vueuse/core';
 
@@ -44,10 +45,10 @@ const submenuPosition = computed(() => [
     :class="!subMenuAvailable ? 'opacity-50 cursor-not-allowed' : ''"
   >
     <div class="flex items-center h-4">
-      <fluent-icon :icon="option.icon" size="14" class="menu-icon" />
+      <Icon :icon="option.icon" size="14" class="menu-icon" />
       <p class="my-0 mx-2 text-xs">{{ option.label }}</p>
     </div>
-    <fluent-icon icon="chevron-right" size="12" />
+    <Icon icon="chevron-right" size="12" />
     <div
       v-if="subMenuAvailable"
       class="submenu bg-n-alpha-3 backdrop-blur-[100px] p-1 shadow-lg rounded-md absolute hidden max-h-[15rem] overflow-y-auto overflow-x-hidden cursor-pointer"

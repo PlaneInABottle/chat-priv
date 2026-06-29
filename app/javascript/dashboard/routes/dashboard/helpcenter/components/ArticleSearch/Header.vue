@@ -1,4 +1,5 @@
 <script setup>
+import Icon from 'dashboard/components-next/icon/Icon.vue';
 import { ref, onMounted } from 'vue';
 import { useKeyboardEvents } from 'dashboard/composables/useKeyboardEvents';
 import Button from 'dashboard/components-next/button/Button.vue';
@@ -57,7 +58,7 @@ useKeyboardEvents(keyboardEvents);
       <div
         class="absolute ltr:left-0 rtl:right-0 w-8 top-0.5 h-8 flex justify-center items-center"
       >
-        <fluent-icon icon="search" class="" size="18" />
+        <Icon icon="search" class="" size="18" />
       </div>
       <input
         ref="searchInputRef"

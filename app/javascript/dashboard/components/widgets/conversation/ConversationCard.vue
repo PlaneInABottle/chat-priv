@@ -1,4 +1,5 @@
 <script setup>
+import Icon from 'dashboard/components-next/icon/Icon.vue';
 import { computed, ref, watch } from 'vue';
 import { getLastMessage } from 'dashboard/helper/conversationHelper';
 import Avatar from 'next/avatar/Avatar.vue';
@@ -164,7 +165,7 @@ watch(
             v-if="showAssignee && assignee.name"
             class="text-n-slate-11 text-xs font-medium leading-3 py-0.5 px-0 inline-flex items-center truncate"
           >
-            <fluent-icon icon="person" size="12" class="text-n-slate-11" />
+            <Icon icon="person" size="12" class="text-n-slate-11" />
             {{ assignee.name }}
           </span>
           <CardPriorityIcon
@@ -200,7 +201,7 @@ watch(
         class="text-n-slate-11 text-sm my-0 mx-2 leading-6 h-6 flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap"
         :class="messagePreviewClass"
       >
-        <fluent-icon
+        <Icon
           size="16"
           class="-mt-0.5 align-middle inline-block text-n-slate-10"
           icon="info"

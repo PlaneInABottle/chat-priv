@@ -25,6 +25,7 @@ import {
   initializeChatwootEvents,
 } from 'dashboard/helper/scriptHelpers.js';
 import FluentIcon from 'shared/components/FluentIcon/DashboardIcon.vue';
+import Icon from 'dashboard/components-next/icon/Icon.vue';
 import VueDOMPurifyHTML from 'vue-dompurify-html';
 import { domPurifyConfig } from 'shared/helpers/HTMLSanitizer.js';
 
@@ -92,6 +93,7 @@ app.use(FloatingVue, {
 app.use(hljsVuePlugin);
 
 app.component('woot-wizard', WootWizard);
+app.component('Icon', Icon);
 app.component('fluent-icon', FluentIcon);
 
 app.directive('resize', vResizeObserver);

@@ -3,7 +3,7 @@ import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import ResizableTextArea from 'shared/components/ResizableTextArea.vue';
 import Avatar from 'next/avatar/Avatar.vue';
-import FluentIcon from 'shared/components/FluentIcon/Index.vue';
+import Icon from 'dashboard/components-next/icon/Icon.vue';
 
 const props = defineProps({
   config: {
@@ -54,7 +54,7 @@ const getStatusText = computed(() => {
             )
           }}
         </span>
-        <FluentIcon icon="arrow-right" size="14" />
+        <Icon icon="arrow-right" size="14" />
       </button>
     </div>
     <div
@@ -73,8 +73,8 @@ const getStatusText = computed(() => {
         @blur="isInputFocused = false"
       />
       <div class="flex items-center gap-2 px-2">
-        <FluentIcon icon="emoji" />
-        <FluentIcon class="icon-send" icon="send" />
+        <Icon icon="emoji" />
+        <Icon class="icon-send" icon="send" />
       </div>
     </div>
   </div>

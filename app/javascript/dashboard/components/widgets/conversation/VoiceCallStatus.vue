@@ -58,7 +58,10 @@ const wasDeclinedByAgent = computed(
   () =>
     isFailed.value &&
     !isOutbound.value &&
-    props.endReason === VOICE_CALL_END_REASON.AGENT_REJECTED
+    [
+      VOICE_CALL_END_REASON.AGENT_REJECTED,
+      VOICE_CALL_END_REASON.AGENT_REJECTED_FROM_POPUP,
+    ].includes(props.endReason)
 );
 
 const labelKey = computed(() => {

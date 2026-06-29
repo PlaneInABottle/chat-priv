@@ -1,6 +1,5 @@
 <script setup>
 import { computed } from 'vue';
-import { useI18n } from 'vue-i18n';
 
 const props = defineProps({
   count: {
@@ -22,8 +21,6 @@ const props = defineProps({
     default: 99,
   },
 });
-
-const { t } = useI18n();
 
 const normalizedCount = computed(() => {
   const count = Number(props.count);

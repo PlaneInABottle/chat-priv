@@ -1,6 +1,6 @@
 <script setup>
-import { ref, computed, onMounted, watch, onBeforeRouteLeave } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { ref, computed, onMounted, watch } from 'vue';
+import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router';
 import { useMapGetter, useStore } from 'dashboard/composables/store';
 import { useAlert } from 'dashboard/composables';
 import { useI18n } from 'vue-i18n';
@@ -374,15 +374,14 @@ const goBack = () => {
   router.push({ name: 'ai_agents' });
 };
 
-onBeforeRouteLeave((to, from, next) => {
+onBeforeRouteLeave(() => {
   if (isFormDirty.value) {
     const confirm = window.confirm(t('AI_AGENT.UNSAVED_CHANGES_WARNING'));
     if (!confirm) {
-      next(false);
-      return;
+      return false;
     }
   }
-  next();
+  return true;
 });
 
 const handleTabChange = tab => {

@@ -57,10 +57,13 @@ label {
   @apply text-n-slate-11 text-sm font-medium;
 }
 
-// Focus outline removal
+// Focus outline: use focus-visible for keyboard users only
 .button,
 textarea {
-  outline: none;
+  &:focus-visible {
+    outline: 2px solid rgb(var(--brand));
+    outline-offset: 1px;
+  }
 }
 
 // Field base styles (Input, TextArea, Select)
