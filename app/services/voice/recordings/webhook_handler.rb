@@ -103,7 +103,7 @@ class Voice::Recordings::WebhookHandler
   end
 
   def file_result
-    Array(egress_info['fileResults'] || egress_info['file_results']).first || {}
+    egress_info['file'] || Array(egress_info['fileResults'] || egress_info['file_results']).first || {}
   end
 
   def egress_file_path

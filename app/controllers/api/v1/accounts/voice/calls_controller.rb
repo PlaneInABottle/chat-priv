@@ -17,6 +17,8 @@ class Api::V1::Accounts::Voice::CallsController < Api::V1::Accounts::BaseControl
     authorize @call.inbox, :show?
     return render_call_ended if @call.terminal?
 
+    take_over_agent_session_for_token!
+
     render json: Voice::Livekit::TokenService.new(
       call: @call,
       identity: token_identity,
@@ -31,21 +33,7 @@ class Api::V1::Accounts::Voice::CallsController < Api::V1::Accounts::BaseControl
     return render_call_ended if @call.terminal?
     return render_conversation_required unless @call.conversation
 
-    room_result = Voice::Livekit::RoomService.remove_agent_participants(call: @call)
-    meta = (@call.meta || {}).merge(
-      'handoff_status' => 'accepted',
-      'ai_status' => 'silent',
-      'livekit_agent_removal' => room_result
-    )
-    @call.update!(
-      accepted_by_agent: Current.user,
-      status: 'in_progress',
-      meta: meta
-    )
-    Voice::ConversationHandoffState.mark_accepted!(@call)
-    @call.conversation.update!(assignee: Current.user)
-    Voice::CallMessageBuilder.new(@call).update_status!(status: @call.status, agent: Current.user)
-    Voice::CallBroadcaster.safe_call_status_changed(@call)
+    take_over_agent_session!
     render json: Voice::CallSerializer.new(@call).payload
   end
 
@@ -64,14 +52,49 @@ class Api::V1::Accounts::Voice::CallsController < Api::V1::Accounts::BaseControl
   end
 
   def token_identity
-    prefix = VALID_PARTICIPANT_TYPES.include?(params[:participant_type].to_s) ? params[:participant_type].to_s : 'agent'
     [
-      prefix,
+      token_participant_type,
       "account-#{Current.account.id}",
       "user-#{Current.user&.id || 'system'}",
       "call-#{@call.id}",
       "session-#{client_session_id}"
     ].join('-')
+  end
+
+  def token_participant_type
+    participant_type = params[:participant_type].to_s
+    VALID_PARTICIPANT_TYPES.include?(participant_type) ? participant_type : 'agent'
+  end
+
+  def agent_token_takeover_required?
+    token_participant_type == 'agent' &&
+      @call.livekit? &&
+      @call.conversation.present? &&
+      @call.accepted_by_agent.blank?
+  end
+
+  def take_over_agent_session_for_token!
+    return unless agent_token_takeover_required?
+
+    take_over_agent_session!
+  end
+
+  def take_over_agent_session!
+    room_result = Voice::Livekit::RoomService.remove_agent_participants(call: @call)
+    meta = (@call.meta || {}).merge(
+      'handoff_status' => 'accepted',
+      'ai_status' => 'silent',
+      'livekit_agent_removal' => room_result
+    )
+    @call.update!(
+      accepted_by_agent: Current.user,
+      status: 'in_progress',
+      meta: meta
+    )
+    Voice::ConversationHandoffState.mark_accepted!(@call)
+    @call.conversation.update!(assignee: Current.user)
+    Voice::CallMessageBuilder.new(@call).update_status!(status: @call.status, agent: Current.user)
+    Voice::CallBroadcaster.safe_call_status_changed(@call)
   end
 
   def client_session_id
