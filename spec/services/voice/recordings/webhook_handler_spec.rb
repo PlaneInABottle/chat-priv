@@ -63,6 +63,30 @@ RSpec.describe Voice::Recordings::WebhookHandler do
     )
   end
 
+  it 'marks completed egress from top-level file results returned by ListEgress' do
+    described_class.perform!(
+      payload: {
+        'event' => 'egress_ended',
+        'egressInfo' => {
+          'egress_id' => 'EG_test',
+          'status' => 'EGRESS_COMPLETE',
+          'ended_at' => '1700000000000000000',
+          'file' => {
+            'duration' => '12000000000',
+            'location' => 's3://recordings/voice-recordings/account-1/call-1/final.ogg'
+          }
+        }
+      }
+    )
+
+    expect(recording.reload).to have_attributes(
+      status: 'completed',
+      duration_seconds: 12,
+      object_key: 'voice-recordings/account-1/call-1/final.ogg',
+      content_type: 'audio/ogg'
+    )
+  end
+
   it 'marks failed egress with the LiveKit error' do
     result = described_class.perform!(
       payload: {

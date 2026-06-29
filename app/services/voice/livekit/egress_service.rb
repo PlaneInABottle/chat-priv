@@ -7,6 +7,10 @@ class Voice::Livekit::EgressService
     new(call: call, recording: nil).stop(egress_id)
   end
 
+  def self.fetch(egress_id:, call:)
+    new(call: call, recording: nil).fetch(egress_id)
+  end
+
   def initialize(call:, recording:)
     @call = call
     @recording = recording
@@ -36,6 +40,21 @@ class Voice::Livekit::EgressService
     return success_result(parsed_body) if response.is_a?(Net::HTTPSuccess)
 
     failed_result(response.code, parsed_body['msg'] || parsed_body['error'] || response.body)
+  rescue StandardError => e
+    failed_result(nil, e.message, e.class.name)
+  end
+
+  def fetch(egress_id)
+    return skipped_result unless client.configured?
+
+    response = client.post(service: 'Egress', method: 'ListEgress', body: { egress_id: egress_id })
+    parsed_body = client.parse_json(response.body)
+    return failed_result(response.code, parsed_body['msg'] || parsed_body['error'] || response.body) unless response.is_a?(Net::HTTPSuccess)
+
+    egress_info = matching_egress_info(parsed_body, egress_id)
+    return failed_result(response.code, 'egress not found') unless egress_info
+
+    success_result(egress_info)
   rescue StandardError => e
     failed_result(nil, e.message, e.class.name)
   end
@@ -93,6 +112,15 @@ class Voice::Livekit::EgressService
       'egress_status' => parsed_body['status'],
       'response' => parsed_body
     }.compact
+  end
+
+  def matching_egress_info(parsed_body, egress_id)
+    direct_id = parsed_body['egress_id'] || parsed_body['egressId']
+    return parsed_body if direct_id == egress_id
+
+    Array(parsed_body['items']).find do |item|
+      (item['egress_id'] || item['egressId']) == egress_id
+    end
   end
 
   def failed_result(code, message, error_class = nil)

@@ -19,6 +19,12 @@ RSpec.describe 'Api::V1::Accounts::Voice::Calls', type: :request do
         'removed_identities' => ['agent-worker-1']
       }
     )
+    allow(Voice::Livekit::RoomService).to receive(:remove_customer_participants).and_return(
+      {
+        'status' => 'skipped',
+        'reason' => 'no_customer_participants'
+      }
+    )
     allow(Voice::Livekit::RoomService).to receive(:delete_room).and_return({ 'status' => 'deleted', 'room' => 'room-1' })
   end
 
@@ -176,6 +182,50 @@ RSpec.describe 'Api::V1::Accounts::Voice::Calls', type: :request do
 
       expect(response).to have_http_status(:ok)
       expect(response.parsed_body).to eq('identity' => 'token-identity')
+    end
+
+    it 'takes over the AI session before issuing an agent token for a conversation-backed call' do
+      service = instance_double(Voice::Livekit::TokenService, payload: { identity: 'agent-token' })
+      allow(Voice::Livekit::TokenService).to receive(:new).and_return(service)
+
+      post "/api/v1/accounts/#{account.id}/voice/calls/#{conversation_call.id}/token",
+           params: { participant_type: 'agent', client_session_id: 'tab-a' },
+           headers: agent.create_new_auth_token,
+           as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body).to eq('identity' => 'agent-token')
+      expect(Voice::Livekit::RoomService).to have_received(:remove_agent_participants).with(call: conversation_call)
+      expect(conversation_call.reload).to have_attributes(
+        accepted_by_agent: agent,
+        handoff_status: 'accepted',
+        ai_status: 'silent'
+      )
+      expect(conversation_call.conversation.reload.assignee).to eq(agent)
+      expect(conversation_call.message.reload.content_attributes['data']).to include(
+        'status' => 'in-progress',
+        'handoff_status' => 'accepted',
+        'ai_status' => 'silent'
+      )
+    end
+
+    it 'does not take over the AI session when issuing a caller token' do
+      service = instance_double(Voice::Livekit::TokenService, payload: { identity: 'caller-token' })
+      allow(Voice::Livekit::TokenService).to receive(:new).and_return(service)
+
+      post "/api/v1/accounts/#{account.id}/voice/calls/#{conversation_call.id}/token",
+           params: { participant_type: 'caller', client_session_id: 'tab-a' },
+           headers: agent.create_new_auth_token,
+           as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body).to eq('identity' => 'caller-token')
+      expect(Voice::Livekit::RoomService).not_to have_received(:remove_agent_participants)
+      expect(conversation_call.reload).to have_attributes(
+        accepted_by_agent: nil,
+        handoff_status: 'none',
+        ai_status: 'waiting'
+      )
     end
 
     it 'does not issue a LiveKit token for an ended call' do

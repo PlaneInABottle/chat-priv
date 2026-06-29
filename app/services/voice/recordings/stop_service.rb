@@ -1,4 +1,7 @@
 class Voice::Recordings::StopService
+  TERMINAL_EGRESS_STATUSES = %w[EGRESS_COMPLETE EGRESS_FAILED EGRESS_ABORTED EGRESS_LIMIT_REACHED].freeze
+  FAILED_TERMINAL_EGRESS_STATUSES = (TERMINAL_EGRESS_STATUSES - ['EGRESS_COMPLETE']).freeze
+
   def self.perform(call:)
     new(call: call).perform
   end
@@ -13,7 +16,9 @@ class Voice::Recordings::StopService
 
     result = Voice::Livekit::EgressService.stop(egress_id: recording.egress_id, call: call)
     recording.update!(metadata: (recording.metadata || {}).merge('stop_result' => result))
-    finalize_from_stop_response(recording, result)
+    result = reconcile_terminal_egress(recording, result)
+    finalize_from_stop_response(result)
+    finalize_not_found_stop_failure(recording, result)
     result
   end
 
@@ -21,10 +26,23 @@ class Voice::Recordings::StopService
 
   attr_reader :call
 
-  def finalize_from_stop_response(recording, result)
+  def reconcile_terminal_egress(recording, result)
+    return result unless already_terminal_stop_failure?(result)
+
+    lookup_result = Voice::Livekit::EgressService.fetch(egress_id: recording.egress_id, call: call)
+    recording.update!(
+      metadata: (recording.metadata || {}).merge('stop_reconcile_result' => lookup_result)
+    )
+    return lookup_result if lookup_result['status'] == 'ok'
+
+    finalize_failed_terminal_stop(recording, result)
+    result.merge('reconcile_result' => lookup_result)
+  end
+
+  def finalize_from_stop_response(result)
     response = result['response']
     return unless result['status'] == 'ok' && response.is_a?(Hash)
-    return unless response['status'].to_s == 'EGRESS_COMPLETE'
+    return unless terminal_egress_status?(response['status'])
 
     Voice::Recordings::WebhookHandler.perform!(
       payload: {
@@ -32,5 +50,52 @@ class Voice::Recordings::StopService
         'egressInfo' => response
       }
     )
+  end
+
+  def finalize_failed_terminal_stop(recording, result)
+    egress_status = terminal_status_from_error(result['error'])
+    return unless FAILED_TERMINAL_EGRESS_STATUSES.include?(egress_status)
+
+    finalize_failed_recording(recording, egress_status, result['error'])
+  end
+
+  def finalize_not_found_stop_failure(recording, result)
+    return unless egress_not_found_stop_failure?(result)
+
+    finalize_failed_recording(recording, 'EGRESS_FAILED', result['error'])
+  end
+
+  def finalize_failed_recording(recording, egress_status, error)
+    Voice::Recordings::WebhookHandler.perform!(
+      payload: {
+        'event' => 'egress_ended',
+        'egressInfo' => {
+          'egress_id' => recording.egress_id,
+          'status' => egress_status,
+          'error' => error,
+          'ended_at' => (Time.zone.now.to_f * 1_000_000_000).to_i
+        }
+      }
+    )
+  end
+
+  def already_terminal_stop_failure?(result)
+    result['status'] == 'failed' &&
+      result['code'].to_s == '412' &&
+      terminal_status_from_error(result['error']).present?
+  end
+
+  def terminal_status_from_error(error)
+    TERMINAL_EGRESS_STATUSES.find { |status| error.to_s.include?(status) }
+  end
+
+  def terminal_egress_status?(status)
+    status.to_s.in?(TERMINAL_EGRESS_STATUSES + %w[3 4 5 6])
+  end
+
+  def egress_not_found_stop_failure?(result)
+    result['status'] == 'failed' &&
+      result['code'].to_s == '404' &&
+      result['error'].to_s.match?(/egress|object/i)
   end
 end
