@@ -18,6 +18,7 @@ const router = useRouter();
 
 const agents = useMapGetter('aiAgent/getAiAgents');
 const usage = useMapGetter('aiAgent/getUsage');
+const usageError = useMapGetter('aiAgent/getUsageError');
 const uiFlags = useMapGetter('aiAgent/getUIFlags');
 
 const deleteDialogRef = ref(null);
@@ -46,12 +47,12 @@ const confirmDelete = async () => {
   try {
     await store.dispatch('aiAgent/delete', agentToDelete.value.id);
     useAlert(t('AI_AGENTS.ITEM.DELETE_SUCCESS'));
+    agentToDelete.value = null;
+    deleteDialogRef.value?.close();
   } catch {
     useAlert(t('AI_AGENTS.ITEM.DELETE_ERROR'));
   } finally {
     isDeleting.value = false;
-    agentToDelete.value = null;
-    deleteDialogRef.value?.close();
   }
 };
 </script>
@@ -76,7 +77,7 @@ const confirmDelete = async () => {
 
     <template #body>
       <div class="flex flex-col gap-6">
-        <AiAgentUsageSummary :usage="usage" />
+        <AiAgentUsageSummary :usage="usage" :has-error="usageError" />
         <div
           v-if="hasAgents"
           class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"

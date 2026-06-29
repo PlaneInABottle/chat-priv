@@ -4,6 +4,7 @@
     "DESCRIPTION": "Configure your AI assistant to help manage conversations",
     "LEARN_MORE": "Learn more about AI Assistant",
     "BACK": "Back",
+    "UNSAVED_CHANGES_WARNING": "You have unsaved changes. Are you sure you want to leave?",
     "TABS": {
       "SETTINGS": "Settings",
       "TEST": "Test"
@@ -58,6 +59,7 @@
       "HELP": "Monthly AI conversation usage for this account.",
       "EXHAUSTED_HELP": "AI replies are paused until the monthly limit resets. New customer messages are routed to humans.",
       "LOADING": "Loading...",
+      "UNAVAILABLE": "Unavailable",
       "DISABLED": "Disabled",
       "DISABLED_HELP": "AI Assistant is disabled for this account.",
       "UNLIMITED_REMAINING": "Unlimited",

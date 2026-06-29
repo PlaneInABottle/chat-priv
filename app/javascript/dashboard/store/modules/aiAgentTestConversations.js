@@ -10,6 +10,7 @@ export const state = {
     isFetchingItem: false,
     isCreating: false,
     isDeleting: false,
+    isClearing: false,
     isSending: false,
   },
 };
@@ -132,7 +133,7 @@ export const actions = {
     const resolvedAiAgentId = aiAgentId || rootState.aiAgent.activeId;
     if (!resolvedAiAgentId) return;
 
-    commit('SET_UI_FLAG', { isDeleting: true });
+    commit('SET_UI_FLAG', { isClearing: true });
     try {
       const api = new AiAgentTestConversationsAPI(resolvedAiAgentId);
       await api.clearAll();
@@ -140,7 +141,7 @@ export const actions = {
     } catch (error) {
       throwErrorMessage(error);
     } finally {
-      commit('SET_UI_FLAG', { isDeleting: false });
+      commit('SET_UI_FLAG', { isClearing: false });
     }
   },
 

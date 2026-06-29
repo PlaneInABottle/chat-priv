@@ -8,11 +8,15 @@ const props = defineProps({
     type: Object,
     default: null,
   },
+  hasError: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const { t } = useI18n();
 
-const isLoading = computed(() => !props.usage);
+const isLoading = computed(() => !props.usage && !props.hasError);
 const isDisabled = computed(
   () => props.usage?.enabled === false || props.usage?.status === 'disabled'
 );
@@ -29,6 +33,7 @@ const progressPercent = computed(() => {
 });
 
 const remainingText = computed(() => {
+  if (props.hasError) return t('AI_AGENT.USAGE_REPORT.UNAVAILABLE');
   if (isLoading.value) return t('AI_AGENT.USAGE_REPORT.LOADING');
   if (isDisabled.value) return t('AI_AGENT.USAGE_REPORT.DISABLED');
   if (isUnlimited.value) return t('AI_AGENT.USAGE_REPORT.UNLIMITED_REMAINING');
@@ -39,6 +44,7 @@ const remainingText = computed(() => {
 });
 
 const usageText = computed(() => {
+  if (props.hasError) return '';
   if (isLoading.value) return t('AI_AGENT.USAGE_REPORT.LOADING');
   if (isDisabled.value) return t('AI_AGENT.USAGE_REPORT.DISABLED_HELP');
   if (isUnlimited.value) {
@@ -139,8 +145,13 @@ const iconClasses = computed(() => {
     </div>
 
     <div
-      v-if="!isUnlimited"
+      v-if="!isUnlimited && !isLoading && !hasError"
       class="h-2 overflow-hidden rounded-full bg-n-slate-4"
+      role="progressbar"
+      :aria-valuenow="progressPercent"
+      aria-valuemin="0"
+      aria-valuemax="100"
+      :aria-label="t('AI_AGENT.USAGE_REPORT.TITLE')"
     >
       <div
         class="h-full rounded-full"
