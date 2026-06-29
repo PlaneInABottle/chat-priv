@@ -78,6 +78,37 @@ RSpec.describe Voice::Livekit::EgressService do
     end
   end
 
+  describe '.fetch' do
+    it 'fetches egress details by id with roomRecord permission' do
+      list_request = stub_request(:post, 'https://test.livekit.cloud/twirp/livekit.Egress/ListEgress')
+                     .with do |request|
+        body = JSON.parse(request.body)
+        token = request.headers.fetch('Authorization').delete_prefix('Bearer ')
+        claims = JWT.decode(token, 'recording-secret', true, { algorithm: 'HS256' }).first
+
+        expect(body).to eq('egress_id' => 'EG_test')
+        expect(claims.dig('video', 'roomRecord')).to be(true)
+        expect(claims.dig('video', 'room')).to eq('room-1')
+        expect(claims['iss']).to eq('recording-key')
+      end.to_return(
+        status: 200,
+        body: { items: [{ egress_id: 'EG_test', status: 'EGRESS_COMPLETE' }] }.to_json,
+        headers: { 'Content-Type' => 'application/json' }
+      )
+
+      result = with_modified_env(recording_env) do
+        described_class.fetch(egress_id: 'EG_test', call: call)
+      end
+
+      expect(result).to include(
+        'status' => 'ok',
+        'egress_id' => 'EG_test',
+        'egress_status' => 'EGRESS_COMPLETE'
+      )
+      expect(list_request).to have_been_requested
+    end
+  end
+
   def recording_env
     {
       'LIVEKIT_URL' => 'wss://test.livekit.cloud',
