@@ -36,6 +36,22 @@ const ICON_MAP = {
   [VOICE_CALL_STATUS.MISSED]: 'i-ph-phone-x-bold',
   [VOICE_CALL_STATUS.ENDED]: 'i-ph-phone-bold',
 };
+const RECORDING_STALE_AFTER_MS = 2 * 60 * 1000;
+
+const timestampFromValue = value => {
+  if (!value) return null;
+  const numericValue =
+    typeof value === 'number' || /^\d+(\.\d+)?$/.test(value)
+      ? Number(value)
+      : null;
+  if (Number.isFinite(numericValue)) {
+    return numericValue > 1_000_000_000_000
+      ? numericValue
+      : numericValue * 1000;
+  }
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
 
 const { t } = useI18n();
 const store = useStore();
@@ -360,9 +376,33 @@ const recordingStatus = computed(() => {
   return recording.status || null;
 });
 
+const recordingUpdatedAt = computed(() => {
+  const recording = callField('recording') || {};
+  return recording.updatedAt || recording.updated_at || null;
+});
+
+const callTerminalReferenceAt = computed(
+  () =>
+    callField('endedAt', 'ended_at') ||
+    callField('updatedAt', 'updated_at') ||
+    recordingUpdatedAt.value
+);
+
+const isTerminalRecordingStale = computed(() => {
+  if (!isLivekitTerminal.value) return false;
+  const referenceAt = timestampFromValue(callTerminalReferenceAt.value);
+  if (referenceAt === null) return false;
+  return Date.now() - referenceAt > RECORDING_STALE_AFTER_MS;
+});
+
 const recordingStatusLabel = computed(() => {
   if (recordingAttachment.value) return '';
   if (['starting', 'active'].includes(recordingStatus.value)) {
+    if (isLivekitTerminal.value) {
+      return isTerminalRecordingStale.value
+        ? t('CONVERSATION.VOICE_CALL.RECORDING_FAILED')
+        : t('CONVERSATION.VOICE_CALL.RECORDING_PROCESSING');
+    }
     return t('CONVERSATION.VOICE_CALL.RECORDING_PROCESSING');
   }
   if (recordingStatus.value === 'failed') {
