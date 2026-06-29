@@ -75,7 +75,7 @@ const labelKey = computed(() => {
       : 'CONVERSATION.VOICE_CALL.INCOMING_CALL';
   }
   if (wasDeclinedByAgent.value) {
-    return 'CONVERSATION.VOICE_CALL.MISSED_CALL_DECLINED_BY';
+    return 'CONVERSATION.VOICE_CALL.MISSED_CALL';
   }
   return isFailed.value
     ? 'CONVERSATION.VOICE_CALL.MISSED_CALL'
