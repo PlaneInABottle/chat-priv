@@ -3,12 +3,19 @@ require 'net/http'
 # rubocop:disable Metrics/ClassLength
 class Voice::Diagnostics::CallBundle
   VOICE_AGENT_HEALTH_TIMEOUT = 1
+  RECORDING_FINALIZATION_GRACE_PERIOD = 2.minutes
   CALLER_END_REASONS = %w[
     caller_disconnected caller_rejected caller_unavailable sip_trunk_failure participant_timeout
   ].freeze
   AGENT_END_REASONS = %w[
     agent_ended agent_ended_from_popup agent_ended_from_session browser_test_ended conversation_resolved voice_ai_disabled
   ].freeze
+  NEXT_CHECKS_BY_REASON = {
+    'agent_never_joined' => 'Inspect voice agent worker health and LiveKit dispatch logs.',
+    'recording_failed' => 'Inspect recording egress webhook and storage credentials.',
+    'recording_still_active_after_call_end' => 'Inspect LiveKit egress end webhook delivery and recording finalization cleanup.',
+    'tool_failed' => 'Inspect failed tool event arguments, result, and integration connection status.'
+  }.freeze
 
   def initialize(call:, raw: false, include_livekit: true, include_system_health: true)
     @call = call
@@ -354,6 +361,7 @@ class Voice::Diagnostics::CallBundle
     {
       'recording_failed' => recording_failed?,
       'tool_failed' => tool_failed?,
+      'recording_still_active_after_call_end' => recording_still_active_after_call_end?,
       'agent_never_joined' => agent_never_joined?,
       'call_ended_by_caller' => CALLER_END_REASONS.include?(call.end_reason),
       'call_ended_by_agent' => AGENT_END_REASONS.include?(call.end_reason),
@@ -364,6 +372,22 @@ class Voice::Diagnostics::CallBundle
 
   def recording_failed?
     recordings.any? { |recording| recording.status == 'failed' } || call.meta&.dig('recording_stop', 'status') == 'failed'
+  end
+
+  def recording_still_active_after_call_end?
+    return false unless call.terminal?
+    return false unless terminal_reference_at < RECORDING_FINALIZATION_GRACE_PERIOD.ago
+
+    recordings.any?(&:active?)
+  end
+
+  def terminal_reference_at
+    return call.updated_at if call.ended_at.blank?
+    return Time.zone.at(call.ended_at.to_f) if call.ended_at.to_s.match?(/\A\d+(\.\d+)?\z/)
+
+    Time.zone.parse(call.ended_at.to_s)
+  rescue ArgumentError
+    call.updated_at
   end
 
   def tool_failed?
@@ -378,10 +402,7 @@ class Voice::Diagnostics::CallBundle
   end
 
   def next_checks
-    checks = []
-    checks << 'Inspect voice agent worker health and LiveKit dispatch logs.' if failure_reasons.include?('agent_never_joined')
-    checks << 'Inspect recording egress webhook and storage credentials.' if failure_reasons.include?('recording_failed')
-    checks << 'Inspect failed tool event arguments, result, and integration connection status.' if failure_reasons.include?('tool_failed')
+    checks = failure_reasons.filter_map { |reason| NEXT_CHECKS_BY_REASON[reason] }
     checks << 'Inspect LiveKit room participant removal/delete result.' if failure_reasons.any? { |reason| reason.start_with?('livekit_') }
     checks << 'No obvious failure detected from persisted call diagnostics.' if checks.empty?
     checks

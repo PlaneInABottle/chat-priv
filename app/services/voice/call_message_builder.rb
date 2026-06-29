@@ -59,7 +59,8 @@ class Voice::CallMessageBuilder
       'livekit_room_name' => call.livekit_room_name,
       'test_call' => call.test_call?,
       'test_call_source' => call.test_call_source,
-      'test_call_initiated_by_user_id' => call.test_call_initiated_by_user_id
+      'test_call_initiated_by_user_id' => call.test_call_initiated_by_user_id,
+      'updated_at' => call.updated_at.iso8601
     }
   end
 
