@@ -55,6 +55,7 @@ class Voice::CallSerializer
       ai_status: call.ai_status,
       summary: summary_payload,
       started_at: call.started_at&.iso8601,
+      updated_at: call.updated_at.iso8601,
       duration_seconds: call.duration_seconds,
       end_reason: call.end_reason
     }
@@ -91,6 +92,7 @@ class Voice::CallSerializer
       duration_seconds: recording.duration_seconds,
       started_at: recording.started_at&.iso8601,
       completed_at: recording.completed_at&.iso8601,
+      updated_at: recording.updated_at.iso8601,
       error_message: recording.error_message,
       url: recording.completed? ? Voice::Recordings::StorageConfig.new.signed_url(recording) : nil
     }.compact

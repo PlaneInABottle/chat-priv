@@ -71,6 +71,19 @@ RSpec.describe Voice::Diagnostics::CallBundle do
     expect(payload[:transcript_segments].first[:text]).to eq('Email test@example.com telefon +90 555 111 22 33')
   end
 
+  it 'flags recordings that are still active after a terminal call' do
+    recording = create(:voice_recording, account: account, call: call, status: 'active')
+    recording.update!(updated_at: Time.current)
+    call.update!(updated_at: 5.minutes.ago)
+
+    payload = described_class.new(call: call, include_livekit: false, include_system_health: false).payload
+
+    expect(payload[:failure_reasons]).to include('recording_still_active_after_call_end')
+    expect(payload[:next_checks]).to include(
+      'Inspect LiveKit egress end webhook delivery and recording finalization cleanup.'
+    )
+  end
+
   it 'includes LiveKit room summary when requested' do
     allow(Voice::Livekit::RoomService).to receive(:participant_summary).with(call: call).and_return(
       'status' => 'active',
