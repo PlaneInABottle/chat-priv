@@ -106,3 +106,8 @@ __pycache__/
 .pnpm-store/*
 local/
 Procfile.worktree
+
+# UI/UX work artifacts
+.ui-screenshots/
+.ui-auth-state.json
+ecosystem.config.cjs

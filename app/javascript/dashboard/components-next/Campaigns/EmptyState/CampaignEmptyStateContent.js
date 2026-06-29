@@ -4,7 +4,7 @@ export const ONGOING_CAMPAIGN_EMPTY_STATE_CONTENT = [
     title: 'Chatbot Assistance',
     inbox: {
       id: 2,
-      name: 'PaperLayer Website',
+      name: 'Website Inbox',
       channel_type: 'Channel::WebWidget',
       phone_number: '',
     },
@@ -17,7 +17,7 @@ export const ONGOING_CAMPAIGN_EMPTY_STATE_CONTENT = [
     enabled: true,
     campaign_type: 'ongoing',
     trigger_rules: {
-      url: 'https://www.kozmopath.com/features/chatbot/',
+      url: 'https://www.example.com/features/chatbot/',
       time_on_page: 10,
     },
     trigger_only_during_business_hours: true,
@@ -29,7 +29,7 @@ export const ONGOING_CAMPAIGN_EMPTY_STATE_CONTENT = [
     title: 'Pricing Information Support',
     inbox: {
       id: 2,
-      name: 'PaperLayer Website',
+      name: 'Website Inbox',
       channel_type: 'Channel::WebWidget',
       phone_number: '',
     },
@@ -42,7 +42,7 @@ export const ONGOING_CAMPAIGN_EMPTY_STATE_CONTENT = [
     enabled: false,
     campaign_type: 'ongoing',
     trigger_rules: {
-      url: 'https://www.kozmopath.com/pricings',
+      url: 'https://www.example.com/pricings',
       time_on_page: 10,
     },
     trigger_only_during_business_hours: false,
@@ -54,20 +54,20 @@ export const ONGOING_CAMPAIGN_EMPTY_STATE_CONTENT = [
     title: 'Product Setup Assistance',
     inbox: {
       id: 2,
-      name: 'PaperLayer Website',
+      name: 'Website Inbox',
       channel_type: 'Channel::WebWidget',
       phone_number: '',
     },
     sender: {
       id: 1,
-      name: 'Kozmopath',
+      name: 'Support Team',
     },
-    message: 'Hi! Kozmopath here. Need help setting up? Let me know!',
+    message: 'Hi! Support team here. Need help setting up? Let me know!',
     campaign_status: 'active',
     enabled: false,
     campaign_type: 'ongoing',
     trigger_rules: {
-      url: 'https://{*.}?kozmopath.com/apps/account/*/settings/inboxes/new/',
+      url: 'https://{*.}?example.com/apps/account/*/settings/inboxes/new/',
       time_on_page: 10,
     },
     trigger_only_during_business_hours: false,
@@ -79,7 +79,7 @@ export const ONGOING_CAMPAIGN_EMPTY_STATE_CONTENT = [
     title: 'General Assistance Campaign',
     inbox: {
       id: 2,
-      name: 'PaperLayer Website',
+      name: 'Website Inbox',
       channel_type: 'Channel::WebWidget',
       phone_number: '',
     },
@@ -108,7 +108,7 @@ export const ONE_OFF_CAMPAIGN_EMPTY_STATE_CONTENT = [
     title: 'Customer Feedback Request',
     inbox: {
       id: 6,
-      name: 'PaperLayer Mobile',
+      name: 'Mobile Inbox',
       channel_type: 'Channel::Sms',
       phone_number: '+29818373149903',
       provider: 'default',
@@ -134,7 +134,7 @@ export const ONE_OFF_CAMPAIGN_EMPTY_STATE_CONTENT = [
     title: 'Welcome New Customer',
     inbox: {
       id: 6,
-      name: 'PaperLayer Mobile',
+      name: 'Mobile Inbox',
       channel_type: 'Channel::Sms',
       phone_number: '+29818373149903',
       provider: 'default',
@@ -161,7 +161,7 @@ export const ONE_OFF_CAMPAIGN_EMPTY_STATE_CONTENT = [
     title: 'New Business Welcome',
     inbox: {
       id: 6,
-      name: 'PaperLayer Mobile',
+      name: 'Mobile Inbox',
       channel_type: 'Channel::Sms',
       phone_number: '+29818373149903',
       provider: 'default',
@@ -189,7 +189,7 @@ export const ONE_OFF_CAMPAIGN_EMPTY_STATE_CONTENT = [
     title: 'New Member Onboarding',
     inbox: {
       id: 6,
-      name: 'PaperLayer Mobile',
+      name: 'Mobile Inbox',
       channel_type: 'Channel::Sms',
       phone_number: '+29818373149903',
       provider: 'default',

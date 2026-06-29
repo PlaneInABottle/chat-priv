@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useRouter } from 'vue-router';
 import Button from 'dashboard/components-next/button/Button.vue';
 
 const props = defineProps({
@@ -13,6 +14,7 @@ const props = defineProps({
 const emit = defineEmits(['delete']);
 
 const { t } = useI18n();
+const router = useRouter();
 
 const inboxCount = computed(
   () => props.agent.agent_bot?.inbox_ids?.length || 0
@@ -22,6 +24,13 @@ const formattedDate = computed(() => {
   if (!props.agent.created_at) return '';
   return new Date(props.agent.created_at).toLocaleDateString();
 });
+
+const goToDetail = () => {
+  router.push({
+    name: 'ai_agent_detail',
+    params: { id: props.agent.id },
+  });
+};
 </script>
 
 <template>
@@ -58,21 +67,14 @@ const formattedDate = computed(() => {
     </div>
 
     <div class="flex items-center gap-2 mt-auto">
-      <router-link
-        :to="{
-          name: 'ai_agent_detail',
-          params: { id: agent.id },
-        }"
+      <Button
+        variant="faded"
+        color="slate"
+        size="small"
         class="flex-1"
-      >
-        <Button
-          variant="faded"
-          color="slate"
-          size="small"
-          class="w-full"
-          :label="t('AI_AGENTS.ITEM.EDIT')"
-        />
-      </router-link>
+        :label="t('AI_AGENTS.ITEM.EDIT')"
+        @click="goToDetail"
+      />
       <Button
         variant="faded"
         color="ruby"
