@@ -106,4 +106,5 @@ export const VOICE_CALL_OUTBOUND_INIT_STATUS = {
 
 export const VOICE_CALL_END_REASON = {
   AGENT_REJECTED: 'agent_rejected',
+  AGENT_REJECTED_FROM_POPUP: 'agent_rejected_from_popup',
 };

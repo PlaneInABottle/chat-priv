@@ -1,4 +1,5 @@
 <script setup>
+import Icon from 'dashboard/components-next/icon/Icon.vue';
 import { computed, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { useStore } from 'vuex';
@@ -135,7 +136,7 @@ const copyConversationId = async () => {
           >
             {{ currentContact.name }}
           </span>
-          <fluent-icon
+          <Icon
             v-if="!isHMACVerified"
             v-tooltip="$t('CONVERSATION.UNVERIFIED_SESSION')"
             size="14"

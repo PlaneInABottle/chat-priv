@@ -10,6 +10,7 @@
     "BETA_DESCRIPTION": "This feature is in beta and may change as we improve it.",
     "ACCEPT": "Accept",
     "DISCARD": "Discard",
+    "SKIP_TO_CONTENT": "Skip to main content",
     "PREFERRED": "Preferred"
   },
   "CHOICE_TOGGLE": {

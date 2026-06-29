@@ -10,10 +10,12 @@ import {
 } from 'dashboard/helper/pushHelper.js';
 import { FEATURE_FLAGS } from 'dashboard/featureFlags';
 import ToggleSwitch from 'dashboard/components-next/switch/Switch.vue';
+import Icon from 'dashboard/components-next/icon/Icon.vue';
 import { NOTIFICATION_TYPES } from './constants';
 
 export default {
   components: {
+    Icon,
     TableHeaderCell,
     ToggleSwitch,
     CheckBox,
@@ -275,11 +277,7 @@ export default {
       class="flex items-center justify-between w-full gap-2 p-4 border border-solid border-n-weak rounded-xl"
     >
       <div class="flex flex-row items-center gap-2">
-        <fluent-icon
-          icon="alert"
-          class="flex-shrink-0 text-n-slate-12"
-          size="18"
-        />
+        <Icon icon="alert" class="flex-shrink-0 text-n-slate-12" size="18" />
         <span class="text-body-main text-n-slate-12">
           {{ $t('PROFILE_SETTINGS.FORM.NOTIFICATIONS.BROWSER_PERMISSION') }}
         </span>

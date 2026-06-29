@@ -8,6 +8,7 @@ defineProps({
   lastMessage: { type: Object, default: null },
   voiceCallStatus: { type: String, default: '' },
   voiceCallDirection: { type: String, default: '' },
+  voiceCallEndReason: { type: String, default: '' },
   unreadCount: { type: Number, default: 0 },
   showExpandedPreview: { type: Boolean, default: false },
 });
@@ -23,6 +24,7 @@ defineProps({
       key="voice-status-row"
       :status="voiceCallStatus"
       :direction="voiceCallDirection"
+      :end-reason="voiceCallEndReason"
       :class="unreadCount > 0 ? 'text-n-slate-12' : 'text-n-slate-11'"
     />
     <MessagePreview

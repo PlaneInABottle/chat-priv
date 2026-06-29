@@ -1,4 +1,5 @@
 <script setup>
+import Icon from 'dashboard/components-next/icon/Icon.vue';
 import { ref, useTemplateRef, provide, computed, watch } from 'vue';
 import { useElementSize } from '@vueuse/core';
 
@@ -74,7 +75,7 @@ watch(
       class="items-center rounded-none cursor-pointer flex h-auto justify-center min-w-8"
       @click="onScrollClick('left')"
     >
-      <fluent-icon icon="chevron-left" :size="16" />
+      <Icon icon="chevron-left" :size="16" />
     </button>
     <ul
       ref="tabsList"
@@ -90,7 +91,7 @@ watch(
       class="items-center rounded-none cursor-pointer flex h-auto justify-center min-w-8"
       @click="onScrollClick('right')"
     >
-      <fluent-icon icon="chevron-right" :size="16" />
+      <Icon icon="chevron-right" :size="16" />
     </button>
   </div>
 </template>

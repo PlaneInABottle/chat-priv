@@ -1,9 +1,11 @@
 <script>
 import { mapGetters } from 'vuex';
 import Spinner from 'dashboard/components-next/spinner/Spinner.vue';
+import Icon from 'dashboard/components-next/icon/Icon.vue';
 
 export default {
   components: {
+    Icon,
     Spinner,
   },
   props: {
@@ -34,7 +36,7 @@ export default {
       <Spinner class="text-n-brand" />
     </div>
     <div v-else class="flex flex-col items-center gap-2">
-      <fluent-icon icon="mail-inbox" size="40" class="text-n-slate-11" />
+      <Icon icon="mail-inbox" size="40" class="text-n-slate-11" />
       <span class="text-sm font-medium text-n-slate-11">
         {{ emptyMessage }}
       </span>

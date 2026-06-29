@@ -63,7 +63,7 @@ describe('AiAgentPromptEditor', () => {
         'undo',
         'redo',
       ],
-      minHeight: 24,
+      minHeight: 12,
       maxHeight: 48,
     });
   });

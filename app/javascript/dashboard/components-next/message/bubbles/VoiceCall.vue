@@ -119,7 +119,10 @@ const endReason = computed(() => callField('endReason', 'end_reason'));
 const wasDeclinedByAgent = computed(
   () =>
     isMissedInbound.value &&
-    endReason.value === VOICE_CALL_END_REASON.AGENT_REJECTED
+    [
+      VOICE_CALL_END_REASON.AGENT_REJECTED,
+      VOICE_CALL_END_REASON.AGENT_REJECTED_FROM_POPUP,
+    ].includes(endReason.value)
 );
 const acceptedByAgentId = computed(() =>
   callField('acceptedByAgentId', 'accepted_by_agent_id')

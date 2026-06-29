@@ -140,15 +140,27 @@ export default {
   >
     <UpdateBanner :latest-chatwoot-version="latestChatwootVersion" />
     <StatusBanner />
+    <a
+      href="#main-content"
+      class="sr-only focus:not-sr-only focus:absolute focus:z-[9999] focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:bg-n-solid-2 focus:text-n-slate-12 focus:rounded-lg focus:shadow-lg focus:border focus:border-n-weak"
+    >
+      {{ $t('GENERAL.SKIP_TO_CONTENT') }}
+    </a>
     <template v-if="currentAccountId">
       <PendingEmailVerificationBanner v-if="hideOnOnboardingView" />
       <PaymentPendingBanner v-if="hideOnOnboardingView" />
     </template>
-    <router-view v-slot="{ Component }">
-      <transition name="fade" mode="out-in">
-        <component :is="Component" />
-      </transition>
-    </router-view>
+    <div
+      id="main-content"
+      tabindex="-1"
+      class="outline-none flex flex-col flex-1 min-h-0"
+    >
+      <router-view v-slot="{ Component }">
+        <transition name="fade" mode="out-in">
+          <component :is="Component" />
+        </transition>
+      </router-view>
+    </div>
     <WootSnackbarBox />
     <NetworkNotification />
   </div>
