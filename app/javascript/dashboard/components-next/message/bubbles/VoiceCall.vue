@@ -31,6 +31,10 @@ const ICON_MAP = {
   [VOICE_CALL_STATUS.COMPLETED]: 'i-ph-phone-bold',
   [VOICE_CALL_STATUS.NO_ANSWER]: 'i-ph-phone-x-bold',
   [VOICE_CALL_STATUS.FAILED]: 'i-ph-phone-x-bold',
+  [VOICE_CALL_STATUS.BUSY]: 'i-ph-phone-x-bold',
+  [VOICE_CALL_STATUS.CANCELED]: 'i-ph-phone-slash-bold',
+  [VOICE_CALL_STATUS.MISSED]: 'i-ph-phone-x-bold',
+  [VOICE_CALL_STATUS.ENDED]: 'i-ph-phone-bold',
 };
 
 const { t } = useI18n();
@@ -101,9 +105,16 @@ const isLivekit = computed(
   () => callField('provider') === VOICE_CALL_PROVIDERS.LIVEKIT
 );
 const isFailed = computed(() =>
-  [VOICE_CALL_STATUS.NO_ANSWER, VOICE_CALL_STATUS.FAILED].includes(status.value)
+  [
+    VOICE_CALL_STATUS.NO_ANSWER,
+    VOICE_CALL_STATUS.FAILED,
+    VOICE_CALL_STATUS.BUSY,
+    VOICE_CALL_STATUS.CANCELED,
+    VOICE_CALL_STATUS.MISSED,
+  ].includes(status.value)
 );
 const isMissedInbound = computed(() => isFailed.value && !isOutbound.value);
+const isEnded = computed(() => status.value === VOICE_CALL_STATUS.ENDED);
 const endReason = computed(() => callField('endReason', 'end_reason'));
 const wasDeclinedByAgent = computed(
   () =>
@@ -176,6 +187,15 @@ const label = computed(() => {
   if (status.value === VOICE_CALL_STATUS.COMPLETED) {
     return t('CONVERSATION.VOICE_CALL.CALL_ENDED');
   }
+  if (status.value === VOICE_CALL_STATUS.ENDED) {
+    return t('CONVERSATION.VOICE_CALL.CALL_ENDED');
+  }
+  if (status.value === VOICE_CALL_STATUS.BUSY) {
+    return t('CONVERSATION.VOICE_CALL.BUSY');
+  }
+  if (status.value === VOICE_CALL_STATUS.CANCELED) {
+    return t('CONVERSATION.VOICE_CALL.CANCELED');
+  }
   if (isFailed.value) {
     return isOutbound.value
       ? t('CONVERSATION.VOICE_CALL.NO_ANSWER_OUTBOUND_LABEL')
@@ -189,26 +209,31 @@ const label = computed(() => {
 });
 
 const subtext = computed(() => {
-  // Completed: "Handled by {agent} · 0:42" (drops either part when absent).
-  if (status.value === VOICE_CALL_STATUS.COMPLETED) {
+  // Completed or ended: "Handled by {agent} · 0:42" (drops either part when absent).
+  if (status.value === VOICE_CALL_STATUS.COMPLETED || isEnded.value) {
     return [handledBy.value, formattedDuration.value]
       .filter(Boolean)
       .join(' · ');
   }
   if (status.value === VOICE_CALL_STATUS.IN_PROGRESS) {
+    const parts = [];
     if (isLivekit.value && handoffStatus.value === 'requested') {
-      return t('CONVERSATION.VOICE_CALL.HANDOFF_REQUESTED');
+      parts.push(t('CONVERSATION.VOICE_CALL.HANDOFF_REQUESTED'));
+    } else if (isLivekit.value && handoffStatus.value === 'accepted') {
+      parts.push(
+        handledBy.value || t('CONVERSATION.VOICE_CALL.HANDOFF_ACCEPTED')
+      );
+    } else if (isLivekit.value && aiStatus.value === 'silent') {
+      parts.push(t('CONVERSATION.VOICE_CALL.AI_SILENT'));
+    } else if (isLivekit.value) {
+      parts.push(t('CONVERSATION.VOICE_CALL.AI_ACTIVE'));
+    } else {
+      parts.push(handledBy.value);
     }
-    if (isLivekit.value && handoffStatus.value === 'accepted') {
-      return handledBy.value || t('CONVERSATION.VOICE_CALL.HANDOFF_ACCEPTED');
+    if (formattedDuration.value) {
+      parts.push(formattedDuration.value);
     }
-    if (isLivekit.value && aiStatus.value === 'silent') {
-      return t('CONVERSATION.VOICE_CALL.AI_SILENT');
-    }
-    if (isLivekit.value) {
-      return t('CONVERSATION.VOICE_CALL.AI_ACTIVE');
-    }
-    return handledBy.value;
+    return parts.filter(Boolean).join(' · ');
   }
   if (isFailed.value) {
     // Missed/failed calls have no handler, so keep the reason rather than "Handled by".
@@ -281,6 +306,10 @@ const isLivekitTerminal = computed(() =>
     VOICE_CALL_STATUS.COMPLETED,
     VOICE_CALL_STATUS.NO_ANSWER,
     VOICE_CALL_STATUS.FAILED,
+    VOICE_CALL_STATUS.BUSY,
+    VOICE_CALL_STATUS.CANCELED,
+    VOICE_CALL_STATUS.MISSED,
+    VOICE_CALL_STATUS.ENDED,
   ].includes(status.value)
 );
 const canUseLivekitControls = computed(
@@ -524,16 +553,20 @@ const handleEndLivekit = async () => {
       </div>
 
       <!-- Audio player (when there's a recording) -->
-      <div v-if="recordingAttachment" class="flex flex-col gap-1">
-        <span class="text-xs font-medium text-n-slate-11">
+      <details v-if="recordingAttachment" class="flex flex-col gap-1 group">
+        <summary
+          class="text-xs font-medium text-n-slate-11 cursor-pointer select-none hover:text-n-slate-12 transition-colors"
+        >
           {{ $t('CONVERSATION.VOICE_CALL.REPLAY_RECORDING') }}
-        </span>
-        <AudioChip
-          :attachment="recordingAttachment"
-          show-transcribed-text
-          :on-before-play="refreshLivekitCallDetails"
-        />
-      </div>
+        </summary>
+        <div class="mt-1">
+          <AudioChip
+            :attachment="recordingAttachment"
+            show-transcribed-text
+            :on-before-play="refreshLivekitCallDetails"
+          />
+        </div>
+      </details>
       <div
         v-else-if="recordingStatusLabel"
         class="rounded-lg bg-n-alpha-2 px-3 py-2 text-xs text-n-slate-11"
@@ -541,17 +574,20 @@ const handleEndLivekit = async () => {
         {{ recordingStatusLabel }}
       </div>
 
-      <div
-        v-if="callSummary"
-        class="rounded-lg bg-n-alpha-2 px-3 py-2 text-sm text-n-slate-12"
-      >
-        <span class="mb-1 block text-xs font-medium text-n-slate-11">
+      <details v-if="callSummary" class="group" open>
+        <summary
+          class="text-xs font-medium text-n-slate-11 cursor-pointer select-none hover:text-n-slate-12 transition-colors"
+        >
           {{ $t('CONVERSATION.VOICE_CALL.SUMMARY') }}
-        </span>
-        <p class="m-0 whitespace-pre-wrap leading-5">
-          {{ callSummary }}
-        </p>
-      </div>
+        </summary>
+        <div
+          class="mt-1 rounded-lg bg-n-alpha-2 px-3 py-2 text-sm text-n-slate-12"
+        >
+          <p class="m-0 whitespace-pre-wrap leading-5">
+            {{ callSummary }}
+          </p>
+        </div>
+      </details>
 
       <div v-if="isLivekit" ref="remoteAudioRef" class="hidden" />
 
@@ -562,78 +598,88 @@ const handleEndLivekit = async () => {
         {{ livekitSessionError }}
       </div>
 
-      <div
+      <details
         v-if="canUseLivekitControls"
-        class="rounded-lg bg-n-alpha-2 p-2 flex flex-col gap-2"
+        class="group"
+        :open="status === VOICE_CALL_STATUS.IN_PROGRESS"
       >
-        <div class="flex items-center justify-between gap-2 text-xs">
-          <span class="font-medium text-n-slate-11">
-            {{ $t('CONVERSATION.VOICE_CALL.LIVE_SESSION') }}
-          </span>
-          <span class="text-n-slate-10 capitalize">
-            {{ displayLivekitSessionStatus }}
-          </span>
-        </div>
+        <summary
+          class="text-xs font-medium text-n-slate-11 cursor-pointer select-none hover:text-n-slate-12 transition-colors"
+        >
+          {{ $t('CONVERSATION.VOICE_CALL.LIVE_SESSION') }}
+        </summary>
+        <div class="mt-1 rounded-lg bg-n-alpha-2 p-2 flex flex-col gap-2">
+          <div class="flex items-center justify-between gap-2 text-xs">
+            <span class="font-medium text-n-slate-11">
+              {{ $t('CONVERSATION.VOICE_CALL.LIVE_SESSION') }}
+            </span>
+            <span class="text-n-slate-10 capitalize">
+              {{ displayLivekitSessionStatus }}
+            </span>
+          </div>
 
-        <div class="grid grid-cols-2 gap-2">
-          <NextButton
-            v-if="!isLivekitConnected && !isLivekitActiveInCallWidget"
-            type="button"
-            :label="$t('CONVERSATION.VOICE_CALL.JOIN_LIVE_CALL')"
-            icon="i-ph-headphones-bold"
-            teal
-            class="!rounded-full"
-            :disabled="isJoiningLivekit"
-            :is-loading="isJoiningLivekit && livekitParticipantType === 'agent'"
-            @click="handleJoinLivekit"
-          />
-          <NextButton
-            v-else
-            type="button"
-            :label="
-              isLivekitMuted
-                ? $t('CONVERSATION.VOICE_CALL.UNMUTE')
-                : $t('CONVERSATION.VOICE_CALL.MUTE')
-            "
-            icon="i-ph-microphone-bold"
-            variant="outline"
-            color="slate"
-            class="!rounded-full"
-            @click="toggleLivekitMute"
-          />
-          <NextButton
-            type="button"
-            :label="$t('CONVERSATION.VOICE_CALL.TAKE_OVER')"
-            icon="i-ph-user-check-bold"
-            variant="outline"
-            color="slate"
-            class="!rounded-full"
-            :disabled="handoffStatus === 'accepted'"
-            :is-loading="isTakingOverLivekit"
-            @click="handleTakeOverLivekit"
-          />
-          <NextButton
-            v-if="isLivekitConnected || isLivekitActiveInCallWidget"
-            type="button"
-            :label="$t('CONVERSATION.VOICE_CALL.DISCONNECT')"
-            icon="i-ph-phone-disconnect-bold"
-            variant="outline"
-            color="slate"
-            class="!rounded-full"
-            @click="handleDisconnectLivekit"
-          />
-          <NextButton
-            type="button"
-            :label="$t('CONVERSATION.VOICE_CALL.END_CALL')"
-            icon="i-ph-phone-x-bold"
-            variant="outline"
-            color="ruby"
-            class="!rounded-full"
-            :is-loading="isEndingLivekit"
-            @click="handleEndLivekit"
-          />
+          <div class="grid grid-cols-2 gap-2">
+            <NextButton
+              v-if="!isLivekitConnected && !isLivekitActiveInCallWidget"
+              type="button"
+              :label="$t('CONVERSATION.VOICE_CALL.JOIN_LIVE_CALL')"
+              icon="i-ph-headphones-bold"
+              teal
+              class="!rounded-full"
+              :disabled="isJoiningLivekit"
+              :is-loading="
+                isJoiningLivekit && livekitParticipantType === 'agent'
+              "
+              @click="handleJoinLivekit"
+            />
+            <NextButton
+              v-else
+              type="button"
+              :label="
+                isLivekitMuted
+                  ? $t('CONVERSATION.VOICE_CALL.UNMUTE')
+                  : $t('CONVERSATION.VOICE_CALL.MUTE')
+              "
+              icon="i-ph-microphone-bold"
+              variant="outline"
+              color="slate"
+              class="!rounded-full"
+              @click="toggleLivekitMute"
+            />
+            <NextButton
+              type="button"
+              :label="$t('CONVERSATION.VOICE_CALL.TAKE_OVER')"
+              icon="i-ph-user-check-bold"
+              variant="outline"
+              color="slate"
+              class="!rounded-full"
+              :disabled="handoffStatus === 'accepted'"
+              :is-loading="isTakingOverLivekit"
+              @click="handleTakeOverLivekit"
+            />
+            <NextButton
+              v-if="isLivekitConnected || isLivekitActiveInCallWidget"
+              type="button"
+              :label="$t('CONVERSATION.VOICE_CALL.DISCONNECT')"
+              icon="i-ph-phone-disconnect-bold"
+              variant="outline"
+              color="slate"
+              class="!rounded-full"
+              @click="handleDisconnectLivekit"
+            />
+            <NextButton
+              type="button"
+              :label="$t('CONVERSATION.VOICE_CALL.END_CALL')"
+              icon="i-ph-phone-x-bold"
+              variant="outline"
+              color="ruby"
+              class="!rounded-full"
+              :is-loading="isEndingLivekit"
+              @click="handleEndLivekit"
+            />
+          </div>
         </div>
-      </div>
+      </details>
 
       <!-- Call back button (missed inbound) -->
       <NextButton

@@ -84,6 +84,10 @@ export const VOICE_CALL_STATUS = {
   COMPLETED: 'completed',
   NO_ANSWER: 'no-answer',
   FAILED: 'failed',
+  BUSY: 'busy',
+  CANCELED: 'canceled',
+  MISSED: 'missed',
+  ENDED: 'ended',
 };
 
 export const VOICE_CALL_DIRECTION = {
