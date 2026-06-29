@@ -315,12 +315,38 @@ watch(
 );
 
 onBeforeUnmount(stopRingtone);
+
+const widgetAriaLabel = computed(() => {
+  if (hasActiveCall.value) {
+    const info = getCallInfo(activeCall.value);
+    return `Active call with ${info.contactName}`;
+  }
+  const call = primaryIncomingCall.value;
+  if (call) {
+    const info = getCallInfo(call);
+    return `Incoming call from ${info.contactName}`;
+  }
+  return 'Call widget';
+});
+
+const onEscape = () => {
+  const call = primaryIncomingCall.value;
+  if (call && !hasActiveCall.value) {
+    handleRejectCall(call);
+  } else if (hasActiveCall.value) {
+    handleEndCall();
+  }
+};
 </script>
 
 <template>
   <div
     v-if="incomingCalls.length || hasActiveCall"
-    class="fixed ltr:right-4 rtl:left-4 bottom-4 z-50 flex flex-col gap-3 w-[400px]"
+    role="dialog"
+    aria-modal="true"
+    :aria-label="widgetAriaLabel"
+    class="fixed ltr:right-4 rtl:left-4 bottom-4 z-50 flex flex-col gap-3 max-w-[400px] w-[90vw] sm:w-[400px]"
+    @keydown.escape="onEscape"
   >
     <div ref="livekitRemoteAudioRef" class="hidden" />
 

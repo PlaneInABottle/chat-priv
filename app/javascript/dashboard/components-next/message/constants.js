@@ -91,6 +91,10 @@ export const VOICE_CALL_STATUS = {
   NO_ANSWER: 'no-answer',
   FAILED: 'failed',
   REJECTED: 'rejected',
+  BUSY: 'busy',
+  CANCELED: 'canceled',
+  MISSED: 'missed',
+  ENDED: 'ended',
 };
 
 export const VOICE_CALL_DIRECTION = {
