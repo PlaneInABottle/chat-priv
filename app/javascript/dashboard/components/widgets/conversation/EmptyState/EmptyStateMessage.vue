@@ -7,6 +7,14 @@ export default {
       type: String,
       required: true,
     },
+    ctaLabel: {
+      type: String,
+      default: '',
+    },
+    ctaLink: {
+      type: String,
+      default: '',
+    },
   },
 };
 </script>
@@ -27,6 +35,13 @@ export default {
       {{ message }}
       <br />
     </span>
+    <a
+      v-if="ctaLabel && ctaLink"
+      :href="ctaLink"
+      class="mt-4 inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-n-brand rounded-lg hover:opacity-90 transition-opacity"
+    >
+      {{ ctaLabel }}
+    </a>
     <!-- Cmd bar, keyboard shortcuts placeholder -->
     <FeaturePlaceholder />
   </div>
