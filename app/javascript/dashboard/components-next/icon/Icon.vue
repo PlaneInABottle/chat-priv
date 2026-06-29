@@ -1,5 +1,5 @@
 <script setup>
-import { computed, h, isVNode } from 'vue';
+import { cloneVNode, computed, h, isVNode, useAttrs } from 'vue';
 
 const props = defineProps({
   icon: { type: [String, Object, Function], required: true },
@@ -9,6 +9,8 @@ const props = defineProps({
 defineOptions({
   inheritAttrs: false,
 });
+
+const attrs = useAttrs();
 
 const LEGACY_ICON_MAP = {
   add: 'i-lucide-plus',
@@ -108,17 +110,30 @@ const sizeStyle = computed(() => {
 
 const renderIcon = () => {
   if (!normalizedIcon.value) return null;
+
+  const mergedAttrs = {
+    ...attrs,
+    class: [normalizedIcon.value, sizeClass.value, attrs.class],
+    style: [attrs.style, sizeStyle.value],
+  };
+
+  if (
+    mergedAttrs['aria-hidden'] === undefined &&
+    !mergedAttrs['aria-label'] &&
+    !mergedAttrs.role
+  ) {
+    mergedAttrs['aria-hidden'] = 'true';
+  }
+
   if (
     typeof normalizedIcon.value === 'function' ||
     isVNode(normalizedIcon.value)
   ) {
-    return normalizedIcon.value;
+    return isVNode(normalizedIcon.value)
+      ? cloneVNode(normalizedIcon.value, attrs)
+      : h(normalizedIcon.value, attrs);
   }
-  return h('span', {
-    class: [normalizedIcon.value, sizeClass.value],
-    style: sizeStyle.value,
-    'aria-hidden': 'true',
-  });
+  return h('span', mergedAttrs);
 };
 </script>
 

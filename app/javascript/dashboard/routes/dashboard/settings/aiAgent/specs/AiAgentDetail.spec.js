@@ -252,6 +252,33 @@ describe('AiAgentDetail.vue', () => {
     expect(wrapper.text()).toContain('already assigned to another agent bot');
   });
 
+  it('toggles inbox selection once when the row is clicked', async () => {
+    const { wrapper } = mountComponent({
+      aiAgentRecord: buildAiAgent({
+        agent_bot: { inbox_ids: [] },
+        available_inboxes: [
+          {
+            id: 2,
+            name: 'Support Inbox',
+            channel_type: 'Channel::WebWidget',
+            conflicting: false,
+          },
+        ],
+      }),
+    });
+
+    await flushPromises();
+
+    const inboxRow = wrapper.find('label[for="inbox-2"]');
+    await inboxRow.trigger('click');
+
+    expect(wrapper.vm.formState.inbox_ids).toEqual([2]);
+
+    await inboxRow.trigger('click');
+
+    expect(wrapper.vm.formState.inbox_ids).toEqual([]);
+  });
+
   it('keeps simulator disabled while form is dirty even if local form looks valid', async () => {
     const { wrapper } = mountComponent({
       aiAgentRecord: buildAiAgent({

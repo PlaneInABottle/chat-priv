@@ -487,7 +487,7 @@ watch(agentId, async (newAgentId, oldAgentId) => {
                     ? 'opacity-60 cursor-not-allowed bg-n-alpha-black1'
                     : 'hover:bg-n-alpha-black1 cursor-pointer',
                 ]"
-                @click="toggleInbox(inbox.id)"
+                @click.prevent="toggleInbox(inbox.id)"
               >
                 <input
                   :id="`inbox-${inbox.id}`"
