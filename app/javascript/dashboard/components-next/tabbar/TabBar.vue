@@ -70,6 +70,7 @@ const showDivider = index => {
 
 <template>
   <div
+    role="tablist"
     class="relative flex items-center h-8 rounded-lg bg-n-alpha-1 dark:bg-n-solid-1 w-fit transition-all duration-200 ease-out has-[button:active]:scale-[1.01]"
   >
     <div
@@ -82,6 +83,9 @@ const showDivider = index => {
       <button
         :ref="el => (tabRefs[index] = el)"
         type="button"
+        role="tab"
+        :aria-selected="activeTab === index"
+        :tabindex="activeTab === index ? 0 : -1"
         class="relative z-10 px-4 truncate py-1.5 text-sm border-0 outline-1 outline-transparent rounded-lg transition-all duration-200 ease-out hover:text-n-brand active:scale-[1.02]"
         :class="[
           activeTab === index

@@ -137,6 +137,7 @@ onMounted(() => {
 
 <template>
   <div
+    role="menu"
     class="bg-n-alpha-3 backdrop-blur-[100px] border-0 outline outline-1 outline-n-container absolute rounded-xl z-50 flex flex-col min-w-[136px] shadow-lg pt-2 overflow-hidden"
   >
     <div v-if="showSearch" class="relative shrink-0 px-2 mb-2">
@@ -183,6 +184,7 @@ onMounted(() => {
             v-for="(item, itemIndex) in section.items"
             :key="item.value || itemIndex"
             type="button"
+            role="menuitem"
             class="inline-flex items-center justify-start w-full h-8 min-w-0 gap-2 px-2 py-1.5 transition-all duration-200 ease-in-out border-0 rounded-lg z-60 hover:bg-n-alpha-1 dark:hover:bg-n-alpha-2 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
             :class="{
               'bg-n-alpha-1 dark:bg-n-solid-active': item.isSelected,
@@ -239,6 +241,7 @@ onMounted(() => {
           v-for="(item, index) in filteredMenuItems"
           :key="index"
           type="button"
+          role="menuitem"
           class="inline-flex items-center justify-start w-full h-8 min-w-0 gap-2 px-2 py-1.5 transition-all duration-200 ease-in-out border-0 rounded-lg z-60 hover:bg-n-alpha-1 dark:hover:bg-n-alpha-2 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50"
           :class="{
             'bg-n-alpha-1 dark:bg-n-solid-active': item.isSelected,

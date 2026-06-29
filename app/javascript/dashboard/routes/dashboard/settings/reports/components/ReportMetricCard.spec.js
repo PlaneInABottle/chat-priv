@@ -6,8 +6,7 @@ vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: key => key }),
 }));
 
-const mountComponent = (props = {}) =>
-  mount(ReportMetricCard, { props });
+const mountComponent = (props = {}) => mount(ReportMetricCard, { props });
 
 describe('ReportMetricCard.vue', () => {
   it('renders label and value', async () => {
