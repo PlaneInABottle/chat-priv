@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch, onBeforeRouteLeave } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useMapGetter, useStore } from 'dashboard/composables/store';
 import { useAlert } from 'dashboard/composables';
@@ -11,6 +11,7 @@ import Button from 'dashboard/components-next/button/Button.vue';
 import Switch from 'dashboard/components-next/switch/Switch.vue';
 import TagMultiSelectComboBox from 'dashboard/components-next/combobox/TagMultiSelectComboBox.vue';
 import Avatar from 'dashboard/components-next/avatar/Avatar.vue';
+import Input from 'dashboard/components-next/input/Input.vue';
 import TestConversationLayout from './components/TestConversationLayout.vue';
 import TabBar from 'dashboard/components-next/tabbar/TabBar.vue';
 import AiAgentPromptEditor from './components/AiAgentPromptEditor.vue';
@@ -53,6 +54,7 @@ const agentId = computed(() => Number(route.params.id));
 
 const aiAgent = useMapGetter('aiAgent/getAiAgent');
 const usage = useMapGetter('aiAgent/getUsage');
+const usageError = useMapGetter('aiAgent/getUsageError');
 const uiFlags = useMapGetter('aiAgent/getUIFlags');
 const inboxes = useMapGetter('inboxes/getInboxes');
 const labels = useMapGetter('labels/getLabels');
@@ -372,6 +374,17 @@ const goBack = () => {
   router.push({ name: 'ai_agents' });
 };
 
+onBeforeRouteLeave((to, from, next) => {
+  if (isFormDirty.value) {
+    const confirm = window.confirm(t('AI_AGENT.UNSAVED_CHANGES_WARNING'));
+    if (!confirm) {
+      next(false);
+      return;
+    }
+  }
+  next();
+});
+
 const handleTabChange = tab => {
   activeTab.value = tab.value;
 };
@@ -411,7 +424,7 @@ watch(agentId, async (newAgentId, oldAgentId) => {
     </template>
     <template #body>
       <div class="flex flex-col gap-8">
-        <AiAgentUsageSummary :usage="usage" />
+        <AiAgentUsageSummary :usage="usage" :has-error="usageError" />
         <TabBar
           :tabs="tabs"
           :initial-active-tab="activeTabIndex"
@@ -420,7 +433,7 @@ watch(agentId, async (newAgentId, oldAgentId) => {
         <template v-if="activeTab === 'settings'">
           <!-- Name Input -->
           <div>
-            <woot-input
+            <Input
               v-model="formState.name"
               :label="t('AI_AGENT.NAME.LABEL')"
               :placeholder="t('AI_AGENT.NAME.PLACEHOLDER')"
@@ -465,9 +478,10 @@ watch(agentId, async (newAgentId, oldAgentId) => {
               {{ t('AI_AGENT.INBOXES.NONE') }}
             </div>
             <div v-else class="flex flex-col gap-2">
-              <div
+              <label
                 v-for="inbox in inboxList"
                 :key="inbox.id"
+                :for="`inbox-${inbox.id}`"
                 class="flex items-center gap-3 p-3 rounded-lg border border-n-weak dark:border-n-weak"
                 :class="[
                   inbox.conflicting
@@ -477,6 +491,7 @@ watch(agentId, async (newAgentId, oldAgentId) => {
                 @click="toggleInbox(inbox.id)"
               >
                 <input
+                  :id="`inbox-${inbox.id}`"
                   type="checkbox"
                   :checked="isInboxSelected(inbox.id)"
                   :disabled="inbox.conflicting"
@@ -498,7 +513,7 @@ watch(agentId, async (newAgentId, oldAgentId) => {
                     {{ getInboxStatusText(inbox) }}
                   </span>
                 </div>
-              </div>
+              </label>
             </div>
           </div>
 

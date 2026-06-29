@@ -17,8 +17,7 @@ const translations = {
   'AI_AGENT.USAGE_REPORT.COUNTED_CONVERSATIONS':
     '{count} counted conversations',
   'AI_AGENT.USAGE_REPORT.TOOL_CALLS': '{count} tool calls',
-  'AI_AGENT.USAGE_REPORT.RECENT_CONVERSATIONS':
-    'Recent counted conversations',
+  'AI_AGENT.USAGE_REPORT.RECENT_CONVERSATIONS': 'Recent counted conversations',
   'AI_AGENT.USAGE_REPORT.UNKNOWN_CONTACT': 'Unknown contact',
   'AI_AGENT.USAGE_REPORT.CONVERSATION_LABEL': 'Conversation #{id}',
   'AI_AGENT.USAGE_REPORT.COUNTED_AT': 'Counted {time}',

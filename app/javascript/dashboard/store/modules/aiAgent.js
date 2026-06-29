@@ -6,6 +6,7 @@ export const state = {
   sortOrder: [],
   activeId: null,
   usage: null,
+  usageError: false,
   uiFlags: {
     isFetching: false,
     isFetchingUsage: false,
@@ -30,6 +31,9 @@ export const getters = {
   },
   getUsage($state) {
     return $state.usage;
+  },
+  getUsageError($state) {
+    return $state.usageError;
   },
 };
 
@@ -57,6 +61,7 @@ export const actions = {
       commit('SET_AI_AGENT_USAGE', response.data);
       return response.data;
     } catch (error) {
+      commit('SET_AI_AGENT_USAGE_ERROR', true);
       return null;
     } finally {
       commit('SET_AI_AGENT_UI_FLAG', { isFetchingUsage: false });
@@ -170,6 +175,10 @@ export const mutations = {
   },
   SET_AI_AGENT_USAGE($state, data) {
     $state.usage = data;
+    $state.usageError = false;
+  },
+  SET_AI_AGENT_USAGE_ERROR($state, value) {
+    $state.usageError = value;
   },
   SET_AI_AGENT_UI_FLAG($state, data) {
     $state.uiFlags = {
