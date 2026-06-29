@@ -33,13 +33,26 @@ describe('VoiceCallStatus.vue', () => {
     expect(wrapper.text()).toContain('CONVERSATION.VOICE_CALL.MISSED_CALL');
   });
 
-  it('shows declined label when endReason is agent_rejected', async () => {
+  it('shows missed-call label when inbound endReason is agent_rejected', async () => {
     const wrapper = await mountComponent({
       status: 'failed',
       direction: 'inbound',
       endReason: 'agent_rejected',
     });
-    expect(wrapper.text()).toContain(
+    expect(wrapper.text()).toContain('CONVERSATION.VOICE_CALL.MISSED_CALL');
+    expect(wrapper.text()).not.toContain(
+      'CONVERSATION.VOICE_CALL.MISSED_CALL_DECLINED_BY'
+    );
+  });
+
+  it('shows missed-call label when inbound endReason is agent_rejected_from_popup', async () => {
+    const wrapper = await mountComponent({
+      status: 'failed',
+      direction: 'inbound',
+      endReason: 'agent_rejected_from_popup',
+    });
+    expect(wrapper.text()).toContain('CONVERSATION.VOICE_CALL.MISSED_CALL');
+    expect(wrapper.text()).not.toContain(
       'CONVERSATION.VOICE_CALL.MISSED_CALL_DECLINED_BY'
     );
   });

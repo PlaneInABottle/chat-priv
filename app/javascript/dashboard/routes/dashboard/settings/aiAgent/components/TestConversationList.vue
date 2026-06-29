@@ -67,8 +67,8 @@ const confirmClearAll = () => {
           size="sm"
           variant="faded"
           color="ruby"
-          :is-loading="uiFlags.isDeleting"
-          :disabled="isDisabled"
+          :is-loading="uiFlags.isClearing"
+          :disabled="isDisabled || uiFlags.isClearing"
           @click="handleClearAll"
         />
       </div>

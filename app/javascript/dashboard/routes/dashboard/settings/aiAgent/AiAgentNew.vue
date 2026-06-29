@@ -65,7 +65,8 @@ const handleCancel = () => {
           v-model="name"
           :label="t('AI_AGENTS.NEW.NAME_LABEL')"
           :placeholder="t('AI_AGENTS.NEW.NAME_PLACEHOLDER')"
-          :error="errorMessage"
+          :message="errorMessage"
+          :message-type="errorMessage ? 'error' : 'info'"
           @input="errorMessage = ''"
         />
         <div class="flex items-center gap-3">
