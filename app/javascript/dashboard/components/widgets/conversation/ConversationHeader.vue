@@ -150,7 +150,7 @@ const copyConversationId = async () => {
         >
           <button
             type="button"
-            class="truncate text-label-small text-n-slate-11 hover:text-n-slate-12 !p-0 cucursor-pointer"
+            class="truncate text-label-small text-n-slate-11 hover:text-n-slate-12 !p-0 cursor-pointer"
             @click="copyConversationId"
           >
             {{ `#${chat.id}` }}

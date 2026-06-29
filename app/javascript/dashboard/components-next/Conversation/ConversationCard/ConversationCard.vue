@@ -72,7 +72,7 @@ const onCardClick = e => {
     })
   );
 
-  if (e.metaKey || e.ctrlKey) {
+  if (e?.metaKey || e?.ctrlKey) {
     window.open(
       window.chatwootConfig.hostURL + path,
       '_blank',
@@ -87,8 +87,11 @@ const onCardClick = e => {
 <template>
   <div
     role="button"
-    class="flex w-full gap-3 px-3 py-4 transition-all duration-300 ease-in-out cursor-pointer"
+    tabindex="0"
+    class="flex w-full gap-3 px-3 py-4 transition-all duration-300 ease-in-out cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-n-brand/40 focus-visible:bg-n-alpha-1 rounded-lg"
     @click="onCardClick"
+    @keydown.enter.prevent="onCardClick"
+    @keydown.space.prevent="onCardClick"
   >
     <Avatar
       :name="currentContactName"
