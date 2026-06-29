@@ -8,6 +8,7 @@ import { useI18n } from 'vue-i18n';
 import SettingsLayout from '../SettingsLayout.vue';
 import BaseSettingsHeader from '../components/BaseSettingsHeader.vue';
 import Button from 'dashboard/components-next/button/Button.vue';
+import Input from 'dashboard/components-next/input/Input.vue';
 
 const store = useStore();
 const { t } = useI18n();
@@ -35,6 +36,11 @@ const handleSubmit = async () => {
       name: 'ai_agent_detail',
       params: { id: result.id },
     });
+  } else if (result && result.error) {
+    errorMessage.value =
+      typeof result.error === 'string'
+        ? result.error
+        : t('AI_AGENTS.NEW.ERROR');
   } else {
     errorMessage.value = t('AI_AGENTS.NEW.ERROR');
   }
@@ -55,7 +61,7 @@ const handleCancel = () => {
     </template>
     <template #body>
       <form class="flex flex-col gap-6 max-w-xl" @submit.prevent="handleSubmit">
-        <woot-input
+        <Input
           v-model="name"
           :label="t('AI_AGENTS.NEW.NAME_LABEL')"
           :placeholder="t('AI_AGENTS.NEW.NAME_PLACEHOLDER')"

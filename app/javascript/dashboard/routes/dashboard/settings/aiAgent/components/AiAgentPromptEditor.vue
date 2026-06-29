@@ -41,7 +41,7 @@ const promptMenuOptions = [
     :max-length="maxLength"
     variant="article"
     :enabled-menu-options="promptMenuOptions"
-    :min-height="24"
+    :min-height="12"
     :max-height="48"
     show-character-count
     :enable-canned-responses="false"
