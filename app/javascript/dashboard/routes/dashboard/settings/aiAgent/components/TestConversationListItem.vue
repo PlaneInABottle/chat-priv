@@ -52,7 +52,8 @@ const confirmDelete = () => {
         {{ conversation.title }}
       </span>
       <button
-        class="opacity-40 group-hover:opacity-100 p-1 rounded-md hover:bg-n-alpha-black2 transition-opacity"
+        class="p-1 rounded-md hover:bg-n-alpha-black2 transition-opacity text-n-slate-10 hover:text-n-ruby-11"
+        :aria-label="t('AI_AGENT.TEST_CONVERSATIONS.DELETE')"
         @click="handleDelete"
       >
         <Icon icon="i-lucide-trash-2" class="text-n-slate-11 size-3.5" />
