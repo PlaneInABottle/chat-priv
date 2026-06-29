@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n';
 import { useMessageFormatter } from 'shared/composables/useMessageFormatter';
 
 import Avatar from 'dashboard/components-next/avatar/Avatar.vue';
+import VoiceCallStatus from './VoiceCallStatus.vue';
 
 const props = defineProps({
   conversation: {
@@ -16,12 +17,32 @@ const { t } = useI18n();
 
 const { getPlainText } = useMessageFormatter();
 
+const lastNonActivityMessage = computed(
+  () => props.conversation.lastNonActivityMessage || {}
+);
+
+const isVoiceCallMessage = computed(
+  () => lastNonActivityMessage.value?.content_type === 'voice_call'
+);
+
+const voiceCallData = computed(() => {
+  const call = lastNonActivityMessage.value?.call || {};
+  return {
+    status: call.status || '',
+    direction:
+      call.direction === 'outgoing' || call.direction === 'outbound'
+        ? 'outbound'
+        : 'inbound',
+  };
+});
+
 const lastNonActivityMessageContent = computed(() => {
-  const { lastNonActivityMessage = {}, customAttributes = {} } =
-    props.conversation;
+  const { customAttributes = {} } = props.conversation;
   const { email: { subject } = {} } = customAttributes;
   return getPlainText(
-    subject || lastNonActivityMessage?.content || t('CHAT_LIST.NO_CONTENT')
+    subject ||
+      lastNonActivityMessage.value?.content ||
+      t('CHAT_LIST.NO_CONTENT')
   );
 });
 
@@ -50,7 +71,16 @@ const hasVoiceAiHandoff = computed(
 <template>
   <div class="flex w-full flex-col gap-1 pb-1">
     <div class="flex items-end w-full gap-2">
-      <p class="w-full mb-0 text-sm leading-7 text-n-slate-12 line-clamp-2">
+      <div v-if="isVoiceCallMessage" class="w-full mb-0">
+        <VoiceCallStatus
+          :status="voiceCallData.status"
+          :direction="voiceCallData.direction"
+        />
+      </div>
+      <p
+        v-else
+        class="w-full mb-0 text-sm leading-7 text-n-slate-12 line-clamp-2"
+      >
         {{ lastNonActivityMessageContent }}
       </p>
       <div class="flex items-center flex-shrink-0 gap-2 pb-2">
