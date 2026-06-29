@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router';
+import { nextTick } from 'vue';
 
 import { frontendURL } from '../helper/URLHelper';
 import dashboard from './dashboard/dashboard.routes';
@@ -14,6 +15,15 @@ const onboardingPath = step =>
   step === 'inbox_setup' ? 'onboarding/inbox-setup' : 'onboarding';
 
 export const router = createRouter({ history: createWebHistory(), routes });
+
+// Move focus to main content on route change for keyboard/screen reader users.
+router.afterEach(to => {
+  if (to.hash) return;
+  nextTick(() => {
+    const main = document.getElementById('main-content');
+    if (main) main.focus();
+  });
+});
 
 export const validateAuthenticateRoutePermission = async (to, next) => {
   const { isLoggedIn, getCurrentUser: user } = store.getters;

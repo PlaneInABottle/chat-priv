@@ -38,11 +38,12 @@ const showLabelsSection = computed(() => props.chat.labels?.length > 0);
 const voiceCallData = computed(() => {
   const last = lastMessageInChat.value;
   if (last?.content_type !== 'voice_call' || !last.call) {
-    return { status: null, direction: null };
+    return { status: null, direction: null, endReason: '' };
   }
   return {
     status: last.call.status,
     direction: last.call.direction === 'outgoing' ? 'outbound' : 'inbound',
+    endReason: last.call.end_reason || '',
   };
 });
 
@@ -162,6 +163,7 @@ const selectedModel = computed({
         :last-message="lastMessageInChat"
         :voice-call-status="voiceCallData.status"
         :voice-call-direction="voiceCallData.direction"
+        :voice-call-end-reason="voiceCallData.endReason"
         :unread-count="unreadCount"
         :show-expanded-preview="false"
       />

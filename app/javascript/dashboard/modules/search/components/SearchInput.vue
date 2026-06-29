@@ -1,4 +1,5 @@
 <script setup>
+import Icon from 'dashboard/components-next/icon/Icon.vue';
 import { ref, useTemplateRef, onMounted, onUnmounted } from 'vue';
 import { debounce } from '@chatwoot/utils';
 import RecentSearches from './RecentSearches.vue';
@@ -92,7 +93,7 @@ onUnmounted(() => {
   >
     <div class="flex items-center w-full h-[3.25rem] px-4 gap-2">
       <div class="flex items-center">
-        <fluent-icon
+        <Icon
           icon="search"
           class="icon"
           aria-hidden="true"

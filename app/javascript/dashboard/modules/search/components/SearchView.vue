@@ -1,4 +1,5 @@
 <script setup>
+import Icon from 'dashboard/components-next/icon/Icon.vue';
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useMapGetter, useStore } from 'dashboard/composables/store.js';
 import { useRouter, useRoute } from 'vue-router';
@@ -508,7 +509,7 @@ onUnmounted(() => {
             v-else-if="showEmptySearchResults"
             class="flex flex-col items-center justify-center px-4 py-6 mt-8 rounded-md"
           >
-            <fluent-icon icon="info" size="16px" class="text-n-slate-11" />
+            <Icon icon="info" size="16px" class="text-n-slate-11" />
             <p class="m-2 text-center text-n-slate-11">
               {{ t('SEARCH.EMPTY_STATE_FULL', { query }) }}
             </p>
@@ -518,7 +519,7 @@ onUnmounted(() => {
             class="flex flex-col items-center justify-center px-4 py-6 mt-8 text-center rounded-md"
           >
             <p class="text-center margin-bottom-0">
-              <fluent-icon icon="search" size="24px" class="text-n-slate-11" />
+              <Icon icon="search" size="24px" class="text-n-slate-11" />
             </p>
             <p class="m-2 text-center text-n-slate-11">
               {{ t('SEARCH.EMPTY_STATE_DEFAULT') }}

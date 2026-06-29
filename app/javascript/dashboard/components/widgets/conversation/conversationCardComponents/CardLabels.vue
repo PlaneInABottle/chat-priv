@@ -1,4 +1,5 @@
 <script setup>
+import Icon from 'dashboard/components-next/icon/Icon.vue';
 import { ref, computed, watch, onMounted, nextTick, useSlots } from 'vue';
 import { useMapGetter } from 'dashboard/composables/store';
 
@@ -89,7 +90,7 @@ const onShowLabels = e => {
         class="h-5 py-0 px-1 flex-shrink-0 mr-6 ml-0 rtl:ml-6 rtl:mr-0 rtl:rotate-180 text-n-slate-11 border-n-strong dark:border-n-strong"
         @click="onShowLabels"
       >
-        <fluent-icon
+        <Icon
           :icon="showAllLabels ? 'chevron-left' : 'chevron-right'"
           size="12"
         />

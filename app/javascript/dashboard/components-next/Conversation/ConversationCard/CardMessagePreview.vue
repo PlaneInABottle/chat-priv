@@ -33,6 +33,7 @@ const voiceCallData = computed(() => {
       call.direction === 'outgoing' || call.direction === 'outbound'
         ? 'outbound'
         : 'inbound',
+    endReason: call.end_reason || call.endReason || '',
   };
 });
 
@@ -75,6 +76,7 @@ const hasVoiceAiHandoff = computed(
         <VoiceCallStatus
           :status="voiceCallData.status"
           :direction="voiceCallData.direction"
+          :end-reason="voiceCallData.endReason"
         />
       </div>
       <p

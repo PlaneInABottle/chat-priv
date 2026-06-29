@@ -1,4 +1,5 @@
 <script setup>
+import Icon from 'dashboard/components-next/icon/Icon.vue';
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { evaluateSLAStatus } from 'dashboard/helper/slaHelper';
@@ -109,7 +110,7 @@ onUnmounted(() => {
       :class="showExtendedInfo ? '' : 'gap-1'"
     >
       <div class="flex items-center gap-1" :class="slaPopoverClass">
-        <fluent-icon
+        <Icon
           size="12"
           :icon="slaStatus.icon"
           type="outline"

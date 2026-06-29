@@ -2,9 +2,13 @@
 import { MESSAGE_TYPE } from 'widget/helpers/constants';
 import { useMessageFormatter } from 'shared/composables/useMessageFormatter';
 import { ATTACHMENT_ICONS } from 'shared/constants/messages';
+import Icon from 'dashboard/components-next/icon/Icon.vue';
 
 export default {
   name: 'MessagePreview',
+  components: {
+    Icon,
+  },
   props: {
     message: {
       type: Object,
@@ -63,19 +67,19 @@ export default {
 <template>
   <div class="overflow-hidden text-ellipsis whitespace-nowrap">
     <template v-if="showMessageType">
-      <fluent-icon
+      <Icon
         v-if="isMessagePrivate"
         size="16"
         class="-mt-0.5 align-middle text-n-slate-11 inline-block"
         icon="lock-closed"
       />
-      <fluent-icon
+      <Icon
         v-else-if="messageByAgent"
         size="16"
         class="-mt-0.5 align-middle text-n-slate-11 inline-block"
         icon="arrow-reply"
       />
-      <fluent-icon
+      <Icon
         v-else-if="isMessageAnActivity"
         size="16"
         class="-mt-0.5 align-middle text-n-slate-11 inline-block"
@@ -83,7 +87,7 @@ export default {
       />
     </template>
     <span v-if="message.content && isMessageSticker">
-      <fluent-icon
+      <Icon
         size="16"
         class="-mt-0.5 align-middle inline-block text-n-slate-11"
         icon="image"
@@ -94,7 +98,7 @@ export default {
       {{ parsedLastMessage }}
     </span>
     <span v-else-if="message.attachments">
-      <fluent-icon
+      <Icon
         v-if="attachmentIcon && showMessageType"
         size="16"
         class="-mt-0.5 align-middle inline-block text-n-slate-11"

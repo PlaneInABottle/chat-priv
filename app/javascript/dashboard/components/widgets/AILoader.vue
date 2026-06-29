@@ -1,7 +1,11 @@
+<script setup>
+import Icon from 'dashboard/components-next/icon/Icon.vue';
+</script>
+
 <template>
   <div class="animation-container margin-top-1">
     <div class="ai-typing--wrap">
-      <fluent-icon icon="wand" size="14" class="ai-typing--icon" />
+      <Icon icon="wand" size="14" class="ai-typing--icon" />
       <label>
         {{ $t('INTEGRATION_SETTINGS.OPEN_AI.ASSISTANCE_MODAL.AI_WRITING') }}
       </label>

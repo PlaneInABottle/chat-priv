@@ -1,8 +1,8 @@
 <script setup>
+import Icon from 'dashboard/components-next/icon/Icon.vue';
 import { computed, ref, watch } from 'vue';
 import { getLastMessage } from 'dashboard/helper/conversationHelper';
 import Avatar from 'next/avatar/Avatar.vue';
-import Icon from 'dashboard/components-next/icon/Icon.vue';
 import MessagePreview from './MessagePreview.vue';
 import InboxName from '../InboxName.vue';
 import TimeAgo from 'dashboard/components/ui/TimeAgo.vue';
@@ -212,7 +212,7 @@ watch(
         class="text-n-slate-11 text-sm my-0 mx-2 leading-6 h-6 flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap"
         :class="messagePreviewClass"
       >
-        <fluent-icon
+        <Icon
           size="16"
           class="-mt-0.5 align-middle inline-block text-n-slate-10"
           icon="info"
