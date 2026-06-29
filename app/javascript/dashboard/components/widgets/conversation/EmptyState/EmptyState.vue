@@ -76,7 +76,12 @@ export default {
       class="clearfix mx-auto"
     >
       <OnboardingView v-if="isAdmin" />
-      <EmptyStateMessage v-else :message="$t('CONVERSATION.NO_INBOX_AGENT')" />
+      <EmptyStateMessage
+        v-else
+        :message="$t('CONVERSATION.NO_INBOX_AGENT')"
+        :cta-label="isAdmin ? $t('CONVERSATION.CREATE_INBOX') : ''"
+        :cta-link="newInboxURL"
+      />
     </div>
     <!-- Show empty state images if not loading -->
 

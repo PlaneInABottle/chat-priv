@@ -1,4 +1,7 @@
 <script setup>
+import Icon from 'dashboard/components-next/icon/Icon.vue';
+import { useI18n } from 'vue-i18n';
+
 defineProps({
   label: {
     type: String,
@@ -17,6 +20,8 @@ defineProps({
     default: false,
   },
 });
+
+const { t } = useI18n();
 </script>
 
 <template>
@@ -28,13 +33,16 @@ defineProps({
   >
     <h3 class="flex items-center m-0 text-sm font-medium text-n-slate-11">
       <span data-test-id="reportMetricLabel">{{ label }}</span>
-      <fluent-icon
+      <span
         v-tooltip="infoText"
         data-test-id="reportMetricInfo"
-        size="14"
-        icon="info"
-        class="text-n-slate-11 my-0 mx-1 mt-0.5"
-      />
+        class="text-n-slate-11 my-0 mx-1 mt-0.5 cursor-help"
+        :aria-label="t('REPORT.GROUP.ADMIN_REPORTS.HEADER')"
+        role="tooltip"
+        tabindex="0"
+      >
+        <Icon icon="i-lucide-info" class="size-3.5" />
+      </span>
     </h3>
     <h4
       data-test-id="reportMetricValue"
