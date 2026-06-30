@@ -34,13 +34,9 @@ const {
   formattedCallDuration,
 } = useCallSession();
 
-// Mute routes by provider: WhatsApp toggles the local mic track, Twilio uses
-// the Voice SDK connection's native mute. Both surface the same button.
+// Mute routes by provider: LiveKit owns its local audio track, WhatsApp uses
+// its local mic track, and Twilio uses the Voice SDK connection.
 const isMuted = ref(false);
-const isWhatsappActive = computed(
-  () => activeCall.value?.provider === VOICE_CALL_PROVIDERS.WHATSAPP
-);
-
 const isLivekitCall = call => call?.provider === VOICE_CALL_PROVIDERS.LIVEKIT;
 
 const primaryIncomingCall = computed(() =>
@@ -61,12 +57,18 @@ const livekitSessionCall = computed(() => {
 });
 const {
   remoteAudioRef: livekitRemoteAudioRef,
+  sessionError: livekitSessionError,
   isJoining: isJoiningLivekit,
+  isMuted: isLivekitMuted,
+  isConnected: isLivekitConnected,
   joinRoom: joinLivekitRoom,
   disconnectRoom: disconnectLivekitRoom,
+  toggleMute: toggleLivekitMute,
 } = useLivekitVoiceSession({ call: livekitSessionCall });
 const isCallAccepting = call =>
   isLivekitCall(call) ? isJoiningLivekit.value : isJoining.value;
+const livekitJoinedCallSid = ref(null);
+const navigateToConversationAfterLivekitJoin = ref(null);
 
 const stackedIncomingCalls = computed(() =>
   hasActiveCall.value ? incomingCalls.value : incomingCalls.value.slice(1)
@@ -89,9 +91,22 @@ const stackedCardState = call =>
     ? VOICE_CALL_DIRECTION.OUTGOING
     : VOICE_CALL_DIRECTION.INCOMING;
 
+const isActiveLivekit = computed(() => isLivekitCall(activeCall.value));
+const isActiveWhatsapp = computed(
+  () => activeCall.value?.provider === VOICE_CALL_PROVIDERS.WHATSAPP
+);
+const showMute = computed(() => Boolean(activeCall.value));
+const activeMuted = computed(() =>
+  isActiveLivekit.value ? isLivekitMuted.value : isMuted.value
+);
+
 const toggleMute = () => {
+  if (isActiveLivekit.value) {
+    toggleLivekitMute();
+    return;
+  }
   isMuted.value = !isMuted.value;
-  if (isWhatsappActive.value) {
+  if (isActiveWhatsapp.value) {
     setWhatsappCallMuted(isMuted.value);
   } else {
     TwilioVoiceClient.setMuted(isMuted.value);
@@ -178,6 +193,7 @@ const endLivekitCall = async (call, reason) => {
     }
   } finally {
     disconnectLivekitRoom();
+    livekitJoinedCallSid.value = null;
     dismissCall(call.callSid);
   }
 };
@@ -217,19 +233,8 @@ const handleJoinLivekitCall = async call => {
     await handleEndCall();
   }
 
+  navigateToConversationAfterLivekitJoin.value = call.conversationId || null;
   callsStore.setCallActive(call.callSid);
-  const joined = await joinLivekitRoom('agent');
-  if (!joined) {
-    callsStore.setCallInactive(call.callSid);
-    return;
-  }
-
-  if (call.conversationId) {
-    router.push({
-      name: 'inbox_conversation',
-      params: { conversation_id: call.conversationId },
-    });
-  }
 };
 
 const handleJoinCall = async call => {
@@ -280,6 +285,42 @@ watch(
   { immediate: true }
 );
 
+watch(
+  () => activeCall.value?.callSid,
+  async (callSid, previousCallSid) => {
+    if (previousCallSid && previousCallSid === livekitJoinedCallSid.value) {
+      disconnectLivekitRoom();
+      livekitJoinedCallSid.value = null;
+    }
+
+    const call = activeCall.value;
+    if (!callSid || !isLivekitCall(call)) return;
+    if (isLivekitConnected.value && livekitJoinedCallSid.value === callSid) {
+      return;
+    }
+
+    const joined = await joinLivekitRoom('agent');
+    if (!joined) {
+      callsStore.setCallInactive(callSid);
+      navigateToConversationAfterLivekitJoin.value = null;
+      return;
+    }
+
+    livekitJoinedCallSid.value = callSid;
+    if (
+      navigateToConversationAfterLivekitJoin.value &&
+      call.conversationId === navigateToConversationAfterLivekitJoin.value
+    ) {
+      router.push({
+        name: 'inbox_conversation',
+        params: { conversation_id: call.conversationId },
+      });
+    }
+    navigateToConversationAfterLivekitJoin.value = null;
+  },
+  { immediate: true }
+);
+
 // Loop the ringtone while an inbound call is unanswered. Stop the moment any
 // call is active (we joined), every inbound call cleared, or the widget tears
 // down. The watcher only fires on the boolean transitioning, so additional
@@ -314,7 +355,10 @@ watch(
   { immediate: true }
 );
 
-onBeforeUnmount(stopRingtone);
+onBeforeUnmount(() => {
+  stopRingtone();
+  disconnectLivekitRoom();
+});
 
 const widgetAriaLabel = computed(() => {
   if (hasActiveCall.value) {
@@ -341,7 +385,7 @@ const onEscape = () => {
 
 <template>
   <div
-    v-if="incomingCalls.length || hasActiveCall"
+    v-show="incomingCalls.length || hasActiveCall"
     role="dialog"
     aria-modal="true"
     :aria-label="widgetAriaLabel"
@@ -371,8 +415,8 @@ const onEscape = () => {
       :state="mainCardState"
       :call-info="getCallInfo(activeCall || primaryIncomingCall)"
       :duration="hasActiveCall ? formattedCallDuration : ''"
-      :is-muted="isMuted"
-      :show-mute="hasActiveCall && !isLivekitCall(activeCall)"
+      :is-muted="activeMuted"
+      :show-mute="hasActiveCall && showMute"
       :is-accepting="isCallAccepting(primaryIncomingCall)"
       @accept="handleJoinCall(primaryIncomingCall)"
       @reject="handleRejectCall(primaryIncomingCall)"
@@ -381,5 +425,11 @@ const onEscape = () => {
       @toggle-mute="toggleMute"
       @go-to-conversation="goToConversation(activeCall || primaryIncomingCall)"
     />
+    <div
+      v-if="livekitSessionError"
+      class="mx-4 rounded-lg bg-n-ruby-3 px-3 py-2 text-sm text-n-ruby-11"
+    >
+      {{ livekitSessionError }}
+    </div>
   </div>
 </template>

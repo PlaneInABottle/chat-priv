@@ -81,4 +81,12 @@ RSpec.describe Voice::CallSummaryGenerator do
 
     expect(call.reload.summary).to be_blank
   end
+
+  it 'asks the LLM for a Turkish summary and cautious ASR interpretation' do
+    prompt = described_class.new(call: call).send(:system_prompt)
+
+    expect(prompt).to include('Türkçe özetle')
+    expect(prompt).to include('olası ASR/STT')
+    expect(prompt).to include('müşterinin niyetini kesinmiş gibi yazma')
+  end
 end

@@ -52,6 +52,7 @@ export const useCallsStore = defineStore('calls', {
         // "Unknown caller" on the next status update.
         const next = { ...callData };
         if (existing.caller && !next.caller) delete next.caller;
+        if (existing.startedAt && !next.startedAt) delete next.startedAt;
         Object.assign(existing, next, { isActive: existing.isActive });
         return;
       }

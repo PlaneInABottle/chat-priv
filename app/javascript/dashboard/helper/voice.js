@@ -95,6 +95,7 @@ function extractCallData(message) {
     callId: call.id || data.call_id,
     provider: call.provider || data.call_source,
     status: call.status || data.status,
+    startedAt: call.started_at || data.started_at || message?.created_at,
     callDirection:
       call.direction === 'outgoing'
         ? 'outbound'
@@ -129,6 +130,7 @@ export function handleVoiceCallCreated(
     senderId,
     testCall,
     handoffStatus,
+    startedAt,
   } = extractCallData(message);
 
   // A voice_call message can be created already terminal when the caller hangs
@@ -156,6 +158,7 @@ export function handleVoiceCallCreated(
     callSid,
     callId,
     provider,
+    startedAt,
     conversationId,
     inboxId,
     callDirection,
@@ -184,6 +187,7 @@ export function handleVoiceCallUpdated(
     senderId,
     testCall,
     handoffStatus,
+    startedAt,
   } = extractCallData(message);
 
   const callsStore = useCallsStore();
@@ -225,6 +229,7 @@ export function handleVoiceCallUpdated(
       callSid,
       callId,
       provider,
+      startedAt,
       conversationId,
       inboxId,
       callDirection,
@@ -288,6 +293,7 @@ export function handleVoiceCallStatusPayload(
     callSid,
     callId: data?.id || data?.call_id,
     provider: data.provider,
+    startedAt: data?.started_at,
     conversationId: data?.conversation_id,
     inboxId: data?.inbox_id,
     callDirection,

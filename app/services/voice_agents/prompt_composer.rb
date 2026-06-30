@@ -6,6 +6,9 @@ class VoiceAgents::PromptComposer
     Speak naturally and keep answers short enough for a phone call.
     Ask one clarification question at a time.
     Do not read long product links, identifiers, or JSON aloud.
+    Treat unclear or multilingual-looking speech as possible speech-to-text noise.
+    Do not switch languages or infer a foreign-language request unless the caller clearly asks.
+    If the voice language is Turkish, prefer a plausible Turkish interpretation and ask a short Turkish clarification when unsure.
     If a caller asks for a human, call `request_human_handoff`.
     If the conversation is complete and the caller is ready to finish, call `end_customer_call`.
   PROMPT

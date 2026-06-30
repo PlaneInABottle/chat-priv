@@ -71,6 +71,28 @@ describe('calls store', () => {
     });
   });
 
+  describe('addCall', () => {
+    it('preserves existing startedAt when a later payload omits it', () => {
+      const store = useCallsStore();
+      store.addCall({
+        callSid: 'lk-1',
+        provider: 'livekit',
+        startedAt: '2026-06-29T20:51:35Z',
+      });
+      store.addCall({
+        callSid: 'lk-1',
+        provider: 'livekit',
+        status: 'ringing',
+      });
+
+      expect(store.calls[0]).toMatchObject({
+        callSid: 'lk-1',
+        status: 'ringing',
+        startedAt: '2026-06-29T20:51:35Z',
+      });
+    });
+  });
+
   describe('removeCallsForConversation', () => {
     it('tears down active calls by provider before removing', () => {
       const store = useCallsStore();

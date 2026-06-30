@@ -1,5 +1,6 @@
 class Voice::Livekit::RoomService
   AGENT_KIND_VALUES = ['AGENT', 'PARTICIPANT_KIND_AGENT', 4, '4'].freeze
+  EGRESS_KIND_VALUES = ['EGRESS', 'PARTICIPANT_KIND_EGRESS', 2, '2'].freeze
 
   def self.remove_agent_participants(call:)
     new(call: call).remove_agent_participants
@@ -47,7 +48,7 @@ class Voice::Livekit::RoomService
   def remove_customer_participants
     return skipped_result unless configured?
 
-    customers = list_participants.reject { |participant| agent_participant?(participant) }
+    customers = list_participants.reject { |participant| non_customer_participant?(participant) }
     removed_identities = customers.filter_map { |participant| remove_participant(participant['identity']) }
 
     {
@@ -68,14 +69,10 @@ class Voice::Livekit::RoomService
     return skipped_result unless configured?
 
     participants = list_participants
-    customer_participants = participants.reject { |participant| agent_participant?(participant) }
-    {
+    participant_counts(participants).merge(
       'status' => 'active',
-      'participant_count' => participants.size,
-      'customer_participant_count' => customer_participants.size,
-      'agent_participant_count' => participants.size - customer_participants.size,
       'participant_identities' => participants.filter_map { |participant| participant['identity'] }
-    }
+    )
   rescue StandardError => e
     return not_found_result(e) if room_not_found?(e)
 
@@ -89,7 +86,7 @@ class Voice::Livekit::RoomService
   def delete_room
     return skipped_result unless configured?
 
-    response = client.post(
+    response = delete_client.post(
       service: 'RoomService',
       method: 'DeleteRoom',
       body: { room: room_name }
@@ -145,8 +142,39 @@ class Voice::Livekit::RoomService
     @client ||= Voice::Livekit::TwirpClient.new(room_name: room_name, subject: 'voice-room-admin')
   end
 
+  def delete_client
+    @delete_client ||= Voice::Livekit::TwirpClient.new(
+      room_name: room_name,
+      subject: 'voice-room-delete',
+      video_grants: {
+        room: room_name,
+        roomCreate: true
+      }
+    )
+  end
+
+  def participant_counts(participants)
+    customer_participants = participants.reject { |participant| non_customer_participant?(participant) }
+    agent_participants = participants.select { |participant| agent_participant?(participant) }
+    egress_participants = participants.select { |participant| egress_participant?(participant) }
+    {
+      'participant_count' => participants.size,
+      'customer_participant_count' => customer_participants.size,
+      'agent_participant_count' => agent_participants.size,
+      'egress_participant_count' => egress_participants.size
+    }
+  end
+
   def agent_participant?(participant)
     AGENT_KIND_VALUES.include?(participant['kind']) || participant['identity'].to_s.start_with?('agent-')
+  end
+
+  def egress_participant?(participant)
+    EGRESS_KIND_VALUES.include?(participant['kind']) || participant['identity'].to_s.start_with?('EG_')
+  end
+
+  def non_customer_participant?(participant)
+    agent_participant?(participant) || egress_participant?(participant)
   end
 
   def room_not_found?(error)

@@ -116,7 +116,6 @@
       "JOIN_LIVE_CALL": "Join live call",
       "TAKE_OVER": "Take over",
       "END_CALL": "End call",
-      "DISCONNECT": "Disconnect",
       "MUTE": "Mute",
       "UNMUTE": "Unmute",
       "HANDOFF_REQUESTED": "AI requested handoff",
