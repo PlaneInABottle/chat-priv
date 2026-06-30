@@ -220,11 +220,12 @@ export const mutations = {
         message,
         'attachments'
       );
-      const incomingAttachments = hasAttachmentsField
-        ? Array.isArray(message.attachments)
+      let incomingAttachments;
+      if (hasAttachmentsField) {
+        incomingAttachments = Array.isArray(message.attachments)
           ? message.attachments.filter(Boolean)
-          : message.attachments
-        : undefined;
+          : message.attachments;
+      }
 
       const isDeleted = !!message.content_attributes?.deleted;
       const isReplacingPendingMessage =
@@ -238,11 +239,13 @@ export const mutations = {
             Array.isArray(incomingAttachments) &&
             incomingAttachments.length === 0));
 
-      chat.messages[pendingMessageIndex] = shouldPreserveAttachments
-        ? { ...message, attachments: existingMessage.attachments }
-        : hasAttachmentsField
-          ? { ...message, attachments: incomingAttachments }
-          : message;
+      let nextMessage = message;
+      if (shouldPreserveAttachments) {
+        nextMessage = { ...message, attachments: existingMessage.attachments };
+      } else if (hasAttachmentsField) {
+        nextMessage = { ...message, attachments: incomingAttachments };
+      }
+      chat.messages[pendingMessageIndex] = nextMessage;
     } else {
       chat.messages.push(message);
       chat.timestamp = message.created_at;
