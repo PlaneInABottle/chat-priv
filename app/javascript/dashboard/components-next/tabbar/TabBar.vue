@@ -58,6 +58,30 @@ const selectTab = index => {
   emit('tabChanged', props.tabs[index]);
 };
 
+const focusTab = index => {
+  if (!props.tabs.length) return;
+
+  const nextIndex = (index + props.tabs.length) % props.tabs.length;
+  selectTab(nextIndex);
+  nextTick(() => tabRefs.value[nextIndex]?.focus());
+};
+
+const handleKeydown = (event, index) => {
+  const keyHandlers = {
+    ArrowRight: () => focusTab(index + 1),
+    ArrowDown: () => focusTab(index + 1),
+    ArrowLeft: () => focusTab(index - 1),
+    ArrowUp: () => focusTab(index - 1),
+    Home: () => focusTab(0),
+    End: () => focusTab(props.tabs.length - 1),
+  };
+  const handler = keyHandlers[event.key];
+  if (!handler) return;
+
+  event.preventDefault();
+  handler();
+};
+
 const showDivider = index => {
   return (
     // Show dividers after the active tab, but not after the last tab
@@ -93,6 +117,7 @@ const showDivider = index => {
             : 'text-n-slate-10 scale-[0.98]',
         ]"
         @click="selectTab(index)"
+        @keydown="handleKeydown($event, index)"
       >
         {{ tab.label }} {{ tab.count ? `(${tab.count})` : '' }}
       </button>

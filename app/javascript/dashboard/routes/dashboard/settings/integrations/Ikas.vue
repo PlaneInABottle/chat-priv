@@ -333,7 +333,10 @@ onUnmounted(() => {
               <p class="text-xs text-n-slate-10">
                 {{ $t('INTEGRATION_SETTINGS.IKAS.CATALOG.SCOPE') }}
               </p>
-              <p v-if="catalogStorefrontDomains" class="text-xs text-n-slate-10">
+              <p
+                v-if="catalogStorefrontDomains"
+                class="text-xs text-n-slate-10"
+              >
                 {{
                   $t('INTEGRATION_SETTINGS.IKAS.CATALOG.STOREFRONT_DOMAINS', {
                     domains: catalogStorefrontDomains,
