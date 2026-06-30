@@ -13,7 +13,6 @@ import {
   ATTACHMENT_TYPES,
 } from '../constants';
 import { useCallActions } from 'dashboard/composables/useCallSession';
-import { useLivekitVoiceSession } from 'dashboard/composables/useLivekitVoiceSession';
 import { useWhatsappCallSession } from 'dashboard/composables/useWhatsappCallSession';
 import { useCallsStore } from 'dashboard/stores/calls';
 import VoiceAPI from 'dashboard/api/voice';
@@ -76,7 +75,6 @@ const {
 const whatsappCallSession = useWhatsappCallSession();
 const callsStore = useCallsStore();
 const livekitCallDetails = ref(null);
-const isTakingOverLivekit = ref(false);
 const isEndingLivekit = ref(false);
 const contactsUiFlags = useMapGetter('contacts/getUIFlags');
 const isInitiatingCall = computed(
@@ -303,22 +301,7 @@ const callSid = computed(
 const livekitCallId = computed(
   () => callField('id') || contentData.value?.call_id
 );
-const livekitCallForSession = computed(() => {
-  if (!livekitCallId.value) return null;
-  return { id: livekitCallId.value };
-});
-const {
-  remoteAudioRef,
-  sessionStatus: livekitSessionStatus,
-  sessionError: livekitSessionError,
-  activeParticipantType: livekitParticipantType,
-  isJoining: isJoiningLivekit,
-  isMuted: isLivekitMuted,
-  isConnected: isLivekitConnected,
-  joinRoom: joinLivekitRoom,
-  disconnectRoom: disconnectLivekitRoom,
-  toggleMute: toggleLivekitMute,
-} = useLivekitVoiceSession({ call: livekitCallForSession });
+const isJoiningLivekit = ref(false);
 
 const isLivekitTerminal = computed(() =>
   [
@@ -341,7 +324,17 @@ const isLivekitActiveInCallWidget = computed(
     activeCall.value?.callSid === callSid.value
 );
 const displayLivekitSessionStatus = computed(() =>
-  isLivekitActiveInCallWidget.value ? 'connected' : livekitSessionStatus.value
+  isLivekitActiveInCallWidget.value ? 'connected' : 'disconnected'
+);
+const livekitPrimaryActionLabel = computed(() =>
+  handoffStatus.value === 'accepted' || aiStatus.value === 'silent'
+    ? t('CONVERSATION.VOICE_CALL.JOIN_LIVE_CALL')
+    : t('CONVERSATION.VOICE_CALL.TAKE_OVER')
+);
+const livekitPrimaryActionIcon = computed(() =>
+  handoffStatus.value === 'accepted' || aiStatus.value === 'silent'
+    ? 'i-ph-headphones-bold'
+    : 'i-ph-user-check-bold'
 );
 
 const canJoinCall = computed(() => {
@@ -427,6 +420,23 @@ const refreshLivekitCallDetails = async () => {
   }
 };
 
+const activateLivekitCallInWidget = () => {
+  if (!callSid.value || !livekitCallId.value) return;
+
+  callsStore.addCall({
+    callSid: callSid.value,
+    callId: livekitCallId.value,
+    provider: VOICE_CALL_PROVIDERS.LIVEKIT,
+    startedAt: callField('startedAt', 'started_at'),
+    conversationId: conversationId.value,
+    inboxId: inboxId.value,
+    callDirection: isOutbound.value
+      ? VOICE_CALL_DIRECTION.OUTBOUND
+      : VOICE_CALL_DIRECTION.INBOUND,
+  });
+  callsStore.setCallActive(callSid.value);
+};
+
 onMounted(() => {
   if (isLivekitTerminal.value) {
     refreshLivekitCallDetails();
@@ -508,36 +518,19 @@ const handleCallBack = async () => {
 const handleJoinLivekit = async () => {
   if (
     !canUseLivekitControls.value ||
-    isLivekitConnected.value ||
-    isLivekitActiveInCallWidget.value
+    isLivekitActiveInCallWidget.value ||
+    isJoiningLivekit.value
   ) {
     return;
   }
-  dismissCall(callSid.value);
-  await joinLivekitRoom('agent');
-};
-
-const handleDisconnectLivekit = () => {
-  if (isLivekitActiveInCallWidget.value) {
-    dismissCall(callSid.value);
-    return;
-  }
-
-  disconnectLivekitRoom();
-};
-
-const handleTakeOverLivekit = async () => {
-  if (!canUseLivekitControls.value || isTakingOverLivekit.value) return;
-
-  isTakingOverLivekit.value = true;
+  isJoiningLivekit.value = true;
   try {
-    const response = await VoiceAPI.takeOver(livekitCallId.value);
-    livekitCallDetails.value = response.data;
-    useAlert(t('VOICE_AI.SESSION.TAKE_OVER_SUCCESS'));
-  } catch {
-    useAlert(t('VOICE_AI.SESSION.ACTION_ERROR'));
+    await refreshLivekitCallDetails();
+    if (!canUseLivekitControls.value) return;
+
+    activateLivekitCallInWidget();
   } finally {
-    isTakingOverLivekit.value = false;
+    isJoiningLivekit.value = false;
   }
 };
 
@@ -550,7 +543,6 @@ const handleEndLivekit = async () => {
       end_reason: 'agent_ended',
     });
     livekitCallDetails.value = response.data;
-    disconnectLivekitRoom();
     dismissCall(callSid.value);
     useAlert(t('VOICE_AI.SESSION.END_SUCCESS'));
   } catch {
@@ -632,15 +624,6 @@ const handleEndLivekit = async () => {
         </div>
       </details>
 
-      <div v-if="isLivekit" ref="remoteAudioRef" class="hidden" />
-
-      <div
-        v-if="isLivekit && livekitSessionError"
-        class="rounded-lg bg-n-ruby-3 px-3 py-2 text-sm text-n-ruby-11"
-      >
-        {{ livekitSessionError }}
-      </div>
-
       <details
         v-if="canUseLivekitControls"
         class="group"
@@ -661,54 +644,20 @@ const handleEndLivekit = async () => {
             </span>
           </div>
 
-          <div class="grid grid-cols-2 gap-2">
+          <div
+            class="grid gap-2"
+            :class="isLivekitActiveInCallWidget ? 'grid-cols-1' : 'grid-cols-2'"
+          >
             <NextButton
-              v-if="!isLivekitConnected && !isLivekitActiveInCallWidget"
+              v-if="!isLivekitActiveInCallWidget"
               type="button"
-              :label="$t('CONVERSATION.VOICE_CALL.JOIN_LIVE_CALL')"
-              icon="i-ph-headphones-bold"
+              :label="livekitPrimaryActionLabel"
+              :icon="livekitPrimaryActionIcon"
               teal
               class="!rounded-full"
               :disabled="isJoiningLivekit"
-              :is-loading="
-                isJoiningLivekit && livekitParticipantType === 'agent'
-              "
+              :is-loading="isJoiningLivekit"
               @click="handleJoinLivekit"
-            />
-            <NextButton
-              v-else
-              type="button"
-              :label="
-                isLivekitMuted
-                  ? $t('CONVERSATION.VOICE_CALL.UNMUTE')
-                  : $t('CONVERSATION.VOICE_CALL.MUTE')
-              "
-              icon="i-ph-microphone-bold"
-              variant="outline"
-              color="slate"
-              class="!rounded-full"
-              @click="toggleLivekitMute"
-            />
-            <NextButton
-              type="button"
-              :label="$t('CONVERSATION.VOICE_CALL.TAKE_OVER')"
-              icon="i-ph-user-check-bold"
-              variant="outline"
-              color="slate"
-              class="!rounded-full"
-              :disabled="handoffStatus === 'accepted'"
-              :is-loading="isTakingOverLivekit"
-              @click="handleTakeOverLivekit"
-            />
-            <NextButton
-              v-if="isLivekitConnected || isLivekitActiveInCallWidget"
-              type="button"
-              :label="$t('CONVERSATION.VOICE_CALL.DISCONNECT')"
-              icon="i-ph-phone-disconnect-bold"
-              variant="outline"
-              color="slate"
-              class="!rounded-full"
-              @click="handleDisconnectLivekit"
             />
             <NextButton
               type="button"

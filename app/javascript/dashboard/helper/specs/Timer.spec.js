@@ -42,6 +42,16 @@ describe('Timer', () => {
       expect(timer.elapsed).toBe(5);
     });
 
+    it('starts from an initial elapsed value', () => {
+      const timer = new Timer();
+      timer.start(12);
+
+      expect(timer.elapsed).toBe(12);
+
+      vi.advanceTimersByTime(1000);
+      expect(timer.elapsed).toBe(13);
+    });
+
     it('calls onTick callback with elapsed value', () => {
       const onTick = vi.fn();
       const timer = new Timer(onTick);

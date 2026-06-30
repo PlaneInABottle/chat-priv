@@ -24,9 +24,7 @@ RSpec.describe Voice::Livekit::RoomService do
         token = request.headers.fetch('Authorization').delete_prefix('Bearer ')
         claims = JWT.decode(token, 'livekit-secret', true, { algorithm: 'HS256' }).first
 
-        expect(body).to include('room' => 'room-1')
-        expect(claims.dig('video', 'roomAdmin')).to be(true)
-        expect(claims.dig('video', 'room')).to eq('room-1')
+        expect([body['room'], claims.dig('video', 'roomAdmin'), claims.dig('video', 'room')]).to eq(['room-1', true, 'room-1'])
       end.to_return(
         status: 200,
         body: {
@@ -72,7 +70,9 @@ RSpec.describe Voice::Livekit::RoomService do
             participants: [
               { identity: 'caller-account-1-user-1-call-1', kind: 'STANDARD' },
               { identity: 'agent-account-1-user-1-call-1', kind: 'STANDARD' },
-              { identity: 'agent-worker-1', kind: 'AGENT' }
+              { identity: 'agent-worker-1', kind: 'AGENT' },
+              { identity: 'EG_recording', kind: 'STANDARD' },
+              { identity: 'egress-worker-1', kind: 2 }
             ]
           }.to_json,
           headers: { 'Content-Type' => 'application/json' }
@@ -88,9 +88,10 @@ RSpec.describe Voice::Livekit::RoomService do
 
       expect(result).to include(
         'status' => 'active',
-        'participant_count' => 3,
+        'participant_count' => 5,
         'customer_participant_count' => 1,
-        'agent_participant_count' => 2
+        'agent_participant_count' => 2,
+        'egress_participant_count' => 2
       )
     end
   end
@@ -113,7 +114,9 @@ RSpec.describe Voice::Livekit::RoomService do
             { identity: 'sip_+905551112233', kind: 'SIP' },
             { identity: 'caller-account-1-user-1-call-1', kind: 'STANDARD' },
             { identity: 'agent-worker-1', kind: 'AGENT' },
-            { identity: 'agent-account-1-user-1-call-1', kind: 'STANDARD' }
+            { identity: 'agent-account-1-user-1-call-1', kind: 'STANDARD' },
+            { identity: 'EG_recording', kind: 'STANDARD' },
+            { identity: 'egress-worker-1', kind: 2 }
           ]
         }.to_json,
         headers: { 'Content-Type' => 'application/json' }
@@ -121,8 +124,7 @@ RSpec.describe Voice::Livekit::RoomService do
       remove_request = stub_request(:post, 'https://test.livekit.cloud/twirp/livekit.RoomService/RemoveParticipant')
                        .with do |request|
         body = JSON.parse(request.body)
-        expect(body).to include('room' => 'room-1')
-        expect(body['identity']).to be_in(['sip_+905551112233', 'caller-account-1-user-1-call-1'])
+        expect([body['room'], ['sip_+905551112233', 'caller-account-1-user-1-call-1'].include?(body['identity'])]).to eq(['room-1', true])
       end.to_return(status: 200, body: '{}', headers: { 'Content-Type' => 'application/json' })
 
       result = with_modified_env(
@@ -158,7 +160,7 @@ RSpec.describe Voice::Livekit::RoomService do
       )
     end
 
-    it 'deletes the room with a room admin token' do
+    it 'deletes the room with a room-create token' do
       delete_request = stub_request(:post, 'https://test.livekit.cloud/twirp/livekit.RoomService/DeleteRoom')
                        .with do |request|
         body = JSON.parse(request.body)
@@ -166,8 +168,8 @@ RSpec.describe Voice::Livekit::RoomService do
         claims = JWT.decode(token, 'livekit-secret', true, { algorithm: 'HS256' }).first
 
         expect(body).to include('room' => 'room-1')
-        expect(claims.dig('video', 'roomAdmin')).to be(true)
         expect(claims.dig('video', 'room')).to eq('room-1')
+        expect(claims.dig('video', 'roomCreate')).to be(true)
       end.to_return(status: 200, body: '{}', headers: { 'Content-Type' => 'application/json' })
 
       result = with_modified_env(
@@ -189,7 +191,7 @@ RSpec.describe Voice::Livekit::RoomService do
   end
 
   describe '.delete_room_name' do
-    it 'deletes a room by name without a call record' do
+    it 'deletes a room by name without a call record using a room-create token' do
       delete_request = stub_request(:post, 'https://test.livekit.cloud/twirp/livekit.RoomService/DeleteRoom')
                        .with do |request|
         body = JSON.parse(request.body)
@@ -197,8 +199,8 @@ RSpec.describe Voice::Livekit::RoomService do
         claims = JWT.decode(token, 'livekit-secret', true, { algorithm: 'HS256' }).first
 
         expect(body).to include('room' => 'sip-room-rejected')
-        expect(claims.dig('video', 'roomAdmin')).to be(true)
         expect(claims.dig('video', 'room')).to eq('sip-room-rejected')
+        expect(claims.dig('video', 'roomCreate')).to be(true)
       end.to_return(status: 200, body: '{}', headers: { 'Content-Type' => 'application/json' })
 
       result = with_modified_env(

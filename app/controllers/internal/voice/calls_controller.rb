@@ -87,6 +87,8 @@ class Internal::Voice::CallsController < Internal::Voice::BaseController
   end
 
   def end
+    return render_ignored_dispatch_cancelled_end if ignore_dispatch_cancelled_after_takeover?
+
     Voice::CallFinalizer.perform!(
       call: @call,
       status: terminal_status,
@@ -184,6 +186,32 @@ class Internal::Voice::CallsController < Internal::Voice::BaseController
   def terminal_status
     status = params[:status].presence || 'completed'
     Call::TERMINAL_STATUSES.include?(status) ? status : 'completed'
+  end
+
+  def ignore_dispatch_cancelled_after_takeover?
+    params[:end_reason].to_s == 'livekit_dispatch_cancelled' &&
+      @call.livekit? &&
+      !@call.terminal? &&
+      @call.conversation.present? &&
+      @call.handoff_status == 'accepted' &&
+      @call.ai_status == 'silent'
+  end
+
+  def render_ignored_dispatch_cancelled_end
+    @call.update!(
+      meta: (@call.meta || {}).merge(
+        'last_ignored_voice_agent_end_reason' => params[:end_reason].to_s,
+        'last_ignored_voice_agent_end_at' => Time.zone.now.iso8601(3)
+      )
+    )
+    if @call.message_id
+      Voice::CallMessageBuilder.new(@call).update_status!(
+        status: @call.status,
+        agent: @call.accepted_by_agent
+      )
+    end
+    Voice::CallBroadcaster.safe_call_status_changed(@call)
+    render json: Voice::CallSerializer.new(@call).payload
   end
 
   def ensure_runtime_action_allowed

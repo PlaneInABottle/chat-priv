@@ -1,7 +1,8 @@
-import { mount } from '@vue/test-utils';
+import { flushPromises, mount } from '@vue/test-utils';
 import { ref } from 'vue';
 
 import VoiceCall from '../bubbles/VoiceCall.vue';
+import VoiceAPI from 'dashboard/api/voice';
 
 const contextState = vi.hoisted(() => ({ context: null }));
 const contactsUiFlags = vi.hoisted(() => ({
@@ -26,6 +27,12 @@ const livekitSession = vi.hoisted(() => ({
   joinRoom: vi.fn(),
   disconnectRoom: vi.fn(),
   toggleMute: vi.fn(),
+}));
+const callsStore = vi.hoisted(() => ({
+  hasIncomingCall: false,
+  activeCall: null,
+  addCall: vi.fn(),
+  setCallActive: vi.fn(),
 }));
 
 const translations = {
@@ -82,10 +89,7 @@ vi.mock('dashboard/composables/useWhatsappCallSession', () => ({
 }));
 
 vi.mock('dashboard/stores/calls', () => ({
-  useCallsStore: () => ({
-    hasIncomingCall: false,
-    addCall: vi.fn(),
-  }),
+  useCallsStore: () => callsStore,
 }));
 
 vi.mock('dashboard/api/voice', () => ({
@@ -127,6 +131,15 @@ const mountComponent = call => {
 };
 
 describe('VoiceCall', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    callsStore.hasIncomingCall = false;
+    callsStore.activeCall = null;
+    callActions.activeCall.value = null;
+    callActions.hasActiveCall.value = false;
+    VoiceAPI.getCall.mockImplementation(() => new Promise(() => {}));
+  });
+
   it('uses failed copy for a stale active recording on a completed call', () => {
     const wrapper = mountComponent({
       id: 3,
@@ -180,5 +193,77 @@ describe('VoiceCall', () => {
 
     expect(wrapper.text()).toContain('Call in progress');
     expect(wrapper.text()).toContain('Recording is processing');
+  });
+
+  it('shows one takeover action for a live handoff call', () => {
+    const wrapper = mountComponent({
+      id: 7,
+      provider: 'livekit',
+      providerCallId: 'handoff-room',
+      direction: 'incoming',
+      status: 'in-progress',
+      handoffStatus: 'requested',
+    });
+
+    const labels = wrapper
+      .findAll('next-button-stub')
+      .map(button => button.attributes('label'));
+
+    expect(labels.filter(label => label === 'Take over')).toHaveLength(1);
+    expect(labels).not.toContain('Join live call');
+  });
+
+  it('does not expose local disconnect for an active LiveKit call', () => {
+    callActions.activeCall.value = {
+      provider: 'livekit',
+      callSid: 'active-room',
+    };
+
+    const wrapper = mountComponent({
+      id: 9,
+      provider: 'livekit',
+      providerCallId: 'active-room',
+      direction: 'incoming',
+      status: 'in-progress',
+      handoffStatus: 'accepted',
+      aiStatus: 'silent',
+    });
+
+    const labels = wrapper
+      .findAll('next-button-stub')
+      .map(button => button.attributes('label'));
+
+    expect(labels).toContain('End call');
+    expect(labels).not.toContain('Disconnect');
+    expect(labels).not.toContain('Join live call');
+    expect(labels).not.toContain('Take over');
+  });
+
+  it('does not activate the call widget when refresh says the call already ended', async () => {
+    VoiceAPI.getCall.mockResolvedValueOnce({
+      data: {
+        id: 8,
+        provider: 'livekit',
+        provider_call_id: 'ended-room',
+        status: 'completed',
+      },
+    });
+    const wrapper = mountComponent({
+      id: 8,
+      provider: 'livekit',
+      providerCallId: 'ended-room',
+      direction: 'incoming',
+      status: 'in-progress',
+    });
+
+    const takeoverButton = wrapper
+      .findAll('next-button-stub')
+      .find(button => button.attributes('label') === 'Take over');
+    await takeoverButton.trigger('click');
+    await flushPromises();
+
+    expect(VoiceAPI.getCall).toHaveBeenCalledWith(8);
+    expect(callsStore.addCall).not.toHaveBeenCalled();
+    expect(callsStore.setCallActive).not.toHaveBeenCalled();
   });
 });
