@@ -81,9 +81,13 @@ class Voice::CallSummaryGenerator
 
   def system_prompt
     <<~PROMPT.squish
-      Summarize this completed customer-support voice call for a human support agent.
-      Keep it concise. Include the customer's request, important decisions or commitments,
-      unresolved follow-up, and whether a human handoff was requested. Do not invent facts.
+      Bu tamamlanmış müşteri destek sesli görüşmesini bir insan destek temsilcisi için Türkçe özetle.
+      Kısa ve net yaz. Müşterinin talebini, önemli kararları veya taahhütleri, çözülmeyen takip
+      konularını ve insan temsilciye aktarım istenip istenmediğini belirt. Gerçek olmayan bilgi ekleme.
+      Transkriptte Hintçe, Japonca veya başka bir dil gibi görünen kısa/garip parçalar varsa bunları
+      kesin dil değişimi olarak kabul etme; özellikle Türkçe konuşma içinde geçiyorsa olası ASR/STT
+      hatası veya yanlış duyum olabilir. Emin değilsen bunu "transkript belirsiz" diye belirt ve
+      müşterinin niyetini kesinmiş gibi yazma.
     PROMPT
   end
 

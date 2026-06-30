@@ -104,6 +104,50 @@ RSpec.describe Voice::Recordings::StopService do
     )
   end
 
+  it 'reconciles a recording when StopEgress is still ending' do
+    message = create(:message, account: call.account, inbox: call.inbox, conversation: call.conversation, content_type: 'voice_call')
+    call.update!(message: message)
+    recording = create(
+      :voice_recording,
+      call: call,
+      status: 'active',
+      egress_id: 'EG_complete',
+      bucket: 'recordings',
+      object_key: 'voice-recordings/account-1/call-1/original.mp4'
+    )
+    allow(Voice::Livekit::EgressService).to receive(:stop).and_return(
+      {
+        'status' => 'ok',
+        'egress_id' => 'EG_complete',
+        'egress_status' => 'EGRESS_ENDING',
+        'response' => {
+          'egress_id' => 'EG_complete',
+          'status' => 'EGRESS_ENDING'
+        }
+      }
+    )
+    allow(Voice::Livekit::EgressService).to receive(:fetch).and_return(completed_lookup_result)
+
+    result = described_class.perform(call: call)
+
+    expect(result).to include('status' => 'ok', 'egress_id' => 'EG_complete')
+    expect(Voice::Livekit::EgressService).to have_received(:fetch).with(egress_id: 'EG_complete', call: call)
+    expect(recording.reload).to have_attributes(
+      status: 'completed',
+      duration_seconds: 20,
+      object_key: 'voice-recordings/account-1/call-1/final.ogg',
+      content_type: 'audio/ogg'
+    )
+    expect(recording.metadata).to include(
+      'stop_result' => hash_including('status' => 'ok', 'egress_status' => 'EGRESS_ENDING'),
+      'stop_reconcile_result' => hash_including('status' => 'ok', 'egress_id' => 'EG_complete')
+    )
+    expect(message.reload.content_attributes.dig('data', 'recording')).to include(
+      'id' => recording.id,
+      'status' => 'completed'
+    )
+  end
+
   it 'marks the recording failed when StopEgress reports the egress already aborted' do
     message = create(:message, account: call.account, inbox: call.inbox, conversation: call.conversation, content_type: 'voice_call')
     call.update!(message: message)

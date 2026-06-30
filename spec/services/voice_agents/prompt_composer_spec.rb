@@ -18,6 +18,8 @@ RSpec.describe VoiceAgents::PromptComposer do
       prompt = described_class.new(voice_agent: voice_agent).effective_system_prompt
 
       expect(prompt).to include("You are Acme Support's customer support voice assistant.")
+      expect(prompt).to include('Treat unclear or multilingual-looking speech as possible speech-to-text noise.')
+      expect(prompt).to include('prefer a plausible Turkish interpretation')
       expect(prompt).to include('Platform global AI instructions:')
       expect(prompt).to include('Never invent facts.')
       expect(prompt).to include('Voice language: tr')

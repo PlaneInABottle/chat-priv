@@ -11,6 +11,7 @@ RSpec.describe Voice::CallFinalizer do
     allow(Voice::Livekit::AgentDispatchService).to receive(:perform).and_return({ 'status' => 'skipped' })
     allow(Voice::Livekit::RoomService).to receive(:remove_customer_participants).and_return({ 'status' => 'skipped' })
     allow(Voice::Livekit::RoomService).to receive(:delete_room).and_return({ 'status' => 'skipped' })
+    allow(Voice::Telephony::LocalAsteriskHangupService).to receive(:perform).and_return({ 'status' => 'skipped' })
     allow(Voice::CallSummaryGenerator).to receive(:perform)
   end
 
@@ -100,7 +101,33 @@ RSpec.describe Voice::CallFinalizer do
     expect(call.meta['finalized_by']).to eq('system')
   end
 
-  it 'terminates the LiveKit room when ending a LiveKit call' do
+  it 'stops recording before disconnecting LiveKit participants and deleting the room' do
+    call = build_conversation_call
+    create(:voice_recording, call: call, status: 'active', egress_id: 'EG_active')
+    calls = []
+    allow(Voice::Recordings::StopService).to receive(:perform) do
+      calls << :stop_recording
+      { 'status' => 'ok', 'egress_id' => 'EG_active' }
+    end
+    allow(Voice::Livekit::RoomService).to receive(:remove_customer_participants) do
+      calls << :remove_customer_participants
+      { 'status' => 'removed', 'removed_identities' => ['sip_+905551112233'] }
+    end
+    allow(Voice::Livekit::RoomService).to receive(:delete_room) do
+      calls << :delete_room
+      { 'status' => 'deleted' }
+    end
+    allow(Voice::Telephony::LocalAsteriskHangupService).to receive(:perform) do
+      calls << :local_asterisk_hangup
+      { 'status' => 'skipped' }
+    end
+
+    described_class.perform!(call: call, end_reason: 'agent_ended')
+
+    expect(calls).to eq(%i[stop_recording remove_customer_participants delete_room local_asterisk_hangup])
+  end
+
+  it 'disconnects customer participants and terminates the LiveKit room when ending a LiveKit call' do
     call = build_conversation_call
     allow(Voice::Livekit::RoomService).to receive(:remove_customer_participants).with(call: call).and_return(
       { 'status' => 'removed', 'removed_identities' => ['sip_+905551112233'] }
@@ -108,24 +135,63 @@ RSpec.describe Voice::CallFinalizer do
     allow(Voice::Livekit::RoomService).to receive(:delete_room).with(call: call).and_return(
       { 'status' => 'deleted', 'room' => call.livekit_room_name }
     )
+    allow(Voice::Telephony::LocalAsteriskHangupService).to receive(:perform).with(call: call).and_return(
+      { 'status' => 'requested', 'channels' => ['PJSIP/1001-00000001'] }
+    )
 
     described_class.perform!(call: call, end_reason: 'agent_ended')
 
     expect(Voice::Livekit::RoomService).to have_received(:remove_customer_participants).with(call: call)
     expect(Voice::Livekit::RoomService).to have_received(:delete_room).with(call: call)
-    expect(call.reload.meta['livekit_customer_removal']).to eq(
-      'status' => 'removed',
-      'removed_identities' => ['sip_+905551112233']
+    expect(Voice::Telephony::LocalAsteriskHangupService).to have_received(:perform).with(call: call)
+    expect(call.reload.meta).to include(
+      'livekit_customer_removal' => {
+        'status' => 'removed',
+        'removed_identities' => ['sip_+905551112233']
+      },
+      'livekit_room_delete' => {
+        'status' => 'deleted',
+        'room' => call.livekit_room_name
+      },
+      'local_asterisk_hangup' => {
+        'status' => 'requested',
+        'channels' => ['PJSIP/1001-00000001']
+      },
+      'recording_stop' => {
+        'status' => 'skipped',
+        'reason' => 'no_active_recording'
+      }
     )
+    expect(call.meta['finalized_at']).to be_present
+  end
+
+  it 'still deletes the LiveKit room after customer participant removal fails' do
+    call = build_conversation_call
+    calls = []
+    allow(Voice::Livekit::RoomService).to receive(:remove_customer_participants).with(call: call) do
+      calls << :remove_customer_participants
+      { 'status' => 'failed', 'error' => 'list failed' }
+    end
+    allow(Voice::Livekit::RoomService).to receive(:delete_room).with(call: call) do
+      calls << :delete_room
+      { 'status' => 'deleted', 'room' => call.livekit_room_name }
+    end
+    allow(Voice::Telephony::LocalAsteriskHangupService).to receive(:perform).with(call: call) do
+      calls << :local_asterisk_hangup
+      { 'status' => 'skipped' }
+    end
+
+    described_class.perform!(call: call, end_reason: 'agent_ended')
+
+    expect(calls).to eq(%i[remove_customer_participants delete_room local_asterisk_hangup])
     expect(call.reload.meta['livekit_room_delete']).to eq(
       'status' => 'deleted',
       'room' => call.livekit_room_name
     )
-    expect(call.meta['recording_stop']).to eq(
-      'status' => 'skipped',
-      'reason' => 'no_active_recording'
+    expect(call.meta['livekit_customer_removal']).to eq(
+      'status' => 'failed',
+      'error' => 'list failed'
     )
-    expect(call.meta['finalized_at']).to be_present
   end
 
   it 'keeps terminal calls idempotent' do

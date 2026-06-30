@@ -12,6 +12,7 @@ import ConversationLabelSuggestion from './conversation/LabelSuggestion.vue';
 import Banner from 'dashboard/components/ui/Banner.vue';
 import Spinner from 'dashboard/components-next/spinner/Spinner.vue';
 import ResizableEditorWrapper from './ResizableEditorWrapper.vue';
+import ActiveLivekitCallBar from './ActiveLivekitCallBar.vue';
 
 // stores and apis
 import { mapGetters } from 'vuex';
@@ -35,7 +36,8 @@ import { BUS_EVENTS } from 'shared/constants/busEvents';
 import { REPLY_POLICY } from 'shared/constants/links';
 import wootConstants from 'dashboard/constants/globals';
 import { LOCAL_STORAGE_KEYS } from 'dashboard/constants/localStorage';
-import { INBOX_TYPES } from 'dashboard/helper/inbox';
+import { INBOX_TYPES, VOICE_CALL_PROVIDERS } from 'dashboard/helper/inbox';
+import { CONTENT_TYPES } from 'dashboard/components-next/message/constants';
 
 export default {
   components: {
@@ -45,6 +47,7 @@ export default {
     ConversationLabelSuggestion,
     Spinner,
     ResizableEditorWrapper,
+    ActiveLivekitCallBar,
   },
   mixins: [inboxMixin],
   setup() {
@@ -243,6 +246,12 @@ export default {
         !this.is360DialogWhatsAppChannel;
 
       return { incoming, outgoing };
+    },
+    activeLivekitCall() {
+      return [...this.getMessages]
+        .reverse()
+        .map(message => this.voiceCallFromMessage(message))
+        .find(Boolean);
     },
   },
 
@@ -451,6 +460,29 @@ export default {
     resetReplyEditorHeight() {
       this.resizableEditorWrapperRef?.resetEditorHeight?.();
     },
+    voiceCallFromMessage(message) {
+      if (message?.content_type !== CONTENT_TYPES.VOICE_CALL) return null;
+
+      const call = message.call || {};
+      const data = message.content_attributes?.data || {};
+      const provider = call.provider || data.call_source;
+      const status = call.status || data.status;
+      const id = call.id || data.call_id;
+
+      if (provider !== VOICE_CALL_PROVIDERS.LIVEKIT) return null;
+      if (!['in-progress', 'in_progress'].includes(status)) return null;
+      if (!id) return null;
+
+      return {
+        id,
+        provider,
+        status,
+        providerCallId: call.provider_call_id || data.call_sid,
+        livekitRoomName: call.livekit_room_name || data.livekit_room_name,
+        handoffStatus: call.handoff_status || data.handoff_status,
+        aiStatus: call.ai_status || data.ai_status,
+      };
+    },
   },
 };
 </script>
@@ -519,6 +551,10 @@ export default {
       </template>
     </MessageList>
     <div class="flex relative flex-col bg-n-surface-1">
+      <ActiveLivekitCallBar
+        v-if="activeLivekitCall"
+        :call="activeLivekitCall"
+      />
       <div
         v-if="isAnyoneTyping"
         class="absolute flex items-center w-full h-0 -top-7"

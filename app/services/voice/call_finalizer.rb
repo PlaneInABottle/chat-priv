@@ -15,8 +15,8 @@ class Voice::CallFinalizer
   def perform!
     return call unless mark_terminal!
 
-    terminate_livekit_room
     recording_result = stop_recording
+    terminate_livekit_room
     persist_finalization_meta(recording_result)
     generate_summary
     Voice::ConversationHandoffState.clear_if_current!(call)
@@ -90,11 +90,15 @@ class Voice::CallFinalizer
 
     customer_removal_result = Voice::Livekit::RoomService.remove_customer_participants(call: call)
     room_result = Voice::Livekit::RoomService.delete_room(call: call)
+    local_hangup_result = Voice::Telephony::LocalAsteriskHangupService.perform(call: call)
+    livekit_cleanup_meta = {
+      'livekit_customer_removal' => customer_removal_result,
+      'livekit_room_delete' => room_result
+    }
+    livekit_cleanup_meta['local_asterisk_hangup'] = local_hangup_result unless local_hangup_result['status'] == 'skipped'
+
     call.update!(
-      meta: (call.meta || {}).merge(
-        'livekit_customer_removal' => customer_removal_result,
-        'livekit_room_delete' => room_result
-      )
+      meta: (call.meta || {}).merge(livekit_cleanup_meta)
     )
   rescue StandardError => e
     Rails.logger.warn("livekit room delete failed call_id=#{call.id} error=#{e.class.name}: #{e.message}")

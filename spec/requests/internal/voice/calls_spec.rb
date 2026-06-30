@@ -4,6 +4,7 @@ RSpec.describe 'Internal voice calls API', type: :request do
   let(:account) { create(:account, settings: { voice_ai_enabled: true }) }
   let(:api_channel) { create(:channel_api, account: account) }
   let(:inbox) { api_channel.inbox }
+  let(:agent) { create(:user, account: account, role: :agent) }
   let(:voice_agent) { account.voice_agents.first! }
   let!(:voice_inbox_setting) { create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: voice_agent) }
   let(:call) { Voice::TestCallBuilder.perform!(account: account, inbox: inbox, voice_agent: voice_agent) }
@@ -12,6 +13,13 @@ RSpec.describe 'Internal voice calls API', type: :request do
 
   before do
     allow(Voice::Livekit::AgentDispatchService).to receive(:perform).and_return({ 'status' => 'skipped' })
+    allow(Voice::Livekit::RoomService).to receive(:remove_customer_participants).and_return(
+      {
+        'status' => 'skipped',
+        'reason' => 'no_customer_participants'
+      }
+    )
+    allow(Voice::Livekit::RoomService).to receive(:delete_room).and_return({ 'status' => 'deleted', 'room' => 'room-1' })
   end
 
   def build_conversation_call
@@ -176,6 +184,58 @@ RSpec.describe 'Internal voice calls API', type: :request do
       expect(response).to have_http_status(:unprocessable_content)
       expect(response.parsed_body).to eq('error' => 'Call has already ended')
       expect(conversation_call.reload.ai_status).to eq('waiting')
+    end
+  end
+
+  describe 'POST /internal/voice/calls/:provider_call_id/end' do
+    let(:path) { "/internal/voice/calls/#{conversation_call.provider_call_id}/end" }
+
+    it 'does not end a call when the AI worker shuts down after human takeover' do
+      conversation_call.update!(
+        accepted_by_agent: agent,
+        handoff_status: 'accepted',
+        ai_status: 'silent'
+      )
+
+      with_modified_env VOICE_AGENT_INTERNAL_TOKEN: 'secret' do
+        post path,
+             params: { end_reason: 'livekit_dispatch_cancelled' },
+             headers: { 'X-Voice-Agent-Token' => 'secret' },
+             as: :json
+      end
+
+      expect(response).to have_http_status(:ok)
+      expect(conversation_call.reload).to have_attributes(
+        status: 'in_progress',
+        end_reason: nil,
+        duration_seconds: nil
+      )
+      expect(conversation_call.meta).to include(
+        'last_ignored_voice_agent_end_reason' => 'livekit_dispatch_cancelled'
+      )
+      expect(conversation_call.message.reload.content_attributes.dig('data', 'status')).to eq('in-progress')
+    end
+
+    it 'still ends the call when the customer disconnects after handoff' do
+      conversation_call.update!(
+        accepted_by_agent: agent,
+        handoff_status: 'accepted',
+        ai_status: 'silent'
+      )
+
+      with_modified_env VOICE_AGENT_INTERNAL_TOKEN: 'secret' do
+        post path,
+             params: { end_reason: 'caller_disconnected' },
+             headers: { 'X-Voice-Agent-Token' => 'secret' },
+             as: :json
+      end
+
+      expect(response).to have_http_status(:ok)
+      expect(conversation_call.reload).to have_attributes(
+        status: 'completed',
+        end_reason: 'caller_disconnected'
+      )
+      expect(conversation_call.message.reload.content_attributes.dig('data', 'status')).to eq('completed')
     end
   end
 

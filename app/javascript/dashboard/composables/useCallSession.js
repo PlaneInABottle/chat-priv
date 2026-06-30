@@ -42,6 +42,33 @@ let storedCallsStoreRef = null;
 const globalIsJoining = ref(false);
 const globalIsJoiningReadonly = readonly(globalIsJoining);
 
+const timestampFromValue = value => {
+  if (!value) return null;
+  const numericValue =
+    typeof value === 'number' || /^\d+(\.\d+)?$/.test(value)
+      ? Number(value)
+      : null;
+  if (Number.isFinite(numericValue)) {
+    return numericValue > 1_000_000_000_000
+      ? numericValue
+      : numericValue * 1000;
+  }
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const elapsedSecondsForCall = call => {
+  const startedAt = timestampFromValue(call?.startedAt || call?.started_at);
+  if (!startedAt) return 0;
+  return Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+};
+
+const startDurationTimer = call => {
+  const elapsed = elapsedSecondsForCall(call);
+  globalCallDuration.value = elapsed;
+  globalDurationTimer?.start(elapsed);
+};
+
 const handleBeforeUnloadGlobal = event => {
   const store = storedCallsStoreRef;
   if (!store) return;
@@ -292,10 +319,10 @@ export function useCallSession() {
   };
 
   watch(
-    reactive.hasActiveCall,
-    active => {
-      if (active) {
-        globalDurationTimer?.start();
+    reactive.activeCall,
+    call => {
+      if (call) {
+        startDurationTimer(call);
       } else {
         globalDurationTimer?.stop();
         globalCallDuration.value = 0;
@@ -306,6 +333,9 @@ export function useCallSession() {
 
   onMounted(() => {
     attachGlobalsOnFirstMount(callsStore);
+    if (reactive.activeCall.value) {
+      startDurationTimer(reactive.activeCall.value);
+    }
     seedCallsFromHydratedMessages();
   });
 
