@@ -54,7 +54,15 @@ RSpec.describe AiAgents::LiveProcessor do
       described_class.new(message: message, adapter: adapter).perform
     end.to change { conversation.messages.where(message_type: 'outgoing', private: false, sender: ai_agent.agent_bot).count }.by(1)
 
-    expect(conversation.messages.where(message_type: 'outgoing', private: false, sender: ai_agent.agent_bot).last.content).to eq('Hi there')
+    outgoing = conversation.messages.where(message_type: 'outgoing', private: false, sender: ai_agent.agent_bot).last
+    expect(outgoing.content).to eq('Hi there')
+    expect(outgoing.content_attributes.dig('ai_agent', 'turn_telemetry')).to include(
+      'catalog_search_units_used' => 0,
+      'order_lookup_used' => 0,
+      'handoff_used' => false,
+      'budget_exhausted' => false,
+      'final_answer_source' => 'model_only'
+    )
   end
 
   it 'consumes one monthly usage event for a successful live AI response' do

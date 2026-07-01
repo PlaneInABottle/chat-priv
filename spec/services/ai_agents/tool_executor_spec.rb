@@ -139,6 +139,28 @@ RSpec.describe AiAgents::ToolExecutor do
     expect(AiAgentToolExecution.last.tool_key).to eq('ikas_catalog_search')
   end
 
+  it 'allows repeated ikas catalog searches in one orchestrated turn' do
+    allow(Chatwoot).to receive(:encryption_configured?).and_return(true)
+    account.enable_features('ikas_integration')
+    account.save!
+    create(:integrations_hook, :ikas, account: account)
+    ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'], 'ikas_catalog_search' => {} } })
+    service = instance_double(AiAgents::Tools::IkasCatalogSearchService, call: { status: 'ok', result_type: 'show_candidates' })
+    allow(AiAgents::Tools::IkasCatalogSearchService).to receive(:new).and_return(service)
+    repeated_executor = described_class.new(
+      ai_agent: ai_agent,
+      account: account,
+      mode: :test,
+      executed_tool_keys: Set.new(['ikas_catalog_search']),
+      context: { conversation: conversation, trigger_message: trigger_message }
+    )
+
+    result = repeated_executor.execute(tool_call(name: 'ikas_catalog_search', arguments: { query: 'perde' }))
+
+    expect(result.status).to eq('executed')
+    expect(AiAgentToolExecution.last).to have_attributes(status: 'executed', tool_key: 'ikas_catalog_search')
+  end
+
   it 'executes ikas order lookup when ikas is connected and masks contact identifiers in logs' do
     allow(Chatwoot).to receive(:encryption_configured?).and_return(true)
     account.enable_features('ikas_integration')

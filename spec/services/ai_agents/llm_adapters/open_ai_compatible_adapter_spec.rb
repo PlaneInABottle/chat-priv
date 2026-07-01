@@ -82,6 +82,46 @@ RSpec.describe AiAgents::LlmAdapters::OpenAiCompatibleAdapter do
     adapter.perform(messages: [{ role: 'user', content: 'Hi' }], tools: [], tool_choice: 'auto')
   end
 
+  it 'omits tool fields when no tools are available' do
+    response_payload = {
+      'choices' => [{ 'finish_reason' => 'stop', 'message' => { 'content' => 'Merhaba' } }]
+    }
+    allow(http).to receive(:request).and_return(http_response(response_payload))
+
+    expect(request).to receive(:body=) do |body|
+      payload = JSON.parse(body)
+      expect(payload).not_to have_key('tools')
+      expect(payload).not_to have_key('tool_choice')
+    end
+
+    adapter.perform(messages: [{ role: 'user', content: 'Hi' }], tools: [], tool_choice: 'auto')
+  end
+
+  it 'does not stringify nil assistant content for tool call messages' do
+    response_payload = {
+      'choices' => [{ 'finish_reason' => 'stop', 'message' => { 'content' => 'Done' } }]
+    }
+    allow(http).to receive(:request).and_return(http_response(response_payload))
+
+    expect(request).to receive(:body=) do |body|
+      assistant_message = JSON.parse(body).fetch('messages').find { |message| message['role'] == 'assistant' }
+      expect(assistant_message).to include('tool_calls')
+      expect(assistant_message).not_to have_key('content')
+    end
+
+    adapter.perform(
+      messages: [
+        {
+          role: 'assistant',
+          content: nil,
+          tool_calls: [{ id: 'call_1', type: 'function', function: { name: 'ikas_catalog_search', arguments: '{}' } }]
+        }
+      ],
+      tools: [],
+      tool_choice: 'auto'
+    )
+  end
+
   def http_response(payload)
     instance_double(Net::HTTPResponse, body: payload.to_json)
   end
