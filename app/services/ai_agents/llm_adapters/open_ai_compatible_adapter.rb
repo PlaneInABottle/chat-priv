@@ -22,14 +22,15 @@ class AiAgents::LlmAdapters::OpenAiCompatibleAdapter < AiAgents::LlmAdapters::Ba
   end
 
   def request_body(messages:, tools:, tool_choice:)
-    {
+    body = {
       model: account.ai_agent_model,
       messages: build_messages(messages),
       temperature: 0.2,
-      max_tokens: 1024,
-      tools: tools,
-      tool_choice: tool_choice
-    }.compact
+      max_tokens: 1024
+    }
+    body[:tools] = tools if tools.present?
+    body[:tool_choice] = tool_choice if tools.present?
+    body
   end
 
   def build_messages(messages)
@@ -38,7 +39,7 @@ class AiAgents::LlmAdapters::OpenAiCompatibleAdapter < AiAgents::LlmAdapters::Ba
 
       {
         role: msg[:role] || 'user',
-        content: msg[:content] || msg.to_s,
+        content: msg.key?(:content) ? msg[:content] : msg.to_s,
         tool_calls: msg[:tool_calls]
       }.compact
     end
