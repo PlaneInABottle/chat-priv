@@ -78,6 +78,7 @@ class AiAgents::ToolRegistry
         type: 'string',
         description: [
           'A complete catalog search phrase for the connected seller catalog.',
+          'Use query for one search or queries for up to three related searches; prefer one field, not both.',
           'For follow-ups, include previous product/category context yourself, for example',
           '"70x80 akordiyon sineklik" or "beyaz plise perde", not only "70x80" or "beyaz".',
           'Drop filler/action words such as "kral", "abi", "şey", "link", "fiyat", and "en ucuz"',
@@ -85,9 +86,18 @@ class AiAgents::ToolRegistry
           'Drop purchase quantities such as "2 tane" unless they are part of a product pack, product name, or dimensions.'
         ].join(' ')
       },
+      queries: {
+        type: 'array',
+        items: { type: 'string' },
+        maxItems: 3,
+        description: [
+          'Up to three complete, self-contained catalog search phrases for related catalog lookups.',
+          'Use this instead of query when multiple independent product/category searches are needed.',
+          'Each query should include product/category context and hard constraints.'
+        ].join(' ')
+      },
       limit: { type: 'integer', minimum: 1, maximum: 20, default: 8 }
     },
-    required: ['query'],
     additionalProperties: false
   }.freeze
 
