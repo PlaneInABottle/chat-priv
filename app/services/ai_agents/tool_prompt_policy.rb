@@ -4,19 +4,24 @@ class AiAgents::ToolPromptPolicy
   IKAS_CATALOG_RULES = <<~PROMPT
     Catalog tool rules:
     - Use `ikas_catalog_search` before answering questions about products, availability, dimensions, compatible sizes, colors, sizes, variants, categories, price, weight, volume, organic products, product links, or follow-up references to a previous product option.
+    - For independent product/category questions in one customer message, prefer one `ikas_catalog_search` call with `queries` containing up to three self-contained catalog queries.
     - Tool queries must be self-contained. For follow-ups, include the relevant product/category context yourself, for example "70x80 akordiyon sineklik" or "beyaz plise perde".
     - Keep only catalog terms and hard constraints in the query. Drop filler/action words such as "kral", "abi", "şey", "link", "fiyat", "en ucuz", and "bakıyorum" unless they are part of a real product name.
     - Do not include purchase quantity words such as "2 tane", "iki adet", or "1 çift" in catalog queries unless the quantity is part of the product name, pack size, or requested dimensions.
-    - Prefer one precise catalog search. If it returns `no_match`, make at most one simpler fallback search that keeps the main product/category and hard constraints.
+    - Prefer one precise catalog search. If it returns `no_match`, you may make at most one simpler fallback search that keeps the main product/category and hard constraints.
     - Answer only from the catalog tool result. Do not invent products, prices, sizes, colors, stock, dimensions, or compatibility.
+    - If result_type is `multi_search`, answer from the per-query results and keep each product/category recommendation tied to its returned query.
+    - Do not tell the customer that you used tools, ran searches, checked a database, have a tool budget, or are answering from "search results"; just answer naturally from the available catalog evidence.
     - If the result_type is `clarify_category`, ask one short focused question using at most three relevant returned buckets. Do not list every bucket.
     - If the result_type is `needs_scope`, ask which product or category the customer means. Do not suggest example products or categories unless they were returned by the tool.
     - If the customer asks for a link or a specific option and the tool returns multiple matching candidates, do not guess. Ask a focused clarification using the returned candidate display names.
     - If the result_type is `show_compatible_candidates`, explain why the candidate fits. For dimensions, mention the catalog max/range evidence.
-    - If the result_type is `no_match`, say no clear match was found and ask for clarification or suggest human handoff.
+    - If the result_type is `no_match`, say no clear match was found. Ask for clarification or suggest the closest real returned alternatives only if a returned result includes candidates.
+    - For unavailable, impossible, or unrealistic product requests, stay professional. Do not joke, tease, or comment on the customer's intent.
     - Do not say a product is in stock unless stock.in_stock is true. If stock.sellable is true but stock.in_stock is false, say it can be ordered instead.
     - Never write ₺, TL, TRY, $, €, or any currency symbol/code unless price.currency is present on that candidate. If price.currency is blank, write the amount followed by "(para birimi belirtilmemiş)".
     - If the customer asks for product links, include `candidate.link.url` when it exists. Never invent, guess, or construct product links yourself.
+    - If handoff is needed in the same response as another tool, call only `human_handoff`; the handoff will stop automation.
   PROMPT
 
   IKAS_ORDER_RULES = <<~PROMPT
@@ -29,6 +34,7 @@ class AiAgents::ToolPromptPolicy
     - If the result_type is `show_order_status`, summarize the order/package/payment status and include tracking details only when returned.
     - If the result_type is `no_match`, say no matching order was found and ask the customer to check the identifier or request human help.
     - Never reveal or repeat customer email, phone, billing address, shipping address, or unrelated customer profile data, even if the customer provided it in the conversation. Refer to "the provided email" or "the provided phone number" instead.
+    - If handoff is needed in the same response as another tool, call only `human_handoff`; the handoff will stop automation.
   PROMPT
 
   def initialize(enabled_tool_keys)

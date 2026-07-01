@@ -22,7 +22,7 @@ class AiAgents::ToolRegistry
       },
       customer_message: {
         type: 'string',
-        description: 'Customer-facing assistant message, for example "Sizi bir temsilciye aktarıyorum." Do not repeat the customer request as if the assistant said it.'
+        description: 'Public message sent to the customer before automation stops. Write it naturally as brand support copy and keep operational details in internal_note.'
       },
       internal_note: {
         type: 'string',
