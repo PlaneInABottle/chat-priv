@@ -356,6 +356,23 @@ const conversationList = computed(() => {
   return localConversationList;
 });
 
+const routeConversationId = computed(() =>
+  Number(route.params.conversation_id || route.params.conversationId || 0)
+);
+
+const routeConversation = computed(() =>
+  routeConversationId.value
+    ? getConversationById.value(routeConversationId.value)
+    : null
+);
+
+const isRouteConversationVisible = computed(() => {
+  if (!routeConversationId.value) return true;
+  return conversationList.value.some(
+    conversation => conversation.id === routeConversationId.value
+  );
+});
+
 const showEndOfListMessage = computed(() => {
   return !!(
     conversationList.value.length &&
@@ -586,6 +603,30 @@ function resetAndFetchData() {
     return;
   }
   fetchConversations();
+}
+
+function syncFiltersToRouteConversation() {
+  const conversation = routeConversation.value;
+  if (
+    !conversation ||
+    isRouteConversationVisible.value ||
+    hasAppliedFiltersOrActiveFolders.value
+  ) {
+    return;
+  }
+
+  const nextStatus = conversation.status || wootConstants.STATUS_TYPE.OPEN;
+  const shouldUpdateStatus = activeStatus.value !== nextStatus;
+  const shouldUpdateAssignee =
+    activeAssigneeTab.value !== wootConstants.ASSIGNEE_TYPE.ALL;
+
+  if (!shouldUpdateStatus && !shouldUpdateAssignee) return;
+
+  activeStatus.value = nextStatus;
+  activeAssigneeTab.value = wootConstants.ASSIGNEE_TYPE.ALL;
+  resetBulkActions();
+  store.dispatch('setChatStatusFilter', nextStatus);
+  resetAndFetchData();
 }
 
 function loadMoreConversations() {
@@ -874,6 +915,12 @@ watch(activeFolder, (newVal, oldVal) => {
 watch(chatLists, () => {
   chatsOnView.value = conversationList.value;
 });
+
+watch(
+  [routeConversation, isRouteConversationVisible],
+  () => syncFiltersToRouteConversation(),
+  { immediate: true, flush: 'post' }
+);
 
 watch(conversationFilters, (newVal, oldVal) => {
   if (newVal !== oldVal) {
