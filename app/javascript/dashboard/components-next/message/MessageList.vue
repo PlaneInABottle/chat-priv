@@ -3,7 +3,11 @@ import { computed, onBeforeUnmount, onMounted, reactive, watch } from 'vue';
 import Message from './Message.vue';
 import VoiceTranscriptSegment from './VoiceTranscriptSegment.vue';
 import VoiceToolEventSegment from './VoiceToolEventSegment.vue';
-import { CONTENT_TYPES, MESSAGE_TYPES } from './constants.js';
+import {
+  CONTENT_TYPES,
+  MESSAGE_TYPES,
+  VOICE_CALL_STATUS,
+} from './constants.js';
 import { useCamelCase } from 'dashboard/composables/useTransformKeys';
 import { useMapGetter } from 'dashboard/composables/store.js';
 import MessageApi from 'dashboard/api/inbox/message.js';
@@ -59,6 +63,16 @@ const currentChat = useMapGetter('getSelectedChat');
 const fetchedReplyMessages = reactive(new Map());
 const callDetailsById = reactive({});
 const fetchingCallIds = reactive({});
+
+const TERMINAL_VOICE_CALL_STATUSES = [
+  VOICE_CALL_STATUS.COMPLETED,
+  VOICE_CALL_STATUS.NO_ANSWER,
+  VOICE_CALL_STATUS.FAILED,
+  VOICE_CALL_STATUS.BUSY,
+  VOICE_CALL_STATUS.CANCELED,
+  VOICE_CALL_STATUS.MISSED,
+  VOICE_CALL_STATUS.ENDED,
+];
 
 const mergeUniqueById = (existingItems = [], incomingItems = []) => {
   const byId = new Map();
@@ -146,6 +160,15 @@ const voiceAgentNameForMessage = message =>
 const toolEventSummariesForMessage = message =>
   callDetailsForMessage(message).toolEventSummaries || [];
 
+const isTerminalVoiceCallMessage = message => {
+  const details = callDetailsForMessage(message);
+  const status =
+    details.status ||
+    message?.call?.status ||
+    message?.contentAttributes?.data?.status;
+  return TERMINAL_VOICE_CALL_STATUSES.includes(status);
+};
+
 const callTimelineRowsForMessage = message => {
   const voiceAgentName = voiceAgentNameForMessage(message);
   const transcriptItems = transcriptSegmentsForMessage(message).map(
@@ -179,6 +202,9 @@ const timelineItems = computed(() =>
       messageIndex,
     };
     const callTimelineRows = callTimelineRowsForMessage(message);
+    if (callTimelineRows.length && isTerminalVoiceCallMessage(message)) {
+      return [...callTimelineRows, messageItem];
+    }
     return [messageItem, ...callTimelineRows];
   })
 );
