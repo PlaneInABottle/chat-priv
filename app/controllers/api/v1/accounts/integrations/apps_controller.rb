@@ -15,5 +15,8 @@ class Api::V1::Accounts::Integrations::AppsController < Api::V1::Accounts::BaseC
 
   def fetch_app
     @app = Integrations::App.find(id: params[:id])
+    return if @app&.active?(Current.account)
+
+    render_not_found_error('Resource could not be found')
   end
 end

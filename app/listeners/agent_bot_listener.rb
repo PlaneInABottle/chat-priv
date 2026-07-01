@@ -15,6 +15,24 @@ class AgentBotListener < BaseListener
     agent_bots_for(inbox, conversation).each { |agent_bot| process_webhook_bot_event(agent_bot, payload) }
   end
 
+  def conversation_status_changed(event)
+    conversation = extract_conversation_and_account(event)[0]
+    changed_attributes = extract_changed_attributes(event)
+    inbox = conversation.inbox
+    event_name = __method__.to_s
+    payload = conversation.webhook_data.merge(event: event_name, changed_attributes: changed_attributes)
+    agent_bots_for(inbox, conversation).each { |agent_bot| process_webhook_bot_event(agent_bot, payload) }
+  end
+
+  def conversation_updated(event)
+    conversation = extract_conversation_and_account(event)[0]
+    changed_attributes = extract_changed_attributes(event)
+    inbox = conversation.inbox
+    event_name = __method__.to_s
+    payload = conversation.webhook_data.merge(event: event_name, changed_attributes: changed_attributes)
+    agent_bots_for(inbox, conversation).each { |agent_bot| process_webhook_bot_event(agent_bot, payload) }
+  end
+
   def message_created(event)
     message = extract_message_and_account(event)[0]
     inbox = message.inbox
@@ -59,15 +77,44 @@ class AgentBotListener < BaseListener
   end
 
   def process_message_event(method_name, agent_bot, message, _event)
-    # Only webhook bots are supported
+    return process_ai_bot_event(agent_bot, message) if agent_bot.ai? && method_name == 'message_created'
+
     payload = message.webhook_data.merge(event: method_name)
     process_webhook_bot_event(agent_bot, payload)
+  end
+
+  def process_ai_bot_event(agent_bot, message)
+    return unless eligible_ai_message?(message)
+    return if ai_handoff_completed?(message.conversation)
+    return unless agent_bot.ai_agent&.enabled?
+
+    AiAgents::ResponseBuffer.schedule!(message)
+  end
+
+  def eligible_ai_message?(message)
+    return false unless message.incoming?
+    return false if message.private?
+    return false if message.activity?
+    return false if message.template?
+    return false if ai_generated_message?(message)
+
+    true
+  end
+
+  def ai_generated_message?(message)
+    message.outgoing? && message.sender_type.in?(['AgentBot', 'Captain::Assistant'])
+  end
+
+  def ai_handoff_completed?(conversation)
+    attrs = conversation.additional_attributes
+    attrs.is_a?(Hash) && attrs['ai_handoff_completed'] == true
   end
 
   def process_webhook_bot_event(agent_bot, payload)
     return unless agent_bot.webhook?
     return if agent_bot.outgoing_url.blank?
 
-    AgentBots::WebhookJob.perform_later(agent_bot.outgoing_url, payload)
+    AgentBots::WebhookJob.perform_later(agent_bot.outgoing_url, payload, :agent_bot_webhook,
+                                        secret: agent_bot.secret, delivery_id: SecureRandom.uuid)
   end
 end

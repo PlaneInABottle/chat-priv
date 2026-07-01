@@ -5,6 +5,8 @@ RSpec.describe Integrations::App do
   let(:app) { apps.find(id: app_name) }
   let(:account) { create(:account) }
 
+  before { allow(Integrations::Openai::KeyValidator).to receive(:valid?).and_return(true) }
+
   describe '#name' do
     let(:app_name) { 'slack' }
 
@@ -87,11 +89,26 @@ RSpec.describe Integrations::App do
       end
     end
 
+    context 'when the app is ikas' do
+      let(:app_name) { 'ikas' }
+
+      it 'returns true by default' do
+        expect(app.active?(account)).to be true
+      end
+
+      it 'returns false if the ikas integration feature is disabled' do
+        account.disable_features('ikas_integration')
+        account.save!
+
+        expect(app.active?(account)).to be false
+      end
+    end
+
     context 'when other apps are queried' do
       let(:app_name) { 'webhook' }
 
-      it 'returns true' do
-        expect(app.active?(account)).to be true
+      it 'returns false' do
+        expect(app.active?(account)).to be false
       end
     end
   end

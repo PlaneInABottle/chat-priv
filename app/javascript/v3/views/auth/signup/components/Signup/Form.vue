@@ -4,8 +4,8 @@ import { useVuelidate } from '@vuelidate/core';
 import { required, minLength, email } from '@vuelidate/validators';
 import { useStore } from 'vuex';
 import { useI18n } from 'vue-i18n';
+import { useRouter } from 'vue-router';
 import { useAlert } from 'dashboard/composables';
-import { DEFAULT_REDIRECT_URL } from 'dashboard/constants/globals';
 import VueHcaptcha from '@hcaptcha/vue3-hcaptcha';
 import FormInput from '../../../../../components/Form/Input.vue';
 import NextButton from 'dashboard/components-next/button/Button.vue';
@@ -19,6 +19,7 @@ const MIN_PASSWORD_LENGTH = 6;
 
 const store = useStore();
 const { t } = useI18n();
+const router = useRouter();
 
 const hCaptcha = ref(null);
 const isPasswordFocused = ref(false);
@@ -53,9 +54,12 @@ const globalConfig = computed(() => store.getters['globalConfig/get']);
 
 const termsLink = computed(() =>
   t('REGISTER.TERMS_ACCEPT')
-    .replace('https://www.chatwoot.com/terms', globalConfig.value.termsURL)
     .replace(
-      'https://www.chatwoot.com/privacy-policy',
+      'https://www.kozmopath.com/terms-of-service',
+      globalConfig.value.termsURL
+    )
+    .replace(
+      'https://www.kozmopath.com/privacy-policy',
       globalConfig.value.privacyURL
     )
 );
@@ -76,7 +80,10 @@ const performRegistration = async () => {
   isSignupInProgress.value = true;
   try {
     await register(credentials);
-    window.location = DEFAULT_REDIRECT_URL;
+    router.push({
+      name: 'auth_verify_email',
+      state: { email: credentials.email },
+    });
   } catch (error) {
     const errorMessage = error?.message || t('REGISTER.API.ERROR_MESSAGE');
     if (globalConfig.value.hCaptchaSiteKey) {

@@ -1,4 +1,5 @@
 <script setup>
+import Icon from 'dashboard/components-next/icon/Icon.vue';
 import Button from 'dashboard/components-next/button/Button.vue';
 
 const props = defineProps({
@@ -29,7 +30,7 @@ const openIssue = () => {
       class="flex items-center gap-2 px-2 py-1.5 border rounded-lg border-n-strong"
     >
       <div class="flex items-center gap-1">
-        <fluent-icon
+        <Icon
           icon="linear"
           size="16"
           class="text-[#5E6AD2]"

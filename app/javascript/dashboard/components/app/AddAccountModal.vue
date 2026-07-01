@@ -4,9 +4,11 @@ import { mapGetters } from 'vuex';
 import { useVuelidate } from '@vuelidate/core';
 import { useAlert } from 'dashboard/composables';
 import NextButton from 'dashboard/components-next/button/Button.vue';
+import Icon from 'dashboard/components-next/icon/Icon.vue';
 
 export default {
   components: {
+    Icon,
     NextButton,
   },
   props: {
@@ -72,7 +74,7 @@ export default {
       <div v-if="!hasAccounts" class="mx-8 mt-6 mb-0 text-sm">
         <div class="flex items-center rounded-md alert">
           <div class="ml-1 mr-3">
-            <fluent-icon icon="warning" />
+            <Icon icon="warning" />
           </div>
           {{ $t('CREATE_ACCOUNT.NO_ACCOUNT_WARNING') }}
         </div>

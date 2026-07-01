@@ -84,9 +84,27 @@ export const VOICE_CALL_STATUS = {
   COMPLETED: 'completed',
   NO_ANSWER: 'no-answer',
   FAILED: 'failed',
+  BUSY: 'busy',
+  CANCELED: 'canceled',
+  MISSED: 'missed',
+  ENDED: 'ended',
 };
 
 export const VOICE_CALL_DIRECTION = {
   INBOUND: 'inbound',
+  INCOMING: 'incoming',
+  OUTGOING: 'outgoing',
+  ONGOING: 'ongoing',
   OUTBOUND: 'outbound',
+};
+
+export const VOICE_CALL_OUTBOUND_INIT_STATUS = {
+  LOCKED: 'locked',
+  PERMISSION_REQUESTED: 'permission_requested',
+  PERMISSION_PENDING: 'permission_pending',
+};
+
+export const VOICE_CALL_END_REASON = {
+  AGENT_REJECTED: 'agent_rejected',
+  AGENT_REJECTED_FROM_POPUP: 'agent_rejected_from_popup',
 };

@@ -12,6 +12,9 @@ RSpec.describe Account do
   it { is_expected.to have_many(:facebook_pages).class_name('::Channel::FacebookPage').dependent(:destroy_async) }
   it { is_expected.to have_many(:web_widgets).class_name('::Channel::WebWidget').dependent(:destroy_async) }
   it { is_expected.to have_many(:webhooks).dependent(:destroy_async) }
+  it { is_expected.to have_many(:voice_agents).dependent(:destroy) }
+  it { is_expected.to have_many(:voice_provider_connections).dependent(:destroy) }
+  it { is_expected.to have_many(:voice_numbers).dependent(:destroy) }
   it { is_expected.to have_many(:notification_settings).dependent(:destroy_async) }
   it { is_expected.to have_many(:reporting_events) }
   it { is_expected.to have_many(:portals).dependent(:destroy_async) }
@@ -47,6 +50,65 @@ RSpec.describe Account do
     it 'returns ChatwootApp.max limits' do
       expect(account.usage_limits[:agents]).to eq(ChatwootApp.max_limit)
       expect(account.usage_limits[:inboxes]).to eq(ChatwootApp.max_limit)
+    end
+  end
+
+  describe 'voice agent defaults' do
+    it 'creates one default voice agent when the account is created' do
+      account = create(:account)
+
+      expect(account.voice_agents.count).to eq(1)
+      expect(account.voice_agents.first).to have_attributes(
+        name: 'Voice Assistant',
+        enabled: true,
+        language: 'tr',
+        voice: 'Charon'
+      )
+      expect(account.voice_agents.first.tools_config['enabled']).to include('human_handoff', 'end_customer_call')
+    end
+
+    it 'does not create duplicate default voice agents' do
+      account = create(:account)
+
+      expect { account.create_default_voice_agent! }.not_to change { account.voice_agents.count }
+    end
+  end
+
+  describe 'conversation unread counts feature flag' do
+    let(:account) { create(:account) }
+    let(:inbox) { create(:inbox, account: account) }
+    let(:store) { Conversations::UnreadCounts::Store }
+    let(:inbox_key) { store.inbox_key(account.id, inbox.id) }
+
+    after do
+      store.clear_account!(account.id)
+    end
+
+    it 'clears unread count cache when the feature is enabled' do
+      build_unread_count_cache
+
+      account.enable_features!(:conversation_unread_counts)
+
+      expect(store.base_ready?(account.id)).to be(false)
+      expect(store.assignment_ready?(account.id)).to be(false)
+      expect(store.counts_for_keys([inbox_key])).to eq(inbox_key => 0)
+    end
+
+    it 'clears unread count cache when the feature is disabled' do
+      account.enable_features!(:conversation_unread_counts)
+      build_unread_count_cache
+
+      account.disable_features!(:conversation_unread_counts)
+
+      expect(store.base_ready?(account.id)).to be(false)
+      expect(store.assignment_ready?(account.id)).to be(false)
+      expect(store.counts_for_keys([inbox_key])).to eq(inbox_key => 0)
+    end
+
+    def build_unread_count_cache
+      store.mark_base_ready!(account.id)
+      store.mark_assignment_ready!(account.id)
+      store.add_base_membership(account_id: account.id, inbox_id: inbox.id, label_ids: [], conversation_id: 1)
     end
   end
 
@@ -198,6 +260,44 @@ RSpec.describe Account do
         expect(account.settings['auto_resolve_message']).to eq(message)
       end
 
+      it 'defaults captain_auto_resolve_mode to legacy when captain_tasks is disabled' do
+        allow(account).to receive(:feature_enabled?).with('captain_tasks').and_return(false)
+
+        expect(account.captain_auto_resolve_mode).to eq('legacy')
+        expect(account).to be_captain_auto_resolve_legacy
+      end
+
+      it 'defaults captain_auto_resolve_mode to evaluated when captain_tasks is enabled' do
+        allow(account).to receive(:feature_enabled?).with('captain_tasks').and_return(true)
+
+        expect(account.captain_auto_resolve_mode).to eq('evaluated')
+        expect(account).to be_captain_auto_resolve_evaluated
+      end
+
+      it 'correctly gets and sets captain_auto_resolve_mode' do
+        account.captain_auto_resolve_mode = 'legacy'
+
+        expect(account.captain_auto_resolve_mode).to eq('legacy')
+        expect(account.settings['captain_auto_resolve_mode']).to eq('legacy')
+        expect(account).to be_captain_auto_resolve_legacy
+      end
+
+      it 'allows clearing captain_auto_resolve_mode to fall back to feature defaults' do
+        allow(account).to receive(:feature_enabled?).with('captain_tasks').and_return(false)
+        account.captain_auto_resolve_mode = nil
+
+        expect(account).to be_valid
+        expect(account.captain_auto_resolve_mode).to eq('legacy')
+        expect(account.settings['captain_auto_resolve_mode']).to be_nil
+      end
+
+      it 'falls back to disabled mode from legacy settings key' do
+        account.settings = { 'captain_disable_auto_resolve' => true }
+
+        expect(account.captain_auto_resolve_mode).to eq('disabled')
+        expect(account).to be_captain_auto_resolve_disabled
+      end
+
       it 'handles nil values correctly' do
         account.auto_resolve_after = nil
         account.auto_resolve_message = nil
@@ -216,6 +316,242 @@ RSpec.describe Account do
         account.update(auto_resolve_after: nil)
         expect(described_class.with_auto_resolve.pluck(:id)).not_to include(account.id)
       end
+    end
+
+    context 'when support_email is set' do
+      it 'allows a plain email address' do
+        account.support_email = 'support@example.com'
+        expect(account).to be_valid
+      end
+
+      it 'allows display-name format' do
+        account.support_email = 'Support Team <support@example.com>'
+        expect(account).to be_valid
+      end
+
+      it 'allows blank values' do
+        account.support_email = ''
+        expect(account).to be_valid
+      end
+
+      it 'rejects malformed strings with no email part' do
+        account.support_email = 'Smith Smith'
+        expect(account).not_to be_valid
+        expect(account.errors[:support_email]).to include(I18n.t('errors.account.support_email.invalid'))
+      end
+    end
+
+    context 'when reporting_timezone is set' do
+      it 'allows valid timezone names' do
+        account.reporting_timezone = 'America/New_York'
+
+        expect(account).to be_valid
+      end
+
+      it 'rejects invalid timezone names' do
+        account.reporting_timezone = 'Invalid/Timezone'
+
+        expect(account).not_to be_valid
+        expect(account.errors[:reporting_timezone]).to include(I18n.t('errors.account.reporting_timezone.invalid'))
+      end
+    end
+  end
+
+  describe 'ai_agent_settings' do
+    let(:account) { create(:account) }
+
+    it 'returns default model when absent' do
+      expect(account.ai_agent_model).to eq('deepseek/deepseek-v4-flash')
+    end
+
+    it 'returns default limit when absent' do
+      expect(account.ai_agent_conversation_limit).to eq(0)
+    end
+
+    it 'returns default conversation reuse window when absent' do
+      expect(account.ai_agent_conversation_reuse_window_hours).to eq(24)
+    end
+
+    it 'is disabled by default' do
+      expect(account.ai_agent_enabled?).to be(false)
+    end
+
+    it 'allows explicit model to override default' do
+      account.update!(ai_agent_model: 'openai/gpt-4o')
+      expect(account.reload.ai_agent_model).to eq('openai/gpt-4o')
+    end
+
+    it 'allows explicit limit to override default' do
+      account.update!(ai_agent_conversation_limit: 100)
+      expect(account.reload.ai_agent_conversation_limit).to eq(100)
+    end
+
+    it 'allows explicit conversation reuse window to override default' do
+      account.update!(ai_agent_conversation_reuse_window_hours: 48)
+      expect(account.reload.ai_agent_conversation_reuse_window_hours).to eq(48)
+    end
+
+    it 'casts explicit enabled values to boolean' do
+      account.update!(ai_agent_enabled: 'true')
+      expect(account.reload.ai_agent_enabled?).to be(true)
+    end
+
+    it 'returns ai_agent_settings as a hash' do
+      expect(account.ai_agent_settings).to eq(
+        enabled: false,
+        model: 'deepseek/deepseek-v4-flash',
+        conversation_limit: 0,
+        conversation_reuse_window_hours: 24
+      )
+    end
+
+    it 'round-trips ai_agent_settings through virtual attribute' do
+      account.ai_agent_settings = { enabled: true, model: 'anthropic/claude-3.5-sonnet', conversation_limit: 50, conversation_reuse_window_hours: 48 }
+      account.save!
+      account.reload
+
+      expect(account.ai_agent_enabled?).to be(true)
+      expect(account.ai_agent_model).to eq('anthropic/claude-3.5-sonnet')
+      expect(account.ai_agent_conversation_limit).to eq(50)
+      expect(account.ai_agent_conversation_reuse_window_hours).to eq(48)
+      expect(account.ai_agent_settings).to eq(
+        enabled: true,
+        model: 'anthropic/claude-3.5-sonnet',
+        conversation_limit: 50,
+        conversation_reuse_window_hours: 48
+      )
+    end
+
+    it 'preserves existing settings keys when updating AI settings' do
+      account.update!(settings: { auto_resolve_after: 30, auto_resolve_message: 'Hello' })
+      account.ai_agent_settings = { model: 'openai/gpt-4o-mini', conversation_limit: 25 }
+      account.save!
+      account.reload
+
+      expect(account.settings['auto_resolve_after']).to eq(30)
+      expect(account.settings['auto_resolve_message']).to eq('Hello')
+      expect(account.ai_agent_enabled?).to be(false)
+      expect(account.ai_agent_model).to eq('openai/gpt-4o-mini')
+      expect(account.ai_agent_conversation_limit).to eq(25)
+      expect(account.ai_agent_conversation_reuse_window_hours).to eq(24)
+    end
+  end
+
+  describe 'voice_agent_runtime_settings' do
+    let(:account) { create(:account) }
+    let!(:voice_agent) { create(:voice_agent, account: account, architecture: 'realtime', provider: 'gemini', model: nil, voice: 'Charon', language: 'tr') }
+    let!(:other_voice_agent) { create(:voice_agent, architecture: 'realtime', provider: 'gemini', voice: 'Puck', language: 'tr') }
+
+    it 'updates runtime settings for account-owned voice agents only' do
+      account.voice_agent_runtime_settings = {
+        voice_agent.id.to_s => {
+          architecture: 'pipeline',
+          provider: 'openai',
+          model: 'gpt-4o-realtime-preview',
+          voice: 'alloy',
+          language: 'en',
+          prompt: 'ignored'
+        },
+        other_voice_agent.id.to_s => {
+          voice: 'ignored'
+        }
+      }
+      account.save!
+
+      expect(voice_agent.reload).to have_attributes(
+        architecture: 'pipeline',
+        provider: 'openai',
+        model: 'gpt-4o-realtime-preview',
+        voice: 'alloy',
+        language: 'en'
+      )
+      expect(voice_agent.prompt).not_to eq('ignored')
+      expect(other_voice_agent.reload.voice).to eq('Puck')
+    end
+  end
+
+  describe 'voice_ai_settings' do
+    let(:account) { create(:account) }
+
+    it 'returns defaults when absent' do
+      expect(account.voice_ai_settings).to eq(
+        enabled: false,
+        monthly_minute_limit: 0,
+        max_call_duration_minutes: 15,
+        concurrent_call_limit: 1
+      )
+    end
+
+    it 'round-trips voice_ai_settings through virtual attribute' do
+      account.voice_ai_settings = {
+        enabled: true,
+        monthly_minute_limit: 100,
+        max_call_duration_minutes: 20,
+        concurrent_call_limit: 3
+      }
+      account.save!
+      account.reload
+
+      expect(account.voice_ai_enabled?).to be(true)
+      expect(account.voice_ai_monthly_minute_limit).to eq(100)
+      expect(account.voice_ai_max_call_duration_minutes).to eq(20)
+      expect(account.voice_ai_concurrent_call_limit).to eq(3)
+    end
+
+    it 'normalizes invalid numeric values to safe defaults' do
+      account.update!(
+        voice_ai_monthly_minute_limit: -1,
+        voice_ai_max_call_duration_minutes: 0,
+        voice_ai_concurrent_call_limit: -2
+      )
+
+      expect(account.voice_ai_monthly_minute_limit).to eq(0)
+      expect(account.voice_ai_max_call_duration_minutes).to eq(15)
+      expect(account.voice_ai_concurrent_call_limit).to eq(0)
+    end
+
+    it 'finalizes active voice calls when voice AI is disabled' do
+      account.update!(voice_ai_enabled: true)
+
+      expect { account.update!(voice_ai_enabled: false) }
+        .to have_enqueued_job(Voice::AccountCallFinalizerJob).with(account).on_queue('default')
+    end
+
+    it 'finalizes active voice calls when voice AI is disabled through the settings field' do
+      account.update!(voice_ai_enabled: true)
+
+      expect do
+        account.voice_ai_settings = { enabled: false }
+        account.save!
+      end.to have_enqueued_job(Voice::AccountCallFinalizerJob).with(account).on_queue('default')
+    end
+
+    it 'does not finalize active voice calls when other voice settings change' do
+      account.update!(voice_ai_enabled: true)
+
+      expect { account.update!(voice_ai_monthly_minute_limit: 100) }
+        .not_to have_enqueued_job(Voice::AccountCallFinalizerJob)
+    end
+  end
+
+  describe '#voice_inbox_setting_for' do
+    let(:account) { create(:account) }
+    let(:inbox) { create(:channel_api, account: account).inbox }
+
+    it 'returns only account and inbox scoped settings' do
+      local_setting = create(:voice_inbox_setting, account: account, inbox: inbox)
+      foreign_setting = create(:voice_inbox_setting)
+
+      expect(account.voice_inbox_setting_for(inbox: inbox, id: local_setting.id)).to eq(local_setting)
+      expect(account.voice_inbox_setting_for(inbox: inbox, id: foreign_setting.id)).to eq(local_setting)
+    end
+
+    it 'does not return another account setting even if a foreign inbox is passed' do
+      other_account = create(:account)
+      other_inbox = create(:channel_api, account: other_account).inbox
+      create(:voice_inbox_setting, account: other_account, inbox: other_inbox)
+
+      expect(account.voice_inbox_setting_for(inbox: other_inbox)).to be_nil
     end
   end
 

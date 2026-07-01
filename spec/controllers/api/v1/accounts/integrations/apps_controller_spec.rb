@@ -3,6 +3,8 @@ require 'rails_helper'
 RSpec.describe 'Integration Apps API', type: :request do
   let(:account) { create(:account) }
 
+  before { allow(Integrations::Openai::KeyValidator).to receive(:valid?).and_return(true) }
+
   describe 'GET /api/v1/integrations/apps' do
     context 'when it is an unauthenticated user' do
       it 'returns unauthorized' do
@@ -28,15 +30,15 @@ RSpec.describe 'Integration Apps API', type: :request do
         expect(apps['action']).to be_nil
       end
 
-      it 'will not return sensitive information for openai app for agents' do
-        openai = create(:integrations_hook, :openai, account: account)
+      it 'will not return sensitive information for ikas app for agents' do
+        ikas = create(:integrations_hook, :ikas, account: account)
         get api_v1_account_integrations_apps_url(account),
             headers: agent.create_new_auth_token,
             as: :json
 
         expect(response).to have_http_status(:success)
 
-        app = response.parsed_body['payload'].find { |int_app| int_app['id'] == openai.app.id }
+        app = response.parsed_body['payload'].find { |int_app| int_app['id'] == ikas.app.id }
         expect(app['hooks'].first['settings']).to be_nil
       end
 
@@ -66,16 +68,44 @@ RSpec.describe 'Integration Apps API', type: :request do
         end
       end
 
-      it 'will return sensitive information for openai app for admins' do
-        openai = create(:integrations_hook, :openai, account: account)
+      it 'will return sensitive information for ikas app for admins' do
+        ikas = create(:integrations_hook, :ikas, account: account)
         get api_v1_account_integrations_apps_url(account),
             headers: admin.create_new_auth_token,
             as: :json
 
         expect(response).to have_http_status(:success)
 
-        app = response.parsed_body['payload'].find { |int_app| int_app['id'] == openai.app.id }
+        app = response.parsed_body['payload'].find { |int_app| int_app['id'] == ikas.app.id }
         expect(app['hooks'].first['settings']).not_to be_nil
+      end
+
+      it 'lists ikas by default when encryption is unavailable' do
+        allow(Chatwoot).to receive(:encryption_configured?).and_return(false)
+
+        get api_v1_account_integrations_apps_url(account),
+            headers: admin.create_new_auth_token,
+            as: :json
+
+        expect(response).to have_http_status(:success)
+        ikas_app = response.parsed_body['payload'].find { |app| app['id'] == 'ikas' }
+        expect(ikas_app['state']).to eq('disabled')
+        expect(ikas_app['can_connect']).to be false
+      end
+
+      it 'lists ikas as reconnect_required for malformed hooks' do
+        hook = create(:integrations_hook, :ikas, account: account)
+        hook.update_column(:access_token, nil)
+        allow(Chatwoot).to receive(:encryption_configured?).and_return(true)
+
+        get api_v1_account_integrations_apps_url(account),
+            headers: admin.create_new_auth_token,
+            as: :json
+
+        expect(response).to have_http_status(:success)
+        ikas_app = response.parsed_body['payload'].find { |app| app['id'] == 'ikas' }
+        expect(ikas_app['state']).to eq('reconnect_required')
+        expect(ikas_app['last_validation_error_code']).to eq('malformed_hook')
       end
     end
   end
@@ -92,39 +122,33 @@ RSpec.describe 'Integration Apps API', type: :request do
       let(:agent) { create(:user, account: account, role: :agent) }
       let(:admin) { create(:user, account: account, role: :administrator) }
 
-      it 'returns details of the app' do
-        get api_v1_account_integrations_app_url(account_id: account.id, id: 'slack'),
+      it 'returns details of the default visible app' do
+        get api_v1_account_integrations_app_url(account_id: account.id, id: 'ikas'),
             headers: agent.create_new_auth_token,
             as: :json
 
         expect(response).to have_http_status(:success)
         app = response.parsed_body
-        expect(app['id']).to eql('slack')
-        expect(app['name']).to eql('Slack')
+        expect(app['id']).to eql('ikas')
+        expect(app['name']).to eql('ikas')
       end
 
-      it 'will not return sensitive information for openai app for agents' do
+      it 'does not return hidden app details for agents' do
         openai = create(:integrations_hook, :openai, account: account)
         get api_v1_account_integrations_app_url(account_id: account.id, id: openai.app.id),
             headers: agent.create_new_auth_token,
             as: :json
 
-        expect(response).to have_http_status(:success)
-
-        app = response.parsed_body
-        expect(app['hooks'].first['settings']).to be_nil
+        expect(response).to have_http_status(:not_found)
       end
 
-      it 'will return sensitive information for openai app for admins' do
+      it 'does not return hidden app details for admins' do
         openai = create(:integrations_hook, :openai, account: account)
         get api_v1_account_integrations_app_url(account_id: account.id, id: openai.app.id),
             headers: admin.create_new_auth_token,
             as: :json
 
-        expect(response).to have_http_status(:success)
-
-        app = response.parsed_body
-        expect(app['hooks'].first['settings']).not_to be_nil
+        expect(response).to have_http_status(:not_found)
       end
     end
   end

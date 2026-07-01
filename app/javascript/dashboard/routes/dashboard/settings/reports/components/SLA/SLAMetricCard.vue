@@ -1,5 +1,10 @@
 <script>
+import Icon from 'dashboard/components-next/icon/Icon.vue';
+
 export default {
+  components: {
+    Icon,
+  },
   props: {
     label: {
       type: String,
@@ -27,7 +32,7 @@ export default {
       class="inline-flex items-center gap-1 text-sm font-medium text-n-slate-11"
     >
       {{ label }}
-      <fluent-icon
+      <Icon
         v-tooltip.right="toolTip"
         size="14"
         icon="information"

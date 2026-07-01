@@ -40,6 +40,15 @@ describe('#URL Helpers', () => {
         '/app/accounts/1/custom_view/1'
       );
     });
+
+    it('should return url to participating conversations', () => {
+      expect(
+        conversationListPageURL({
+          accountId: 1,
+          conversationType: 'participating',
+        })
+      ).toBe('/app/accounts/1/participating/conversations');
+    });
   });
   describe('conversationUrl', () => {
     it('should return direct conversation URL if activeInbox is nil', () => {
@@ -220,6 +229,12 @@ describe('#URL Helpers', () => {
 
     it('should not append timestamp if it already exists', () => {
       const input = 'https://example.com/audio.mp3?t=9876543210';
+      expect(timeStampAppendedURL(input)).toBe(input);
+    });
+
+    it('should not append timestamp to a signed S3-compatible URL', () => {
+      const input =
+        'https://bucket.example.com/audio.ogg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=credential&X-Amz-Signature=signature';
       expect(timeStampAppendedURL(input)).toBe(input);
     });
 

@@ -1,0 +1,15 @@
+services:
+  asterisk:
+    build:
+      context: ./asterisk
+    env_file:
+      - path: .env.example
+      - path: .env
+        required: false
+    ports:
+      - "5060:5060/udp"
+      - "5061:5061/udp"
+      - "10000-10100:10000-10100/udp"
+    volumes:
+      - ./asterisk/etc/asterisk:/config:ro
+    restart: unless-stopped

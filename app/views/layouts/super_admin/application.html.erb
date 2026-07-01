@@ -19,18 +19,19 @@ By default, it renders:
   <meta name="ROBOTS" content="NOODP">
   <meta name="viewport" content="initial-scale=1">
   <title>
-    <%= content_for(:title) %> - <%= application_title %>
+    <%= content_for(:title) %> - Kozmopath
   </title>
+  <%= render "super_admin/application/critical_styles" %>
   <%= render "stylesheet" %>
+  <%= vite_stylesheet_tag 'superadmin.scss' %>
   <%= vite_client_tag %>
-  <%= vite_javascript_tag 'superadmin' %>
   <%= csrf_meta_tags %>
 </head>
-<body class="antialiased w-full h-full">
+<body class="super-admin-body antialiased w-full h-full">
   <%= render "icons" %>
-  <div class="flex w-full h-full">
+  <div class="super-admin-shell flex w-full h-full">
     <%= render "navigation" -%>
-    <main class="w-full overflow-auto" role="main">
+    <main class="super-admin-main main-content w-full overflow-auto" role="main">
       <%= render "flashes" -%>
       <%= yield %>
     </main>

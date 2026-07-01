@@ -48,6 +48,11 @@ en:
     inbox_deletetion_response: Your inbox deletion request will be processed in some time.
 
   errors:
+    account:
+      reporting_timezone:
+        invalid: is not a valid timezone
+      support_email:
+        invalid: is not a valid email address
     validations:
       presence: must not be blank
     webhook:
@@ -59,13 +64,31 @@ en:
       email_already_exists: 'You have already signed up for an account with %{email}'
       invalid_params: 'Invalid, please check the signup paramters and try again'
       failed: Signup failed
+    voice:
+      call_already_accepted: '%{agent_name} is already handling the call.'
+      usage:
+        disabled: 'Voice AI is disabled for this account.'
+        monthly_limit_exhausted: 'Voice AI monthly minute limit is exhausted.'
+        concurrent_limit_reached: 'Voice AI concurrent call limit is reached.'
+        rejected: 'Voice AI call cannot be started.'
     assignment_policy:
       not_found: Assignment policy not found
     attachments:
       invalid: Invalid attachment
+    upload:
+      missing_input: 'No file or URL provided'
+      invalid_url: 'Invalid URL provided'
+      fetch_failed: 'Failed to fetch file from URL'
+      fetch_failed_with_message: 'Failed to fetch file from URL: %{message}'
+      file_too_large: 'File exceeds the maximum allowed size'
+      unsupported_content_type: 'File type not supported (only images and videos are allowed)'
+      unexpected: 'An unexpected error occurred'
     saml:
       feature_not_enabled: SAML feature not enabled for this account
       sso_not_enabled: SAML SSO is not enabled for this installation
+    conversations:
+      unread_counts:
+        feature_not_enabled: Conversation unread counts feature not enabled for this account
     data_import:
       data_type:
         invalid: Invalid data type
@@ -93,6 +116,22 @@ en:
       invalid_message_type: 'Invalid message type. Action not permitted'
     slack:
       invalid_channel_id: 'Invalid slack channel. Please try again'
+    ikas:
+      unavailable: 'ikas integration is not available for this account.'
+      missing_required_fields: 'Store URL, client ID, and client secret are required.'
+      invalid_store_url: 'Enter a valid ikas store URL ending in .myikas.com.'
+      auth_failed: 'ikas rejected the provided credentials. Please verify the client ID, client secret, and store URL.'
+      probe_failed: 'ikas authentication succeeded, but Kozmopath could not validate the API probe.'
+      timeout: 'The ikas validation request timed out. Please try again.'
+      network_error: 'Kozmopath could not reach ikas. Please verify the store URL and try again.'
+      rate_limited: 'ikas rate limited the validation request. Please try again later.'
+      duplicate_hook: 'Multiple ikas connections were found for this account. Disconnect the duplicates before reconnecting.'
+      malformed_hook: 'The saved ikas connection is incomplete and must be reconnected.'
+      encryption_unavailable: 'Encryption is not configured on this Kozmopath instance. ikas connection is disabled until encryption is available.'
+      connected: 'ikas is connected.'
+      reconnect_required: 'ikas needs to be reconnected.'
+      not_connected: 'ikas is not connected.'
+      disabled: 'ikas is visible, but connecting it is disabled until encryption is configured.'
     whatsapp:
       token_exchange_failed: 'Failed to exchange code for access token. Please try again.'
       invalid_token_permissions: 'The access token does not have the required permissions for WhatsApp.'
@@ -101,6 +140,15 @@ en:
       reauthorization:
         generic: 'Failed to reauthorize WhatsApp. Please try again.'
         not_supported: 'Reauthorization is not supported for this type of WhatsApp channel.'
+      calls:
+        not_enabled: 'Calling is not enabled for this inbox'
+        no_recording: 'No recording file provided'
+        no_message: 'Call has no associated message'
+        sdp_offer_required: 'sdp_offer is required'
+        contact_phone_required: 'Contact phone number is required'
+        permission_request_failed: 'Failed to send call permission request'
+    openai:
+      invalid_api_key: 'OpenAI API key is invalid or revoked. Please check your key in your OpenAI dashboard.'
     inboxes:
       imap:
         socket_error: Please check the network connection, IMAP address and try again.
@@ -108,6 +156,11 @@ en:
         host_unreachable_error: Host unreachable, Please check the IMAP address, IMAP port and try again.
         connection_timed_out_error: Connection timed out for %{address}:%{port}
         connection_closed_error: Connection closed.
+      smtp:
+        authentication_error: SMTP authentication failed. Please verify your login credentials.
+        connection_error: Could not connect to SMTP server. Please check the server address and port.
+        ssl_error: SSL/TLS error. Please verify your encryption settings.
+        smtp_error: SMTP server error. Please check your configuration and try again.
       validations:
         name: should not start or end with symbols, and it should not have < > / \ @ characters.
     custom_filters:
@@ -117,6 +170,7 @@ en:
       invalid_query_operator: Query operator must be either "AND" or "OR".
       invalid_value: Invalid value. The values provided for %{attribute_name} are invalid
     custom_attribute_definition:
+      attribute_key_format: must only contain letters, numbers, underscores, hyphens, and dots
       key_conflict: The provided key is not allowed as it might conflict with default attributes.
     mfa:
       already_enabled: MFA is already enabled
@@ -224,12 +278,22 @@ en:
       deleted: This message was deleted
       whatsapp:
         list_button_label: 'Choose an item'
+        call_permission_request_body: 'We would like to call you regarding your conversation.'
+        unsupported_message: 'This message is unavailable.'
+      voice_call:
+        twilio: 'Voice Call'
+        whatsapp: 'WhatsApp Call'
+        livekit: 'Voice AI Call'
       delivery_status:
         error_code: 'Error code: %{error_code}'
     activity:
       captain:
         resolved: 'Conversation was marked resolved by %{user_name} due to inactivity'
+        resolved_with_reason: 'Conversation was marked resolved by %{user_name} (%{reason})'
+        resolved_by_tool: 'Conversation was marked resolved by %{user_name}: %{reason}'
         open: 'Conversation was marked open by %{user_name}'
+        open_with_reason: 'Conversation was marked open by %{user_name} (%{reason})'
+        auto_opened_after_agent_reply: 'Conversation was marked open automatically after an agent reply'
       agent_bot:
         error_moved_to_open: 'Conversation was marked open by system due to an error with the agent bot.'
       status:
@@ -264,6 +328,9 @@ en:
         issue_created: 'Linear issue %{issue_id} was created by %{user_name}'
         issue_linked: 'Linear issue %{issue_id} was linked by %{user_name}'
         issue_unlinked: 'Linear issue %{issue_id} was unlinked by %{user_name}'
+      whatsapp_call:
+        permission_requested: 'Sent a call permission request to %{contact_name}.'
+        permission_granted: '%{contact_name} accepted the call permission request.'
       csat:
         not_sent_due_to_messaging_window: 'CSAT survey not sent due to outgoing message restrictions'
       auto_resolve:
@@ -302,16 +369,16 @@ en:
       description: 'Dashboard Apps allow you to create and embed applications that display user information, orders, or payment history, providing more context to your customer support agents.'
     dyte:
       name: 'Dyte'
-      short_description: 'Start video/voice calls with customers directly from Kozmopath.'
-      description: 'Dyte is a product that integrates audio and video functionalities into your application. With this integration, your agents can start video/voice calls with your customers directly from Kozmopath.'
+      short_description: 'Start video/voice calls with customers directly from Chatwoot.'
+      description: 'Dyte is a product that integrates audio and video functionalities into your application. With this integration, your agents can start video/voice calls with your customers directly from Chatwoot.'
       meeting_name: '%{agent_name} has started a meeting'
     slack:
       name: 'Slack'
       short_description: 'Receive notifications and respond to conversations directly in Slack.'
-      description: "Integrate Kozmopath with Slack to keep your team in sync. This integration allows you to receive notifications for new conversations and respond to them directly within Slack's interface."
+      description: "Integrate Chatwoot with Slack to keep your team in sync. This integration allows you to receive notifications for new conversations and respond to them directly within Slack's interface."
     webhooks:
       name: 'Webhooks'
-      description: 'Webhook events provide real-time updates about activities in your Kozmopath account. You can subscribe to your preferred events, and Kozmopath will send you HTTP callbacks with the updates.'
+      description: 'Webhook events provide real-time updates about activities in your Chatwoot account. You can subscribe to your preferred events, and Chatwoot will send you HTTP callbacks with the updates.'
     dialogflow:
       name: 'Dialogflow'
       short_description: 'Build chatbots to handle initial queries before transferring to agents.'
@@ -328,6 +395,7 @@ en:
       name: 'Linear'
       short_description: 'Create and link Linear issues directly from conversations.'
       description: 'Create issues in Linear directly from your conversation window. Alternatively, link existing Linear issues for a more streamlined and efficient issue tracking process.'
+      attachment_link_title: 'Conversation (#%{conversation_id}) with %{name}'
     notion:
       name: 'Notion'
       short_description: 'Integrate databases, documents and pages directly with Captain.'
@@ -336,6 +404,10 @@ en:
       name: 'Shopify'
       short_description: 'Access order details and customer data from your Shopify store.'
       description: 'Connect your Shopify store to access order details, customer information, and product data directly within your conversations and helps your support team provide faster, more contextual assistance to your customers.'
+    ikas:
+      name: 'ikas'
+      short_description: 'Connect your ikas store credentials for future Kozmopath integrations.'
+      description: 'Connect your ikas store with store URL, client ID, and client secret so Kozmopath can validate the connection and make it available for future features without exposing secrets.'
     leadsquared:
       name: 'LeadSquared'
       short_description: 'Sync your contacts and conversations with LeadSquared CRM.'
@@ -356,6 +428,9 @@ en:
       limit_exceeded: 'Document limit exceeded'
       pdf_format_error: 'must be a PDF file'
       pdf_size_error: 'must be less than 10MB'
+      sync_not_supported_for_pdf: 'Sync is not supported for PDF documents'
+      sync_only_available_documents: 'Sync is only available for processed documents'
+      sync_already_in_progress: 'Document sync is already in progress'
       pdf_upload_failed: 'Failed to upload PDF to OpenAI'
       pdf_upload_success: 'PDF uploaded successfully with file_id: %{file_id}'
       pdf_processing_failed: 'Failed to process PDF document %{document_id}: %{error}'
@@ -374,6 +449,7 @@ en:
       page_processing_error: 'Error processing pages %{start}-%{end}: %{error}'
     custom_tool:
       slug_generation_failed: 'Unable to generate unique slug after 5 attempts'
+      limit_exceeded: 'You can create a maximum of %{limit} custom tools per account'
   public_portal:
     search:
       search_placeholder: Search for article by title or body...
@@ -381,6 +457,22 @@ en:
       loading_placeholder: Searching...
       results_title: Search results
     toc_header: 'On this page'
+    sidebar:
+      help_center: Help Center
+      categories: Categories
+      language: Language
+      theme: Theme
+      open_sidebar: Open sidebar
+      close_sidebar: Close sidebar
+      browse: Browse
+      back_to_category: Back to %{name}
+      browse_by_topic: Browse by topic
+      browse_by_topic_subtitle: Find guides, tutorials, and answers organised by category.
+      popular_articles: Popular articles
+      popular_articles_subtitle: What other people are reading right now.
+      popular_label: 'Popular topics:'
+      authors_others: "%{names} and %{count} others"
+      primary_nav: Primary
     hero:
       sub_title: Search for the articles here or browse the categories below.
     common:
@@ -395,12 +487,19 @@ en:
       others: others
       by: By
       no_articles: There are no articles here
+    article_actions:
+      label: Open in
+      view_markdown: View as Markdown
+      open_in_chatgpt: Open in ChatGPT
+      open_in_claude: Open in Claude
+      llm_prompt: "Read the following article and help me understand it: %{url}"
     footer:
       made_with: Made with
     header:
       go_to_homepage: Website
       visit_website: Visit website
       appearance:
+        title: Appearance
         system: System
         light: Light
         dark: Dark
@@ -410,6 +509,10 @@ en:
       title: Page not found
       description: We couldn't find the page you were looking for.
       back_to_home: Go to home page
+    not_active:
+      title: Help Center Unavailable
+      description: Please contact the site administrator for more information.
+      action: If you are the administrator, please upgrade your plan to restore access.
   slack_unfurl:
     fields:
       name: Name
@@ -432,6 +535,9 @@ en:
     seconds:
       one: '%{count} second'
       other: '%{count} seconds'
+  auto_assignment:
+    default_policy_name: 'Default Policy'
+    policy_actor: 'Automation System via %{policy_name}'
   automation:
     system_name: 'Automation System'
   crm:
@@ -460,7 +566,15 @@ en:
     label:
       account:
         ai_agent_settings: "AI Agent Settings"
+        voice_ai_settings: "Voice AI Settings"
+        voice_agent_runtime_settings: "Voice Agent Runtime Settings"
   portals:
+    articles:
+      captain_not_available: 'Translation requires Captain to be enabled for this account'
+      locale_not_available: 'Locale not available in this portal'
+      category_not_found: 'Category not found in this portal'
+      no_articles_found: 'No articles found to process'
+      invalid_status: 'Invalid status value'
     send_instructions:
       email_required: 'Email is required'
       invalid_email_format: 'Invalid email format'
@@ -469,3 +583,57 @@ en:
       subject: 'Finish setting up %{custom_domain}'
     ssl_status:
       custom_domain_not_configured: 'Custom domain is not configured'
+  super_admin:
+    account_ai_agent_settings:
+      title: "AI Agent Settings"
+      account_access: "Account access"
+      enabled: "Enabled"
+      yes: "Yes"
+      no: "No"
+      model: "Model"
+      monthly_conversation_limit: "Monthly Conversation Limit"
+      same_customer_reuse_window: "Same Customer Reuse Window"
+      current_month_usage: "Current Month Usage"
+      resets_at: "Resets At"
+      unlimited: "Unlimited"
+      hours: "hours"
+      unlimited_hint: "0 = unlimited"
+      reuse_window_hint: "Hours. New AI conversations from the same contact inside this window count once."
+    account_voice_ai_settings:
+      title: "Voice AI Settings"
+      account_access: "Account access"
+      enabled: "Enabled"
+      disabled: "Disabled"
+      yes: "Yes"
+      no: "No"
+      monthly_minute_limit: "Monthly Voice Minute Limit"
+      current_month_usage: "Current Month Usage"
+      remaining_minutes: "Remaining Minutes"
+      max_call_duration: "Max Call Duration"
+      concurrent_call_limit: "Concurrent Call Limit"
+      active_real_calls: "Active Real Calls"
+      resets_at: "Resets At"
+      unlimited: "Unlimited"
+      minutes: "minutes"
+      unlimited_hint: "0 = unlimited. Test calls are excluded."
+      max_call_duration_hint: "Minutes per call."
+    account_voice_agent_runtime_settings:
+      title: "Voice AI Runtime"
+      panel_title: "Voice agent runtime settings"
+      help: "Super Admins can change architecture, provider, model, voice, and language separately for each voice agent in this account."
+      no_agents: "No voice agents have been created for this account yet."
+      no_agents_configured: "No voice agents configured."
+      id: "ID %{id}"
+      enabled: "Enabled"
+      disabled: "Disabled"
+      architecture: "Architecture"
+      provider: "Provider"
+      model: "Model"
+      voice: "Voice"
+      language: "Language"
+      default_from_worker_env: "Default from worker env"
+    push_diagnostics:
+      user_not_found: 'User not found.'
+      no_subscriptions_to_test: 'Select at least one subscription to test.'
+      no_subscriptions_to_delete: 'Select at least one subscription to delete.'
+      subscriptions_deleted: "Deleted %{count} subscription(s). The user's device(s) will re-register on next app launch."

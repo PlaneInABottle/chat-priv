@@ -123,44 +123,38 @@ const isActive = computed(() => {
   return false;
 });
 
-// We could use the RouterLink isActive too, but our routes are not always
-// nested correctly, so we need to check the active state ourselves
-// TODO: Audit the routes and fix the nesting and remove this
-const activeChild = computed(() => {
-  const pathSame = navigableChildren.value.find(
-    child => child.to && route.path === resolvePath(child.to)
+const routeParamsMatch = to => {
+  const params = to?.params || {};
+  const paramKeys = Object.keys(params);
+  if (!paramKeys.length) return false;
+
+  return paramKeys.every(
+    key => String(params[key]) === String(route.params[key])
   );
-  if (pathSame) return pathSame;
+};
 
-  // Rank the activeOn Prop higher than the path match
-  // There will be cases where the path name is the same but the params are different
-  // So we need to rank them based on the params
-  // For example, contacts segment list in the sidebar effectively has the same name
-  // But the params are different
-  const activeOnPages = navigableChildren.value.filter(child =>
-    child.activeOn?.includes(route.name)
-  );
+const childActiveScore = child => {
+  if (!child.to) return 0;
 
-  if (activeOnPages.length > 0) {
-    const rankedPage = activeOnPages.find(child => {
-      return Object.keys(child.to.params)
-        .map(key => {
-          return String(child.to.params[key]) === String(route.params[key]);
-        })
-        .every(match => match);
-    });
+  const childPath = resolvePath(child.to);
+  if (route.path === childPath) return 100;
 
-    // If there is no ranked page, return the first activeOn page anyway
-    // Since this takes higher precedence over the path match
-    // This is not perfect, ideally we should rank each route based on all the techniques
-    // and then return the highest ranked one
-    // But this is good enough for now
-    return rankedPage ?? activeOnPages[0];
+  if (child.activeOn?.includes(route.name)) {
+    return routeParamsMatch(child.to) ? 90 : 70;
   }
 
-  return navigableChildren.value.find(
-    child => child.to && route.path.startsWith(resolvePath(child.to))
-  );
+  if (route.path.startsWith(`${childPath}/`)) {
+    return 50 + childPath.length / 1000;
+  }
+
+  return 0;
+};
+
+const activeChild = computed(() => {
+  return navigableChildren.value
+    .map(child => ({ child, score: childActiveScore(child) }))
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score)[0]?.child;
 });
 
 const hasActiveChild = computed(() => {
@@ -201,15 +195,11 @@ onUnmounted(() => {
   document.removeEventListener('mouseleave', handleWindowBlur);
 });
 
-watch(
-  hasActiveChild,
-  hasNewActiveChild => {
-    if (hasNewActiveChild && !isExpanded.value) {
-      setExpandedItem(props.name);
-    }
-  },
-  { once: true }
-);
+watch(hasActiveChild, hasNewActiveChild => {
+  if (hasNewActiveChild && !isExpanded.value) {
+    setExpandedItem(props.name);
+  }
+});
 </script>
 
 <!-- eslint-disable-next-line vue/no-root-v-if -->

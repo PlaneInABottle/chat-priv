@@ -3,17 +3,18 @@
 # Table name: ai_agents
 #
 #  id           :bigint           not null, primary key
-#  account_id   :bigint           not null
-#  agent_bot_id :bigint
+#  config       :jsonb
+#  enabled      :boolean          default(FALSE), not null
+#  name         :string           default("AI Asistan"), not null
 #  prompt       :text             default("")
-#  enabled      :boolean          default(FALSE)
-#  config       :jsonb            default({})
 #  created_at   :datetime         not null
 #  updated_at   :datetime         not null
+#  account_id   :bigint           not null
+#  agent_bot_id :bigint
 #
 # Indexes
 #
-#  index_ai_agents_on_account_id    (account_id) UNIQUE
+#  index_ai_agents_on_account_id    (account_id)
 #  index_ai_agents_on_agent_bot_id  (agent_bot_id) UNIQUE
 #
 # Foreign Keys
@@ -24,11 +25,15 @@
 class AiAgent < ApplicationRecord
   belongs_to :account
   belongs_to :agent_bot, optional: true
+  has_many :llm_calls, class_name: 'AiAgentLlmCall', dependent: :destroy
+  has_many :tool_executions, class_name: 'AiAgentToolExecution', dependent: :destroy
   has_many :test_conversations, class_name: 'AiAgentTestConversation', dependent: :destroy
+  has_many :usage_events, class_name: 'AiAgentUsageEvent', dependent: :destroy
 
   validates :name, presence: true
   validates :prompt, length: { maximum: 50_000 }
   validate :inbox_ids_conflict, if: -> { inbox_ids.present? }
+  validate :tools_config_must_be_valid
 
   attr_accessor :inbox_ids
 
@@ -42,10 +47,18 @@ class AiAgent < ApplicationRecord
     return if target_ids.empty?
 
     conflicts = AgentBotInbox.where.not(agent_bot_id: agent_bot_id)
-                             .where(inbox_id: target_ids)
-                             .exists?
+                             .exists?(inbox_id: target_ids)
 
     errors.add(:inbox_ids, 'already assigned to another agent bot') if conflicts
+  end
+
+  def tools_config_must_be_valid
+    parsed_config = AiAgents::Config.new(config)
+    return if parsed_config.valid?
+
+    parsed_config.errors.each do |message|
+      errors.add(:config, message)
+    end
   end
 
   def destroy_linked_agent_bot

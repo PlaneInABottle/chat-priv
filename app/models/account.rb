@@ -30,49 +30,7 @@ class Account < ApplicationRecord
   include CacheKeys
   include CaptainFeaturable
   include AccountEmailRateLimitable
-
-  SETTINGS_PARAMS_SCHEMA = {
-    'type': 'object',
-    'properties':
-      {
-        'auto_resolve_after': { 'type': %w[integer null], 'minimum': 10, 'maximum': 1_439_856 },
-        'auto_resolve_message': { 'type': %w[string null] },
-        'auto_resolve_ignore_waiting': { 'type': %w[boolean null] },
-        'audio_transcriptions': { 'type': %w[boolean null] },
-        'auto_resolve_label': { 'type': %w[string null] },
-        'keep_pending_on_bot_failure': { 'type': %w[boolean null] },
-        'conversation_required_attributes': {
-          'type': %w[array null],
-          'items': { 'type': 'string' }
-        },
-        'captain_models': {
-          'type': %w[object null],
-          'properties': {
-            'editor': { 'type': %w[string null] },
-            'assistant': { 'type': %w[string null] },
-            'copilot': { 'type': %w[string null] },
-            'label_suggestion': { 'type': %w[string null] },
-            'audio_transcription': { 'type': %w[string null] },
-            'help_center_search': { 'type': %w[string null] }
-          },
-          'additionalProperties': false
-        },
-        'captain_features': {
-          'type': %w[object null],
-          'properties': {
-            'editor': { 'type': %w[boolean null] },
-            'assistant': { 'type': %w[boolean null] },
-            'copilot': { 'type': %w[boolean null] },
-            'label_suggestion': { 'type': %w[boolean null] },
-            'audio_transcription': { 'type': %w[boolean null] },
-            'help_center_search': { 'type': %w[boolean null] }
-          },
-          'additionalProperties': false
-        }
-      },
-    'required': [],
-    'additionalProperties': true
-  }.to_json.freeze
+  include AccountSettingsSchema
 
   AI_AGENT_MODELS = [
     'deepseek/deepseek-v4-flash',
@@ -90,29 +48,50 @@ class Account < ApplicationRecord
   }.freeze
 
   validates :name, presence: true
+  # `domain` is the inbound email domain used to construct reply addresses
+  # (see `inbound_email_domain`). Do not repurpose it for a website or any
+  # non-mail-related domain.
   validates :domain, length: { maximum: 100 }
   validates_with JsonSchemaValidator,
                  schema: SETTINGS_PARAMS_SCHEMA,
                  attribute_resolver: ->(record) { record.settings }
+  validate :validate_reporting_timezone
+  validate :validate_support_email_format, if: :will_save_change_to_support_email?
 
   store_accessor :settings, :auto_resolve_after, :auto_resolve_message, :auto_resolve_ignore_waiting
 
   store_accessor :settings, :audio_transcriptions, :auto_resolve_label
   store_accessor :settings, :captain_models, :captain_features
+  store_accessor :settings, :reporting_timezone
   store_accessor :settings, :keep_pending_on_bot_failure
-  store_accessor :settings, :ai_agent_model, :ai_agent_conversation_limit
-  attr_accessor :ai_agent_settings
+  store_accessor :settings, :captain_auto_resolve_mode
+  store_accessor :settings, :ai_agent_enabled, :ai_agent_model, :ai_agent_conversation_limit, :ai_agent_conversation_reuse_window_hours
+  store_accessor :settings, :voice_ai_enabled, :voice_ai_monthly_minute_limit, :voice_ai_max_call_duration_minutes, :voice_ai_concurrent_call_limit
+
+  attr_reader :voice_agent_runtime_settings
+
+  include AccountCaptainAutoResolve
 
   has_many :account_users, dependent: :destroy_async
   has_many :agent_bot_inboxes, dependent: :destroy_async
   has_many :agent_bots, dependent: :destroy_async
   has_many :ai_agents, dependent: :destroy
+  has_many :voice_agents, dependent: :destroy
+  has_many :ai_agent_llm_calls, dependent: :destroy
+  has_many :ai_agent_tool_executions, dependent: :destroy
+  has_many :ai_agent_usage_events, dependent: :destroy
   has_many :api_channels, dependent: :destroy_async, class_name: '::Channel::Api'
   has_many :articles, dependent: :destroy_async, class_name: '::Article'
   has_many :assignment_policies, dependent: :destroy_async
   has_many :automation_rules, dependent: :destroy_async
   has_many :macros, dependent: :destroy_async
   has_many :campaigns, dependent: :destroy_async
+  has_many :calls, dependent: :destroy_async
+  has_many :call_transcript_segments, dependent: :destroy_async
+  has_many :voice_recordings, dependent: :destroy
+  has_many :voice_provider_connections, dependent: :destroy
+  has_many :voice_numbers, dependent: :destroy
+  has_many :voice_tool_events, dependent: :destroy
   has_many :canned_responses, dependent: :destroy_async
   has_many :categories, dependent: :destroy_async, class_name: '::Category'
   has_many :contacts, dependent: :destroy_async
@@ -127,6 +106,7 @@ class Account < ApplicationRecord
   has_many :instagram_channels, dependent: :destroy_async, class_name: '::Channel::Instagram'
   has_many :tiktok_channels, dependent: :destroy_async, class_name: '::Channel::Tiktok'
   has_many :hooks, dependent: :destroy_async, class_name: 'Integrations::Hook'
+  has_many :ikas_catalog_snapshots, dependent: :destroy_async
   has_many :inboxes, dependent: :destroy_async
   has_many :labels, dependent: :destroy_async
   has_many :line_channels, dependent: :destroy_async, class_name: '::Channel::Line'
@@ -145,6 +125,7 @@ class Account < ApplicationRecord
   has_many :web_widgets, dependent: :destroy_async, class_name: '::Channel::WebWidget'
   has_many :webhooks, dependent: :destroy_async
   has_many :whatsapp_channels, dependent: :destroy_async, class_name: '::Channel::Whatsapp'
+  has_many :voice_inbox_settings, dependent: :destroy_async
   has_many :working_hours, dependent: :destroy_async
 
   has_one_attached :contacts_export
@@ -155,7 +136,11 @@ class Account < ApplicationRecord
   scope :with_auto_resolve, -> { where("(settings ->> 'auto_resolve_after')::int IS NOT NULL") }
 
   before_validation :validate_limit_keys
+  after_create :create_default_voice_agent!
   after_create_commit :notify_creation
+  after_save :apply_voice_agent_runtime_settings, if: -> { @voice_agent_runtime_settings.present? }
+  after_update_commit :clear_unread_conversation_counts_cache, if: :saved_change_to_feature_conversation_unread_counts?
+  after_update_commit :finalize_active_voice_ai_calls, if: :voice_ai_access_disabled_after_update?
   after_destroy :remove_account_sequences
 
   def agents
@@ -194,16 +179,27 @@ class Account < ApplicationRecord
 
   def ai_agent_settings
     {
+      enabled: ai_agent_enabled?,
       model: ai_agent_model,
-      conversation_limit: ai_agent_conversation_limit
+      conversation_limit: ai_agent_conversation_limit,
+      conversation_reuse_window_hours: ai_agent_conversation_reuse_window_hours
     }
   end
 
   def ai_agent_settings=(value)
     return unless value.is_a?(Hash)
 
-    self.ai_agent_model = value[:model] if value.key?(:model)
-    self.ai_agent_conversation_limit = value[:conversation_limit] if value.key?(:conversation_limit)
+    settings = value.with_indifferent_access
+    self.ai_agent_enabled = settings[:enabled] if settings.key?(:enabled)
+    self.ai_agent_model = settings[:model] if settings.key?(:model)
+    self.ai_agent_conversation_limit = settings[:conversation_limit] if settings.key?(:conversation_limit)
+    if settings.key?(:conversation_reuse_window_hours)
+      self.ai_agent_conversation_reuse_window_hours = settings[:conversation_reuse_window_hours]
+    end
+  end
+
+  def ai_agent_enabled?
+    ActiveModel::Type::Boolean.new.cast(ai_agent_enabled) == true
   end
 
   def ai_agent_model
@@ -212,6 +208,69 @@ class Account < ApplicationRecord
 
   def ai_agent_conversation_limit
     (super || 0).to_i
+  end
+
+  def ai_agent_conversation_reuse_window_hours
+    value = (super || 24).to_i
+    value.positive? ? value : 24
+  end
+
+  def voice_ai_settings
+    {
+      enabled: voice_ai_enabled?,
+      monthly_minute_limit: voice_ai_monthly_minute_limit,
+      max_call_duration_minutes: voice_ai_max_call_duration_minutes,
+      concurrent_call_limit: voice_ai_concurrent_call_limit
+    }
+  end
+
+  def voice_ai_settings=(value)
+    return unless value.is_a?(Hash)
+
+    settings = value.with_indifferent_access
+    self.voice_ai_enabled = settings[:enabled] if settings.key?(:enabled)
+    self.voice_ai_monthly_minute_limit = settings[:monthly_minute_limit] if settings.key?(:monthly_minute_limit)
+    self.voice_ai_max_call_duration_minutes = settings[:max_call_duration_minutes] if settings.key?(:max_call_duration_minutes)
+    self.voice_ai_concurrent_call_limit = settings[:concurrent_call_limit] if settings.key?(:concurrent_call_limit)
+  end
+
+  def voice_ai_enabled?
+    ActiveModel::Type::Boolean.new.cast(voice_ai_enabled) == true
+  end
+
+  def voice_ai_monthly_minute_limit
+    non_negative_integer(super)
+  end
+
+  def voice_ai_max_call_duration_minutes
+    positive_integer(super, 15)
+  end
+
+  def voice_ai_concurrent_call_limit
+    non_negative_integer(super.presence || 1)
+  end
+
+  def voice_inbox_setting_for(inbox:, id: nil)
+    scoped_settings = voice_inbox_settings.where(account_id: self.id, inbox: inbox)
+    return scoped_settings.find_by(id: id) || scoped_settings.first if id.present?
+
+    scoped_settings.first
+  end
+
+  def voice_agent_runtime_settings=(value)
+    @voice_agent_runtime_settings = value if value.is_a?(Hash)
+  end
+
+  def create_default_voice_agent!
+    return if voice_agents.exists?
+
+    voice_agents.create!(
+      name: 'Voice Assistant',
+      enabled: true,
+      greeting: 'Merhaba, size nasil yardimci olabilirim?',
+      prompt: 'Yalnizca dogal Istanbul Turkcesiyle konus. Kisa, net ve sakin musteri destek cevaplari ver.',
+      tools_config: VoiceAgents::Config.new({}).normalized_config
+    )
   end
 
   def usage_limits
@@ -229,10 +288,54 @@ class Account < ApplicationRecord
     ISO_639.find(account_locale)&.english_name&.downcase || 'english'
   end
 
+  def onboarding_step
+    step = custom_attributes['onboarding_step']
+    return nil if step.blank?
+
+    enrichment_key = format(Redis::Alfred::ACCOUNT_ONBOARDING_ENRICHMENT, account_id: id)
+    Redis::Alfred.exists?(enrichment_key) ? 'enrichment' : step
+  end
+
+  def reset_cache_keys
+    super
+    clear_unread_conversation_counts_cache
+  end
+
   private
 
   def notify_creation
     Rails.configuration.dispatcher.dispatch(ACCOUNT_CREATED, Time.zone.now, account: self)
+  end
+
+  def apply_voice_agent_runtime_settings
+    @voice_agent_runtime_settings.each do |voice_agent_id, settings|
+      next unless settings.is_a?(Hash)
+
+      voice_agent = voice_agents.find_by(id: voice_agent_id)
+      next unless voice_agent
+
+      voice_agent.update!(settings.with_indifferent_access.slice(:architecture, :provider, :model, :voice, :language))
+    end
+  ensure
+    @voice_agent_runtime_settings = nil
+  end
+
+  def clear_unread_conversation_counts_cache
+    ::Conversations::UnreadCounts::Store.clear_account!(id)
+  end
+
+  def voice_ai_access_disabled_after_update?
+    return false unless saved_change_to_settings?
+
+    previous_settings, current_settings = saved_change_to_settings
+    previous_enabled = ActiveModel::Type::Boolean.new.cast((previous_settings || {})['voice_ai_enabled'])
+    current_enabled = ActiveModel::Type::Boolean.new.cast((current_settings || {})['voice_ai_enabled'])
+
+    previous_enabled && !current_enabled
+  end
+
+  def finalize_active_voice_ai_calls
+    Voice::AccountCallFinalizerJob.perform_later(self)
   end
 
   trigger.after(:insert).for_each(:row) do
@@ -245,6 +348,31 @@ class Account < ApplicationRecord
 
   def validate_limit_keys
     # method overridden in enterprise module
+  end
+
+  def non_negative_integer(value)
+    [value.to_i, 0].max
+  end
+
+  def positive_integer(value, fallback)
+    parsed_value = value.to_i
+    parsed_value.positive? ? parsed_value : fallback
+  end
+
+  def validate_reporting_timezone
+    return if reporting_timezone.blank? || ActiveSupport::TimeZone[reporting_timezone].present?
+
+    errors.add(:reporting_timezone, I18n.t('errors.account.reporting_timezone.invalid'))
+  end
+
+  def validate_support_email_format
+    value = attributes['support_email']
+    return if value.blank?
+
+    parsed = Mail::Address.new(value).address
+    errors.add(:support_email, I18n.t('errors.account.support_email.invalid')) if parsed.blank?
+  rescue Mail::Field::ParseError, Mail::Field::IncompleteParseError
+    errors.add(:support_email, I18n.t('errors.account.support_email.invalid'))
   end
 
   def remove_account_sequences

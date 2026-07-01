@@ -66,6 +66,15 @@
 - **[Both] Example**: `feat(auth): add user authentication` because scopes improve changelog clarity.
 - **[Both] Do not reference AI tools** in commit messages because it adds noise to history.
 
+## PR Description Format
+
+- Start with a short, user-facing paragraph describing the product change.
+- Add a `Closes` section with relevant issue links (GitHub, Linear, etc.).
+- For feature PRs, add `How to test` from a product/UX standpoint.
+- For bugfix PRs, use `How to reproduce` when helpful.
+- Optionally add a `What changed` section for implementation highlights.
+- Do not add a `How this was tested` section listing specs/commands.
+
 ## Project-Specific
 - **[Both] Translations**: only update English source files because Crowdin/community handles other locales.
 - **[Backend] Backend i18n**: update `config/locales/en.yml` because Rails i18n loads YAML from there.

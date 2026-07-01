@@ -1,11 +1,11 @@
 {
   "REGISTER": {
     "TRY_WOOT": "Create an account",
-    "GET_STARTED": "Get started with Chatwoot",
+    "GET_STARTED": "Get started with Kozmopath",
     "TITLE": "Register",
     "TESTIMONIAL_HEADER": "All it takes is one step to move forward",
     "TESTIMONIAL_CONTENT": "You're one step away from engaging your customers, retaining them and finding new ones.",
-    "TERMS_ACCEPT": "By creating an account, you agree to our <a href=\"https://www.chatwoot.com/terms\">T & C</a> and <a href=\"https://www.chatwoot.com/privacy-policy\">Privacy policy</a>",
+    "TERMS_ACCEPT": "By creating an account, you agree to our <a href=\"https://www.kozmopath.com/terms-of-service\">T & C</a> and <a href=\"https://www.kozmopath.com/privacy-policy\">Privacy policy</a>",
     "OAUTH": {
       "GOOGLE_SIGNUP": "Sign up with Google"
     },
@@ -45,6 +45,13 @@
       "ERROR_MESSAGE": "Could not connect to Woot server. Please try again."
     },
     "SUBMIT": "Create account",
-    "HAVE_AN_ACCOUNT": "Already have an account?"
+    "HAVE_AN_ACCOUNT": "Already have an account?",
+    "VERIFY_EMAIL": {
+      "TITLE": "Check your inbox",
+      "DESCRIPTION": "We sent a verification link to {email}. Click the link to verify your email and get started.",
+      "RESEND": "Resend verification email",
+      "RESEND_SUCCESS": "Verification email sent. Please check your inbox.",
+      "RESEND_ERROR": "Could not send verification email. Please try again."
+    }
   }
 }

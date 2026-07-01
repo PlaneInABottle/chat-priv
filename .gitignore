@@ -95,7 +95,10 @@ yarn-debug.log*
 .claude/settings.local.json
 .cursor
 .codex/
+.claude/
 CLAUDE.local.md
+session-ses_*.md
+__pycache__/
 
 # Histoire deployment
 .netlify
@@ -103,3 +106,8 @@ CLAUDE.local.md
 .pnpm-store/*
 local/
 Procfile.worktree
+
+# UI/UX work artifacts
+.ui-screenshots/
+.ui-auth-state.json
+ecosystem.config.cjs

@@ -1,4 +1,5 @@
 <script setup>
+import Icon from 'dashboard/components-next/icon/Icon.vue';
 import { ref, computed } from 'vue';
 import NextButton from 'dashboard/components-next/button/Button.vue';
 import ConfirmButton from 'dashboard/components-next/button/ConfirmButton.vue';
@@ -49,7 +50,7 @@ const onReset = () => {
           type="button"
           @click="toggleMasked"
         >
-          <fluent-icon :icon="maskIcon" :size="16" />
+          <Icon :icon="maskIcon" :size="16" />
         </button>
       </template>
     </woot-input>

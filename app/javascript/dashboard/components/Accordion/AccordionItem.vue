@@ -1,6 +1,6 @@
 <script setup>
+import Icon from 'dashboard/components-next/icon/Icon.vue';
 import EmojiOrIcon from 'shared/components/EmojiOrIcon.vue';
-import { defineEmits } from 'vue';
 
 defineProps({
   title: {
@@ -48,8 +48,8 @@ const onToggle = () => {
       <div class="flex flex-row">
         <slot name="button" />
         <div class="flex justify-end w-3 text-n-blue-11 cursor-pointer">
-          <fluent-icon v-if="isOpen" size="24" icon="subtract" type="solid" />
-          <fluent-icon v-else size="24" icon="add" type="solid" />
+          <Icon v-if="isOpen" size="24" icon="subtract" type="solid" />
+          <Icon v-else size="24" icon="add" type="solid" />
         </div>
       </div>
     </button>

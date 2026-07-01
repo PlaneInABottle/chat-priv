@@ -57,9 +57,56 @@ describe('TestConversationChatPanel.vue', () => {
     expect(wrapper.emitted('send')).toBeUndefined();
   });
 
+  it('prevents default click navigation when sending', async () => {
+    const wrapper = mountComponent();
+    const preventDefault = vi.fn();
+    const stopPropagation = vi.fn();
+
+    await wrapper.find('input').setValue('Hello world');
+    await findSendButton(wrapper).trigger('click', {
+      preventDefault,
+      stopPropagation,
+    });
+
+    expect(preventDefault).toHaveBeenCalled();
+    expect(stopPropagation).toHaveBeenCalled();
+    expect(wrapper.emitted('send')).toEqual([['Hello world']]);
+  });
+
   it('uses a supported button size for the send action', () => {
     const wrapper = mountComponent();
 
     expect(wrapper.findComponent(Button).props('size')).toBe('sm');
+  });
+
+  it('renders human handoff preview metadata inside assistant messages', () => {
+    const wrapper = mountComponent({
+      conversation: {
+        ...conversation,
+        messages: [
+          {
+            id: 'handoff-1',
+            role: 'assistant',
+            content: 'Transferring to another agent for further assistance.',
+            terminal_action: 'handoff',
+            tool_result: {
+              customer_message:
+                'Transferring to another agent for further assistance.',
+              private_note_preview: 'Escalate to billing',
+              labels_to_apply: ['vip'],
+              labels_ignored: ['ignored'],
+            },
+          },
+        ],
+        messages_count: 1,
+      },
+    });
+
+    expect(wrapper.text()).toContain(
+      'AI_AGENT.TEST_CONVERSATIONS.HANDOFF_TITLE'
+    );
+    expect(wrapper.text()).toContain('Escalate to billing');
+    expect(wrapper.text()).toContain('vip');
+    expect(wrapper.text()).toContain('ignored');
   });
 });

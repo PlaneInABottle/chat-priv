@@ -10,8 +10,21 @@ export const state = {
     isFetchingItem: false,
     isCreating: false,
     isDeleting: false,
+    isClearing: false,
     isSending: false,
   },
+};
+
+const getMessagePreview = message => {
+  if (!message) return null;
+  if (message.content) return message.content.substring(0, 60);
+  if (message.terminal_action === 'handoff') {
+    return (
+      message.tool_result?.customer_message || 'Human handoff preview'
+    ).substring(0, 60);
+  }
+
+  return null;
 };
 
 export const getters = {
@@ -120,7 +133,7 @@ export const actions = {
     const resolvedAiAgentId = aiAgentId || rootState.aiAgent.activeId;
     if (!resolvedAiAgentId) return;
 
-    commit('SET_UI_FLAG', { isDeleting: true });
+    commit('SET_UI_FLAG', { isClearing: true });
     try {
       const api = new AiAgentTestConversationsAPI(resolvedAiAgentId);
       await api.clearAll();
@@ -128,7 +141,7 @@ export const actions = {
     } catch (error) {
       throwErrorMessage(error);
     } finally {
-      commit('SET_UI_FLAG', { isDeleting: false });
+      commit('SET_UI_FLAG', { isClearing: false });
     }
   },
 
@@ -224,7 +237,7 @@ export const mutations = {
         messages.length > 0 ? messages[messages.length - 1].created_at : null;
       $state.records[id].last_message_preview =
         messages.length > 0
-          ? messages[messages.length - 1].content?.substring(0, 60)
+          ? getMessagePreview(messages[messages.length - 1])
           : null;
       if (title) {
         $state.records[id].title = title;
@@ -236,8 +249,7 @@ export const mutations = {
       $state.records[id].messages = [...$state.records[id].messages, message];
       $state.records[id].messages_count = $state.records[id].messages.length;
       $state.records[id].last_message_at = message.created_at;
-      $state.records[id].last_message_preview =
-        message.content?.substring(0, 60) ?? null;
+      $state.records[id].last_message_preview = getMessagePreview(message);
     }
   },
   REMOVE_MESSAGE($state, { id, messageId }) {
@@ -248,8 +260,7 @@ export const mutations = {
       $state.records[id].messages_count = $state.records[id].messages.length;
       const lastMessage = $state.records[id].messages.at(-1);
       $state.records[id].last_message_at = lastMessage?.created_at ?? null;
-      $state.records[id].last_message_preview =
-        lastMessage?.content?.substring(0, 60) ?? null;
+      $state.records[id].last_message_preview = getMessagePreview(lastMessage);
     }
   },
   SET_ACTIVE_ID($state, id) {

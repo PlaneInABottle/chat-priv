@@ -8,10 +8,10 @@ import { routes as inboxRoutes } from './inbox/routes';
 import { frontendURL } from '../../helper/URLHelper';
 import helpcenterRoutes from './helpcenter/helpcenter.routes';
 import campaignsRoutes from './campaigns/campaigns.routes';
-import { routes as captainRoutes } from './captain/captain.routes';
 import AppContainer from './Dashboard.vue';
 import Suspended from './suspended/Index.vue';
 import NoAccounts from './noAccounts/Index.vue';
+import OnboardingAccountDetails from './onboarding/Index.vue';
 
 export default {
   routes: [
@@ -19,7 +19,6 @@ export default {
       path: frontendURL('accounts/:accountId'),
       component: AppContainer,
       children: [
-        ...captainRoutes,
         ...inboxRoutes,
         ...conversation.routes,
         ...settings.routes,
@@ -30,6 +29,14 @@ export default {
         ...helpcenterRoutes.routes,
         ...campaignsRoutes.routes,
       ],
+    },
+    {
+      path: frontendURL('accounts/:accountId/onboarding'),
+      name: 'onboarding_account_details',
+      meta: {
+        permissions: ['administrator', 'agent', 'custom_role'],
+      },
+      component: OnboardingAccountDetails,
     },
     {
       path: frontendURL('accounts/:accountId/suspended'),

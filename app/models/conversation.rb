@@ -108,6 +108,8 @@ class Conversation < ApplicationRecord
 
   has_many :mentions, dependent: :destroy_async
   has_many :messages, dependent: :destroy_async, autosave: true
+  has_many :calls, dependent: :destroy_async
+  has_many :call_transcript_segments, dependent: :destroy_async
   has_one :csat_survey_response, dependent: :destroy_async
   has_many :conversation_participants, dependent: :destroy_async
   has_many :notifications, as: :primary_actor, dependent: :destroy_async
@@ -121,6 +123,8 @@ class Conversation < ApplicationRecord
   after_update_commit :execute_after_update_commit_callbacks
   after_create_commit :notify_conversation_creation
   after_create_commit :load_attributes_created_by_db_triggers
+  before_destroy :set_unread_count_deletion_data
+  after_destroy_commit :notify_conversation_deletion
 
   delegate :auto_resolve_after, to: :account
 
@@ -143,7 +147,7 @@ class Conversation < ApplicationRecord
   end
 
   def last_incoming_message
-    messages&.incoming&.last
+    messages.where(account_id: account_id)&.incoming&.last
   end
 
   def toggle_status
@@ -159,6 +163,7 @@ class Conversation < ApplicationRecord
   end
 
   def bot_handoff!
+    update(waiting_since: Time.current) if waiting_since.blank?
     open!
     dispatcher_dispatch(CONVERSATION_BOT_HANDOFF)
   end
@@ -228,9 +233,19 @@ class Conversation < ApplicationRecord
     # When conversation is resolved, clear waiting_since using update_column to avoid callbacks
     return unless saved_change_to_status? && status == 'resolved'
 
+    finalize_active_livekit_calls
+
     # rubocop:disable Rails/SkipsModelValidations
     update_column(:waiting_since, nil)
     # rubocop:enable Rails/SkipsModelValidations
+  end
+
+  def finalize_active_livekit_calls
+    calls.livekit.active.find_each do |call|
+      Voice::CallFinalizer.perform!(call: call, status: 'completed', end_reason: 'conversation_resolved')
+    rescue StandardError => e
+      Rails.logger.warn("voice call finalization failed conversation_id=#{id} call_id=#{call.id} error=#{e.class.name}: #{e.message}")
+    end
   end
 
   def ensure_snooze_until_reset
@@ -267,6 +282,12 @@ class Conversation < ApplicationRecord
 
   def notify_conversation_creation
     dispatcher_dispatch(CONVERSATION_CREATED)
+  end
+
+  def notify_conversation_deletion
+    return if @unread_count_deletion_data.blank?
+
+    Rails.configuration.dispatcher.dispatch(CONVERSATION_DELETED, Time.zone.now, conversation_data: @unread_count_deletion_data)
   end
 
   def notify_conversation_updation
@@ -312,6 +333,17 @@ class Conversation < ApplicationRecord
     Rails.configuration.dispatcher.dispatch(event_name, Time.zone.now, conversation: self, notifiable_assignee_change: notifiable_assignee_change?,
                                                                        changed_attributes: changed_attributes,
                                                                        performed_by: Current.executed_by)
+  end
+
+  def set_unread_count_deletion_data
+    @unread_count_deletion_data = {
+      id: id,
+      account_id: account_id,
+      inbox_id: inbox_id,
+      assignee_id: assignee_id,
+      team_id: team_id,
+      cached_label_list: cached_label_list
+    }
   end
 
   def conversation_status_changed_to_open?

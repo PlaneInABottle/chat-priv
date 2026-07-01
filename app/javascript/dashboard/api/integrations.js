@@ -38,6 +38,28 @@ class IntegrationsAPI extends ApiClient {
       shop_domain: shopDomain,
     });
   }
+
+  showIkas() {
+    return axios.get(`${this.baseUrl()}/integrations/ikas`);
+  }
+
+  connectIkas(payload) {
+    return axios.post(`${this.baseUrl()}/integrations/ikas`, { ikas: payload });
+  }
+
+  updateIkas(payload) {
+    return axios.patch(`${this.baseUrl()}/integrations/ikas`, {
+      ikas: payload,
+    });
+  }
+
+  syncIkasCatalog() {
+    return axios.post(`${this.baseUrl()}/integrations/ikas/catalog_sync`);
+  }
+
+  deleteIkas() {
+    return axios.delete(`${this.baseUrl()}/integrations/ikas`);
+  }
 }
 
 export default new IntegrationsAPI();

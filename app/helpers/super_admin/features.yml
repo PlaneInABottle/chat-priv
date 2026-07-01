@@ -41,12 +41,19 @@ help_center:
   description: 'Allow agents to create help center articles and publish them in a portal.'
   enabled: true
   icon: 'icon-book-2-line'
+ai_agents:
+  name: 'AI Agents'
+  description: 'Configure Kozmopath AI Agent provider settings and global instructions.'
+  enabled: true
+  icon: 'icon-bot'
+  config_key: 'ai_agents'
 captain:
   name: 'Captain'
   description: 'Enable AI-powered conversations with your customers.'
-  enabled: true
+  enabled: false
+  hidden: true
   icon: 'icon-captain'
-  config_key: 'captain'
+  enterprise: true
 
 # ------- Communication Channels ------- #
 live_chat:
@@ -56,13 +63,13 @@ live_chat:
   icon: 'icon-chat-smile-3-line'
 email:
   name: 'Email'
-  description: 'Manage your email customer interactions from Chatwoot.'
+  description: 'Manage your email customer interactions from Kozmopath.'
   enabled: true
   icon: 'icon-mail-send-fill'
   config_key: 'email'
 sms:
   name: 'SMS'
-  description: 'Manage your SMS customer interactions from Chatwoot.'
+  description: 'Manage your SMS customer interactions from Kozmopath.'
   enabled: true
   icon: 'icon-message-line'
 messenger:
@@ -85,17 +92,17 @@ tiktok:
   config_key: 'tiktok'
 whatsapp:
   name: 'WhatsApp'
-  description: 'Manage your WhatsApp business interactions from Chatwoot.'
+  description: 'Manage your WhatsApp business interactions from Kozmopath.'
   enabled: true
   icon: 'icon-whatsapp-line'
 telegram:
   name: 'Telegram'
-  description: 'Manage your Telegram customer interactions from Chatwoot.'
+  description: 'Manage your Telegram customer interactions from Kozmopath.'
   enabled: true
   icon: 'icon-telegram-line'
 line:
   name: 'Line'
-  description: 'Manage your Line customer interactions from Chatwoot.'
+  description: 'Manage your Line customer interactions from Kozmopath.'
   enabled: true
   icon: 'icon-line-line'
 

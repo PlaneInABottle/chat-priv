@@ -1,7 +1,11 @@
 <script>
 import { getContrastingTextColor } from '@chatwoot/utils';
+import Icon from 'dashboard/components-next/icon/Icon.vue';
 
 export default {
+  components: {
+    Icon,
+  },
   props: {
     title: {
       type: String,
@@ -89,7 +93,7 @@ export default {
     :title="description"
   >
     <span v-if="icon" class="label-action--button">
-      <fluent-icon :icon="icon" size="12" class="label--icon cursor-pointer" />
+      <Icon :icon="icon" size="12" class="label--icon cursor-pointer" />
     </span>
     <span
       v-if="['smooth', 'dashed'].includes(variant) && title && !icon"
@@ -106,7 +110,7 @@ export default {
       :style="{ color: textColor }"
       @click="onClick"
     >
-      <fluent-icon icon="dismiss" size="12" class="close--icon" />
+      <Icon icon="dismiss" size="12" class="close--icon" />
     </button>
   </div>
 </template>

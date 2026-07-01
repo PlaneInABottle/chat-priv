@@ -35,10 +35,12 @@ import setNewPassword from './setNewPassword.json';
 import settings from './settings.json';
 import signup from './signup.json';
 import sla from './sla.json';
+import snooze from './snooze.json';
 import teamsSettings from './teamsSettings.json';
 import whatsappTemplates from './whatsappTemplates.json';
 import contentTemplates from './contentTemplates.json';
 import mfa from './mfa.json';
+import onboarding from './onboarding.json';
 import yearInReview from './yearInReview.json';
 
 export default {
@@ -79,9 +81,11 @@ export default {
   ...settings,
   ...signup,
   ...sla,
+  ...snooze,
   ...teamsSettings,
   ...whatsappTemplates,
   ...contentTemplates,
   ...mfa,
+  ...onboarding,
   ...yearInReview,
 };

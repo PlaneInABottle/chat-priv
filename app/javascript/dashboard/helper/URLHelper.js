@@ -51,6 +51,7 @@ export const conversationListPageURL = ({
   } else if (conversationType) {
     const urlMap = {
       mention: 'mentions/conversations',
+      participating: 'participating/conversations',
       unattended: 'unattended/conversations',
     };
     url = `accounts/${accountId}/${urlMap[conversationType]}`;
@@ -111,6 +112,13 @@ export const hasValidAvatarUrl = avatarUrl => {
 
 export const timeStampAppendedURL = dataUrl => {
   const url = new URL(dataUrl);
+  if (
+    url.searchParams.has('X-Amz-Signature') ||
+    url.searchParams.has('X-Amz-Credential')
+  ) {
+    return dataUrl;
+  }
+
   if (!url.searchParams.has('t')) {
     url.searchParams.append('t', Date.now());
   }

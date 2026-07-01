@@ -5,7 +5,6 @@ import axios from 'axios';
 // Global Components
 import hljsVuePlugin from '@highlightjs/vue-plugin';
 
-import Multiselect from 'vue-multiselect';
 import { plugin, defaultConfig } from '@formkit/vue';
 import WootWizard from 'components/ui/Wizard.vue';
 import FloatingVue from 'floating-vue';
@@ -26,6 +25,7 @@ import {
   initializeChatwootEvents,
 } from 'dashboard/helper/scriptHelpers.js';
 import FluentIcon from 'shared/components/FluentIcon/DashboardIcon.vue';
+import Icon from 'dashboard/components-next/icon/Icon.vue';
 import VueDOMPurifyHTML from 'vue-dompurify-html';
 import { domPurifyConfig } from 'shared/helpers/HTMLSanitizer.js';
 
@@ -92,8 +92,8 @@ app.use(FloatingVue, {
 });
 app.use(hljsVuePlugin);
 
-app.component('multiselect', Multiselect);
 app.component('woot-wizard', WootWizard);
+app.component('Icon', Icon);
 app.component('fluent-icon', FluentIcon);
 
 app.directive('resize', vResizeObserver);

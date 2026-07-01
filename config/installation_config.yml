@@ -1,6 +1,6 @@
-# This file contains all the installation wide configuration which controls various settings in Chatwoot
+# This file contains all the installation wide configuration which controls various settings in Kozmopath
 # This is internal config and should not be modified by the user directly in database
-# Chatwoot might override and modify these values during the upgrade process
+# Kozmopath might override and modify these values during the upgrade process
 # Configs which can be modified by the user are available in the dashboard under appropriate UI
 #
 # name: the name of the config referenced in the code
@@ -15,7 +15,7 @@
 
 # ------- Branding Related Config ------- #
 - name: INSTALLATION_NAME
-  value: 'Raven'
+  value: 'Kozmopath'
   display_title: 'Installation Name'
   description: 'The installation wide name that would be used in the dashboard, title etc.'
 - name: LOGO_THUMBNAIL
@@ -39,7 +39,7 @@
   display_title: 'Widget Brand URL'
   description: 'The URL that would be used in the widget under the section “Powered By”'
 - name: BRAND_NAME
-  value: 'kozmopath'
+  value: 'Kozmopath'
   display_title: 'Brand Name'
   description: 'The name that would be used in emails and the widget'
 - name: TERMS_URL
@@ -53,7 +53,7 @@
 - name: DISPLAY_MANIFEST
   value: true
   display_title: 'Kozmopath Metadata'
-  description: 'Display default Chatwoot metadata like favicons and upgrade warnings'
+  description: 'Display default Kozmopath metadata like favicons and upgrade warnings'
   type: boolean
 # ------- End of Branding Related Config ------- #
 
@@ -82,7 +82,7 @@
 - name: WEBHOOK_TIMEOUT
   value: 5
   display_title: 'Webhook request timeout (seconds)'
-  description: 'Maximum time Chatwoot waits for a webhook response before failing the request'
+  description: 'Maximum time Kozmopath waits for a webhook response before failing the request'
   locked: false
 - name: DIRECT_UPLOADS_ENABLED
   type: boolean
@@ -181,6 +181,33 @@
   type: secret
 # End of Microsoft Email Channel Config
 
+# MARK: Kozmopath AI Agent Config
+- name: AI_AGENT_RESPONSE_BUFFER_SECONDS
+  display_title: 'AI Agent Response Buffer'
+  description: 'Delay AI agent responses by this many seconds. Set to 0 to disable buffering for immediate responses.'
+  value: 5
+  locked: false
+- name: AI_AGENT_GLOBAL_INSTRUCTIONS
+  display_title: 'Global AI Agent Base Prompt'
+  description: 'Super Admin-controlled global base prompt applied to every Kozmopath AI Agent before account-specific prompts and immutable tool policies.'
+  value: |
+    You are a helpful AI assistant for a customer support team.
+    Follow these instructions carefully.
+    Be concise, professional, and helpful. If you cannot answer something,
+    politely say so and suggest handing off to a human agent.
+  locked: false
+  type: code
+- name: AI_AGENT_LLM_API_KEY
+  display_title: 'AI Agent LLM API Key'
+  description: 'API key used by Kozmopath AI Agents. Environment variable AI_AGENTS_SIMULATOR_API_KEY remains a fallback when this is blank.'
+  locked: false
+  type: secret
+- name: AI_AGENT_LLM_ENDPOINT
+  display_title: 'AI Agent LLM Endpoint'
+  description: 'OpenAI-compatible chat completions endpoint used by Kozmopath AI Agents. Defaults to OpenRouter when blank.'
+  value:
+  locked: false
+
 # MARK: Captain Config
 - name: CAPTAIN_OPEN_AI_API_KEY
   display_title: 'OpenAI API Key'
@@ -209,19 +236,44 @@
   description: 'The limits for the Captain AI service for different plans'
   value:
   type: code
+- name: CAPTAIN_DOCUMENT_AUTO_SYNC_INTERVALS
+  display_title: 'Captain Document Auto Sync Intervals'
+  description: 'JSON map of plan-wise Captain document auto-sync intervals in hours. Use null to disable auto-sync for a plan.'
+  value:
+  locked: false
+  type: code
+- name: CAPTAIN_DOCUMENT_AUTO_SYNC_PER_ACCOUNT_BATCH_LIMIT
+  display_title: 'Captain Document Auto Sync Per Account Batch Limit'
+  description: 'Maximum syncable Captain documents to enqueue per account in one scheduler run. Defaults to 50.'
+  value: 50
+  locked: false
+  type: number
+- name: CAPTAIN_DOCUMENT_AUTO_SYNC_GLOBAL_BATCH_LIMIT
+  display_title: 'Captain Document Auto Sync Global Batch Limit'
+  description: 'Maximum syncable Captain documents to enqueue globally in one scheduler run. Defaults to 1000.'
+  value: 1000
+  locked: false
+  type: number
 # End of Captain Config
 
-# ------- Chatwoot Internal Config for Cloud ----#
+# ------- Context.dev Config ------- #
+- name: CONTEXT_DEV_API_KEY
+  display_title: 'Context.dev API Key'
+  description: 'API key for Context.dev branding service used during account onboarding'
+  type: secret
+# ------- End of Context.dev Config ------- #
+
+# ------- Kozmopath Internal Config for Cloud ----#
 - name: CHATWOOT_INBOX_TOKEN
   value:
   display_title: 'Inbox Token'
-  description: 'The Chatwoot Inbox Token for Contact Support in Cloud'
+  description: 'The Kozmopath inbox token for Contact Support in Cloud'
   locked: false
   type: secret
 - name: CHATWOOT_INBOX_HMAC_KEY
   value:
   display_title: 'Inbox HMAC Key'
-  description: 'The Chatwoot Inbox HMAC Key for Contact Support in Cloud'
+  description: 'The Kozmopath inbox HMAC key for Contact Support in Cloud'
   locked: false
   type: secret
 - name: CHATWOOT_CLOUD_PLANS
@@ -234,11 +286,11 @@
   description: 'Config to features and their associated plans'
 - name: DEPLOYMENT_ENV
   value: self-hosted
-  description: 'The deployment environment of the installation, to differentiate between Chatwoot cloud and self-hosted'
+  description: 'The deployment environment of the installation, to differentiate between Kozmopath cloud and self-hosted'
 - name: CLOUD_ANALYTICS_TOKEN
   value:
   display_title: 'Analytics Token'
-  description: 'The Amplitude analytics API key for Chatwoot cloud'
+  description: 'The Amplitude analytics API key for Kozmopath cloud'
   type: secret
 - name: CLEARBIT_API_KEY
   value:
@@ -264,9 +316,9 @@
   display_title: 'Inactive WhatsApp Numbers'
   description: 'Comma-separated list of WhatsApp numbers that should be rejected with a 422 error'
   type: code
-# ------- End of Chatwoot Internal Config for Cloud ----#
+# ------- End of Kozmopath Internal Config for Cloud ----#
 
-# ------- Chatwoot Internal Config for Self Hosted ----#
+# ------- Kozmopath Internal Config for Self Hosted ----#
 - name: INSTALLATION_PRICING_PLAN
   value: 'community'
   description: 'The pricing plan for the installation, retrieved from the billing API'
@@ -275,20 +327,20 @@
   description: 'The number of licenses purchased for the installation, retrieved from the billing API'
 - name: CHATWOOT_SUPPORT_WEBSITE_TOKEN
   value:
-  description: 'The Chatwoot website token, used to identify the Chatwoot inbox and display the "Contact Support" option on the billing page'
+  description: 'The Kozmopath website token, used to identify the Kozmopath inbox and display the "Contact Support" option on the billing page'
   type: secret
 - name: CHATWOOT_SUPPORT_SCRIPT_URL
   value:
-  description: 'The Chatwoot script base URL, to display the "Contact Support" option on the billing page'
+  description: 'The Kozmopath script base URL, to display the "Contact Support" option on the billing page'
 - name: CHATWOOT_SUPPORT_IDENTIFIER_HASH
   value:
-  description: 'The Chatwoot identifier hash, to validate the contact in the live chat window.'
+  description: 'The Kozmopath identifier hash, to validate the contact in the live chat window.'
   type: secret
 - name: ACCOUNT_SECURITY_NOTIFICATION_WEBHOOK_URL
   display_title: Webhook URL to post security analysis
   value:
-  description: Used to notify Chatwoot about account abuses, potential threads (Should be a Discord Webhook URL)
-# ------- End of Chatwoot Internal Config for Self Hosted ----#
+  description: Used to notify Kozmopath about account abuses, potential threats (Should be a Discord Webhook URL)
+# ------- End of Kozmopath Internal Config for Self Hosted ----#
 
 # ------- Compliance Related Config ----#
 - name: CHATWOOT_INSTANCE_ADMIN_EMAIL

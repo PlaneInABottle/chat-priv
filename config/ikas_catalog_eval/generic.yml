@@ -1,0 +1,132 @@
+# Generic starter pack for Ikas catalog evaluation.
+# Copy and tune this per seller; not every shop is expected to sell every product family below.
+- id: beyaz_perde
+  query: "beyaz perde"
+  expect:
+    result_type:
+      - show_candidates
+      - show_compatible_candidates
+    min_results: 1
+    top_results_include:
+      - "perde"
+      - "beyaz"
+    require_links: true
+    require_evidence:
+      - fact: color
+
+- id: beyaz_plise_perde_color_category
+  query: "beyaz plise perde"
+  expect:
+    result_type:
+      - show_candidates
+      - show_compatible_candidates
+    min_results: 1
+    first_result_include:
+      - "perde"
+    top_results_include:
+      - "beyaz"
+    require_links: true
+    require_evidence:
+      - fact: color
+
+- id: blackout_perde
+  query: "blackout perde"
+  expect:
+    result_type:
+      - show_candidates
+      - show_compatible_candidates
+    min_results: 1
+    top_results_include:
+      - "blackout"
+
+- id: akordiyon_sineklik_70x80
+  query: "70x80 akordiyon sineklik"
+  expect:
+    result_type:
+      - show_compatible_candidates
+    min_results: 1
+    top_results_include:
+      - "sineklik"
+    require_links: true
+    require_evidence:
+      - fact: dimension_max
+
+- id: akordeon_sineklik_70x80_typo
+  query: "70x80 akordeon sineklik"
+  expect:
+    result_type:
+      - show_compatible_candidates
+    min_results: 1
+    top_results_include:
+      - "sineklik"
+    require_links: true
+    require_evidence:
+      - fact: dimension_max
+
+- id: beyaz_akordiyon_sineklik_70x80
+  query: "beyaz akordiyon sineklik 70x80"
+  expect:
+    result_type:
+      - show_compatible_candidates
+    min_results: 1
+    top_results_include:
+      - "beyaz"
+      - "sineklik"
+    require_links: true
+    require_evidence:
+      - fact: color
+      - fact: dimension_max
+
+- id: menteseli_sineklik
+  query: "menteşeli sineklik"
+  expect:
+    result_type:
+      - clarify_category
+    min_buckets: 2
+    bucket_labels_include:
+      - "Menteşeli"
+
+- id: beyaz_olanin_linki_followup
+  query: "beyaz olanın linki"
+  context_texts:
+    - "akordiyon sineklik 70x80"
+  expect:
+    result_type:
+      - show_candidates
+      - show_compatible_candidates
+    min_results: 1
+    require_links: true
+
+- id: product_link_request
+  query: "ürün linki"
+  context_texts:
+    - "beyaz akordiyon sineklik"
+  expect:
+    result_type:
+      - show_candidates
+      - show_compatible_candidates
+    min_results: 1
+    require_links: true
+
+- id: organik_bal_500g
+  query: "organik bal 500g"
+  expect:
+    result_type:
+      - show_candidates
+    min_results: 1
+    top_results_include:
+      - "bal"
+    require_evidence:
+      - fact: organic
+      - fact: weight
+
+- id: m_beden_siyah_tshirt
+  query: "m beden siyah tshirt"
+  expect:
+    result_type:
+      - show_candidates
+    min_results: 1
+    require_links: true
+    require_evidence:
+      - fact: size
+      - fact: color

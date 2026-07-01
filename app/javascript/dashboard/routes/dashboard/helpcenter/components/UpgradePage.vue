@@ -2,9 +2,11 @@
 import { mapGetters } from 'vuex';
 import wootConstants from 'dashboard/constants/globals';
 import NextButton from 'dashboard/components-next/button/Button.vue';
+import Icon from 'dashboard/components-next/icon/Icon.vue';
 
 export default {
   components: {
+    Icon,
     NextButton,
   },
   data() {
@@ -112,7 +114,7 @@ export default {
       >
         <div class="flex gap-2 flex-row">
           <div>
-            <fluent-icon
+            <Icon
               :icon="feature.icon"
               icon-lib="lucide"
               :size="26"

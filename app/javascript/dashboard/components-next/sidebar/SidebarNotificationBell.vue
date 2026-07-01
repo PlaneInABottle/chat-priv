@@ -1,10 +1,12 @@
 <script setup>
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
 import { useMapGetter } from 'dashboard/composables/store';
 
 const emit = defineEmits(['openNotificationPanel']);
 
+const { t } = useI18n();
 const notificationMetadata = useMapGetter('notifications/getMeta');
 const route = useRoute();
 const unreadCount = computed(() => {
@@ -17,6 +19,13 @@ const unreadCount = computed(() => {
     : '99+';
 });
 
+const ariaLabel = computed(() => {
+  const count = notificationMetadata.value.unreadCount || 0;
+  return count > 0
+    ? t('SIDEBAR.NOTIFICATIONS') + ` (${count})`
+    : t('SIDEBAR.NOTIFICATIONS');
+});
+
 function openNotificationPanel() {
   if (route.name !== 'notifications_index') {
     emit('openNotificationPanel');
@@ -27,6 +36,7 @@ function openNotificationPanel() {
 <template>
   <button
     class="size-8 rounded-lg hover:bg-n-alpha-1 flex-shrink-0 grid place-content-center relative"
+    :aria-label="ariaLabel"
     @click="openNotificationPanel"
   >
     <span class="i-lucide-bell size-4" />

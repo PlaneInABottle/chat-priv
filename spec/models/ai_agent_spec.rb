@@ -4,6 +4,9 @@ RSpec.describe AiAgent do
   describe 'associations' do
     it { is_expected.to belong_to(:account) }
     it { is_expected.to belong_to(:agent_bot).optional(true) }
+    it { is_expected.to have_many(:llm_calls).class_name('AiAgentLlmCall').dependent(:destroy) }
+    it { is_expected.to have_many(:tool_executions).class_name('AiAgentToolExecution').dependent(:destroy) }
+    it { is_expected.to have_many(:usage_events).class_name('AiAgentUsageEvent').dependent(:destroy) }
   end
 
   describe 'validations' do
@@ -49,6 +52,27 @@ RSpec.describe AiAgent do
         ai_agent = build(:ai_agent, account: account, name: 'Second Agent', inbox_ids: [inbox.id])
         expect(ai_agent).not_to be_valid
         expect(ai_agent.errors[:inbox_ids]).to include('already assigned to another agent bot')
+      end
+    end
+
+    context 'when validating tools config' do
+      let(:account) { create(:account) }
+
+      it 'rejects unknown tools in config.tools.enabled' do
+        ai_agent = build(:ai_agent, account: account, config: { 'tools' => { 'enabled' => ['unknown_tool'] } })
+
+        expect(ai_agent).not_to be_valid
+        expect(ai_agent.errors[:config]).to include('config.tools.enabled contains unknown tools: unknown_tool')
+      end
+
+      it 'allows known tools and preserves sibling config keys' do
+        ai_agent = build(:ai_agent, account: account, config: {
+          'other' => { 'persist' => true },
+          'tools' => { 'enabled' => ['human_handoff'] }
+        })
+
+        expect(ai_agent).to be_valid
+        expect(ai_agent.config['other']).to eq({ 'persist' => true })
       end
     end
   end

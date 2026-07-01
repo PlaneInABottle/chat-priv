@@ -1,16 +1,28 @@
 import { createRouter, createWebHistory } from 'vue-router';
+import { nextTick } from 'vue';
 
 import { frontendURL } from '../helper/URLHelper';
 import dashboard from './dashboard/dashboard.routes';
 import store from 'dashboard/store';
 import { validateLoggedInRoutes } from '../helper/routeHelpers';
+import { isOnOnboardingView } from 'v3/helpers/RouteHelper';
 import AnalyticsHelper from '../helper/AnalyticsHelper';
 
+const ONBOARDING_STEPS = ['account_details', 'enrichment'];
 const routes = [...dashboard.routes];
 
 export const router = createRouter({ history: createWebHistory(), routes });
 
-export const validateAuthenticateRoutePermission = (to, next) => {
+// Move focus to main content on route change for keyboard/screen reader users.
+router.afterEach(to => {
+  if (to.hash) return;
+  nextTick(() => {
+    const main = document.getElementById('main-content');
+    if (main) main.focus();
+  });
+});
+
+export const validateAuthenticateRoutePermission = async (to, next) => {
   const { isLoggedIn, getCurrentUser: user } = store.getters;
 
   if (!isLoggedIn) {
@@ -27,8 +39,25 @@ export const validateAuthenticateRoutePermission = (to, next) => {
     return next(frontendURL('no-accounts'));
   }
 
+  const routeAccountId = Number(to.params?.accountId || accountId);
+  const userAccount = accounts.find(a => a.id === routeAccountId);
+  const isAdmin = userAccount?.role === 'administrator';
+  const isActive = userAccount?.status === 'active';
+  const needsOnboarding =
+    ONBOARDING_STEPS.includes(userAccount?.onboarding_step) &&
+    isAdmin &&
+    isActive;
+
   if (to.name === 'no_accounts' || !to.name) {
-    return next(frontendURL(`accounts/${accountId}/dashboard`));
+    const target = needsOnboarding ? 'onboarding' : 'dashboard';
+    return next(frontendURL(`accounts/${routeAccountId}/${target}`));
+  }
+
+  if (needsOnboarding && !isOnOnboardingView(to)) {
+    return next(frontendURL(`accounts/${routeAccountId}/onboarding`));
+  }
+  if (!needsOnboarding && isOnOnboardingView(to)) {
+    return next(frontendURL(`accounts/${routeAccountId}/dashboard`));
   }
 
   const nextRoute = validateLoggedInRoutes(to, store.getters.getCurrentUser);
@@ -38,15 +67,14 @@ export const validateAuthenticateRoutePermission = (to, next) => {
 export const initalizeRouter = () => {
   const userAuthentication = store.dispatch('setUser');
 
-  router.beforeEach((to, _from, next) => {
+  router.beforeEach(async (to, _from, next) => {
     AnalyticsHelper.page(to.name || '', {
       path: to.path,
       name: to.name,
     });
 
-    userAuthentication.then(() => {
-      return validateAuthenticateRoutePermission(to, next, store);
-    });
+    await userAuthentication;
+    await validateAuthenticateRoutePermission(to, next, store);
   });
 };
 

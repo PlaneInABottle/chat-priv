@@ -1,4 +1,5 @@
 <script setup>
+import Icon from 'dashboard/components-next/icon/Icon.vue';
 import { ref, computed, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
@@ -113,7 +114,7 @@ onBeforeUnmount(() => {
       <div
         class="relative flex items-center justify-between w-full px-2 py-1 bg-n-amber-4 dark:bg-n-amber-8 rounded-lg shadow-lg"
       >
-        <fluent-icon :icon="iconName" class="text-n-amber-12" size="18" />
+        <Icon :icon="iconName" class="text-n-amber-12" size="18" />
         <span class="px-2 text-xs font-medium tracking-wide text-n-amber-12">
           {{ bannerText }}
         </span>

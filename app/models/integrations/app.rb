@@ -49,6 +49,11 @@ class Integrations::App
   end
 
   def active?(account)
+    return false if params[:visible] == false
+
+    flag = params[:feature_flag]
+    return false unless flag.blank? || account.feature_enabled?(flag)
+
     case params[:id]
     when 'slack'
       GlobalConfigService.load('SLACK_CLIENT_SECRET', nil).present?

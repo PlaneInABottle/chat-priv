@@ -1,8 +1,10 @@
 <script>
 import { useAlert } from 'dashboard/composables';
 import Spinner from 'shared/components/Spinner.vue';
+import Icon from 'dashboard/components-next/icon/Icon.vue';
 export default {
   components: {
+    Icon,
     Spinner,
   },
   props: {
@@ -57,14 +59,14 @@ export default {
       @change="onChangeFile"
     />
     <Spinner v-if="uploadState === 'processing'" />
-    <fluent-icon v-if="uploadState === 'idle'" icon="file-upload" />
-    <fluent-icon
+    <Icon v-if="uploadState === 'idle'" icon="file-upload" />
+    <Icon
       v-if="uploadState === 'uploaded'"
       icon="checkmark-circle"
       type="outline"
       class="success-icon"
     />
-    <fluent-icon
+    <Icon
       v-if="uploadState === 'failed'"
       icon="dismiss-circle"
       type="outline"

@@ -1,10 +1,19 @@
 <script setup>
-import { defineProps, computed, reactive } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, watch } from 'vue';
 import Message from './Message.vue';
-import { MESSAGE_TYPES } from './constants.js';
+import VoiceTranscriptSegment from './VoiceTranscriptSegment.vue';
+import VoiceToolEventSegment from './VoiceToolEventSegment.vue';
+import {
+  CONTENT_TYPES,
+  MESSAGE_TYPES,
+  VOICE_CALL_STATUS,
+} from './constants.js';
 import { useCamelCase } from 'dashboard/composables/useTransformKeys';
 import { useMapGetter } from 'dashboard/composables/store.js';
 import MessageApi from 'dashboard/api/inbox/message.js';
+import VoiceAPI from 'dashboard/api/voice.js';
+import { emitter } from 'shared/helpers/mitt';
+import { BUS_EVENTS } from 'shared/constants/busEvents';
 
 /**
  * Props definition for the component
@@ -39,7 +48,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(['retry']);
+const emit = defineEmits(['retry', 'voiceTranscriptUpdated']);
 
 const allMessages = computed(() => {
   return useCamelCase(props.messages, {
@@ -52,6 +61,225 @@ const currentChat = useMapGetter('getSelectedChat');
 
 // Cache for fetched reply messages to avoid duplicate API calls
 const fetchedReplyMessages = reactive(new Map());
+const callDetailsById = reactive({});
+const fetchingCallIds = reactive({});
+
+const TERMINAL_VOICE_CALL_STATUSES = [
+  VOICE_CALL_STATUS.COMPLETED,
+  VOICE_CALL_STATUS.NO_ANSWER,
+  VOICE_CALL_STATUS.FAILED,
+  VOICE_CALL_STATUS.BUSY,
+  VOICE_CALL_STATUS.CANCELED,
+  VOICE_CALL_STATUS.MISSED,
+  VOICE_CALL_STATUS.ENDED,
+];
+
+const mergeUniqueById = (existingItems = [], incomingItems = []) => {
+  const byId = new Map();
+  [...existingItems, ...incomingItems].forEach(item => {
+    if (item?.id) byId.set(item.id, item);
+  });
+  return Array.from(byId.values());
+};
+
+const mergeCallDetails = (existing = {}, incoming = {}) => ({
+  ...existing,
+  ...incoming,
+  transcriptSegments: mergeUniqueById(
+    existing.transcriptSegments,
+    incoming.transcriptSegments
+  ),
+  toolEventSummaries: mergeUniqueById(
+    existing.toolEventSummaries,
+    incoming.toolEventSummaries
+  ),
+});
+
+const getCallId = message =>
+  message?.call?.id ||
+  message?.contentAttributes?.data?.callId ||
+  message?.contentAttributes?.data?.call_id;
+
+const isVoiceCallMessage = message =>
+  message?.contentType === CONTENT_TYPES.VOICE_CALL && getCallId(message);
+
+const hasVoiceCallForCallId = callId =>
+  allMessages.value.some(
+    message => Number(getCallId(message)) === Number(callId)
+  );
+
+const ensureCallDetails = async message => {
+  if (!isVoiceCallMessage(message)) return;
+
+  const callId = getCallId(message);
+  if (callDetailsById[callId] || fetchingCallIds[callId]) return;
+
+  fetchingCallIds[callId] = true;
+  try {
+    const response = await VoiceAPI.getCall(callId);
+    callDetailsById[callId] = mergeCallDetails(
+      callDetailsById[callId],
+      useCamelCase(response.data, { deep: true })
+    );
+    if (callDetailsById[callId]?.transcriptSegments?.length) {
+      emit('voiceTranscriptUpdated');
+    }
+  } catch {
+    // Keep the normal voice-call message visible when call details cannot load.
+  } finally {
+    delete fetchingCallIds[callId];
+  }
+};
+
+const transcriptSegmentsForMessage = message => {
+  const callId = getCallId(message);
+  return callDetailsById[callId]?.transcriptSegments || [];
+};
+
+const callDetailsForMessage = message =>
+  callDetailsById[getCallId(message)] || {};
+
+const messageWithCallDetails = message => {
+  if (!isVoiceCallMessage(message)) return message;
+
+  const details = callDetailsForMessage(message);
+  if (!Object.keys(details).length) return message;
+
+  return {
+    ...message,
+    call: {
+      ...(message.call || {}),
+      ...details,
+    },
+  };
+};
+
+const voiceAgentNameForMessage = message =>
+  callDetailsForMessage(message).voiceAgentName || '';
+
+const toolEventSummariesForMessage = message =>
+  callDetailsForMessage(message).toolEventSummaries || [];
+
+const isTerminalVoiceCallMessage = message => {
+  const details = callDetailsForMessage(message);
+  const status =
+    details.status ||
+    message?.call?.status ||
+    message?.contentAttributes?.data?.status;
+  return TERMINAL_VOICE_CALL_STATUSES.includes(status);
+};
+
+const callTimelineRowsForMessage = message => {
+  const voiceAgentName = voiceAgentNameForMessage(message);
+  const transcriptItems = transcriptSegmentsForMessage(message).map(
+    segment => ({
+      type: 'voice_transcript',
+      id: `voice-transcript-${segment.id}`,
+      segment,
+      voiceAgentName,
+      sortAt: segment.createdAt || segment.created_at,
+    })
+  );
+  const toolItems = toolEventSummariesForMessage(message).map(event => ({
+    type: 'voice_tool_event',
+    id: `voice-tool-event-${event.id}`,
+    event,
+    voiceAgentName,
+    sortAt: event.createdAt || event.created_at,
+  }));
+
+  return [...transcriptItems, ...toolItems].sort(
+    (a, b) => new Date(a.sortAt || 0) - new Date(b.sortAt || 0)
+  );
+};
+
+const timelineItems = computed(() =>
+  allMessages.value.flatMap((message, messageIndex) => {
+    const messageItem = {
+      type: 'message',
+      id: `message-${message.id}`,
+      message,
+      messageIndex,
+    };
+    const callTimelineRows = callTimelineRowsForMessage(message);
+    if (callTimelineRows.length && isTerminalVoiceCallMessage(message)) {
+      return [...callTimelineRows, messageItem];
+    }
+    return [messageItem, ...callTimelineRows];
+  })
+);
+
+const onTranscriptSegment = data => {
+  const callId = data.call_id || data.callId;
+  if (!callId || !hasVoiceCallForCallId(callId)) return;
+
+  const existing = callDetailsById[callId] || { transcriptSegments: [] };
+  const segment = useCamelCase(data.segment, { deep: true });
+  const segments = existing.transcriptSegments || [];
+  if (segments.some(item => item.id === segment.id)) return;
+
+  callDetailsById[callId] = mergeCallDetails(existing, {
+    transcriptSegments: [...segments, segment],
+  });
+  emit('voiceTranscriptUpdated');
+};
+
+const onStatusChanged = data => {
+  const callId = data.id || data.call_id || data.callId;
+  if (!callId || !hasVoiceCallForCallId(callId)) return;
+
+  callDetailsById[callId] = mergeCallDetails(
+    callDetailsById[callId],
+    useCamelCase(data, { deep: true })
+  );
+};
+
+const onToolEvent = data => {
+  const callId = data.call_id || data.callId;
+  if (!callId || !hasVoiceCallForCallId(callId)) return;
+
+  const existing = callDetailsById[callId] || { toolEventSummaries: [] };
+  const event = useCamelCase(data.event, { deep: true });
+  const events = existing.toolEventSummaries || [];
+  if (events.some(item => item.id === event.id)) return;
+
+  callDetailsById[callId] = mergeCallDetails(existing, {
+    toolEventSummaries: [...events, event],
+  });
+  emit('voiceTranscriptUpdated');
+};
+
+const refreshVisibleVoiceCalls = () => {
+  const visibleCallIds = new Set(
+    allMessages.value
+      .filter(isVoiceCallMessage)
+      .map(message => getCallId(message))
+  );
+  Object.keys(callDetailsById).forEach(callId => {
+    if (!visibleCallIds.has(Number(callId)) && !visibleCallIds.has(callId)) {
+      delete callDetailsById[callId];
+    }
+  });
+
+  allMessages.value.forEach(ensureCallDetails);
+};
+
+watch(allMessages, refreshVisibleVoiceCalls, { immediate: true });
+watch(() => currentChat.value?.id, refreshVisibleVoiceCalls);
+
+onMounted(() => {
+  emitter.on('voice.transcript_segment', onTranscriptSegment);
+  emitter.on('voice.status_changed', onStatusChanged);
+  emitter.on('voice.tool_event', onToolEvent);
+  emitter.on(BUS_EVENTS.WEBSOCKET_RECONNECT, refreshVisibleVoiceCalls);
+});
+
+onBeforeUnmount(() => {
+  emitter.off('voice.transcript_segment', onTranscriptSegment);
+  emitter.off('voice.status_changed', onStatusChanged);
+  emitter.off('voice.tool_event', onToolEvent);
+  emitter.off(BUS_EVENTS.WEBSOCKET_RECONNECT, refreshVisibleVoiceCalls);
+});
 
 /**
  * Fetches a specific message from the API by trying to get messages around it
@@ -165,20 +393,37 @@ const getInReplyToMessage = parentMessage => {
 <template>
   <ul class="px-4 bg-n-surface-1">
     <slot name="beforeAll" />
-    <template v-for="(message, index) in allMessages" :key="message.id">
+    <template v-for="item in timelineItems" :key="item.id">
       <slot
-        v-if="firstUnreadId && message.id === firstUnreadId"
+        v-if="
+          item.type === 'message' &&
+          firstUnreadId &&
+          item.message.id === firstUnreadId
+        "
         name="unreadBadge"
       />
       <Message
-        v-bind="message"
+        v-if="item.type === 'message'"
+        v-bind="messageWithCallDetails(item.message)"
         :is-email-inbox="isAnEmailChannel"
-        :in-reply-to="getInReplyToMessage(message)"
-        :group-with-next="shouldGroupWithNext(index, allMessages)"
+        :in-reply-to="getInReplyToMessage(item.message)"
+        :group-with-next="shouldGroupWithNext(item.messageIndex, allMessages)"
         :inbox-supports-reply-to="inboxSupportsReplyTo"
         :current-user-id="currentUserId"
         data-clarity-mask="True"
-        @retry="emit('retry', message)"
+        @retry="emit('retry', item.message)"
+      />
+      <VoiceTranscriptSegment
+        v-else-if="item.type === 'voice_transcript'"
+        :segment="item.segment"
+        :voice-agent-name="item.voiceAgentName"
+        data-clarity-mask="True"
+      />
+      <VoiceToolEventSegment
+        v-else
+        :event="item.event"
+        :voice-agent-name="item.voiceAgentName"
+        data-clarity-mask="True"
       />
     </template>
     <slot name="after" />

@@ -7,15 +7,15 @@ import * as ActiveStorage from 'activestorage';
 import inboxMixin from 'shared/mixins/inboxMixin';
 import { FEATURE_FLAGS } from 'dashboard/featureFlags';
 import { getAllowedFileTypesByChannel } from '@chatwoot/utils';
-import { ALLOWED_FILE_TYPES } from 'shared/constants/messages';
 import VideoCallButton from '../VideoCallButton.vue';
 import { INBOX_TYPES } from 'dashboard/helper/inbox';
 import { mapGetters } from 'vuex';
 import NextButton from 'dashboard/components-next/button/Button.vue';
+import Icon from 'dashboard/components-next/icon/Icon.vue';
 
 export default {
   name: 'ReplyBottomPanel',
-  components: { NextButton, FileUpload, VideoCallButton },
+  components: { Icon, NextButton, FileUpload, VideoCallButton },
   mixins: [inboxMixin],
   props: {
     isNote: {
@@ -128,7 +128,6 @@ export default {
     },
   },
   emits: [
-    'replaceText',
     'toggleInsertArticle',
     'selectWhatsappTemplate',
     'selectContentTemplate',
@@ -167,11 +166,6 @@ export default {
       uploadRef,
     };
   },
-  data() {
-    return {
-      ALLOWED_FILE_TYPES,
-    };
-  },
   computed: {
     ...mapGetters({
       accountId: 'getCurrentAccountId',
@@ -189,7 +183,7 @@ export default {
     },
     showAudioRecorderButton() {
       if (this.isEditorDisabled) return false;
-      if (this.isALineChannel) {
+      if (this.isALineChannel || this.isATiktokChannel) {
         return false;
       }
       // Disable audio recorder for safari browser as recording is not supported
@@ -213,13 +207,11 @@ export default {
       return this.conversationType === 'instagram_direct_message';
     },
     allowedFileTypes() {
-      // Use default file types for private notes
       if (this.isOnPrivateNote) {
-        return this.ALLOWED_FILE_TYPES;
+        return getAllowedFileTypesByChannel();
       }
 
       let channelType = this.channelType || this.inbox?.channel_type;
-
       if (this.isAnInstagramChannel || this.isInstagramDM) {
         channelType = INBOX_TYPES.INSTAGRAM;
       }
@@ -276,9 +268,6 @@ export default {
   methods: {
     toggleMessageSignature() {
       this.setSignatureFlagForInbox(this.channelType, !this.sendWithSignature);
-    },
-    replaceText(text) {
-      this.$emit('replaceText', text);
     },
     toggleInsertArticle() {
       this.$emit('toggleInsertArticle');
@@ -380,7 +369,11 @@ export default {
         @click="$emit('selectContentTemplate')"
       />
       <VideoCallButton
-        v-if="(isAWebWidgetInbox || isAPIInbox) && !isOnPrivateNote"
+        v-if="
+          (isAWebWidgetInbox || isAPIInbox) &&
+          !isOnPrivateNote &&
+          !isEditorDisabled
+        "
         :conversation-id="conversationId"
       />
       <transition name="modal-fade">
@@ -388,7 +381,7 @@ export default {
           v-show="uploadRef && uploadRef.dropActive"
           class="flex fixed top-0 right-0 bottom-0 left-0 z-20 flex-col gap-2 justify-center items-center w-full h-full text-n-slate-12 bg-modal-backdrop-light dark:bg-modal-backdrop-dark"
         >
-          <fluent-icon icon="cloud-backup" size="40" />
+          <Icon icon="cloud-backup" size="40" />
           <h4 class="text-2xl break-words text-n-slate-12">
             {{ $t('CONVERSATION.REPLYBOX.DRAG_DROP') }}
           </h4>
@@ -427,7 +420,7 @@ export default {
   @apply flex;
 }
 
-::v-deep .file-uploads {
+:deep(.file-uploads) {
   label {
     @apply cursor-pointer;
   }
