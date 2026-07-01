@@ -1,0 +1,109 @@
+require 'rails_helper'
+
+RSpec.describe Voice::ToolCallRecorder do
+  let(:account) { create(:account, settings: { voice_ai_enabled: true }) }
+  let(:api_channel) { create(:channel_api, account: account) }
+  let(:inbox) { api_channel.inbox }
+  let(:voice_agent) { account.voice_agents.first! }
+  let!(:voice_inbox_setting) { create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: voice_agent) }
+  let(:call) { Voice::TestCallBuilder.perform!(account: account, inbox: inbox, voice_agent: voice_agent) }
+
+  before do
+    allow(Voice::Livekit::AgentDispatchService).to receive(:perform).and_return({ 'status' => 'skipped' })
+    allow(Voice::CallBroadcaster).to receive(:tool_event)
+  end
+
+  it 'persists sanitized tool events in the voice_tool_events table' do
+    expect(Voice::CallBroadcaster).to receive(:tool_event) do |broadcast_call, broadcast_event|
+      expect(broadcast_call).to eq(call)
+      expect(broadcast_event.arguments['reason']).to eq('caller gave [email redacted] and [phone redacted]')
+    end
+
+    event = described_class.perform!(
+      call: call,
+      tool: 'request_human_handoff',
+      status: 'executed',
+      arguments: { reason: 'caller gave test@example.com and +905551112233' },
+      result: { tool_status: 'ok' },
+      duration_ms: 42
+    )
+
+    expect(event).to be_persisted
+    expect(event).to have_attributes(
+      tool: 'request_human_handoff',
+      status: 'executed',
+      duration_ms: 42,
+      result: { 'tool_status' => 'ok' }
+    )
+    expect(event.arguments['reason']).to eq('caller gave [email redacted] and [phone redacted]')
+    expect(call.voice_tool_events.order(:created_at)).to eq([event])
+  end
+
+  it 'is idempotent when the same external_id is posted again' do
+    first = described_class.perform!(
+      call: call,
+      tool: 'request_human_handoff',
+      status: 'executed',
+      arguments: { reason: 'same request' },
+      result: { tool_status: 'ok' },
+      duration_ms: 42,
+      external_id: 'tool-call-1'
+    )
+
+    second = described_class.perform!(
+      call: call,
+      tool: 'request_human_handoff',
+      status: 'executed',
+      arguments: { reason: 'same request' },
+      result: { tool_status: 'ok' },
+      duration_ms: 42,
+      external_id: 'tool-call-1'
+    )
+
+    expect(second).to eq(first)
+    expect(call.voice_tool_events.count).to eq(1)
+  end
+
+  it 'stores repeated matching calls separately when no external_id is provided' do
+    2.times do
+      described_class.perform!(
+        call: call,
+        tool: 'request_human_handoff',
+        status: 'executed',
+        arguments: { reason: 'same request' },
+        result: { tool_status: 'ok' },
+        duration_ms: 42
+      )
+    end
+
+    expect(call.voice_tool_events.count).to eq(2)
+  end
+
+  it 'returns the existing event when a concurrent insert wins the external_id race' do
+    first = described_class.perform!(
+      call: call,
+      tool: 'request_human_handoff',
+      status: 'executed',
+      arguments: { reason: 'same request' },
+      result: { tool_status: 'ok' },
+      external_id: 'tool-call-race'
+    )
+    events = call.voice_tool_events
+
+    allow(call).to receive(:voice_tool_events).and_return(events)
+    allow(events).to receive(:find_by).with(external_id: 'tool-call-race').and_return(nil)
+    allow(events).to receive(:find_by!).with(external_id: 'tool-call-race').and_return(first)
+    allow(events).to receive(:create!).and_raise(ActiveRecord::RecordNotUnique)
+
+    raced = described_class.perform!(
+      call: call,
+      tool: 'request_human_handoff',
+      status: 'executed',
+      arguments: { reason: 'same request' },
+      result: { tool_status: 'ok' },
+      external_id: 'tool-call-race'
+    )
+
+    expect(raced).to eq(first)
+  end
+end

@@ -230,6 +230,47 @@ RSpec.describe Conversation do
         .with(conversation2, { account_id: conversation2.account_id, inbox_id: conversation2.inbox_id, message_type: :activity,
                                content: system_resolved_message })
     end
+
+    it 'finalizes active livekit calls when the conversation is resolved' do
+      call = create(
+        :call,
+        provider: :livekit,
+        status: 'in_progress',
+        conversation: conversation,
+        account: conversation.account,
+        inbox: conversation.inbox,
+        contact: conversation.contact,
+        started_at: 1.minute.ago,
+        meta: { 'livekit_room_name' => 'room-resolve-test' }
+      )
+      allow(Voice::Livekit::RoomService).to receive(:delete_room).and_return({ 'status' => 'deleted' })
+
+      conversation.update!(status: :resolved)
+
+      expect(call.reload.status).to eq('completed')
+      expect(call.end_reason).to eq('conversation_resolved')
+      expect(Voice::Livekit::RoomService).to have_received(:delete_room).with(call: call)
+    end
+
+    it 'clears waiting_since even when livekit call finalization fails' do
+      create(
+        :call,
+        provider: :livekit,
+        status: 'in_progress',
+        conversation: conversation,
+        account: conversation.account,
+        inbox: conversation.inbox,
+        contact: conversation.contact,
+        started_at: 1.minute.ago,
+        meta: { 'livekit_room_name' => 'room-resolve-failure' }
+      )
+      conversation.update_column(:waiting_since, 5.minutes.ago)
+      allow(Voice::CallFinalizer).to receive(:perform!).and_raise(StandardError, 'boom')
+
+      expect { conversation.update!(status: :resolved) }.not_to raise_error
+
+      expect(conversation.reload.waiting_since).to be_nil
+    end
   end
 
   describe '#update_labels' do
@@ -310,6 +351,47 @@ RSpec.describe Conversation do
       conversation = create(:conversation, status: 'snoozed')
       expect(conversation.toggle_status).to be(true)
       expect(conversation.reload.status).to eq('open')
+    end
+  end
+
+  describe '#bot_handoff!' do
+    let(:conversation) { create(:conversation, status: :pending) }
+
+    before do
+      allow(Rails.configuration.dispatcher).to receive(:dispatch)
+    end
+
+    context 'when waiting_since is blank' do
+      before { conversation.update(waiting_since: nil) }
+
+      it 'sets waiting_since to current time' do
+        freeze_time do
+          conversation.bot_handoff!
+          expect(conversation.reload.waiting_since).to eq(Time.current)
+        end
+      end
+    end
+
+    context 'when waiting_since is already set' do
+      let(:original_time) { 1.hour.ago }
+
+      before { conversation.update(waiting_since: original_time) }
+
+      it 'preserves existing waiting_since' do
+        conversation.bot_handoff!
+        expect(conversation.reload.waiting_since).to be_within(1.second).of(original_time)
+      end
+    end
+
+    it 'changes status to open' do
+      conversation.bot_handoff!
+      expect(conversation.reload.status).to eq('open')
+    end
+
+    it 'dispatches CONVERSATION_BOT_HANDOFF event' do
+      expect(Rails.configuration.dispatcher).to receive(:dispatch)
+        .with(described_class::CONVERSATION_BOT_HANDOFF, anything, hash_including(conversation: conversation))
+      conversation.bot_handoff!
     end
   end
 
@@ -676,6 +758,25 @@ RSpec.describe Conversation do
 
       expect { notification.reload }.to raise_error ActiveRecord::RecordNotFound
     end
+
+    it 'dispatches conversation deleted event with unread count cache data' do
+      allow(Rails.configuration.dispatcher).to receive(:dispatch)
+
+      conversation.destroy!
+
+      expect(Rails.configuration.dispatcher).to have_received(:dispatch).with(
+        'conversation.deleted',
+        kind_of(Time),
+        conversation_data: {
+          id: conversation.id,
+          account_id: conversation.account_id,
+          inbox_id: conversation.inbox_id,
+          assignee_id: conversation.assignee_id,
+          team_id: conversation.team_id,
+          cached_label_list: conversation.cached_label_list
+        }
+      )
+    end
   end
 
   describe 'validate invalid referer url' do
@@ -837,6 +938,31 @@ RSpec.describe Conversation do
           conversation_2.id, conversation_1.id, conversation_3.id, conversation_7.id, conversation_6.id, conversation_5.id,
           conversation_4.id
         ]
+      end
+
+      context 'when some conversations have a null waiting_since' do
+        before do
+          # rubocop:disable Rails/SkipsModelValidations
+          conversation_5.update_column(:waiting_since, nil)
+          conversation_2.update_column(:waiting_since, nil)
+          # rubocop:enable Rails/SkipsModelValidations
+        end
+
+        it 'places null waiting_since conversations at the end in ascending order' do
+          records = described_class.sort_on_waiting_since
+          expect(records.map(&:id)).to eq [
+            conversation_4.id, conversation_6.id, conversation_7.id, conversation_3.id, conversation_1.id,
+            conversation_5.id, conversation_2.id
+          ]
+        end
+
+        it 'places null waiting_since conversations at the end in descending order' do
+          records = described_class.sort_on_waiting_since(:desc)
+          expect(records.map(&:id)).to eq [
+            conversation_1.id, conversation_3.id, conversation_7.id, conversation_6.id, conversation_4.id,
+            conversation_5.id, conversation_2.id
+          ]
+        end
       end
     end
   end

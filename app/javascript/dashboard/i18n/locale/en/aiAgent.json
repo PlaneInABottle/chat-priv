@@ -1,9 +1,14 @@
 {
   "AI_AGENT": {
-    "HEADER": "AI Asistan",
+    "HEADER": "AI Assistant",
     "DESCRIPTION": "Configure your AI assistant to help manage conversations",
-    "LEARN_MORE": "Learn more about AI Asistan",
+    "LEARN_MORE": "Learn more about AI Assistant",
     "BACK": "Back",
+    "UNSAVED_CHANGES_WARNING": "You have unsaved changes. Are you sure you want to leave?",
+    "TABS": {
+      "SETTINGS": "Settings",
+      "TEST": "Test"
+    },
     "NAME": {
       "LABEL": "Agent Name",
       "PLACEHOLDER": "Enter agent name..."
@@ -11,10 +16,11 @@
     "PROMPT": {
       "LABEL": "System Prompt",
       "PLACEHOLDER": "Enter instructions for your AI assistant...",
-      "HELP": "This prompt guides how the AI responds to conversations"
+      "HELP": "This prompt guides how the AI responds to conversations",
+      "REQUIRED_FOR_TESTING": "Add a system prompt, then save your changes before testing this AI agent."
     },
     "ENABLED": {
-      "LABEL": "Enable AI Asistan",
+      "LABEL": "Enable AI Assistant",
       "HELP": "When enabled, the AI will respond to conversations assigned to it"
     },
     "INBOXES": {
@@ -23,14 +29,55 @@
       "NONE": "No inboxes available",
       "ASSIGNED_TO": "Assigned to {owner}"
     },
-    "MODEL": {
-      "LABEL": "AI Model",
-      "HELP": "The model is configured by your administrator"
+    "TOOLS": {
+      "LABEL": "Built-in Tools",
+      "HELP": "Enable the allowlisted tools available to this AI agent.",
+      "HUMAN_HANDOFF": {
+        "LABEL": "Human handoff",
+        "HELP": "Allow the AI agent to hand conversations to a human and limit which existing labels it may apply.",
+        "ALLOWED_LABELS_LABEL": "Allowed labels",
+        "ALLOWED_LABELS_PLACEHOLDER": "Select labels",
+        "ALLOWED_LABELS_SEARCH_PLACEHOLDER": "Search labels",
+        "ALLOWED_LABELS_EMPTY": "No matching labels found",
+        "ALLOWED_LABELS_HELP": "Only existing account labels can be selected. The AI can apply only this subset during handoff."
+      },
+      "IKAS_LOOKUP_ORDER": {
+        "LABEL": "ikas lookup order",
+        "HELP": "Allow the AI agent to look up connected ikas order, package, payment, cargo, and tracking status from order number, phone, email, or the conversation contact.",
+        "CONNECTED": "ikas order lookup is ready for order and cargo questions.",
+        "UNAVAILABLE": "ikas lookup order is unavailable (state: {state})."
+      },
+      "IKAS_CATALOG_SEARCH": {
+        "LABEL": "ikas catalog search",
+        "HELP": "Allow the AI agent to search the connected seller catalog before answering product, stock, size, dimension, color, category, weight, volume, and organic product questions.",
+        "READY": "ikas catalog is synced and ready for catalog answers.",
+        "UNAVAILABLE": "ikas catalog search is unavailable (connection: {state}, catalog: {catalogStatus})."
+      }
     },
-    "USAGE": {
-      "LABEL": "Conversation Usage",
-      "COUNT": "{used} of {limit} conversations",
-      "UNLIMITED": "{used} conversations"
+    "USAGE_REPORT": {
+      "TITLE": "AI usage",
+      "HELP": "Monthly AI conversation usage for this account.",
+      "EXHAUSTED_HELP": "AI replies are paused until the monthly limit resets. New customer messages are routed to humans.",
+      "LOADING": "Loading...",
+      "UNAVAILABLE": "Unavailable",
+      "DISABLED": "Disabled",
+      "DISABLED_HELP": "AI Assistant is disabled for this account.",
+      "UNLIMITED_REMAINING": "Unlimited",
+      "UNLIMITED_USED": "{used} used",
+      "REMAINING": "{count} left",
+      "USED_OF_LIMIT": "{used} of {limit} used",
+      "RESET_AT": "Resets",
+      "REUSE_WINDOW": "Same customer window",
+      "HOURS": "{count} hours",
+      "AI_REPLIES": "AI replies",
+      "HANDOFFS": "Handoffs",
+      "COUNTED_CONVERSATIONS": "{count} counted conversations",
+      "TOOL_CALLS": "{count} tool calls",
+      "RECENT_CONVERSATIONS": "Recent counted conversations",
+      "UNKNOWN_CONTACT": "Unknown contact",
+      "CONVERSATION_LABEL": "Conversation #{id}",
+      "COUNTED_AT": "Counted {time}",
+      "REUSE_UNTIL": "Reuse until {time}"
     },
     "TEST_CONVERSATIONS": {
       "TITLE": "Test Conversations",
@@ -48,13 +95,20 @@
       "PLACEHOLDER": "Type a test message...",
       "SEND": "Send",
       "RESPONSE_WAIT": "AI is thinking...",
+      "HANDOFF_TITLE": "Human handoff preview",
+      "HANDOFF_PREVIEW": "This conversation would be handed off to a human agent.",
+      "INTERNAL_NOTE": "Internal note",
+      "LABELS_TO_APPLY": "Labels to apply",
+      "LABELS_IGNORED": "Labels ignored",
       "SAVE_BEFORE_TESTING": "Save your changes before testing this AI agent.",
+      "ENABLE_BEFORE_TESTING": "Enable this AI agent and save your changes before testing.",
+      "ADD_PROMPT_BEFORE_TESTING": "Add a system prompt and save your changes before testing this AI agent.",
       "ERROR": "Sorry, I couldn't generate a response right now. Please try again."
     },
     "SAVE": {
       "BUTTON": "Save Changes",
-      "SUCCESS": "AI Asistan settings saved",
-      "ERROR": "Failed to save AI Asistan settings"
+      "SUCCESS": "AI Assistant settings saved",
+      "ERROR": "Failed to save AI Assistant settings"
     }
   },
   "AI_AGENTS": {
@@ -85,6 +139,157 @@
       "DELETE_ERROR": "Failed to delete AI agent",
       "STATUS_ENABLED": "Enabled",
       "STATUS_DISABLED": "Disabled"
+    }
+  },
+  "VOICE_AI": {
+    "HEADER": "Voice AI",
+    "DESCRIPTION": "Configure the LiveKit voice AI MVP and run browser-based test calls before connecting a phone provider.",
+    "TABS": {
+      "AGENTS": "Voice agents",
+      "TEST": "Test call",
+      "RECORDINGS": "Recordings",
+      "USAGE": "Usage"
+    },
+    "SETUP": {
+      "TITLE": "Voice setup",
+      "DESCRIPTION": "Choose an API inbox, voice agent, fallback team, and recording behavior.",
+      "INBOX": "API inbox",
+      "VOICE_AGENT": "Voice agent",
+      "FALLBACK_TEAM": "Fallback team",
+      "NONE": "None",
+      "CALLER_NAME": "Test caller name",
+      "CALLER_NUMBER": "Test caller number",
+      "RECORDING": "Record calls",
+      "RECORDING_HELP": "Store call recordings when LiveKit recording is enabled.",
+      "SAVE": "Save settings",
+      "START_TEST": "Start test call",
+      "NO_API_INBOX": "Create an API inbox before testing voice AI.",
+      "SAVE_SUCCESS": "Voice AI settings saved.",
+      "SAVE_ERROR": "Failed to save Voice AI settings.",
+      "LOAD_ERROR": "Failed to load Voice AI settings.",
+      "START_SUCCESS": "Test call created.",
+      "START_ERROR": "Failed to create test call."
+    },
+    "USAGE": {
+      "TITLE": "Voice AI usage",
+      "HELP": "Monthly voice minute usage for this account. Sandbox test calls are excluded.",
+      "DISABLED_HELP": "Voice AI is disabled by your administrator.",
+      "LOADING": "Loading...",
+      "DISABLED_REMAINING": "Disabled",
+      "UNLIMITED_REMAINING": "Unlimited remaining",
+      "UNLIMITED_USED": "{used} minutes used",
+      "USED_OF_LIMIT": "{used} / {limit} minutes used",
+      "REMAINING": "{count} minutes left",
+      "RESET_AT": "Resets at",
+      "MAX_DURATION": "Max call duration",
+      "CONCURRENT_LIMIT": "Concurrent call limit",
+      "ACTIVE_CALLS": "Active calls",
+      "MINUTES": "{count} minutes",
+      "UNLIMITED_SHORT": "Unlimited"
+    },
+    "AGENTS": {
+      "TITLE": "Voice agents",
+      "CREATE": "Create voice agent",
+      "NEW": "New",
+      "EMPTY": "No voice agents yet.",
+      "LIST_HELP": "Create agents and assign inboxes they can answer.",
+      "EDITOR_TITLE": "Voice agent",
+      "EDITOR_DESCRIPTION": "Configure the greeting, prompt, and tools used during calls. Runtime settings are managed by your administrator.",
+      "STATUS_ENABLED": "Enabled",
+      "STATUS_DISABLED": "Disabled",
+      "ASSIGNED_COUNT": "{count} assigned",
+      "NAME": "Name",
+      "GREETING": "Greeting",
+      "ENABLED": "Enabled",
+      "ENABLED_HELP": "Only enabled voice agents can answer calls.",
+      "DISABLED_BY_ADMIN": "Voice AI is disabled by your administrator.",
+      "PROMPT": "Voice prompt",
+      "PROMPT_CHAR_COUNT": "{count} / {limit} characters",
+      "TOOLS": "Tools",
+      "SAVE": "Save voice agent",
+      "SAVE_SUCCESS": "Voice agent saved.",
+      "SAVE_ERROR": "Failed to save voice agent.",
+      "UNSAVED_CHANGES": "You have unsaved voice agent changes. Discard them?",
+      "IKAS_READY": "Ikas is connected and the storefront catalog is synced.",
+      "IKAS_CATALOG_NOT_SYNCED": "Ikas is connected, but the storefront catalog is not synced yet.",
+      "IKAS_NOT_CONNECTED": "Ikas is not connected for this account."
+    },
+    "ASSIGNMENTS": {
+      "TITLE": "Inbox assignments",
+      "DESCRIPTION": "Choose which API inboxes this voice agent can answer. Move an inbox here when this agent should handle that test or future voice route.",
+      "API_SANDBOX": "API sandbox inbox",
+      "ASSIGNED_TO": "Currently assigned to {agent}; saving will move it here.",
+      "UNKNOWN_AGENT": "another voice agent"
+    },
+    "TEST": {
+      "TITLE": "Sandbox test call",
+      "DESCRIPTION": "Start a browser-only call using a saved voice-agent inbox assignment.",
+      "NO_ASSIGNED_INBOX": "Assign an API inbox to this voice agent before starting a sandbox test call."
+    },
+    "TEST_STEPS": {
+      "SETUP": "Inbox assigned",
+      "CREATED": "Call created",
+      "JOINED": "Caller joined",
+      "AGENT_ACTIVE": "AI active",
+      "ENDED": "Ended"
+    },
+    "RECORDINGS": {
+      "TITLE": "Recordings",
+      "DESCRIPTION": "Review completed LiveKit call recordings, handoff state, and generated summaries.",
+      "REFRESH": "Refresh",
+      "APPLY": "Apply filters",
+      "LOADING": "Loading recordings...",
+      "EMPTY": "No recordings match these filters.",
+      "LOAD_ERROR": "Failed to load recordings.",
+      "STATUS": "Recording status",
+      "HANDOFF": "Handoff",
+      "PHONE": "Phone number",
+      "LIMIT": "Limit",
+      "CALL": "Call",
+      "CALL_NUMBER": "#{id}",
+      "DURATION": "Duration",
+      "SUMMARY": "Summary",
+      "AUDIO": "Audio",
+      "NO_VALUE": "-",
+      "NO_AUDIO": "No replay available"
+    },
+    "SESSION": {
+      "TITLE": "Browser test call",
+      "ROOM": "Room",
+      "CALL_STATUS": "Call",
+      "BROWSER_STATUS": "Browser",
+      "NOT_STARTED": "No test call yet",
+      "DISCONNECTED": "Disconnected",
+      "CONNECTING": "Connecting",
+      "CONNECTED": "Connected",
+      "FAILED": "Failed",
+      "JOIN_CALLER": "Join as test caller",
+      "JOIN_AGENT": "Join as agent",
+      "DISCONNECT": "Disconnect",
+      "MUTE": "Mute",
+      "UNMUTE": "Unmute",
+      "TAKE_OVER": "Mark taken over",
+      "END_CALL": "End test call",
+      "REFRESH": "Refresh",
+      "OPEN_CONVERSATION": "Open conversation",
+      "HANDOFF_TOOLS": "Handoff tools",
+      "END_CALL_CONFIRM": "End this test call?",
+      "TOKEN_ERROR": "Failed to create LiveKit token.",
+      "CONNECT_ERROR": "Failed to join LiveKit room.",
+      "TAKE_OVER_SUCCESS": "Call marked as taken over.",
+      "END_SUCCESS": "Call ended.",
+      "ACTION_ERROR": "Voice call action failed."
+    },
+    "TRANSCRIPT": {
+      "TITLE": "Transcript",
+      "DESCRIPTION": "Live speech turns and AI tool calls appear here during sandbox tests.",
+      "EMPTY": "Transcript segments and tool calls will appear here after the voice agent posts them.",
+      "TRANSCRIPT_COUNT": "Transcript: {count}",
+      "TOOL_COUNT": "Tool calls: {count}",
+      "TOOL_EVENT": "Tool call",
+      "TOOL_DETAILS": "Show arguments and result",
+      "ARGUMENTS": "Arguments",
+      "RESULT": "Result"
     }
   }
 }

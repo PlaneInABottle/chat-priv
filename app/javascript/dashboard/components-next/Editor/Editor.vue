@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref, watch, useSlots } from 'vue';
 
+import FullEditor from 'dashboard/components/widgets/WootWriter/FullEditor.vue';
 import WootEditor from 'dashboard/components/widgets/WootWriter/Editor.vue';
 
 const props = defineProps({
@@ -26,15 +27,27 @@ const props = defineProps({
   sendWithSignature: { type: Boolean, default: false },
   channelType: { type: String, default: '' },
   medium: { type: String, default: '' },
+  variant: {
+    type: String,
+    default: 'message',
+    validator: value => ['message', 'article'].includes(value),
+  },
+  enabledMenuOptions: { type: Array, default: () => [] },
+  minHeight: { type: [Number, String], default: '' },
+  maxHeight: { type: [Number, String], default: '' },
 });
 
-const emit = defineEmits(['update:modelValue']);
+const emit = defineEmits(['update:modelValue', 'executeCopilotAction']);
 
 const slots = useSlots();
 
 const isFocused = ref(false);
 
 const characterCount = computed(() => props.modelValue.length);
+
+const characterCountLabel = computed(
+  () => `${characterCount.value} / ${props.maxLength}`
+);
 
 const messageClass = computed(() => {
   switch (props.messageType) {
@@ -46,6 +59,16 @@ const messageClass = computed(() => {
       return 'text-n-slate-11 dark:text-n-slate-11';
   }
 });
+
+const toCssSize = value => {
+  if (!value) return undefined;
+  return typeof value === 'number' ? `${value}rem` : value;
+};
+
+const editorWrapperStyle = computed(() => ({
+  '--editor-field-min-height': toCssSize(props.minHeight),
+  '--editor-field-max-height': toCssSize(props.maxHeight),
+}));
 
 const handleInput = value => {
   if (!props.disabled) {
@@ -93,10 +116,25 @@ watch(
             !isFocused && messageType !== 'error',
           'border-n-ruby-8 dark:border-n-ruby-8 hover:border-n-ruby-9 dark:hover:border-n-ruby-9':
             messageType === 'error' && !isFocused,
+          'editor-wrapper--custom-height': minHeight || maxHeight,
         },
       ]"
+      :style="editorWrapperStyle"
     >
+      <FullEditor
+        v-if="variant === 'article'"
+        :editor-id="editorKey"
+        :model-value="modelValue"
+        :placeholder="placeholder"
+        :autofocus="focusOnMount"
+        :enabled-menu-options="enabledMenuOptions"
+        :allow-image-upload="false"
+        @input="handleInput"
+        @focus="handleFocus"
+        @blur="handleBlur"
+      />
       <WootEditor
+        v-else
         :editor-id="editorKey"
         :model-value="modelValue"
         :placeholder="placeholder"
@@ -113,6 +151,9 @@ watch(
         @input="handleInput"
         @focus="handleFocus"
         @blur="handleBlur"
+        @execute-copilot-action="
+          (...args) => emit('executeCopilotAction', ...args)
+        "
       />
       <div
         v-if="showCharacterCount || slots.actions"
@@ -122,7 +163,7 @@ watch(
           v-if="showCharacterCount && !slots.actions"
           class="text-xs tabular-nums text-n-slate-10"
         >
-          {{ characterCount }} / {{ maxLength }}
+          {{ characterCountLabel }}
         </span>
         <slot v-else name="actions" />
       </div>
@@ -139,28 +180,33 @@ watch(
 
 <style lang="scss" scoped>
 .editor-wrapper {
-  ::v-deep {
-    .ProseMirror-menubar-wrapper {
-      .ProseMirror.ProseMirror-woot-style {
-        p {
-          @apply first:mt-0 !important;
-        }
-
-        .empty-node {
-          @apply m-0 !important;
-
-          &::before {
-            @apply text-n-slate-11 dark:text-n-slate-11;
-          }
-        }
+  :deep(.ProseMirror-menubar-wrapper) {
+    .ProseMirror.ProseMirror-woot-style {
+      p {
+        @apply first:mt-0 !important;
       }
 
-      .ProseMirror-menubar {
-        width: fit-content !important;
-        position: relative !important;
-        top: unset !important;
-        @apply ltr:left-[-0.188rem] rtl:right-[-0.188rem] !important;
+      .empty-node {
+        @apply m-0 !important;
+
+        &::before {
+          @apply text-n-slate-11 dark:text-n-slate-11;
+        }
       }
+    }
+
+    .ProseMirror-menubar {
+      width: fit-content !important;
+      position: relative !important;
+      top: unset !important;
+      @apply ltr:left-[-0.188rem] rtl:right-[-0.188rem] !important;
+    }
+  }
+
+  &.editor-wrapper--custom-height {
+    :deep(.ProseMirror.ProseMirror-woot-style) {
+      min-height: var(--editor-field-min-height, 5rem) !important;
+      max-height: var(--editor-field-max-height, 24rem) !important;
     }
   }
 }

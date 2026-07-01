@@ -1,5 +1,10 @@
 <script>
+import Icon from 'dashboard/components-next/icon/Icon.vue';
+
 export default {
+  components: {
+    Icon,
+  },
   props: {
     heading: {
       type: String,
@@ -37,7 +42,7 @@ export default {
       }"
     >
       <div class="flex items-center p-1 text-sm font-medium">{{ heading }}</div>
-      <fluent-icon
+      <Icon
         v-if="active"
         icon="checkmark-circle"
         type="solid"

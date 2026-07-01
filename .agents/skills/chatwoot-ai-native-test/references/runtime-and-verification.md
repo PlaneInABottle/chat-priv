@@ -16,6 +16,19 @@
 - Verify browser login at `/app/login`.
 - Verify Captain or Copilot is absent or unusable before OSS AI-agent work.
 
+## PM2-managed local runtime
+
+- If PM2 is already managing this repo, run `pm2 list` before starting new processes.
+- Common local process names are `chatwoot-backend`, `chatwoot-worker`, and `chatwoot-vite`; confirm names from `pm2 list`.
+- After migrations, frontend changes, or service changes that affect browser verification, restart the Chatwoot PM2 processes and recheck health:
+
+```bash
+pm2 restart chatwoot-backend chatwoot-worker chatwoot-vite
+curl -sSf http://localhost:3000/health
+```
+
+- Use `pm2 logs <name> --lines N --nostream` for worker/backend evidence. Prefer persisted DB evidence for final claims when logs are noisy.
+
 ## Checked-in runtime files
 
 - Process orchestration: `Procfile.dev` (Rails, Sidekiq, Vite)

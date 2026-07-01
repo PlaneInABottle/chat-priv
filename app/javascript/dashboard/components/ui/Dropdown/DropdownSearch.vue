@@ -1,5 +1,5 @@
 <script setup>
-import { defineEmits, defineModel } from 'vue';
+import Icon from 'dashboard/components-next/icon/Icon.vue';
 import NextButton from 'dashboard/components-next/button/Button.vue';
 
 defineProps({
@@ -26,11 +26,7 @@ const value = defineModel({
     class="flex items-center justify-between h-10 min-h-[40px] sticky top-0 bg-n-solid-2 dark:bg-n-solid-2 z-10 gap-2 px-3 border-b rounded-t-xl border-n-weak"
   >
     <div class="flex items-center w-full gap-2" @keyup.space.prevent>
-      <fluent-icon
-        icon="search"
-        size="16"
-        class="text-n-slate-11 flex-shrink-0"
-      />
+      <Icon icon="search" size="16" class="text-n-slate-11 flex-shrink-0" />
       <input
         v-model="value"
         :placeholder="inputPlaceholder"

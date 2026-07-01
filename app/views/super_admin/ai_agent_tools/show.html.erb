@@ -1,0 +1,79 @@
+<% content_for(:title) do %>
+  <%= @tool_definition.key %>
+<% end %>
+
+<section class="main-content__body">
+  <div class="mb-4">
+    <%= link_to 'Back to AI Agent Tools', super_admin_ai_agent_tools_path, class: 'text-sm text-woot-500 hover:text-woot-700 font-medium' %>
+  </div>
+  <div class="border border-slate-200 rounded-lg bg-white shadow-sm mb-5 overflow-hidden">
+    <div class="p-5 border-b border-slate-100">
+      <p class="text-xs font-semibold tracking-wide uppercase text-slate-500 m-0">AI Agent Tool</p>
+      <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-3 mt-1">
+        <div>
+          <h1 class="text-xl font-semibold text-slate-900 mb-2 font-mono"><%= @tool_definition.key %></h1>
+          <p class="text-sm text-slate-600 leading-6 m-0 max-w-3xl"><%= @tool_definition.description %></p>
+        </div>
+        <div class="flex flex-wrap gap-2 shrink-0">
+          <span class="inline-flex items-center text-xs font-medium text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md">
+            <%= @tool_definition.mode_support %>
+          </span>
+          <% if @tool_definition.requires_integration_app_id.present? %>
+            <span class="inline-flex items-center text-xs font-medium text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md">
+              <%= @tool_definition.requires_integration_app_id %>
+            </span>
+          <% end %>
+        </div>
+      </div>
+    </div>
+
+    <dl class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+      <div class="p-4 border-b border-slate-100 xl:border-b-0">
+        <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Name</dt>
+        <dd class="mt-1 text-sm text-slate-900 font-medium"><%= @tool_definition.name %></dd>
+      </div>
+      <div class="p-4 border-b border-slate-100 md:border-l md:border-slate-100 xl:border-b-0">
+        <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Default enabled</dt>
+        <dd class="mt-1">
+          <% if AiAgents::Config::DEFAULT_ENABLED_TOOL_KEYS.include?(@tool_definition.key) %>
+            <span class="inline-flex items-center text-xs font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded">Yes</span>
+          <% else %>
+            <span class="inline-flex items-center text-xs font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded">No</span>
+          <% end %>
+        </dd>
+      </div>
+      <div class="p-4 border-b border-slate-100 xl:border-l xl:border-slate-100 xl:border-b-0">
+        <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Terminal</dt>
+        <dd class="mt-1">
+          <% if @tool_definition.terminal %>
+            <span class="inline-flex items-center text-xs font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded">Yes</span>
+          <% else %>
+            <span class="inline-flex items-center text-xs font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded">No</span>
+          <% end %>
+        </dd>
+      </div>
+      <div class="p-4">
+        <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Integration app</dt>
+        <dd class="mt-1 text-sm text-slate-900"><%= @tool_definition.requires_integration_app_id.presence || 'None' %></dd>
+      </div>
+      <div class="p-4 md:border-l md:border-slate-100 xl:col-span-2">
+        <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Service class</dt>
+        <dd class="mt-1 text-xs text-slate-900 font-mono break-all"><%= @tool_definition.service_class %></dd>
+      </div>
+    </dl>
+  </div>
+  <h2 class="text-base font-semibold text-slate-900 mb-2">Input schema</h2>
+  <pre class="overflow-auto rounded-lg bg-slate-50 border border-slate-200 p-4 text-xs mb-5"><code><%= JSON.pretty_generate(@tool_definition.input_schema) %></code></pre>
+  <h2 class="text-base font-semibold text-slate-900 mb-2">Tool policy prompt</h2>
+  <% if @tool_policy.present? %>
+    <pre class="overflow-auto rounded-lg bg-slate-50 border border-slate-200 p-4 text-xs mb-5"><code><%= @tool_policy %></code></pre>
+  <% else %>
+    <p class="text-sm text-slate-500 mb-5">No extra policy prompt configured for this tool.</p>
+  <% end %>
+  <h2 class="text-base font-semibold text-slate-900 mb-2">Service source</h2>
+  <% if @source_code.present? %>
+    <pre class="overflow-auto rounded-lg bg-slate-50 border border-slate-200 p-4 text-xs"><code><%= @source_code %></code></pre>
+  <% else %>
+    <p class="text-sm text-slate-500">Source unavailable.</p>
+  <% end %>
+</section>

@@ -1,7 +1,7 @@
 require 'rails_helper'
 
 RSpec.describe 'Ai Agent Test Conversations API', type: :request do
-  let!(:account) { create(:account) }
+  let!(:account) { create(:account, settings: { ai_agent_enabled: true }) }
   let(:admin) { create(:user, account: account, role: :administrator) }
   let(:agent) { create(:user, account: account, role: :agent) }
   let(:ai_agent) { create(:ai_agent, account: account) }
@@ -54,6 +54,19 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
         json = response.parsed_body
         expect(json.length).to eq(1)
         expect(json.first['id']).to eq(local_conversation.id)
+      end
+    end
+
+    context 'when AI Agent is disabled for the account' do
+      before { account.update!(ai_agent_enabled: false) }
+
+      it 'returns forbidden for an authenticated administrator' do
+        get "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations",
+            headers: admin.create_new_auth_token,
+            as: :json
+
+        expect(response).to have_http_status(:forbidden)
+        expect(response.parsed_body['error']).to eq('AI Agent is not enabled for this account')
       end
     end
 
@@ -217,9 +230,23 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
   describe 'POST /api/v1/accounts/{account.id}/ai_agents/{ai_agent.id}/test_conversations/:id/send_message' do
     let!(:test_conversation) { create(:ai_agent_test_conversation, account: account, ai_agent: ai_agent) }
 
+    let(:assistant_message) do
+      {
+        'id' => SecureRandom.uuid,
+        'role' => 'assistant',
+        'content' => 'Hello from AI',
+        'created_at' => Time.current.iso8601(3),
+        'tool_events' => []
+      }
+    end
+
     before do
-      allow(AiAgents::ResponseService).to receive(:new).and_return(
-        instance_double(AiAgents::ResponseService, perform: 'Hello from AI')
+      allow(AiAgents::Orchestrator).to receive(:new).and_return(
+        instance_double(AiAgents::Orchestrator, perform: {
+          assistant_message: assistant_message,
+          tool_events: [],
+          terminal_action: nil
+        })
       )
     end
 
@@ -249,6 +276,81 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
         expect(messages.last['role']).to eq('assistant')
         expect(messages.last['content']).to eq('Hello from AI')
         expect(json['title']).to eq('Hello AI')
+      end
+
+      it 'does not count simulator messages against AI usage limits' do
+        expect do
+          post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations/#{test_conversation.id}/send_message",
+               headers: admin.create_new_auth_token,
+               params: { content: 'Hello AI' },
+               as: :json
+        end.not_to change(AiAgentUsageEvent, :count)
+
+        expect(response).to have_http_status(:success)
+      end
+
+      it 'generates a response for agents with legacy human handoff config keys' do
+        ai_agent.update_columns(enabled: true, config: {
+                                 'tools' => {
+                                   'enabled' => ['human_handoff'],
+                                   'human_handoff' => {
+                                     'allowed_labels' => ['vip'],
+                                     'preview_only' => true,
+                                     'transfer_message' => 'Please wait.'
+                                   }
+                                 }
+                               })
+        adapter = instance_double(AiAgents::LlmAdapters::OpenAiCompatibleAdapter)
+        allow(adapter).to receive(:perform).and_return({ assistant_text: 'Hello from AI', tool_calls: [], finish_reason: 'stop' })
+        allow(AiAgents::LlmAdapters::OpenAiCompatibleAdapter).to receive(:new).and_return(adapter)
+        allow(AiAgents::Orchestrator).to receive(:new).and_call_original
+
+        post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations/#{test_conversation.id}/send_message",
+             headers: admin.create_new_auth_token,
+             params: { content: 'Hello AI' },
+             as: :json
+
+        expect(response.parsed_body['error']).to be_nil
+        expect(response).to have_http_status(:success)
+        expect(response.parsed_body['messages'].last['content']).to eq('Hello from AI')
+      end
+
+      it 'persists additive tool metadata for simulator handoff results' do
+        allow(AiAgents::Orchestrator).to receive(:new).and_return(
+          instance_double(AiAgents::Orchestrator, perform: {
+            assistant_message: assistant_message.merge(
+              'content' => 'Transferring to another agent for further assistance.',
+              'tool_events' => [{ 'tool' => 'human_handoff', 'status' => 'ok' }],
+              'terminal_action' => 'handoff',
+               'tool_result' => {
+                  'customer_message' => 'Transferring to another agent for further assistance.',
+                  'private_note_preview' => 'Escalate to billing',
+                  'labels_requested' => ['vip', 'ignored'],
+                  'labels_to_apply' => ['vip'],
+                  'labels_ignored' => ['ignored'],
+                  'conversation_status' => 'open'
+                }
+              ),
+            tool_events: [{ 'tool' => 'human_handoff', 'status' => 'ok' }],
+            terminal_action: 'handoff'
+          })
+        )
+
+        post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations/#{test_conversation.id}/send_message",
+             headers: admin.create_new_auth_token,
+             params: { content: 'Need a person' },
+             as: :json
+
+        expect(response).to have_http_status(:success)
+        assistant_reply = response.parsed_body['messages'].last
+        expect(assistant_reply['terminal_action']).to eq('handoff')
+        expect(assistant_reply['tool_events']).to eq([{ 'tool' => 'human_handoff', 'status' => 'ok' }])
+        expect(assistant_reply.dig('tool_result', 'customer_message')).to eq('Transferring to another agent for further assistance.')
+        expect(assistant_reply.dig('tool_result', 'private_note_preview')).to eq('Escalate to billing')
+        expect(assistant_reply.dig('tool_result', 'labels_requested')).to eq(%w[vip ignored])
+        expect(assistant_reply.dig('tool_result', 'labels_to_apply')).to eq(['vip'])
+        expect(assistant_reply.dig('tool_result', 'labels_ignored')).to eq(['ignored'])
+        expect(assistant_reply.dig('tool_result', 'conversation_status')).to eq('open')
       end
 
       it 'persists messages to the database' do
@@ -307,8 +409,8 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
       end
 
       it 'returns 422 when AI service fails to generate a response' do
-        allow(AiAgents::ResponseService).to receive(:new).and_return(
-          instance_double(AiAgents::ResponseService, perform: nil)
+        allow(AiAgents::Orchestrator).to receive(:new).and_return(
+          instance_double(AiAgents::Orchestrator, perform: { assistant_message: nil, tool_events: [], terminal_action: nil })
         )
 
         post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations/#{test_conversation.id}/send_message",

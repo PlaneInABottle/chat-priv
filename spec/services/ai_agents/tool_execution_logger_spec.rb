@@ -1,0 +1,48 @@
+require 'rails_helper'
+
+RSpec.describe AiAgents::ToolExecutionLogger do
+  let(:account) { create(:account) }
+  let(:ai_agent) { create(:ai_agent, account: account) }
+  let(:conversation) { create(:conversation, account: account) }
+  let(:trigger_message) do
+    create(:message, account: account, inbox: conversation.inbox, conversation: conversation, message_type: 'incoming', sender: conversation.contact)
+  end
+  let(:definition) { AiAgents::ToolRegistry.find('human_handoff') }
+  let(:logger) do
+    described_class.new(ai_agent: ai_agent, account: account, conversation: conversation, trigger_message: trigger_message, mode: :test)
+  end
+
+  it 'persists a sanitized execution row' do
+    logger.call(
+      tool_call: { id: 'call_1', name: 'human_handoff' },
+      definition: definition,
+      status: 'executed',
+      payload: {
+        tool_result: { status: 'ok', raw_response: 'secret' },
+        args: { 'reason' => 'Need help' },
+        duration_ms: 12
+      }
+    )
+
+    execution = AiAgentToolExecution.last
+    expect(execution).to have_attributes(account: account, ai_agent: ai_agent, conversation: conversation, message: trigger_message)
+    expect(execution.result).to eq('status' => 'ok')
+  end
+
+  it 'persists rejected errors without requiring conversation or message' do
+    described_class.new(ai_agent: ai_agent, account: account, conversation: nil, trigger_message: nil, mode: :live).call(
+      tool_call: { id: 'call_2', name: 'missing_tool' },
+      definition: nil,
+      status: 'rejected',
+      payload: {
+        tool_result: { status: 'error', error_code: 'unknown_tool', error_message: 'Tool execution was rejected.' },
+        args: {},
+        duration_ms: 1
+      }
+    )
+
+    execution = AiAgentToolExecution.last
+    expect(execution.tool_key).to eq('missing_tool')
+    expect(execution.error_code).to eq('unknown_tool')
+  end
+end

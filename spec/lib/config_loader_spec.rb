@@ -15,6 +15,14 @@ describe ConfigLoader do
         subject
         expect(InstallationConfig.find_by(name: 'ACCOUNT_LEVEL_FEATURE_DEFAULTS')).to be_truthy
       end
+
+      it 'creates editable AI agent response buffer config with default value' do
+        subject
+        config = InstallationConfig.find_by(name: 'AI_AGENT_RESPONSE_BUFFER_SECONDS')
+
+        expect(config.value).to eq(5)
+        expect(config.locked).to be(false)
+      end
     end
 
     context 'with reconcile_only_new option' do

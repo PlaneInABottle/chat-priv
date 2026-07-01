@@ -1,17 +1,46 @@
 <div class="field-unit__label">
-  <%= f.label field.attribute %>
+  <%= f.label field.attribute, t('super_admin.account_ai_agent_settings.title') %>
 </div>
 <div class="field-unit__field">
-  <div>
-    <%= label_tag 'account_ai_agent_settings_model', 'Model' %>
-    <%= select_tag "#{field.html_name}[model]",
-                   options_for_select(Account::AI_AGENT_MODELS, field.resource.ai_agent_model) %>
-  </div>
-  <div>
-    <%= label_tag 'account_ai_agent_settings_conversation_limit', 'Conversation Limit' %>
-    <%= number_field_tag "#{field.html_name}[conversation_limit]",
-                         field.resource.ai_agent_conversation_limit,
-                         min: 0 %>
-    <span>0 = unlimited</span>
+  <% field_id_prefix = "account_#{field.resource.id || 'new'}_ai_agent_settings" %>
+  <div class="ai-agent-settings-panel">
+    <div class="ai-agent-settings-panel__header">
+      <span class="ai-agent-settings-panel__title"><%= t('super_admin.account_ai_agent_settings.account_access') %></span>
+      <label class="ai-agent-settings-toggle" for="<%= "#{field_id_prefix}_enabled" %>">
+        <%= hidden_field_tag "#{field.html_name}[enabled]", 'false', id: nil %>
+        <%= check_box_tag "#{field.html_name}[enabled]",
+                          'true',
+                          field.resource.ai_agent_enabled?,
+                          id: "#{field_id_prefix}_enabled" %>
+        <span><%= t('super_admin.account_ai_agent_settings.enabled') %></span>
+      </label>
+    </div>
+
+    <div class="ai-agent-settings-panel__body">
+      <div class="ai-agent-settings-control ai-agent-settings-control--model">
+        <%= label_tag "#{field_id_prefix}_model", t('super_admin.account_ai_agent_settings.model') %>
+        <%= select_tag "#{field.html_name}[model]",
+                       options_for_select(Account::AI_AGENT_MODELS, field.resource.ai_agent_model),
+                       id: "#{field_id_prefix}_model" %>
+      </div>
+
+      <div class="ai-agent-settings-control">
+        <%= label_tag "#{field_id_prefix}_conversation_limit", t('super_admin.account_ai_agent_settings.monthly_conversation_limit') %>
+        <%= number_field_tag "#{field.html_name}[conversation_limit]",
+                             field.resource.ai_agent_conversation_limit,
+                             id: "#{field_id_prefix}_conversation_limit",
+                             min: 0 %>
+        <span class="ai-agent-settings-control__hint"><%= t('super_admin.account_ai_agent_settings.unlimited_hint') %></span>
+      </div>
+
+      <div class="ai-agent-settings-control">
+        <%= label_tag "#{field_id_prefix}_conversation_reuse_window_hours", t('super_admin.account_ai_agent_settings.same_customer_reuse_window') %>
+        <%= number_field_tag "#{field.html_name}[conversation_reuse_window_hours]",
+                             field.resource.ai_agent_conversation_reuse_window_hours,
+                             id: "#{field_id_prefix}_conversation_reuse_window_hours",
+                             min: 1 %>
+        <span class="ai-agent-settings-control__hint"><%= t('super_admin.account_ai_agent_settings.reuse_window_hint') %></span>
+      </div>
+    </div>
   </div>
 </div>

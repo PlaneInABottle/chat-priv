@@ -3,6 +3,23 @@ import { createStore } from 'vuex';
 import { defineComponent, nextTick } from 'vue';
 import AiAgentDetail from '../AiAgentDetail.vue';
 
+vi.mock(
+  'dashboard/components-next/combobox/TagMultiSelectComboBox.vue',
+  () => ({
+    default: {
+      name: 'TagMultiSelectComboBox',
+      template: '<div data-testid="tag-multi-select" />',
+      props: [
+        'modelValue',
+        'options',
+        'placeholder',
+        'searchPlaceholder',
+        'emptyState',
+      ],
+    },
+  })
+);
+
 vi.mock('vue-router', async importOriginal => {
   const actual = await importOriginal();
   const { reactive } = await import('vue');
@@ -32,6 +49,28 @@ const buildAiAgent = overrides => ({
   prompt: 'Persisted prompt',
   agent_bot: { inbox_ids: [2] },
   available_inboxes: [],
+  config: {},
+  tools_config: {
+    enabled: [],
+    human_handoff: {
+      allowed_labels: [],
+    },
+    ikas_lookup_order: { enabled: false },
+    ikas_catalog_search: {},
+  },
+  available_tools: [
+    { key: 'human_handoff' },
+    { key: 'ikas_lookup_order' },
+    { key: 'ikas_catalog_search' },
+  ],
+  ikas_integration: {
+    feature_enabled: false,
+    state: 'not_connected',
+    can_connect: true,
+    catalog_sync: {
+      status: 'not_synced',
+    },
+  },
   ...overrides,
 });
 
@@ -39,6 +78,17 @@ const createVuexStore = ({
   aiAgentRecord,
   aiAgentRecords,
   updateResult,
+  labels = [],
+  usage = {
+    limit: 10,
+    used: 2,
+    remaining: 8,
+    unlimited: false,
+    status: 'ok',
+    reset_at: '2026-07-01T00:00:00Z',
+    reuse_window_hours: 24,
+    metrics: {},
+  },
 } = {}) => {
   const recordsById = aiAgentRecords || {
     1: aiAgentRecord || buildAiAgent(),
@@ -62,17 +112,22 @@ const createVuexStore = ({
     }),
     reset: vi.fn(),
     get: vi.fn().mockResolvedValue([]),
+    getUsage: vi.fn().mockResolvedValue(usage),
   };
 
   const store = createStore({
     state: {
       aiAgentRecord: recordsById[1],
       inboxes: [],
+      labels,
+      usage,
     },
     getters: {
       'aiAgent/getAiAgent': state => state.aiAgentRecord,
+      'aiAgent/getUsage': state => state.usage,
       'aiAgent/getUIFlags': () => ({ isFetching: false }),
       'inboxes/getInboxes': state => state.inboxes,
+      'labels/getLabels': state => state.labels,
       'aiAgentTestConversations/getTestConversations': () => [],
       'aiAgentTestConversations/getActiveTestConversation': () => null,
       'aiAgentTestConversations/getUIFlags': () => ({}),
@@ -85,6 +140,8 @@ const createVuexStore = ({
     actions: {
       'aiAgent/show': actionMocks.show,
       'aiAgent/update': actionMocks.update,
+      'aiAgent/getUsage': actionMocks.getUsage,
+      'labels/get': vi.fn().mockResolvedValue([]),
       'aiAgentTestConversations/reset': actionMocks.reset,
       'aiAgentTestConversations/get': actionMocks.get,
     },
@@ -108,11 +165,26 @@ const mountComponent = options => {
         },
         BaseSettingsHeader: { template: '<div />' },
         Button: {
-          template: '<button><slot /></button>',
+          template: '<button :disabled="disabled"><slot /></button>',
           props: ['label', 'disabled', 'isLoading'],
         },
-        Switch: { template: '<input type="checkbox" />' },
-        TextArea: { template: '<textarea />' },
+        Switch: {
+          template: '<input type="checkbox" :checked="modelValue" />',
+          props: ['modelValue'],
+        },
+        TextArea: {
+          template: '<textarea>{{ message }}</textarea>',
+          props: ['message', 'messageType'],
+        },
+        AiAgentPromptEditor: {
+          template: '<textarea>{{ message }}</textarea>',
+          props: ['modelValue', 'message', 'messageType', 'maxLength'],
+        },
+        TabBar: {
+          template:
+            '<div><button v-for="tab in tabs" :key="tab.value" @click="$emit(\'tabChanged\', tab)">{{ tab.label }}</button></div>',
+          props: ['tabs', 'initialActiveTab'],
+        },
         Avatar: { template: '<div />' },
         Icon: { template: '<i />' },
         TestConversationLayout: TestConversationLayoutStub,
@@ -157,9 +229,10 @@ describe('AiAgentDetail.vue', () => {
 
     await nextTick();
 
-    const inboxCheckboxes = wrapper.findAll('input[type="checkbox"]').slice(1);
-    expect(inboxCheckboxes).toHaveLength(2);
-    expect(inboxCheckboxes[1].attributes('disabled')).toBeDefined();
+    const inboxCheckboxes = wrapper
+      .findAll('input[type="checkbox"]')
+      .filter(checkbox => checkbox.attributes('disabled') !== undefined);
+    expect(inboxCheckboxes.length).toBeGreaterThan(0);
     expect(wrapper.text()).toContain('Assigned to Other Agent');
   });
 
@@ -177,6 +250,33 @@ describe('AiAgentDetail.vue', () => {
     await nextTick();
 
     expect(wrapper.text()).toContain('already assigned to another agent bot');
+  });
+
+  it('toggles inbox selection once when the row is clicked', async () => {
+    const { wrapper } = mountComponent({
+      aiAgentRecord: buildAiAgent({
+        agent_bot: { inbox_ids: [] },
+        available_inboxes: [
+          {
+            id: 2,
+            name: 'Support Inbox',
+            channel_type: 'Channel::WebWidget',
+            conflicting: false,
+          },
+        ],
+      }),
+    });
+
+    await flushPromises();
+
+    const inboxRow = wrapper.find('label[for="inbox-2"]');
+    await inboxRow.trigger('click');
+
+    expect(wrapper.vm.formState.inbox_ids).toEqual([2]);
+
+    await inboxRow.trigger('click');
+
+    expect(wrapper.vm.formState.inbox_ids).toEqual([]);
   });
 
   it('keeps simulator disabled while form is dirty even if local form looks valid', async () => {
@@ -198,6 +298,39 @@ describe('AiAgentDetail.vue', () => {
     expect(wrapper.text()).toContain(
       'Save your changes before testing this AI agent.'
     );
+  });
+
+  it('shows prompt guidance and keeps save actionable when enabled agent has no prompt', async () => {
+    const { wrapper } = mountComponent({
+      aiAgentRecord: buildAiAgent({
+        name: 'Browser Verify Bot',
+        enabled: true,
+        prompt: '',
+        agent_bot: { inbox_ids: [2] },
+        available_inboxes: [],
+      }),
+    });
+
+    await flushPromises();
+
+    expect(wrapper.vm.isFormDirty).toBe(false);
+    expect(wrapper.vm.isSimulatorDisabled).toBe(true);
+    expect(wrapper.vm.simulatorDisabledMessageKey).toBe(
+      'AI_AGENT.TEST_CONVERSATIONS.ADD_PROMPT_BEFORE_TESTING'
+    );
+    expect(wrapper.vm.promptMessageKey).toBe(
+      'AI_AGENT.PROMPT.REQUIRED_FOR_TESTING'
+    );
+    expect(wrapper.vm.promptMessageType).toBe('error');
+    expect(wrapper.text()).toContain(
+      'Add a system prompt and save your changes before testing this AI agent.'
+    );
+    expect(wrapper.text()).toContain(
+      'Add a system prompt, then save your changes before testing this AI agent.'
+    );
+
+    const buttons = wrapper.findAll('button');
+    expect(buttons.at(-1).attributes('disabled')).toBeUndefined();
   });
 
   it('preserves owner labels after save response includes available_inboxes', async () => {
@@ -273,5 +406,90 @@ describe('AiAgentDetail.vue', () => {
     });
     expect(wrapper.vm.formState.name).toBe('Agent Two');
     expect(wrapper.find('.test-conversation-layout').exists()).toBe(true);
+  });
+
+  it('loads labels and exposes existing-label options for human handoff settings', async () => {
+    const labels = [
+      { id: 1, title: 'billing' },
+      { id: 2, title: 'vip' },
+    ];
+    const { wrapper, actionMocks } = mountComponent({
+      labels,
+    });
+
+    await flushPromises();
+
+    expect(actionMocks.show).toHaveBeenCalled();
+    expect(wrapper.vm.handoffLabelOptions).toEqual([
+      { value: 'billing', label: 'billing' },
+      { value: 'vip', label: 'vip' },
+    ]);
+    expect(wrapper.find('[data-testid="tag-multi-select"]').exists()).toBe(
+      true
+    );
+  });
+
+  it('hydrates and saves tools subtree config', async () => {
+    const { wrapper, actionMocks } = mountComponent({
+      aiAgentRecord: buildAiAgent({
+        tools_config: {
+          enabled: ['human_handoff'],
+          human_handoff: {
+            allowed_labels: ['vip'],
+          },
+          ikas_lookup_order: { enabled: false },
+          ikas_catalog_search: {},
+        },
+      }),
+    });
+
+    await flushPromises();
+
+    expect(wrapper.vm.formState.tools.enabled).toEqual(['human_handoff']);
+    expect(wrapper.vm.formState.tools.human_handoff.allowed_labels).toEqual([
+      'vip',
+    ]);
+
+    wrapper.vm.updateHandoffLabels(['vip', 'billing']);
+    await wrapper.vm.handleSave();
+
+    expect(actionMocks.update).toHaveBeenCalledWith(expect.anything(), {
+      id: 1,
+      data: expect.objectContaining({
+        config: expect.objectContaining({
+          tools: expect.objectContaining({
+            enabled: ['human_handoff'],
+            human_handoff: expect.objectContaining({
+              allowed_labels: ['vip', 'billing'],
+            }),
+          }),
+        }),
+      }),
+    });
+  });
+
+  it('saves human handoff config without routing fields', async () => {
+    const { wrapper, actionMocks } = mountComponent({
+      aiAgentRecord: buildAiAgent({
+        tools_config: {
+          enabled: ['human_handoff'],
+          human_handoff: {
+            allowed_labels: ['vip', 'billing'],
+          },
+          ikas_lookup_order: { enabled: false },
+          ikas_catalog_search: {},
+        },
+      }),
+    });
+
+    await flushPromises();
+    await wrapper.vm.handleSave();
+
+    const [, payload] = actionMocks.update.mock.calls.at(-1);
+    expect(payload.data.config.tools.human_handoff).toEqual({
+      allowed_labels: ['vip', 'billing'],
+    });
+    expect(payload.data.config.tools.human_handoff.team_id).toBeUndefined();
+    expect(payload.data.config.tools.human_handoff.assignee_id).toBeUndefined();
   });
 });

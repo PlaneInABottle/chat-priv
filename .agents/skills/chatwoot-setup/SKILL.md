@@ -11,6 +11,7 @@ Use this skill for instance-level setup and configuration questions. Keep webhoo
 
 - **Google OAuth**: Read [references/google-oauth.md](references/google-oauth.md).
 - **Email configuration overview**: Read [references/email-config.md](references/email-config.md).
+- **Account integrations visibility**: Read [references/integrations-config.md](references/integrations-config.md).
 - **Setup sequencing and ownership**: Read [references/setup-checklist.md](references/setup-checklist.md).
 - **Message flow examples**: Read [references/email-flows.md](references/email-flows.md).
 
@@ -28,6 +29,7 @@ Use this skill for instance-level setup and configuration questions. Keep webhoo
 | Global outbound mail | Super admin | `.env.example`, `references/email-config.md` |
 | Inbound email domain | Super admin | `.env.example`, `references/email-config.md` |
 | Inbox channel credentials | Account or inbox admin | `references/email-flows.md` |
+| Account integrations visibility | Code/config owner | `references/integrations-config.md` |
 
 ## Working model
 

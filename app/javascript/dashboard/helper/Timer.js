@@ -5,11 +5,11 @@ export default class Timer {
     this.onTick = onTick;
   }
 
-  start() {
+  start(initialElapsed = 0) {
     if (this.intervalId) {
       clearInterval(this.intervalId);
     }
-    this.elapsed = 0;
+    this.elapsed = initialElapsed;
     this.intervalId = setInterval(() => {
       this.elapsed += 1;
       if (this.onTick) {

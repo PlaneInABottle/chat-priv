@@ -10,12 +10,15 @@ import BaseSettingsHeader from '../components/BaseSettingsHeader.vue';
 import Button from 'dashboard/components-next/button/Button.vue';
 import Dialog from 'dashboard/components-next/dialog/Dialog.vue';
 import AiAgentListItem from './AiAgentListItem.vue';
+import AiAgentUsageSummary from './components/AiAgentUsageSummary.vue';
 
 const store = useStore();
 const { t } = useI18n();
 const router = useRouter();
 
 const agents = useMapGetter('aiAgent/getAiAgents');
+const usage = useMapGetter('aiAgent/getUsage');
+const usageError = useMapGetter('aiAgent/getUsageError');
 const uiFlags = useMapGetter('aiAgent/getUIFlags');
 
 const deleteDialogRef = ref(null);
@@ -26,6 +29,7 @@ const hasAgents = computed(() => agents.value.length > 0);
 
 onMounted(() => {
   store.dispatch('aiAgent/get');
+  store.dispatch('aiAgent/getUsage');
 });
 
 const navigateToNew = () => {
@@ -43,22 +47,18 @@ const confirmDelete = async () => {
   try {
     await store.dispatch('aiAgent/delete', agentToDelete.value.id);
     useAlert(t('AI_AGENTS.ITEM.DELETE_SUCCESS'));
+    agentToDelete.value = null;
+    deleteDialogRef.value?.close();
   } catch {
     useAlert(t('AI_AGENTS.ITEM.DELETE_ERROR'));
   } finally {
     isDeleting.value = false;
-    agentToDelete.value = null;
-    deleteDialogRef.value?.close();
   }
 };
 </script>
 
 <template>
-  <SettingsLayout
-    :is-loading="uiFlags.isFetching"
-    :no-records-found="!uiFlags.isFetching && !hasAgents"
-    :no-records-message="t('AI_AGENTS.LIST.EMPTY_TITLE')"
-  >
+  <SettingsLayout :is-loading="uiFlags.isFetching">
     <template #header>
       <BaseSettingsHeader
         :title="t('AI_AGENTS.HEADER')"
@@ -76,26 +76,32 @@ const confirmDelete = async () => {
     </template>
 
     <template #body>
-      <div
-        v-if="hasAgents"
-        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-      >
-        <AiAgentListItem
-          v-for="agent in agents"
-          :key="agent.id"
-          :agent="agent"
-          @delete="openDeleteDialog"
-        />
-      </div>
-      <div v-else class="flex flex-col items-center justify-center py-20 gap-4">
-        <p class="text-n-slate-12 text-base">
-          {{ t('AI_AGENTS.LIST.EMPTY_DESCRIPTION') }}
-        </p>
-        <Button
-          icon="i-lucide-circle-plus"
-          :label="t('AI_AGENTS.LIST.CREATE_FIRST')"
-          @click="navigateToNew"
-        />
+      <div class="flex flex-col gap-6">
+        <AiAgentUsageSummary :usage="usage" :has-error="usageError" />
+        <div
+          v-if="hasAgents"
+          class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+        >
+          <AiAgentListItem
+            v-for="agent in agents"
+            :key="agent.id"
+            :agent="agent"
+            @delete="openDeleteDialog"
+          />
+        </div>
+        <div
+          v-else
+          class="flex flex-col items-center justify-center py-20 gap-4"
+        >
+          <p class="text-n-slate-12 text-base">
+            {{ t('AI_AGENTS.LIST.EMPTY_DESCRIPTION') }}
+          </p>
+          <Button
+            icon="i-lucide-circle-plus"
+            :label="t('AI_AGENTS.LIST.CREATE_FIRST')"
+            @click="navigateToNew"
+          />
+        </div>
       </div>
     </template>
   </SettingsLayout>

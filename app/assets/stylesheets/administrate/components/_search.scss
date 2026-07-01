@@ -1,38 +1,48 @@
 .search {
   margin-left: auto;
-  margin-right: 1.25rem;
-  max-width: 27.5rem;
+  margin-right: 1rem;
+  max-width: 240px;
   position: relative;
   width: 100%;
 }
 
 .search__input {
-  background: $grey-1;
-  padding-left: $space-normal * 2.5;
-  padding-right: $space-normal * 2.5;
+  background: $grey-0;
+  border: 1px solid $base-border-color;
+  border-radius: 7px;
+  padding-left: 2.25rem;
+  padding-right: 2.25rem;
+  font-size: $font-size-small;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+  &:focus {
+    background: $white;
+    border-color: $action-color;
+    box-shadow: 0 0 0 3px transparentize($action-color, 0.85);
+  }
 }
 
 .search__eyeglass-icon {
-  fill: $grey-7;
-  height: $space-normal;
-  left: $space-normal;
+  fill: $hint-grey;
+  height: 0.875rem;
+  left: 0.75rem;
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: $space-normal;
+  width: 0.875rem;
 }
 
 .search__clear-link {
   height: $space-normal;
   position: absolute;
-  right: $space-normal * 0.75;
+  right: 0.5rem;
   top: 50%;
   transform: translateY(-50%);
   width: $space-normal;
 }
 
 .search__clear-icon {
-  fill: $grey-5;
+  fill: $hint-grey;
   height: $space-normal;
   position: absolute;
   transition: fill $base-duration $base-timing;

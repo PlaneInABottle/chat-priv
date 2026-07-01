@@ -1,2 +1,27 @@
-Model: <%= field.resource.ai_agent_model %><br>
-Conversation Limit: <%= field.resource.ai_agent_conversation_limit == 0 ? 'Unlimited' : field.resource.ai_agent_conversation_limit %>
+<% usage_summary = AiAgents::Usage::Summary.new(account: field.resource).payload %>
+<dl class="super-admin-field-summary">
+  <div>
+    <dt><%= t('super_admin.account_ai_agent_settings.enabled') %></dt>
+    <dd><%= field.resource.ai_agent_enabled? ? t('super_admin.account_ai_agent_settings.yes') : t('super_admin.account_ai_agent_settings.no') %></dd>
+  </div>
+  <div>
+    <dt><%= t('super_admin.account_ai_agent_settings.model') %></dt>
+    <dd><%= field.resource.ai_agent_model %></dd>
+  </div>
+  <div>
+    <dt><%= t('super_admin.account_ai_agent_settings.monthly_conversation_limit') %></dt>
+    <dd><%= field.resource.ai_agent_conversation_limit == 0 ? t('super_admin.account_ai_agent_settings.unlimited') : field.resource.ai_agent_conversation_limit %></dd>
+  </div>
+  <div>
+    <dt><%= t('super_admin.account_ai_agent_settings.same_customer_reuse_window') %></dt>
+    <dd><%= field.resource.ai_agent_conversation_reuse_window_hours %> <%= t('super_admin.account_ai_agent_settings.hours') %></dd>
+  </div>
+  <div>
+    <dt><%= t('super_admin.account_ai_agent_settings.current_month_usage') %></dt>
+    <dd><%= usage_summary[:used] %><%= usage_summary[:unlimited] ? '' : " / #{usage_summary[:limit]}" %></dd>
+  </div>
+  <div>
+    <dt><%= t('super_admin.account_ai_agent_settings.resets_at') %></dt>
+    <dd><%= l(Time.zone.parse(usage_summary[:reset_at]), format: :long) %></dd>
+  </div>
+</dl>

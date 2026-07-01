@@ -1,6 +1,7 @@
 class Api::V1::Accounts::AiAgentTestConversationsController < Api::V1::Accounts::BaseController
   before_action :current_account
   before_action :check_authorization
+  before_action :ensure_ai_agent_enabled
   before_action :set_ai_agent
   before_action :set_test_conversation, only: [:show, :destroy, :send_message]
 
@@ -53,14 +54,19 @@ class Api::V1::Accounts::AiAgentTestConversationsController < Api::V1::Accounts:
   end
 
   def generate_and_render_ai_response
-    service = AiAgents::ResponseService.new(
+    result = AiAgents::Orchestrator.new(
       ai_agent: @ai_agent,
-      messages: @test_conversation.messages.map { |m| { role: m['role'], content: m['content'] } }
-    )
-    response_text = service.perform
+      messages: @test_conversation.messages,
+      mode: :test,
+      conversation: @test_conversation
+    ).perform
 
-    if response_text
-      @test_conversation.append_message(role: 'assistant', content: response_text)
+    if result[:assistant_message]
+      @test_conversation.append_message(
+        role: 'assistant',
+        content: result[:assistant_message]['content'],
+        metadata: result[:assistant_message].except('id', 'role', 'content', 'created_at')
+      )
       render json: { message: @test_conversation.messages.last, messages: @test_conversation.messages, title: @test_conversation.title }
     else
       render json: { error: 'Failed to generate response' }, status: :unprocessable_entity

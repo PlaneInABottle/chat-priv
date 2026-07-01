@@ -78,7 +78,9 @@ const menuItems = computed(() => {
       icon: 'i-lucide-palette',
       click: () => {
         const ninja = document.querySelector('ninja-keys');
-        ninja.open({ parent: 'appearance_settings' });
+        if (ninja && typeof ninja.open === 'function') {
+          ninja.open({ parent: 'appearance_settings' });
+        }
       },
     },
     {

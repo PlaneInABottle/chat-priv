@@ -6,11 +6,16 @@ import { frontendURL } from 'dashboard/helper/URLHelper';
 import { useBranding } from 'shared/composables/useBranding';
 
 import Button from 'dashboard/components-next/button/Button.vue';
+import Label from 'dashboard/components-next/label/Label.vue';
 
 const props = defineProps({
   id: {
     type: [String, Number],
     required: true,
+  },
+  logo: {
+    type: String,
+    default: '',
   },
   name: {
     type: String,
@@ -24,6 +29,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  state: {
+    type: String,
+    default: '',
+  },
 });
 
 const getters = useStoreGetters();
@@ -32,15 +41,47 @@ const accountId = getters.getCurrentAccountId;
 const { t } = useI18n();
 const { replaceInstallationName } = useBranding();
 
+const integrationLogo = computed(() => props.logo || `${props.id}.png`);
+const integrationDarkLogo = computed(() => {
+  const extension = integrationLogo.value.split('.').pop();
+  const suffix = `.${extension}`;
+  const baseName = integrationLogo.value.endsWith(suffix)
+    ? integrationLogo.value.slice(0, -suffix.length)
+    : integrationLogo.value;
+  return `${baseName}-dark.${extension}`;
+});
+
+const statusKeyMap = {
+  connected: 'CONNECTED',
+  reconnect_required: 'RECONNECT_REQUIRED',
+  disabled: 'DISABLED',
+  not_connected: 'DISCONNECTED',
+};
+
+const integrationStatusKey = computed(() => {
+  if (props.state && statusKeyMap[props.state]) {
+    return statusKeyMap[props.state];
+  }
+
+  return props.enabled ? 'CONNECTED' : 'DISCONNECTED';
+});
+
 const integrationStatus = computed(() =>
-  props.enabled
-    ? t('INTEGRATION_APPS.STATUS.ENABLED')
-    : t('INTEGRATION_APPS.STATUS.DISABLED')
+  t(`INTEGRATION_APPS.STATUS.${integrationStatusKey.value}`)
 );
 
-const integrationStatusColor = computed(() =>
-  props.enabled ? 'bg-n-teal-9' : 'bg-n-slate-8'
-);
+const integrationStatusColor = computed(() => {
+  switch (props.state) {
+    case 'connected':
+      return 'teal';
+    case 'reconnect_required':
+      return 'amber';
+    case 'disabled':
+      return 'slate';
+    default:
+      return props.enabled ? 'teal' : 'slate';
+  }
+});
 
 const actionURL = computed(() =>
   frontendURL(`accounts/${accountId.value}/settings/integrations/${props.id}`)
@@ -49,37 +90,40 @@ const actionURL = computed(() =>
 
 <template>
   <div
-    class="flex flex-col flex-1 p-6 m-[1px] outline outline-n-container outline-1 bg-n-alpha-3 rounded-md shadow"
+    class="flex flex-col flex-1 p-4 m-px outline outline-n-container outline-1 bg-n-card rounded-xl"
   >
     <div class="flex items-start justify-between">
-      <div class="flex h-12 w-12 mb-4">
+      <div class="flex h-12 w-12 mb-2">
         <img
-          :src="`/dashboard/images/integrations/${id}.png`"
+          :src="`/dashboard/images/integrations/${integrationLogo}`"
           class="max-w-full rounded-md border border-n-weak shadow-sm block dark:hidden bg-n-alpha-3 dark:bg-n-alpha-2"
         />
         <img
-          :src="`/dashboard/images/integrations/${id}-dark.png`"
+          :src="`/dashboard/images/integrations/${integrationDarkLogo}`"
           class="max-w-full rounded-md border border-n-weak shadow-sm hidden dark:block bg-n-alpha-3 dark:bg-n-alpha-2"
         />
       </div>
-      <span
-        v-tooltip="integrationStatus"
-        class="text-white p-0.5 rounded-full w-5 h-5 flex items-center justify-center"
-        :class="integrationStatusColor"
-      >
-        <i class="i-ph-check-bold text-sm" />
-      </span>
+      <Label
+        :label="integrationStatus"
+        :color="integrationStatusColor"
+        compact
+      />
     </div>
     <div class="flex flex-col m-0 flex-1">
       <div
         class="font-medium mb-2 text-n-slate-12 flex justify-between items-center"
       >
-        <span class="text-base font-semibold">{{ name }}</span>
+        <span class="text-heading-3 text-n-slate-12">{{ name }}</span>
         <router-link :to="actionURL">
-          <Button :label="$t('INTEGRATION_APPS.CONFIGURE')" link />
+          <Button
+            :label="$t('INTEGRATION_APPS.CONFIGURE')"
+            icon="i-woot-settings"
+            link
+            xs
+          />
         </router-link>
       </div>
-      <p class="text-n-slate-11">
+      <p class="text-n-slate-11 text-body-main">
         {{ replaceInstallationName(description) }}
       </p>
     </div>

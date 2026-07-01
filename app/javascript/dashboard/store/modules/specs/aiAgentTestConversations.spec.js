@@ -163,7 +163,11 @@ describe('aiAgentTestConversations store', () => {
           1: {
             id: 1,
             messages: [
-              { id: 'm1', content: 'First', created_at: '2024-01-01T00:00:00Z' },
+              {
+                id: 'm1',
+                content: 'First',
+                created_at: '2024-01-01T00:00:00Z',
+              },
               {
                 id: 'temp-1',
                 content: 'Optimistic',
@@ -187,6 +191,44 @@ describe('aiAgentTestConversations store', () => {
       expect(state.records[1].messages_count).toBe(1);
       expect(state.records[1].last_message_at).toBe('2024-01-01T00:00:00Z');
       expect(state.records[1].last_message_preview).toBe('First');
+    });
+
+    it('derives preview text from handoff terminal messages', () => {
+      const state = {
+        records: {
+          1: {
+            id: 1,
+            messages: [],
+            messages_count: 0,
+            last_message_at: null,
+            last_message_preview: null,
+          },
+        },
+        sortOrder: [1],
+        activeId: 1,
+      };
+
+      mutations.UPDATE_MESSAGES(state, {
+        id: 1,
+        title: 'Conversation',
+        messages: [
+          {
+            id: 'handoff',
+            role: 'assistant',
+            terminal_action: 'handoff',
+            created_at: '2024-01-03T00:00:00Z',
+            tool_result: {
+              customer_message:
+                'Transferring to another agent for further assistance.',
+              labels_ignored: ['missing'],
+            },
+          },
+        ],
+      });
+
+      expect(state.records[1].last_message_preview).toBe(
+        'Transferring to another agent for further assistance.'
+      );
     });
   });
 });

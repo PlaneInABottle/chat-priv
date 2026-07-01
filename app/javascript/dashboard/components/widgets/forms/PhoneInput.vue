@@ -5,8 +5,12 @@ import {
   getActiveCountryCode,
   getActiveDialCode,
 } from 'shared/components/PhoneInput/helper';
+import Icon from 'dashboard/components-next/icon/Icon.vue';
 
 export default {
+  components: {
+    Icon,
+  },
   props: {
     modelValue: {
       type: [String, Number],
@@ -189,8 +193,8 @@ export default {
         <h5 v-if="activeCountry" class="mb-0">
           {{ activeCountry.emoji }}
         </h5>
-        <fluent-icon v-else icon="globe" class="fluent-icon" size="16" />
-        <fluent-icon icon="chevron-down" class="fluent-icon" size="12" />
+        <Icon v-else icon="globe" class="phone-input-icon" size="16" />
+        <Icon icon="chevron-down" class="phone-input-icon" size="12" />
       </div>
       <span
         v-if="activeDialCode"

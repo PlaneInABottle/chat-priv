@@ -9,7 +9,7 @@ FactoryBot.define do
 
     trait :dialogflow do
       app_id { 'dialogflow' }
-      settings { { project_id: 'test', credentials: {}, region: 'global' } }
+      settings { { project_id: 'test', credentials: {}, region: 'global', language_code: 'en-US' } }
     end
 
     trait :dyte do
@@ -36,6 +36,24 @@ FactoryBot.define do
       app_id { 'shopify' }
       access_token { SecureRandom.hex }
       reference_id { 'test-store.myshopify.com' }
+    end
+
+    trait :ikas do
+      app_id { 'ikas' }
+      access_token { 'secret-value' }
+      reference_id { 'test-store.myikas.com' }
+      settings do
+        {
+          'client_id' => 'client-id-1234',
+          'validation_state' => 'connected',
+          'last_validated_at' => Time.current.iso8601,
+          'last_validation_error_code' => nil
+        }
+      end
+
+      after(:build) do |hook, evaluator|
+        hook.access_token = evaluator.access_token
+      end
     end
 
     trait :leadsquared do

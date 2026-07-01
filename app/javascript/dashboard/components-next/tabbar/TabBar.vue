@@ -58,6 +58,30 @@ const selectTab = index => {
   emit('tabChanged', props.tabs[index]);
 };
 
+const focusTab = index => {
+  if (!props.tabs.length) return;
+
+  const nextIndex = (index + props.tabs.length) % props.tabs.length;
+  selectTab(nextIndex);
+  nextTick(() => tabRefs.value[nextIndex]?.focus());
+};
+
+const handleKeydown = (event, index) => {
+  const keyHandlers = {
+    ArrowRight: () => focusTab(index + 1),
+    ArrowDown: () => focusTab(index + 1),
+    ArrowLeft: () => focusTab(index - 1),
+    ArrowUp: () => focusTab(index - 1),
+    Home: () => focusTab(0),
+    End: () => focusTab(props.tabs.length - 1),
+  };
+  const handler = keyHandlers[event.key];
+  if (!handler) return;
+
+  event.preventDefault();
+  handler();
+};
+
 const showDivider = index => {
   return (
     // Show dividers after the active tab, but not after the last tab
@@ -70,6 +94,7 @@ const showDivider = index => {
 
 <template>
   <div
+    role="tablist"
     class="relative flex items-center h-8 rounded-lg bg-n-alpha-1 dark:bg-n-solid-1 w-fit transition-all duration-200 ease-out has-[button:active]:scale-[1.01]"
   >
     <div
@@ -81,6 +106,9 @@ const showDivider = index => {
     <template v-for="(tab, index) in tabs" :key="index">
       <button
         :ref="el => (tabRefs[index] = el)"
+        role="tab"
+        :aria-selected="activeTab === index"
+        :tabindex="activeTab === index ? 0 : -1"
         class="relative z-10 px-4 truncate py-1.5 text-sm border-0 outline-1 outline-transparent rounded-lg transition-all duration-200 ease-out hover:text-n-brand active:scale-[1.02]"
         :class="[
           activeTab === index
@@ -88,6 +116,7 @@ const showDivider = index => {
             : 'text-n-slate-10 scale-[0.98]',
         ]"
         @click="selectTab(index)"
+        @keydown="handleKeydown($event, index)"
       >
         {{ tab.label }} {{ tab.count ? `(${tab.count})` : '' }}
       </button>

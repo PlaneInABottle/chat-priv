@@ -1,12 +1,37 @@
 require 'rails_helper'
 
 RSpec.describe 'Ai Agents API', type: :request do
-  let!(:account) { create(:account) }
+  let!(:account) { create(:account, settings: { ai_agent_enabled: true }) }
   let(:admin) { create(:user, account: account, role: :administrator) }
   let(:agent_user) { create(:user, account: account, role: :agent) }
 
   def available_inboxes_by_name
     response.parsed_body['available_inboxes'].index_by { |item| item['name'] }
+  end
+
+  def stub_ikas_status(state:, hook: nil)
+    allow_any_instance_of(Integrations::Ikas::ConnectionStatus).to receive(:payload).and_return(
+      state: state,
+      hook: hook,
+      can_connect: true
+    )
+  end
+
+  def ikas_hook_with_catalog
+    snapshot = instance_double(
+      IkasCatalogSnapshot,
+      status: 'completed',
+      completed_at: Time.current,
+      counts: { 'products' => 1, 'catalog_items' => 1 },
+      error_message: nil,
+      failed?: false,
+      sqlite_exists?: true
+    )
+    snapshots = double
+    allow(snapshots).to receive(:order).and_return(double(first: snapshot))
+    allow(snapshots).to receive_message_chain(:storefront_catalog, :latest_completed, :first).and_return(snapshot)
+
+    instance_double(Integrations::Hook, ikas_catalog_snapshots: snapshots)
   end
 
   describe 'GET /api/v1/accounts/{account.id}/ai_agents' do
@@ -28,6 +53,8 @@ RSpec.describe 'Ai Agents API', type: :request do
 
       it 'returns array of ai agents' do
         ai_agent = create(:ai_agent, account: account)
+        conversation = create(:conversation, account: account)
+        create(:message, account: account, conversation: conversation, inbox: conversation.inbox, sender: ai_agent.agent_bot, message_type: :outgoing)
 
         get "/api/v1/accounts/#{account.id}/ai_agents", headers: admin.create_new_auth_token, as: :json
 
@@ -36,8 +63,9 @@ RSpec.describe 'Ai Agents API', type: :request do
         expect(json.length).to eq(1)
         expect(json.first['id']).to eq(ai_agent.id)
         expect(json.first['name']).to eq(ai_agent.name)
-        expect(json.first['conversation_limit']).to eq(0)
-        expect(json.first['ai_agent_model']).to eq('deepseek/deepseek-v4-flash')
+        expect(json.first).not_to have_key('conversation_count')
+        expect(json.first).not_to have_key('conversation_limit')
+        expect(json.first).not_to have_key('ai_agent_model')
       end
 
       it 'returns agents sorted by created_at ascending' do
@@ -51,6 +79,17 @@ RSpec.describe 'Ai Agents API', type: :request do
         expect(json.length).to eq(2)
         expect(json.first['id']).to eq(older_agent.id)
         expect(json.last['id']).to eq(newer_agent.id)
+      end
+    end
+
+    context 'when AI Agent is disabled for the account' do
+      before { account.update!(ai_agent_enabled: false) }
+
+      it 'returns forbidden for an authenticated administrator' do
+        get "/api/v1/accounts/#{account.id}/ai_agents", headers: admin.create_new_auth_token, as: :json
+
+        expect(response).to have_http_status(:forbidden)
+        expect(response.parsed_body['error']).to eq('AI Agent is not enabled for this account')
       end
     end
 
@@ -77,7 +116,12 @@ RSpec.describe 'Ai Agents API', type: :request do
     context 'when it is an authenticated administrator' do
       it 'returns the ai agent with nested bot and inboxes' do
         inbox = create(:inbox, account: account)
+        first_conversation = create(:conversation, account: account, inbox: inbox)
+        second_conversation = create(:conversation, account: account, inbox: inbox)
         AgentBotInbox.create!(agent_bot: ai_agent.agent_bot, inbox: inbox, account: account)
+        create(:message, account: account, conversation: first_conversation, inbox: inbox, sender: ai_agent.agent_bot, message_type: :outgoing)
+        create(:message, account: account, conversation: first_conversation, inbox: inbox, sender: ai_agent.agent_bot, message_type: :outgoing)
+        create(:message, account: account, conversation: second_conversation, inbox: inbox, sender: ai_agent.agent_bot, message_type: :outgoing)
 
         get "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}", headers: admin.create_new_auth_token, as: :json
 
@@ -85,11 +129,27 @@ RSpec.describe 'Ai Agents API', type: :request do
         json = response.parsed_body
         expect(json['id']).to eq(ai_agent.id)
         expect(json['name']).to eq(ai_agent.name)
-        expect(json['model']).to eq('deepseek/deepseek-v4-flash')
-        expect(json['conversation_limit']).to eq(0)
+        expect(json).not_to have_key('model')
+        expect(json).not_to have_key('conversation_count')
+        expect(json).not_to have_key('conversation_limit')
         expect(json['agent_bot']).to be_present
         expect(json['agent_bot']['bot_type']).to eq('ai')
         expect(json['agent_bot']['inbox_ids']).to include(inbox.id)
+        expect(json['tools_config']).to include('enabled' => ['human_handoff'])
+        expect(json['available_tools'].map { |tool| tool['key'] }).to match_array(%w[human_handoff])
+        expect(json['ikas_integration']).to include('feature_enabled', 'state', 'can_connect')
+      end
+
+      it 'returns ikas tools only when the integration and catalog are usable' do
+        account.enable_features('ikas_integration')
+        stub_ikas_status(state: 'connected', hook: ikas_hook_with_catalog)
+
+        get "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}", headers: admin.create_new_auth_token, as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(response.parsed_body['available_tools'].map { |tool| tool['key'] }).to match_array(
+          %w[human_handoff ikas_lookup_order ikas_catalog_search]
+        )
       end
 
       it 'returns available inbox ownership metadata for the detail page' do
@@ -171,6 +231,51 @@ RSpec.describe 'Ai Agents API', type: :request do
         expect(json['agent_bot']).to be_present
         expect(json['agent_bot']['name']).to eq('New Agent')
         expect(json['agent_bot']['bot_type']).to eq('ai')
+      end
+
+      it 'permits nested tools config' do
+        post "/api/v1/accounts/#{account.id}/ai_agents",
+             headers: admin.create_new_auth_token,
+             params: {
+               name: 'New Agent',
+               config: {
+                  tools: {
+                    enabled: ['human_handoff'],
+                    human_handoff: {
+                      allowed_labels: ['vip']
+                    }
+                  }
+                }
+             },
+             as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(AiAgent.last.config).to include(
+          'tools' => include(
+            'enabled' => ['human_handoff']
+          )
+        )
+      end
+
+      it 'rejects removed human handoff config keys' do
+        post "/api/v1/accounts/#{account.id}/ai_agents",
+             headers: admin.create_new_auth_token,
+             params: {
+               name: 'New Agent',
+               config: {
+                 tools: {
+                   enabled: ['human_handoff'],
+                   human_handoff: {
+                     allowed_labels: ['vip'],
+                     transfer_message: 'Please wait.'
+                   }
+                 }
+               }
+             },
+             as: :json
+
+        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response.parsed_body.dig('errors', 'config')).to include('config.tools.human_handoff contains unknown keys: transfer_message')
       end
 
       it 'creates agent and syncs inbox bindings' do
@@ -286,6 +391,28 @@ RSpec.describe 'Ai Agents API', type: :request do
 
         expect(response).to have_http_status(:success)
         expect(ai_agent.reload.prompt).to eq('You are a helpful assistant.')
+      end
+
+      it 'updates nested tools config without dropping sibling config keys' do
+        ai_agent.update!(config: { 'existing' => { 'keep' => true } })
+
+        patch "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}",
+              headers: admin.create_new_auth_token,
+              params: {
+                config: {
+                  existing: { keep: true },
+                  tools: {
+                    enabled: ['human_handoff']
+                  }
+                }
+              },
+              as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(ai_agent.reload.config).to include(
+          'existing' => { 'keep' => true },
+          'tools' => include('enabled' => ['human_handoff'])
+        )
       end
 
       it 'syncs inbox bindings' do

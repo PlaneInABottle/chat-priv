@@ -42,6 +42,24 @@ class Inboxes extends CacheEnabledApiClient {
   getCSATTemplateStatus(inboxId) {
     return axios.get(`${this.url}/${inboxId}/csat_template`);
   }
+
+  analyzeCSATTemplateUtility(inboxId, template) {
+    return axios.post(`${this.url}/${inboxId}/csat_template/analyze`, {
+      template,
+    });
+  }
+
+  resetSecret(inboxId) {
+    return axios.post(`${this.url}/${inboxId}/reset_secret`);
+  }
+
+  enableWhatsappCalling(inboxId) {
+    return axios.post(`${this.url}/${inboxId}/enable_whatsapp_calling`);
+  }
+
+  disableWhatsappCalling(inboxId) {
+    return axios.post(`${this.url}/${inboxId}/disable_whatsapp_calling`);
+  }
 }
 
 export default new Inboxes();

@@ -3,6 +3,7 @@ json.array! @ai_agents do |ai_agent|
   json.name ai_agent.name
   json.prompt ai_agent.prompt
   json.enabled ai_agent.enabled
+  json.enabled_tool_keys AiAgents::Config.new(ai_agent.config).enabled_tool_keys
   json.created_at ai_agent.created_at
   json.updated_at ai_agent.updated_at
 
@@ -15,6 +16,5 @@ json.array! @ai_agents do |ai_agent|
     end
   end
 
-  json.conversation_limit ai_agent.account.ai_agent_conversation_limit
-  json.ai_agent_model ai_agent.account.ai_agent_model
+  json.account_ai_agent_enabled ai_agent.account.ai_agent_enabled?
 end

@@ -1,6 +1,7 @@
 table {
-  border-collapse: collapse;
-  font-size: $font-size-default;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: $font-size-small;
   text-align: left;
   width: 100%;
 
@@ -10,23 +11,53 @@ table {
   }
 }
 
-tr {
-  border-bottom: $base-border;
+// Card wrapper for index tables so they don't sit directly on gray page bg
+.main-content__body--flush > table,
+.main-content__body > table {
+  background: $white;
+  border: 1px solid $base-border-color;
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+thead {
+  tr {
+    border-bottom: none;
+  }
 
   th {
-    font-weight: $font-weight-medium;
+    background: $grey-0;
+    border-bottom: 1px solid $base-border-color;
+    color: $hint-grey;
+    font-size: 0.6875rem;
+    font-weight: $font-weight-bold;
+    letter-spacing: 0.04em;
+    padding: 0.5rem 0.875rem;
+    text-transform: uppercase;
+    white-space: nowrap;
 
     &.cell-label--avatar-field {
       a {
         display: none;
       }
     }
+
+    &:first-child {
+      padding-left: 1.25rem;
+    }
+
+    &:last-child {
+      padding-right: 1.25rem;
+    }
   }
 }
 
 tbody tr {
+  border-bottom: 1px solid lighten($base-border-color, 2%);
+  transition: background-color 0.1s ease;
+
   &:hover {
-    background-color: $base-background-color;
+    background-color: lighten($grey-0, 1%);
     cursor: pointer;
   }
 
@@ -35,7 +66,15 @@ tbody tr {
     outline-offset: -($focus-outline-width);
   }
 
+  &:last-child {
+    border-bottom: none;
+  }
+
   td {
+    padding: 0.625rem 0.875rem;
+    vertical-align: middle;
+    font-size: $font-size-small;
+
     &.cell-data--avatar-field {
       line-height: 1;
       text-align: center;
@@ -47,25 +86,38 @@ tbody tr {
         width: $space-large;
       }
     }
+
+    &:first-child {
+      padding-left: 1.25rem;
+    }
+
+    &:last-child {
+      padding-right: 1.25rem;
+    }
   }
-}
-
-td,
-th {
-  padding: $space-slab;
-  vertical-align: middle;
-}
-
-td:first-child,
-th:first-child {
-  padding-left: 0;
-}
-
-td:last-child,
-th:last-child {
-  padding-right: 0;
 }
 
 td img {
   max-height: 2rem;
+}
+
+// Action links
+a.action-edit {
+  color: $action-color;
+  font-size: 0.75rem;
+  font-weight: $font-weight-medium;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+// Row with link
+tr.js-table-row {
+  a.action-show {
+    color: inherit;
+    text-decoration: none;
+    display: block;
+  }
 }

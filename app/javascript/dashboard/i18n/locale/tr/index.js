@@ -1,5 +1,6 @@
 import advancedFilters from './advancedFilters.json';
 import agentBots from './agentBots.json';
+import aiAgent from './aiAgent.json';
 import agentMgmt from './agentMgmt.json';
 import attributesMgmt from './attributesMgmt.json';
 import auditLogs from './auditLogs.json';
@@ -8,6 +9,7 @@ import bulkActions from './bulkActions.json';
 import campaign from './campaign.json';
 import cannedMgmt from './cannedMgmt.json';
 import chatlist from './chatlist.json';
+import companies from './companies.json';
 import components from './components.json';
 import contact from './contact.json';
 import contactFilters from './contactFilters.json';
@@ -26,6 +28,8 @@ import integrations from './integrations.json';
 import labelsMgmt from './labelsMgmt.json';
 import login from './login.json';
 import macros from './macros.json';
+import mfa from './mfa.json';
+import onboarding from './onboarding.json';
 import report from './report.json';
 import resetPassword from './resetPassword.json';
 import search from './search.json';
@@ -39,6 +43,7 @@ import whatsappTemplates from './whatsappTemplates.json';
 export default {
   ...advancedFilters,
   ...agentBots,
+  ...aiAgent,
   ...agentMgmt,
   ...attributesMgmt,
   ...auditLogs,
@@ -47,6 +52,7 @@ export default {
   ...campaign,
   ...cannedMgmt,
   ...chatlist,
+  ...companies,
   ...components,
   ...contact,
   ...contactFilters,
@@ -65,6 +71,8 @@ export default {
   ...labelsMgmt,
   ...login,
   ...macros,
+  ...mfa,
+  ...onboarding,
   ...report,
   ...resetPassword,
   ...search,

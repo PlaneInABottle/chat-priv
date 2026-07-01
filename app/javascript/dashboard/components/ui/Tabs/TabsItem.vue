@@ -48,9 +48,10 @@ const onTabClick = event => {
   >
     <a
       class="flex items-center flex-row select-none cursor-pointer relative after:absolute after:bottom-px after:left-0 after:right-0 after:h-[2px] after:rounded-full after:transition-all after:duration-200 text-button"
+      :aria-current="active ? 'true' : undefined"
       :class="[
         active
-          ? 'text-n-blue-11 after:bg-n-brand after:opacity-100'
+          ? 'text-n-blue-11 after:bg-n-brand after:opacity-100 font-semibold'
           : 'text-n-slate-11 after:bg-transparent after:opacity-0',
         isCompact ? 'py-2.5' : '!text-base py-3',
       ]"
