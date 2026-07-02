@@ -38,7 +38,9 @@ module IkasCatalogMvp
         'product_url_source' => source,
         'storefront_id' => storefront.fetch('id'),
         'storefront_domain' => storefront.fetch('domain'),
-        'storefront_sales_channel_id' => storefront.fetch('sales_channel_id')
+        'storefront_sales_channel_id' => storefront.fetch('sales_channel_id'),
+        'storefront_currency_code' => storefront['currency_code'],
+        'storefront_currency_symbol' => storefront['currency_symbol']
       }
     end
 
@@ -53,6 +55,7 @@ module IkasCatalogMvp
       sales_channel_id = storefront['salesChannelId'].to_s
       return if domain.to_s.empty? || sales_channel_id.empty?
 
+      routing = storefront_routing_for(storefront, domain)
       {
         'id' => storefront.fetch('id'),
         'name' => storefront['name'],
@@ -60,7 +63,9 @@ module IkasCatalogMvp
         'status' => storefront['status'],
         'sales_channel_id' => sales_channel_id,
         'domain' => domain,
-        'path' => routing_path_for(storefront, domain)
+        'path' => normalize_path(routing&.[]('path')),
+        'currency_code' => routing&.[]('currencyCode'),
+        'currency_symbol' => routing&.[]('currencySymbol')
       }
     end
 
@@ -75,10 +80,9 @@ module IkasCatalogMvp
       normalize_host(selected&.[]('name')) || normalize_host(selected&.[]('redirectDomainName'))
     end
 
-    def routing_path_for(storefront, domain)
-      routing = Array(storefront['routings']).find { |row| normalize_host(row['domain']) == domain } ||
-                Array(storefront['routings']).first
-      normalize_path(routing&.[]('path'))
+    def storefront_routing_for(storefront, domain)
+      Array(storefront['routings']).find { |row| normalize_host(row['domain']) == domain } ||
+        Array(storefront['routings']).first
     end
 
     def visible_storefront_for(product)

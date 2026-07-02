@@ -23,11 +23,17 @@ module AiAgents
     CUSTOMER_FACING_FINALIZER_PROMPT = [
       'Write the final customer-facing reply from the latest customer message and the available structured tool result messages.',
       'Use only concrete facts, product names, prices, links, order fields, and compatibility details present in those results.',
+      'Use price.amount only when price.final_total_known is not false. If only reference pricing is present, say final price depends on selected options or dimensions instead of quoting a final total.',
       'Speak as the brand support assistant, not as software explaining how it worked.',
       'For unusual, unavailable, or unrealistic requests, stay neutral and professional; do not comment on the customer intent.',
       'If the exact requested item is unavailable, say that simply, then offer returned relevant alternatives or ask one focused customer question.',
       'Do not promise that a teammate will join, that the issue was escalated, or that someone was notified unless the current turn already completed handoff.',
       'Return only the message that should be sent to the customer.'
+    ].join(' ').freeze
+    CUSTOMER_FACING_FINALIZER_RETRY_PROMPT = [
+      'The previous final customer-facing response attempted to call a tool, but this final step cannot use tools.',
+      'Write only the customer message now from the already available evidence.',
+      'If the exact requested item is unavailable, say that simply and ask one focused customer question when needed.'
     ].join(' ').freeze
     MAX_TOOL_ITERATIONS = 4
     MAX_TOOL_CALLS_PER_RESPONSE = 4
@@ -272,15 +278,27 @@ module AiAgents
     end
 
     def finalize_customer_facing_answer(request_messages:)
+      finalizer_messages = [
+        *request_messages,
+        { role: 'system', content: CUSTOMER_FACING_FINALIZER_PROMPT }
+      ]
       response = perform_llm_call(
         step: 'customer_facing_finalizer',
+        request_messages: finalizer_messages,
+        tools: []
+      )
+      answer = response[:assistant_text].to_s.strip.presence
+      return answer if answer
+
+      retry_response = perform_llm_call(
+        step: 'customer_facing_finalizer_retry',
         request_messages: [
-          *request_messages,
-          { role: 'system', content: CUSTOMER_FACING_FINALIZER_PROMPT }
+          *finalizer_messages,
+          { role: 'system', content: CUSTOMER_FACING_FINALIZER_RETRY_PROMPT }
         ],
         tools: []
       )
-      response[:assistant_text].to_s.strip.presence
+      retry_response[:assistant_text].to_s.strip.presence
     end
 
     def failure_result

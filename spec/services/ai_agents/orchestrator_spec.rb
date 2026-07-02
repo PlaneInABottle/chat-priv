@@ -245,6 +245,66 @@ RSpec.describe AiAgents::Orchestrator do
     expect(AiAgentLlmCall.pluck(:step)).to include('customer_facing_finalizer')
   end
 
+  it 'retries the finalizer when it attempts to call tools after tool-backed evidence is available' do
+    ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'] } })
+    tool_execution = AiAgents::ToolExecutor::Result.new(
+      status: 'executed',
+      tool_event: { 'tool' => 'ikas_catalog_search', 'status' => 'ok', 'tool_call_id' => 'call_1' },
+      tool_result: { status: 'ok', result_type: 'no_match', candidates: [] }
+    )
+    executor = instance_double(AiAgents::ToolExecutor, execute: tool_execution)
+    allow(AiAgents::ToolExecutor).to receive(:new).and_return(executor)
+    calls = []
+    allow(adapter).to receive(:perform) do |payload|
+      calls << payload
+      if calls.one?
+        {
+          assistant_text: nil,
+          tool_calls: [{ id: 'call_1', type: 'function', name: 'ikas_catalog_search', arguments: { query: '200x300 sineklik' }.to_json }],
+          finish_reason: 'tool_calls'
+        }
+      elsif calls.length == 2
+        {
+          assistant_text: '200x300 cm ölçü için net eşleşme bulamadım. Hangi sineklik tipini düşündüğünüzü paylaşır mısınız?',
+          tool_calls: [],
+          finish_reason: 'stop'
+        }
+      elsif calls.length == 3
+        {
+          assistant_text: nil,
+          tool_calls: [{ id: 'call_2', type: 'function', name: 'ikas_catalog_search', arguments: { query: 'sürme sineklik max' }.to_json }],
+          finish_reason: 'tool_calls'
+        }
+      else
+        {
+          assistant_text: '200x300 cm ölçü için katalogda net eşleşme bulamadım. Hangi sineklik tipini düşündüğünüzü paylaşır mısınız?',
+          tool_calls: [],
+          finish_reason: 'stop'
+        }
+      end
+    end
+
+    result = described_class.new(
+      ai_agent: ai_agent.reload,
+      messages: [{ role: 'user', content: '200x300 cm ölçüsünde sineklik olur mu?' }],
+      mode: :live,
+      conversation: conversation,
+      trigger_message: trigger_message,
+      adapter: adapter
+    ).perform
+
+    expect(result[:terminal_action]).to be_nil
+    expect(result[:assistant_message]['content']).to include('net eşleşme bulamadım')
+    expect(result[:assistant_message]['turn_telemetry']).to include(
+      'catalog_search_units_used' => 1,
+      'handoff_used' => false,
+      'final_answer_source' => 'tool_evidence'
+    )
+    expect(result[:tool_events].map { |event| event['tool'] }).to eq(['ikas_catalog_search'])
+    expect(adapter).to have_received(:perform).exactly(4).times
+    expect(AiAgentLlmCall.pluck(:step)).to include('customer_facing_finalizer_retry')
+  end
+
   it 'finalizes tool-backed drafts into customer-facing replies without exposing internal process' do
     ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'] } })
     tool_execution = AiAgents::ToolExecutor::Result.new(
