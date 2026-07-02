@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'cgi'
+require 'set'
 
 module IkasCatalogMvp
   class Normalizer
@@ -48,6 +49,7 @@ module IkasCatalogMvp
       name = display_name(product, variant_facets)
       stock = stock_for(product, variant)
       price = price_for(variant)
+      link_fields = product_link_builder.link_fields_for(product, option_facets: variant_facets)
       search_text = search_text_for(product, name, facets)
       item = {
         'item_id' => variant ? "variant:#{variant.fetch('id')}" : "product:#{product.fetch('id')}",
@@ -59,7 +61,8 @@ module IkasCatalogMvp
         'display_subtitle' => variant_facets.map { |facet| facet.fetch('value') }.join(' / '),
         'primary_category_id' => Array(product['categoryIds']).first,
         'price_amount' => price.fetch('amount'),
-        'currency' => price.fetch('currency'),
+        'compare_at_price_amount' => price.fetch('compare_at_amount'),
+        'currency' => price.fetch('currency') || link_fields['storefront_currency_code'],
         'stock_quantity' => stock.fetch('quantity'),
         'in_stock' => stock.fetch('in_stock') ? 1 : 0,
         'sellable' => stock.fetch('sellable') ? 1 : 0,
@@ -67,7 +70,7 @@ module IkasCatalogMvp
         'search_text' => search_text,
         'search_text_folded' => Text.fold(search_text),
         'raw_json' => Text.json(variant || product)
-      }.merge(product_link_builder.link_fields_for(product, option_facets: variant_facets))
+      }.merge(link_fields)
       item['facets'] = facets.map { |facet| facet.merge('item_id' => item.fetch('item_id')) }
       item['facts'] = facts_for(product, variant, item, facets)
       item
@@ -268,7 +271,21 @@ module IkasCatalogMvp
     end
 
     def category_names(product)
-      Array(product['categoryIds']).filter_map { |id| category_lookup[id]&.[]('name') }
+      Array(product['categoryIds']).flat_map { |id| category_path_names(id) }.uniq
+    end
+
+    def category_path_names(category_id)
+      names = []
+      seen = Set.new
+      current = category_lookup[category_id]
+
+      while current && !seen.include?(current['id'])
+        names << current['name']
+        seen << current['id']
+        current = category_lookup[current['parentId']]
+      end
+
+      names
     end
 
     def item_categories(product, items)
@@ -286,8 +303,35 @@ module IkasCatalogMvp
     end
 
     def price_for(variant)
-      price = Array(variant&.[]('prices')).find { |row| row['sellPrice'] }
-      { 'amount' => price&.[]('sellPrice'), 'currency' => price&.[]('currencyCode') || price&.[]('currency') }
+      price = preferred_price_row(variant)
+      sell_price = numeric_price(price&.[]('sellPrice'))
+      discount_price = numeric_price(price&.[]('discountPrice'))
+      amount = current_price_amount(sell_price, discount_price)
+      compare_at_amount = sell_price if amount && sell_price && sell_price > amount
+
+      {
+        'amount' => amount,
+        'compare_at_amount' => compare_at_amount,
+        'currency' => price&.[]('currencyCode') || price&.[]('currency')
+      }
+    end
+
+    def preferred_price_row(variant)
+      prices = Array(variant&.[]('prices')).select { |row| row['sellPrice'] || row['discountPrice'] }
+      prices.find { |row| row['priceListId'].to_s.empty? } || prices.first
+    end
+
+    def numeric_price(value)
+      return value if value.is_a?(Numeric)
+      return nil if value.nil? || value.to_s.empty?
+
+      value.to_s.tr(',', '.').to_f
+    end
+
+    def current_price_amount(sell_price, discount_price)
+      return discount_price if discount_price && discount_price.positive? && (!sell_price || discount_price < sell_price)
+
+      sell_price
     end
 
     def stock_for(product, variant)

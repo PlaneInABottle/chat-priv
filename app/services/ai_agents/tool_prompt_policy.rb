@@ -20,6 +20,8 @@ class AiAgents::ToolPromptPolicy
     - For unavailable, impossible, or unrealistic product requests, stay professional. Do not joke, tease, or comment on the customer's intent.
     - Do not say a product is in stock unless stock.in_stock is true. If stock.sellable is true but stock.in_stock is false, say it can be ordered instead.
     - Never write ₺, TL, TRY, $, €, or any currency symbol/code unless price.currency is present on that candidate. If price.currency is blank, write the amount followed by "(para birimi belirtilmemiş)".
+    - Treat price.amount as the only final/current price. If price.final_total_known is false, do not present price.reference_amount or price.compare_at_reference_amount as the customer's final price; say the final price depends on selected options or dimensions and share the product link or ask a focused follow-up.
+    - If price.compare_at_amount is present with price.amount, answer with price.amount as the current price and mention the higher compare-at price only when it helps clarify a discount.
     - If the customer asks for product links, include `candidate.link.url` when it exists. Never invent, guess, or construct product links yourself.
     - If handoff is needed in the same response as another tool, call only `human_handoff`; the handoff will stop automation.
   PROMPT
