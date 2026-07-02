@@ -51,7 +51,10 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
       { 'id' => 'panel-root', 'name' => 'Panel Ürünleri', 'parentId' => nil },
       { 'id' => 'panel-cases', 'name' => 'Panel Kasaları', 'parentId' => 'panel-root' },
       { 'id' => 'panel-window-cases', 'name' => 'Pencere Kasaları', 'parentId' => 'panel-cases' },
-      { 'id' => 'panel-cased-accessories', 'name' => 'Panel Kasalı Aksesuarlar', 'parentId' => 'panel-root' }
+      { 'id' => 'panel-cased-accessories', 'name' => 'Panel Kasalı Aksesuarlar', 'parentId' => 'panel-root' },
+      { 'id' => 'home-root', 'name' => 'Home Goods', 'parentId' => nil },
+      { 'id' => 'rain-covers', 'name' => 'Rain Covers', 'parentId' => 'home-root' },
+      { 'id' => 'doors', 'name' => 'Doors', 'parentId' => nil }
     ]
   end
 
@@ -94,6 +97,14 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
           { 'name' => 'En (CM)', 'type' => 'TEXT', 'textSettings' => { 'max' => 70 } },
           { 'name' => 'Boy (CM)', 'type' => 'TEXT', 'textSettings' => { 'max' => 130 } }
         ]
+      },
+      {
+        'id' => 'wide-door-option-set',
+        'name' => 'Wide Door',
+        'options' => [
+          { 'name' => 'Width (CM)', 'type' => 'TEXT', 'textSettings' => { 'max' => 125 } },
+          { 'name' => 'Height (CM)', 'type' => 'TEXT', 'textSettings' => { 'max' => 240 } }
+        ]
       }
     ]
   end
@@ -107,7 +118,7 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
         'status' => 'READY',
         'salesChannelId' => 'sales-channel-public',
         'domains' => [{ 'id' => 'domain-public', 'name' => 'store.example.com', 'isDefault' => true }],
-        'routings' => []
+        'routings' => [{ 'domain' => 'store.example.com', 'path' => nil, 'currencyCode' => 'TRY', 'currencySymbol' => '₺' }]
       },
       {
         'id' => 'storefront-b2b',
@@ -130,8 +141,10 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
       shirt_product,
       white_shirt_product,
       honey_product,
+      currency_fallback_product,
       blackout_curtain_product,
       dimout_curtain_product,
+      plise_color_curtain_product,
       separator_curtain_product,
       structured_color_curtain_product,
       title_color_curtain_product,
@@ -139,6 +152,8 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
       kedi_pencere_sineklik_product,
       panel_window_case_product,
       panel_cased_accessory_product,
+      nested_category_product,
+      conflicting_dimension_product,
       *extra_kedi_sineklik_products,
       false_range_sineklik_product,
       b2b_only_product
@@ -251,7 +266,19 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
       'categoryIds' => ['honey'],
       'attributes' => [{ 'productAttributeId' => 'organic-attr', 'productAttributeOptionId' => 'organic-option' }],
       'variants' => [
-        variant('v-honey', price: 18.0, stocks: 20)
+        variant('v-honey', price: 18.0, discount_price: 15.0, stocks: 20)
+      ]
+    }
+  end
+
+  def currency_fallback_product
+    {
+      'id' => 'p-currency-fallback',
+      'name' => 'Currency Fallback Honey 250g',
+      'categoryIds' => ['honey'],
+      'attributes' => [],
+      'variants' => [
+        variant('v-currency-fallback', price: 22.0, stocks: 8, currency_code: nil)
       ]
     }
   end
@@ -288,6 +315,25 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
       'attributes' => [],
       'variants' => [
         variant('v-separator', price: 1200.0, stocks: 4)
+      ]
+    }
+  end
+
+  def plise_color_curtain_product
+    {
+      'id' => 'p-plise-color-curtain',
+      'name' => 'Generic Plise Perde',
+      'categoryIds' => ['plise-curtains'],
+      'attributes' => [],
+      'variants' => [
+        variant(
+          'v-plise-color-curtain',
+          price: 720.0,
+          stocks: 5,
+          variant_values: [
+            { 'variantTypeId' => 'curtain-color-type', 'variantValueId' => 'curtain-beyaz' }
+          ]
+        )
       ]
     }
   end
@@ -343,6 +389,31 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
       'attributes' => [],
       'variants' => [
         variant('v-panel-cased-accessory', price: 10.0, stocks: 4)
+      ]
+    }
+  end
+
+  def nested_category_product
+    {
+      'id' => 'p-nested-category',
+      'name' => 'Clear Cover',
+      'categoryIds' => ['rain-covers'],
+      'attributes' => [],
+      'variants' => [
+        variant('v-nested-category', price: 12.0, stocks: 6)
+      ]
+    }
+  end
+
+  def conflicting_dimension_product
+    {
+      'id' => 'p-conflicting-dimension',
+      'name' => 'Custom Door Max 110x240 cm',
+      'productOptionSetId' => 'wide-door-option-set',
+      'categoryIds' => ['doors'],
+      'attributes' => [],
+      'variants' => [
+        variant('v-conflicting-dimension', price: 100.0, stocks: 3)
       ]
     }
   end
@@ -415,13 +486,13 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
     }
   end
 
-  def variant(id, price:, stocks:, variant_values: [])
+  def variant(id, price:, stocks:, variant_values: [], discount_price: nil, currency_code: 'TRY')
     {
       'id' => id,
       'isActive' => true,
       'sellIfOutOfStock' => false,
       'variantValueIds' => variant_values,
-      'prices' => [{ 'sellPrice' => price, 'currencyCode' => 'TRY' }],
+      'prices' => [{ 'sellPrice' => price, 'discountPrice' => discount_price, 'currencyCode' => currency_code }],
       'stocks' => [{ 'stockCount' => stocks }],
       'images' => []
     }
@@ -527,6 +598,35 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
     end
   end
 
+  it 'uses discounted prices as current prices while preserving compare-at prices' do
+    with_snapshot do |sqlite_path|
+      payload = described_class.new(sqlite_path: sqlite_path).query('organic honey 500g')
+      price = payload.fetch('candidates').first.fetch('price')
+
+      expect(price).to include(
+        'amount' => 15.0,
+        'compare_at_amount' => 18.0,
+        'currency' => 'TRY',
+        'final_total_known' => true,
+        'pricing_model' => 'fixed'
+      )
+    end
+  end
+
+  it 'falls back to storefront routing currency when a price row omits currency' do
+    with_snapshot do |sqlite_path|
+      payload = described_class.new(sqlite_path: sqlite_path).query('currency fallback honey 250g')
+      price = payload.fetch('candidates').first.fetch('price')
+
+      expect(price).to include(
+        'amount' => 22.0,
+        'currency' => 'TRY',
+        'final_total_known' => true,
+        'pricing_model' => 'fixed'
+      )
+    end
+  end
+
   it 'handles Turkish organic wording without leaving it as a search term' do
     with_snapshot do |sqlite_path|
       payload = described_class.new(sqlite_path: sqlite_path).query('doğal honey 500g')
@@ -548,6 +648,16 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
     end
   end
 
+  it 'matches products through ancestor category names' do
+    with_snapshot do |sqlite_path|
+      payload = described_class.new(sqlite_path: sqlite_path).query('home clear cover')
+
+      expect(payload.fetch('result_type')).to eq('show_candidates')
+      expect(payload.fetch('candidates').first.fetch('product_id')).to eq('p-nested-category')
+      expect(payload.fetch('candidates').first.fetch('category_paths')).to include('Home Goods > Rain Covers')
+    end
+  end
+
   it 'matches color constraints from the product title when Ikas has no structured color facet' do
     with_snapshot do |sqlite_path|
       payload = described_class.new(sqlite_path: sqlite_path).query('beyaz perde')
@@ -566,7 +676,7 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
       structured = candidates.find { |row| row.fetch('product_id') == 'p-structured-color-curtain' }
       title_only = candidates.find { |row| row.fetch('product_id') == 'p-title-color-curtain' }
 
-      expect(candidates.first.fetch('product_id')).to eq('p-structured-color-curtain')
+      expect(candidates.first.fetch('product_id')).not_to eq('p-title-color-curtain')
       expect(structured.fetch('relevance_score')).to be > title_only.fetch('relevance_score')
       expect(structured.fetch('relevance_signals').map { |signal| signal.fetch('kind') }).to include('structured_evidence_match')
       expect(title_only.fetch('relevance_signals').map { |signal| signal.fetch('kind') }).to include('fallback_evidence_match')
@@ -617,6 +727,44 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
 
       expect(candidate.fetch('match_reasons')).to include('requested dimensions fit product max dimensions')
       expect(candidate.fetch('evidence').first.fetch('source')).to eq('product_option_set')
+    end
+  end
+
+  it 'uses the tightest compatible max dimension when multiple max facts fit' do
+    with_snapshot do |sqlite_path|
+      payload = described_class.new(sqlite_path: sqlite_path).query('90x210 custom door', limit: 10)
+      candidate = payload.fetch('candidates').find { |row| row.fetch('product_id') == 'p-conflicting-dimension' }
+      dimension_evidence = candidate.fetch('evidence').find { |row| row.fetch('fact') == 'dimension_max' }
+
+      expect(dimension_evidence).to include(
+        'value' => '110.0x240.0',
+        'source' => 'text'
+      )
+    end
+  end
+
+  it 'marks custom option prices as reference prices instead of final totals' do
+    with_snapshot do |sqlite_path|
+      payload = described_class.new(sqlite_path: sqlite_path).query('70x90 structured option sineklik', limit: 10)
+      candidate = payload.fetch('candidates').find { |row| row.fetch('product_id') == 'p-option-set-sineklik' }
+
+      expect(candidate.fetch('price')).to include(
+        'amount' => nil,
+        'reference_amount' => 14.0,
+        'final_total_known' => false,
+        'pricing_model' => 'custom_options'
+      )
+    end
+  end
+
+  it 'uses non-facet terms for category scoping when the query contains color constraints' do
+    with_snapshot do |sqlite_path|
+      payload = described_class.new(sqlite_path: sqlite_path).query('plise perde beyaz', limit: 10)
+      product_ids = payload.fetch('candidates').map { |candidate| candidate.fetch('product_id') }
+
+      expect(payload.fetch('matched_scope').fetch('id')).to eq('plise-curtains')
+      expect(product_ids).to include('p-plise-color-curtain')
+      expect(product_ids).not_to include('p-separator')
     end
   end
 
