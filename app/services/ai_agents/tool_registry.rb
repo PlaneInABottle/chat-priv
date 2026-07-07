@@ -22,7 +22,7 @@ class AiAgents::ToolRegistry
       },
       customer_message: {
         type: 'string',
-        description: 'Customer-facing assistant message, for example "Sizi bir temsilciye aktarıyorum." Do not repeat the customer request as if the assistant said it.'
+        description: 'Public message sent to the customer before automation stops. Write it naturally as brand support copy and keep operational details in internal_note.'
       },
       internal_note: {
         type: 'string',
@@ -78,16 +78,25 @@ class AiAgents::ToolRegistry
         type: 'string',
         description: [
           'A complete catalog search phrase for the connected seller catalog.',
-          'For follow-ups, include previous product/category context yourself, for example',
-          '"70x80 akordiyon sineklik" or "beyaz plise perde", not only "70x80" or "beyaz".',
-          'Drop filler/action words such as "kral", "abi", "şey", "link", "fiyat", and "en ucuz"',
-          'unless they are part of a real product name.',
-          'Drop purchase quantities such as "2 tane" unless they are part of a product pack, product name, or dimensions.'
+          'Use query for one search or queries for up to three related searches; prefer one field, not both.',
+          'For ambiguous follow-ups, include the relevant product/category context yourself; do not send only a color, size, or measurement.',
+          'If the customer only gave dimensions and there is no previous product/category context, ask a clarifying question instead of adding a guessed product/category.',
+          'Drop filler/action words unless they are part of a real product name.',
+          'Drop purchase quantities unless they are part of a product pack, product name, or dimensions.'
+        ].join(' ')
+      },
+      queries: {
+        type: 'array',
+        items: { type: 'string' },
+        maxItems: 3,
+        description: [
+          'Up to three complete, self-contained catalog search phrases for related catalog lookups.',
+          'Use this instead of query when multiple independent product/category searches are needed.',
+          'Each query should include product/category context and hard constraints.'
         ].join(' ')
       },
       limit: { type: 'integer', minimum: 1, maximum: 20, default: 8 }
     },
-    required: ['query'],
     additionalProperties: false
   }.freeze
 
