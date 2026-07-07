@@ -4,22 +4,12 @@ require Rails.root.join('lib/integrations/ikas/catalog')
 
 class AiAgents::Tools::IkasCatalogSearchService
   MAX_BATCH_QUERIES = 3
-  CONTEXT_MESSAGE_LIMIT = 5
-  PRODUCT_CONTEXT_TERMS = %w[
-    sineklik perde plise jaluzi stor zebra blackout kedi akordiyon menteşeli menteseli pileli tül tul
-  ].freeze
-  COLOR_MATERIAL_CONTEXT_TERMS = %w[
-    beyaz siyah gri antrasit kahverengi krem bej mavi yeşil yesil kırmızı kirmizi lacivert sarı sari
-    alüminyum aluminyum ahşap ahsap pvc metal plastik kumaş kumas keten
-  ].freeze
 
-  def initialize(ai_agent:, account:, mode:, settings:, **context)
+  def initialize(ai_agent:, account:, mode:, settings:, **_context)
     @ai_agent = ai_agent
     @account = account
     @mode = mode
     @settings = settings || {}
-    @conversation = context[:conversation]
-    @trigger_message = context[:trigger_message]
   end
 
   def call(args:)
@@ -52,7 +42,7 @@ class AiAgents::Tools::IkasCatalogSearchService
     Integrations::Ikas::CatalogSearchService.new(
       account: account,
       query_text: query,
-      context_query_text: context_query_text,
+      context_query_text: nil,
       limit: args['limit'].presence || Integrations::Ikas::CatalogSearchService::DEFAULT_LIMIT
     ).call
   end
@@ -97,50 +87,5 @@ class AiAgents::Tools::IkasCatalogSearchService
     result[:result_count].presence || Array(result[:candidates]).length
   end
 
-  def context_query_text
-    return @context_query_text if defined?(@context_query_text)
-    return @context_query_text = nil unless conversation && trigger_message
-
-    compact_context = recent_public_message_contents
-                      .filter_map { |content| compact_catalog_context(content) }
-                      .uniq
-
-    @context_query_text = compact_context.presence
-  end
-
-  def recent_public_message_contents
-    conversation.messages
-                .where(account: account)
-                .where(message_type: %i[incoming outgoing], content_type: :text, private: false)
-                .where('created_at < ?', trigger_message.created_at)
-                .where.not(content: [nil, ''])
-                .reorder(created_at: :desc)
-                .limit(CONTEXT_MESSAGE_LIMIT)
-                .pluck(:content)
-                .reverse
-  end
-
-  def compact_catalog_context(content)
-    hints = []
-    hints.concat(context_term_hints(content, PRODUCT_CONTEXT_TERMS))
-    hints.concat(dimension_hints(content))
-    hints.concat(context_term_hints(content, COLOR_MATERIAL_CONTEXT_TERMS))
-    hints.uniq.join(' ').presence
-  end
-
-  def context_term_hints(content, terms)
-    text = content.to_s.downcase
-
-    terms.select do |term|
-      text.match?(/\b#{Regexp.escape(term)}[[:alpha:]]*\b/)
-    end
-  end
-
-  def dimension_hints(content)
-    content.to_s.scan(/\b\d{1,3}\s*[xX×]\s*\d{1,3}(?:\s*(?:cm|mm|m))?\b/).map do |dimension|
-      dimension.downcase.gsub(/[×X]/, 'x').gsub(/\s+/, '')
-    end
-  end
-
-  attr_reader :ai_agent, :account, :mode, :settings, :conversation, :trigger_message
+  attr_reader :ai_agent, :account, :mode, :settings
 end

@@ -144,7 +144,7 @@ RSpec.describe AiAgents::Tools::IkasCatalogSearchService do
     expect(result[:queries].pluck(:status)).to eq(%w[error error])
   end
 
-  it 'passes compact recent public catalog context without raw full messages or private notes' do
+  it 'keeps previous catalog context out of latest-message searches by default' do
     conversation = create(:conversation, account: account)
     create(
       :message,
@@ -192,7 +192,7 @@ RSpec.describe AiAgents::Tools::IkasCatalogSearchService do
     expect(Integrations::Ikas::CatalogSearchService).to have_received(:new).with(
       account: account,
       query_text: '70x100',
-      context_query_text: ['sineklik 90x210 beyaz', 'perde plise gri'],
+      context_query_text: nil,
       limit: 8
     )
   end

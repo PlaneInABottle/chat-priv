@@ -79,11 +79,10 @@ class AiAgents::ToolRegistry
         description: [
           'A complete catalog search phrase for the connected seller catalog.',
           'Use query for one search or queries for up to three related searches; prefer one field, not both.',
-          'For follow-ups, include previous product/category context yourself, for example',
-          '"70x80 akordiyon sineklik" or "beyaz plise perde", not only "70x80" or "beyaz".',
-          'Drop filler/action words such as "kral", "abi", "şey", "link", "fiyat", and "en ucuz"',
-          'unless they are part of a real product name.',
-          'Drop purchase quantities such as "2 tane" unless they are part of a product pack, product name, or dimensions.'
+          'For ambiguous follow-ups, include the relevant product/category context yourself; do not send only a color, size, or measurement.',
+          'If the customer only gave dimensions and there is no previous product/category context, ask a clarifying question instead of adding a guessed product/category.',
+          'Drop filler/action words unless they are part of a real product name.',
+          'Drop purchase quantities unless they are part of a product pack, product name, or dimensions.'
         ].join(' ')
       },
       queries: {

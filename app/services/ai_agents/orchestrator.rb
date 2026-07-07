@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'bigdecimal'
 require 'set'
 
 module AiAgents
@@ -23,7 +24,14 @@ module AiAgents
     CUSTOMER_FACING_FINALIZER_PROMPT = [
       'Write the final customer-facing reply from the latest customer message and the available structured tool result messages.',
       'Use only concrete facts, product names, prices, links, order fields, and compatibility details present in those results.',
+      'The latest customer message controls the product/category scope of the final answer.',
+      'Use previous conversation context only to resolve an ambiguous follow-up; if the latest customer message names a different product or category, answer only that new topic unless the customer explicitly asks to compare or combine topics.',
+      'If tool results contain multiple query results, answer only the query or queries directly requested by the latest customer message; ignore previous-topic query results unless the customer explicitly asked to compare or combine topics.',
       'Use price.amount only when price.final_total_known is not false. If only reference pricing is present, say final price depends on selected options or dimensions instead of quoting a final total.',
+      'For custom-option products with price.final_total_known false, do not repeat numeric reference prices even if the customer mentioned one. Refer to it as a listed or visible reference amount instead.',
+      'For no_match results without candidates, do not list store categories, previous products, or examples unless the tool returned them or the customer asked for alternatives.',
+      'Write in natural support prose. Avoid robotic field-label blocks such as product/stock/color/price lines unless the customer explicitly asks for a structured table.',
+      'Use stock evidence to avoid recommending unavailable products. Do not mention that an item is in stock unless availability is the customer question or it changes the recommendation.',
       'Speak as the brand support assistant, not as software explaining how it worked.',
       'For unusual, unavailable, or unrealistic requests, stay neutral and professional; do not comment on the customer intent.',
       'If the exact requested item is unavailable, say that simply, then offer returned relevant alternatives or ask one focused customer question.',
@@ -31,8 +39,9 @@ module AiAgents
       'Return only the message that should be sent to the customer.'
     ].join(' ').freeze
     CUSTOMER_FACING_FINALIZER_RETRY_PROMPT = [
-      'The previous final customer-facing response attempted to call a tool, but this final step cannot use tools.',
+      'The previous final customer-facing response attempted to call a tool, contained tool-call markup, or repeated a non-final reference price.',
       'Write only the customer message now from the already available evidence.',
+      'Do not repeat numeric reference prices when price.final_total_known is false.',
       'If the exact requested item is unavailable, say that simply and ask one focused customer question when needed.'
     ].join(' ').freeze
     MAX_TOOL_ITERATIONS = 4
@@ -274,10 +283,10 @@ module AiAgents
       answer = content.to_s.strip
       return answer if tool_events.blank?
 
-      finalize_customer_facing_answer(request_messages: request_messages)
+      finalize_customer_facing_answer(request_messages: request_messages, tool_events: tool_events)
     end
 
-    def finalize_customer_facing_answer(request_messages:)
+    def finalize_customer_facing_answer(request_messages:, tool_events:)
       finalizer_messages = [
         *request_messages,
         { role: 'system', content: CUSTOMER_FACING_FINALIZER_PROMPT }
@@ -288,7 +297,8 @@ module AiAgents
         tools: []
       )
       answer = response[:assistant_text].to_s.strip.presence
-      return answer if answer
+      return catalog_no_match_fallback_answer(tool_events) if answer && catalog_no_match_without_candidates?(tool_events)
+      return answer if answer && safe_customer_facing_answer?(answer, tool_events)
 
       retry_response = perform_llm_call(
         step: 'customer_facing_finalizer_retry',
@@ -298,7 +308,136 @@ module AiAgents
         ],
         tools: []
       )
-      retry_response[:assistant_text].to_s.strip.presence
+      retry_answer = retry_response[:assistant_text].to_s.strip.presence
+      return if retry_answer && unsafe_customer_facing_answer?(retry_answer)
+      return catalog_no_match_fallback_answer(tool_events) if retry_answer && catalog_no_match_without_candidates?(tool_events)
+
+      sanitize_reference_prices(retry_answer, tool_events)
+    end
+
+    def safe_customer_facing_answer?(answer, tool_events)
+      !unsafe_customer_facing_answer?(answer) && !reference_price_leak?(answer, tool_events)
+    end
+
+    def unsafe_customer_facing_answer?(answer)
+      answer.match?(/DSML|tool_calls|<\s*\/?\s*tool|<\s*\/?\s*function|invoke name=/i)
+    end
+
+    def catalog_no_match_without_candidates?(tool_events)
+      catalog_events = Array(tool_events).select { |event| event['tool'] == AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL }
+      return false if catalog_events.blank?
+
+      catalog_events.all? { |event| no_match_without_candidates?(event['result'] || event[:result]) }
+    end
+
+    def no_match_without_candidates?(result)
+      result = result.deep_stringify_keys if result.respond_to?(:deep_stringify_keys)
+      return false unless result.is_a?(Hash)
+      return false unless result['result_type'] == 'no_match'
+
+      Array(result['candidates']).empty? && result['result_count'].to_i.zero?
+    end
+
+    def catalog_no_match_fallback_answer(tool_events)
+      query = latest_catalog_query(tool_events)
+      subject = query.present? ? "#{query} için " : ''
+
+      "#{subject}net bir ürün bulamadım. Ürün adını, kategori bilgisini veya aradığınız özelliği biraz daha net paylaşır mısınız?"
+    end
+
+    def latest_catalog_query(tool_events)
+      catalog_event = Array(tool_events).reverse.find { |event| event['tool'] == AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL }
+      return unless catalog_event
+
+      result = catalog_event['result'] || catalog_event[:result] || {}
+      args = catalog_event['args'] || catalog_event[:args] || {}
+      result['query'].presence || result[:query].presence || args['query'].presence || args[:query].presence
+    end
+
+    def reference_price_leak?(answer, tool_events)
+      reference_price_patterns(tool_events).any? { |pattern| answer.match?(pattern) }
+    end
+
+    def sanitize_reference_prices(answer, tool_events)
+      sanitized = answer.to_s.strip.presence
+      return sanitized if sanitized.blank?
+
+      reference_price_patterns(tool_events).each do |pattern|
+        sanitized = sanitized.gsub(pattern, 'gördüğünüz tutar')
+      end
+      sanitized.gsub(/\*\*gördüğünüz tutar\*\*\s+tutar[ıi]?/i, '**gördüğünüz tutar**')
+               .gsub(/gördüğünüz\s+\*\*gördüğünüz tutar\*\*/i, 'Gördüğünüz tutar')
+               .gsub(/gördüğünüz\s+gördüğünüz tutar/i, 'gördüğünüz tutar')
+               .gsub(/gördüğünüz tutar\s+tutar[ıi]?/i, 'gördüğünüz tutar')
+               .strip
+               .presence
+    end
+
+    def reference_price_patterns(tool_events)
+      reference_price_amounts(tool_events).flat_map { |amount| reference_amount_patterns(amount) }
+    end
+
+    def reference_price_amounts(tool_events)
+      Array(tool_events).flat_map do |event|
+        reference_price_amounts_in(event['result'] || event[:result])
+      end.uniq
+    end
+
+    def reference_price_amounts_in(value)
+      case value
+      when Array
+        value.flat_map { |item| reference_price_amounts_in(item) }
+      when Hash
+        amounts = reference_amounts_from_price_hash(value)
+        value.each_value { |child| amounts.concat(reference_price_amounts_in(child)) }
+        amounts
+      else
+        []
+      end
+    end
+
+    def reference_amounts_from_price_hash(value)
+      price = value['price'] || value[:price]
+      return [] unless price.is_a?(Hash)
+      return [] unless price['final_total_known'] == false || price[:final_total_known] == false
+
+      [
+        decimal_reference_amount(price['reference_amount'] || price[:reference_amount]),
+        decimal_reference_amount(price['compare_at_reference_amount'] || price[:compare_at_reference_amount])
+      ].compact
+    end
+
+    def decimal_reference_amount(value)
+      return if value.blank?
+
+      BigDecimal(value.to_s)
+    rescue ArgumentError
+      nil
+    end
+
+    def reference_amount_patterns(amount)
+      formatted_decimal_amounts(amount).map do |formatted_amount|
+        reference_amount_pattern(formatted_amount)
+      end
+    end
+
+    def formatted_decimal_amounts(amount)
+      rounded = amount.round(2)
+      integer, fraction = format('%.2f', rounded).split('.')
+      grouped_dot = integer.reverse.gsub(/(\d{3})(?=\d)/, '\\1.').reverse
+      grouped_comma = integer.reverse.gsub(/(\d{3})(?=\d)/, '\\1,').reverse
+
+      [
+        "#{integer},#{fraction}",
+        "#{integer}.#{fraction}",
+        "#{grouped_dot},#{fraction}",
+        "#{grouped_comma}.#{fraction}"
+      ].uniq
+    end
+
+    def reference_amount_pattern(formatted_amount)
+      currency = '(?:TL|TRY|USD|EUR|GBP|₺|\$|€|£)'
+      Regexp.new("(?<![\\d[:alpha:]])(?:[₺$€£]\\s*)?#{Regexp.escape(formatted_amount)}(?:\\s*#{currency})?(?![\\d[:alpha:]])", Regexp::IGNORECASE)
     end
 
     def failure_result
