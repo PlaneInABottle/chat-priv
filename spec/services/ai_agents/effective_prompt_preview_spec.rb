@@ -29,6 +29,13 @@ RSpec.describe AiAgents::EffectivePromptPreview do
       expect(preview.effective_system_prompt).to include(
         'Always answer in Turkish unless the customer uses English.',
         'Only answer from verified catalog evidence.',
+        'The latest customer message controls product/category scope',
+        'only gives dimensions or measurements and there is no clear previous product/category context',
+        'do not add the previous product/category as an extra `queries` entry',
+        'do not repeat the numeric amount or attach a currency',
+        'Do not list store categories, previous products, or examples unless the tool returned them',
+        'Use stock evidence to avoid recommending unavailable products',
+        'Avoid robotic field-label blocks',
         'Never write ₺, TL, TRY, $, €, or any currency symbol/code unless price.currency is present',
         'Never reveal or repeat customer email, phone, billing address, shipping address'
       )
