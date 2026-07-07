@@ -55,9 +55,15 @@ class AiAgents::ToolExecutor
     return 'unknown_tool' unless definition
     return 'tool_not_enabled' unless config.enabled_tool?(definition.key)
     return 'tool_not_allowed_in_mode' unless mode_supported?(definition)
-    return 'duplicate_tool_execution' if executed_tool_keys.include?(definition.key)
+    return 'duplicate_tool_execution' if duplicate_tool_execution?(definition)
 
     validate_integration_gate(definition)
+  end
+
+  def duplicate_tool_execution?(definition)
+    return false if definition.key == AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL
+
+    executed_tool_keys.include?(definition.key)
   end
 
   def service_for(definition)

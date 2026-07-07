@@ -12,8 +12,8 @@ module IkasCatalogMvp
     ].freeze
     ITEM_COLUMNS = %w[
       item_id group_id product_id variant_id entity_type display_name display_subtitle primary_category_id product_url
-      product_slug product_url_source storefront_id storefront_domain storefront_sales_channel_id price_amount currency
-      stock_quantity in_stock sellable image_id search_text search_text_folded raw_json
+      product_slug product_url_source storefront_id storefront_domain storefront_sales_channel_id price_amount
+      compare_at_price_amount currency stock_quantity in_stock sellable image_id search_text search_text_folded raw_json
     ].freeze
     FACT_COLUMNS = %w[
       item_id type key value_text value_folded numeric_value numeric_value_2 unit source confidence raw
@@ -99,6 +99,7 @@ module IkasCatalogMvp
           storefront_domain TEXT,
           storefront_sales_channel_id TEXT,
           price_amount REAL,
+          compare_at_price_amount REAL,
           currency TEXT,
           stock_quantity REAL,
           in_stock INTEGER NOT NULL,

@@ -115,7 +115,19 @@ class AiAgents::LiveProcessor
       content: assistant_message['content'] || assistant_message[:content],
       private: false,
       sender_type: 'AgentBot',
-      sender_id: ai_agent.agent_bot_id
+      sender_id: ai_agent.agent_bot_id,
+      content_attributes: assistant_message_content_attributes(assistant_message)
+    }
+  end
+
+  def assistant_message_content_attributes(assistant_message)
+    telemetry = assistant_message['turn_telemetry'] || assistant_message[:turn_telemetry]
+    return {} if telemetry.blank?
+
+    {
+      ai_agent: {
+        turn_telemetry: telemetry
+      }
     }
   end
 

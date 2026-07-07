@@ -21,7 +21,7 @@ module IkasCatalogMvp
         parsed = plan.fetch('parsed')
         return unsupported_payload(plan.fetch('query'), parsed) if parsed.fetch('unsupported_constraints').any?
 
-        root = matched_root(db, parsed.fetch('terms'))
+        root = matched_root(db, category_scope_terms_for(parsed))
         buckets = root ? type_buckets(db, root.fetch('id')) : []
         if clarification_needed?(parsed, buckets)
           return clarify_payload(text, parsed, root, buckets)
@@ -243,7 +243,7 @@ module IkasCatalogMvp
         'variant_id' => row['variant_id'],
         'display_name' => row.fetch('display_name'),
         'category_paths' => category_paths_for(db, item_category_ids),
-        'price' => { 'amount' => row['price_amount'], 'currency' => row['currency'] },
+        'price' => price_payload_for(db, row),
         'stock' => {
           'available' => row.fetch('sellable').to_i.positive?,
           'in_stock' => row.fetch('in_stock').to_i.positive?,
@@ -292,7 +292,7 @@ module IkasCatalogMvp
       exact = facts.find { |fact| fact.fetch('type') == 'dimension_exact' && same_pair?(values, fact_values(fact)) }
       return match('exact', exact) if exact
 
-      max = facts.find { |fact| fact.fetch('type') == 'dimension_max' && pair_fits?(values, fact_values(fact)) }
+      max = compatible_dimension_max_fact(facts, values)
       return match('compatible', max) if max
 
       range = facts.find { |fact| fact.fetch('type') == 'dimension_range' && values_fit_range?(values, fact_values(fact)) }
@@ -392,6 +392,19 @@ module IkasCatalogMvp
 
     def fact_values(fact)
       [fact['numeric_value'], fact['numeric_value_2']].map(&:to_f)
+    end
+
+    def compatible_dimension_max_fact(facts, requested_values)
+      facts.select { |fact| fact.fetch('type') == 'dimension_max' && pair_fits?(requested_values, fact_values(fact)) }
+           .min_by { |fact| [dimension_area(fact_values(fact)), confidence_rank(fact.fetch('confidence'))] }
+    end
+
+    def dimension_area(values)
+      values[0].to_f * values[1].to_f
+    end
+
+    def confidence_rank(confidence)
+      { 'high' => 0, 'medium' => 1 }.fetch(confidence.to_s, 2)
     end
 
     def same_pair?(left, right)
@@ -523,6 +536,41 @@ module IkasCatalogMvp
     def category_matching_terms(db, item_category_ids, terms)
       tokens = item_category_tokens(db, item_category_ids)
       terms.select { |term| tokens.any? { |token| category_token_match?(term, token) } }.uniq
+    end
+
+    def category_scope_terms_for(parsed)
+      constraint_tokens = parsed.fetch('constraints').flat_map do |constraint|
+        Text.tokens([constraint['raw'], constraint['value']].compact.join(' '))
+      end
+      parsed.fetch('terms').reject { |term| constraint_tokens.any? { |token| category_token_match?(term, token) } }
+    end
+
+    def price_payload_for(db, row)
+      if custom_option_pricing_candidate?(db, row.fetch('item_id'))
+        return {
+          'amount' => nil,
+          'currency' => row['currency'],
+          'reference_amount' => row['price_amount'],
+          'compare_at_reference_amount' => row['compare_at_price_amount'],
+          'final_total_known' => false,
+          'pricing_model' => 'custom_options'
+        }
+      end
+
+      {
+        'amount' => row['price_amount'],
+        'currency' => row['currency'],
+        'compare_at_amount' => row['compare_at_price_amount'],
+        'final_total_known' => !row['price_amount'].nil?,
+        'pricing_model' => 'fixed'
+      }.compact
+    end
+
+    def custom_option_pricing_candidate?(db, item_id)
+      facts_for(db, item_id).any? do |fact|
+        fact.fetch('source') == 'product_option_set' &&
+          %w[custom_size_supported dimension_max].include?(fact.fetch('type'))
+      end
     end
 
     def item_category_tokens(db, item_category_ids)
