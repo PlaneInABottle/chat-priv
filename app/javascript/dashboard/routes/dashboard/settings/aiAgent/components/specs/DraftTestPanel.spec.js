@@ -12,14 +12,14 @@ vi.mock('vue-i18n', () => ({
 }));
 
 const instructions = {
-  version: 2,
+  version: 3,
   profile: {
     language: 'not_set',
     tone: 'not_set',
     formality: 'not_set',
     response_length: 'not_set',
   },
-  content: '## General instructions\n\nHelp customers.',
+  sections: { additional: 'Help customers.' },
 };
 
 const mountComponent = isDraft => {

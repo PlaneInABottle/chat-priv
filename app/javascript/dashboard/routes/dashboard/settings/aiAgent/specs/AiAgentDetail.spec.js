@@ -104,6 +104,11 @@ const createVuexStore = ({
       commit('SET_AI_AGENT_RECORD', record);
       return record;
     }),
+    refresh: vi.fn(async ({ commit }, id) => {
+      const record = recordsById[id];
+      commit('SET_AI_AGENT_RECORD', record);
+      return record;
+    }),
     update: vi.fn(async ({ commit }, payload) => {
       if (updateResult) {
         if (updateResult.id) {
@@ -143,6 +148,7 @@ const createVuexStore = ({
     },
     actions: {
       'aiAgent/show': actionMocks.show,
+      'aiAgent/refresh': actionMocks.refresh,
       'aiAgent/update': actionMocks.update,
       'aiAgent/getUsage': actionMocks.getUsage,
       'labels/get': vi.fn().mockResolvedValue([]),
@@ -298,7 +304,8 @@ describe('AiAgentDetail.vue', () => {
     });
 
     await flushPromises();
-    wrapper.vm.formState.instructions.content += '\n\nUnsaved prompt';
+    wrapper.vm.formState.instructions.sections.additional +=
+      '\n\nUnsaved prompt';
     await nextTick();
 
     expect(wrapper.vm.isSimulatorDisabled).toBe(true);
@@ -338,14 +345,14 @@ describe('AiAgentDetail.vue', () => {
       prompt: 'Updated live instructions',
       config: {
         instructions: {
-          version: 2,
+          version: 3,
           profile: {
             language: 'same_as_customer',
             tone: 'natural',
             formality: 'balanced',
             response_length: 'balanced',
           },
-          content: '## General instructions\n\nUpdated live instructions',
+          sections: { additional: 'Updated live instructions' },
         },
       },
     });
@@ -358,14 +365,17 @@ describe('AiAgentDetail.vue', () => {
     });
 
     await flushPromises();
-    wrapper.vm.formState.instructions.content =
-      '## General instructions\n\nUpdated live instructions';
+    wrapper.vm.formState.instructions.sections.additional =
+      'Updated live instructions';
     await wrapper.vm.handleSave();
 
     const [, payload] = actionMocks.update.mock.calls.at(-1);
     expect(payload.data.prompt).toBeUndefined();
-    expect(payload.data.config.instructions.content).toBe(
-      '## General instructions\n\nUpdated live instructions'
+    expect(payload.data.name).toBeUndefined();
+    expect(payload.data.inbox_ids).toBeUndefined();
+    expect(payload.data.config.tools).toBeUndefined();
+    expect(payload.data.config.instructions.sections.additional).toBe(
+      'Updated live instructions'
     );
     expect(payload.data.enabled).toBeUndefined();
     expect(wrapper.vm.isActive).toBe(true);
@@ -376,14 +386,17 @@ describe('AiAgentDetail.vue', () => {
     const { wrapper } = mountComponent();
 
     await flushPromises();
-    const savedContent = wrapper.vm.formState.instructions.content;
-    wrapper.vm.formState.instructions.content += '\n\nUnsaved instruction';
+    const savedContent = wrapper.vm.formState.instructions.sections.additional;
+    wrapper.vm.formState.instructions.sections.additional +=
+      '\n\nUnsaved instruction';
     wrapper.vm.formState.name = 'Unsaved name';
     await nextTick();
 
     wrapper.vm.discardCurrentChanges();
 
-    expect(wrapper.vm.formState.instructions.content).toBe(savedContent);
+    expect(wrapper.vm.formState.instructions.sections.additional).toBe(
+      savedContent
+    );
     expect(wrapper.vm.formState.name).toBe('Unsaved name');
   });
 

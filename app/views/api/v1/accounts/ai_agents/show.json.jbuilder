@@ -7,13 +7,20 @@ tools_summary[AiAgents::Config::ENABLED_KEY] = tool_availability.filter_enabled_
   tools_summary[AiAgents::Config::ENABLED_KEY],
   AiAgents::ToolRegistry.available_definitions
 )
+config_payload = @ai_agent.config.to_h.deep_stringify_keys
+instruction_source = config_payload['instructions']
+config_payload['instructions'] = if instruction_source.present?
+                                   AiAgents::InstructionDocument.new(instruction_source).normalized
+                                 else
+                                   AiAgents::InstructionDocument.from_legacy(@ai_agent.prompt)
+                                 end
 
 json.id @ai_agent.id
 json.account_id @ai_agent.account_id
 json.name @ai_agent.name
 json.prompt @ai_agent.prompt
 json.enabled @ai_agent.enabled
-json.config @ai_agent.config
+json.config config_payload
 json.tools_config tools_summary
 json.available_tools available_tools do |tool|
   json.key tool.key

@@ -5,6 +5,11 @@ import { useI18n } from 'vue-i18n';
 import Button from 'dashboard/components-next/button/Button.vue';
 import Editor from 'dashboard/components-next/Editor/Editor.vue';
 import DraftTestPanel from './DraftTestPanel.vue';
+import InstructionSectionNavigator from './InstructionSectionNavigator.vue';
+import {
+  INSTRUCTION_SECTION_KEYS,
+  instructionContentLength,
+} from '../helpers/instructionDocument';
 
 const props = defineProps({
   modelValue: { type: Object, required: true },
@@ -17,6 +22,7 @@ const emit = defineEmits(['update:modelValue', 'configureHandoff', 'tested']);
 
 const { t } = useI18n();
 const mobileView = ref('edit');
+const selectedSection = ref('profile');
 
 const profileOptions = computed(() => ({
   language: [
@@ -72,9 +78,44 @@ const profileFields = computed(() => [
   },
 ]);
 
+const sectionKeys = ['profile', ...INSTRUCTION_SECTION_KEYS];
+
+const isProfileConfigured = computed(() =>
+  Object.values(props.modelValue.profile).some(value => value !== 'not_set')
+);
+
+const isSectionConfigured = key => {
+  if (key === 'profile') return isProfileConfigured.value;
+  return Boolean(props.modelValue.sections[key]?.trim());
+};
+
+const sectionItems = computed(() =>
+  sectionKeys.map(key => ({
+    key,
+    shortTitle: t(
+      `AI_ASSISTANT.INSTRUCTIONS.SECTIONS.${key.toUpperCase()}.SHORT_TITLE`
+    ),
+    title: t(`AI_ASSISTANT.INSTRUCTIONS.SECTIONS.${key.toUpperCase()}.TITLE`),
+    description: t(
+      `AI_ASSISTANT.INSTRUCTIONS.SECTIONS.${key.toUpperCase()}.DESCRIPTION`
+    ),
+    configured: isSectionConfigured(key),
+    statusLabel: t(
+      isSectionConfigured(key)
+        ? 'AI_ASSISTANT.INSTRUCTIONS.CONFIGURED'
+        : 'AI_ASSISTANT.INSTRUCTIONS.NOT_CONFIGURED'
+    ),
+  }))
+);
+
+const selectedItem = computed(() =>
+  sectionItems.value.find(item => item.key === selectedSection.value)
+);
+
+const totalLength = computed(() => instructionContentLength(props.modelValue));
+const isOverLimit = computed(() => totalLength.value > 50000);
+
 const editorOptions = [
-  'h2',
-  'h3',
   'strong',
   'em',
   'link',
@@ -93,12 +134,21 @@ const updateProfile = (key, value) => {
     profile: { ...props.modelValue.profile, [key]: value },
   });
 };
+
+const updateSection = value => {
+  updateDocument({
+    sections: {
+      ...props.modelValue.sections,
+      [selectedSection.value]: value,
+    },
+  });
+};
 </script>
 
 <template>
   <div class="min-w-0">
     <div
-      class="mb-5 grid grid-cols-2 rounded-lg bg-n-alpha-black2 p-1 xl:hidden"
+      class="mb-5 grid grid-cols-2 rounded-lg bg-n-alpha-black2 p-1 min-[1360px]:hidden"
     >
       <button
         type="button"
@@ -129,29 +179,51 @@ const updateProfile = (key, value) => {
     </div>
 
     <div
-      class="grid min-w-0 grid-cols-1 items-start gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,0.58fr)]"
+      class="grid min-w-0 grid-cols-1 items-start gap-6 md:grid-cols-[12rem_minmax(0,1fr)] min-[1360px]:grid-cols-[12rem_minmax(30rem,1fr)_minmax(24rem,28rem)]"
     >
-      <main
-        class="min-w-0"
-        :class="mobileView === 'test' ? 'hidden xl:block' : ''"
+      <InstructionSectionNavigator
+        :items="sectionItems"
+        :selected-key="selectedSection"
+        :class="
+          mobileView === 'test' ? 'hidden min-[1360px]:flex' : 'hidden md:flex'
+        "
+        @select="selectedSection = $event"
+      />
+
+      <section
+        class="h-[calc(100vh-22rem)] min-h-[26rem] max-h-[48rem] min-w-0 flex-col overflow-hidden"
+        :class="mobileView === 'test' ? 'hidden min-[1360px]:flex' : 'flex'"
       >
-        <header class="mb-6">
+        <label class="mb-4 flex flex-col gap-1 text-sm font-medium md:hidden">
+          {{ t('AI_ASSISTANT.INSTRUCTIONS.SECTION_SELECTOR') }}
+          <select
+            v-model="selectedSection"
+            class="h-10 rounded-lg border border-n-weak bg-n-alpha-1 px-3 font-normal"
+          >
+            <option
+              v-for="item in sectionItems"
+              :key="item.key"
+              :value="item.key"
+            >
+              {{ item.shortTitle }}
+            </option>
+          </select>
+        </label>
+
+        <header class="flex-shrink-0 border-b border-n-weak pb-4">
           <h2 class="m-0 text-xl font-semibold text-n-slate-12">
-            {{ t('AI_ASSISTANT.INSTRUCTIONS.TITLE') }}
+            {{ selectedItem.title }}
           </h2>
-          <p class="mb-0 mt-1 max-w-3xl text-sm text-n-slate-11">
-            {{ t('AI_ASSISTANT.INSTRUCTIONS.DESCRIPTION') }}
+          <p class="mb-0 mt-1 max-w-2xl text-sm text-n-slate-11">
+            {{ selectedItem.description }}
           </p>
         </header>
 
-        <section class="border-y border-n-weak py-5">
-          <h3 class="m-0 text-sm font-semibold text-n-slate-12">
-            {{ t('AI_ASSISTANT.INSTRUCTIONS.PROFILE.TITLE') }}
-          </h3>
-          <p class="mb-4 mt-1 text-sm text-n-slate-11">
-            {{ t('AI_ASSISTANT.INSTRUCTIONS.PROFILE.DESCRIPTION') }}
-          </p>
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div
+          v-if="selectedSection === 'profile'"
+          class="flex-1 overflow-y-auto py-5"
+        >
+          <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <label
               v-for="field in profileFields"
               :key="field.key"
@@ -173,31 +245,34 @@ const updateProfile = (key, value) => {
               </select>
             </label>
           </div>
-        </section>
+        </div>
 
-        <section class="py-5">
+        <div v-else class="min-h-0 flex-1 py-5">
           <Editor
-            :model-value="modelValue.content"
-            editor-key="ai-agent-instructions"
-            :placeholder="t('AI_ASSISTANT.INSTRUCTIONS.DOCUMENT_PLACEHOLDER')"
+            :model-value="modelValue.sections[selectedSection] || ''"
+            :editor-key="`ai-agent-instructions-${selectedSection}`"
+            :placeholder="
+              t(
+                `AI_ASSISTANT.INSTRUCTIONS.SECTIONS.${selectedSection.toUpperCase()}.PLACEHOLDER`
+              )
+            "
             :max-length="50000"
-            show-character-count
+            :show-character-count="false"
             :enable-canned-responses="false"
             variant="article"
             :enabled-menu-options="editorOptions"
-            :min-height="32"
-            :max-height="60"
-            @update:model-value="updateDocument({ content: $event })"
+            :min-height="28"
+            :max-height="42"
+            @update:model-value="updateSection"
           />
-        </section>
+        </div>
 
-        <section
-          class="flex flex-wrap items-center justify-between gap-3 border-y border-n-weak py-4"
+        <div
+          v-if="selectedSection === 'handoff'"
+          class="flex flex-shrink-0 flex-wrap items-center justify-between gap-3 border-t border-n-weak py-4"
         >
           <div class="flex min-w-0 items-start gap-3">
-            <span
-              class="i-lucide-users mt-0.5 size-4 flex-shrink-0 text-n-slate-10"
-            />
+            <span class="i-lucide-users mt-0.5 size-4 text-n-slate-10" />
             <div>
               <p class="m-0 text-sm font-medium text-n-slate-12">
                 {{ t('AI_ASSISTANT.CAPABILITIES.HANDOFF') }}
@@ -219,16 +294,32 @@ const updateProfile = (key, value) => {
               @click="emit('configureHandoff')"
             />
           </div>
-        </section>
-      </main>
+        </div>
+
+        <p
+          class="m-0 flex-shrink-0 border-t border-n-weak pt-3 text-right text-xs"
+          :class="isOverLimit ? 'text-n-ruby-11' : 'text-n-slate-10'"
+        >
+          {{
+            t('AI_ASSISTANT.INSTRUCTIONS.TOTAL_CHAR_COUNT', {
+              count: totalLength,
+              limit: 50000,
+            })
+          }}
+        </p>
+      </section>
 
       <DraftTestPanel
-        class="xl:sticky xl:top-4"
-        :class="mobileView === 'edit' ? 'hidden xl:flex' : ''"
+        class="min-[1360px]:sticky min-[1360px]:top-4"
+        :class="
+          mobileView === 'edit'
+            ? 'hidden min-[1360px]:flex'
+            : 'flex md:col-span-2 min-[1360px]:col-span-1'
+        "
         :ai-agent-id="aiAgentId"
         :draft-instructions="modelValue"
         :is-draft="isDirty"
-        :is-disabled="isDisabled"
+        :is-disabled="isDisabled || isOverLimit"
         @tested="emit('tested')"
       />
     </div>
