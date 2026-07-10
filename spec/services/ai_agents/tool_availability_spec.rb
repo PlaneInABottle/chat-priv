@@ -33,6 +33,12 @@ RSpec.describe AiAgents::ToolAvailability do
   end
 
   describe '#filter_tools_config' do
+    it 'keeps human handoff when the payload has no enabled tools' do
+      filtered = described_class.new(account: account).filter_tools_config({}, AiAgents::ToolRegistry.available_definitions)
+
+      expect(filtered['enabled']).to eq(['human_handoff'])
+    end
+
     it 'strips unavailable ikas tools from a config payload' do
       config = {
         'enabled' => %w[human_handoff ikas_lookup_order ikas_catalog_search],

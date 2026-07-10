@@ -198,7 +198,7 @@ RSpec.describe AiAgents::Orchestrator do
     ).perform
 
     expect(result[:assistant_message]['content']).to eq('Hangi ürün için 70x80 ölçüyü kontrol edelim?')
-    expect(adapter).to have_received(:perform).exactly(3).times
+    expect(adapter).to have_received(:perform).exactly(2).times
   end
 
   it 'answers catalog no_match through the follow-up prompt as a normal search outcome' do
@@ -243,8 +243,8 @@ RSpec.describe AiAgents::Orchestrator do
       'handoff_used' => false,
       'final_answer_source' => 'tool_evidence'
     )
-    expect(adapter).to have_received(:perform).exactly(3).times
-    expect(AiAgentLlmCall.pluck(:step)).to include('customer_facing_finalizer')
+    expect(adapter).to have_received(:perform).exactly(2).times
+    expect(AiAgentLlmCall.pluck(:step)).not_to include('customer_facing_finalizer')
   end
 
   it 'retries the finalizer when it attempts to call tools after tool-backed evidence is available' do
@@ -267,7 +267,7 @@ RSpec.describe AiAgents::Orchestrator do
         }
       elsif calls.length == 2
         {
-          assistant_text: '200x300 cm ölçü için net eşleşme bulamadım. Hangi sineklik tipini düşündüğünüzü paylaşır mısınız?',
+          assistant_text: 'Elimdeki 3 arama sonucuna göre 200x300 cm ölçü için net eşleşme bulamadım.',
           tool_calls: [],
           finish_reason: 'stop'
         }
@@ -307,6 +307,90 @@ RSpec.describe AiAgents::Orchestrator do
     expect(AiAgentLlmCall.pluck(:step)).to include('customer_facing_finalizer_retry')
   end
 
+  it 'preserves an order answer when a catalog search has no match in the same turn' do
+    ai_agent.update!(config: { 'tools' => { 'enabled' => %w[ikas_catalog_search ikas_lookup_order] } })
+    catalog_result = { status: 'ok', result_type: 'no_match', result_count: 0, candidates: [] }
+    order_result = { status: 'ok', result_type: 'match', order: { order_number: 'ORD-42', status: 'shipped' } }
+    executions = [
+      AiAgents::ToolExecutor::Result.new(
+        status: 'executed',
+        tool_event: { 'tool' => 'ikas_catalog_search', 'status' => 'ok', 'result' => catalog_result.deep_stringify_keys },
+        tool_result: catalog_result
+      ),
+      AiAgents::ToolExecutor::Result.new(
+        status: 'executed',
+        tool_event: { 'tool' => 'ikas_lookup_order', 'status' => 'ok', 'result' => order_result.deep_stringify_keys },
+        tool_result: order_result
+      )
+    ]
+    executor = instance_double(AiAgents::ToolExecutor)
+    allow(executor).to receive(:execute).and_return(*executions)
+    allow(AiAgents::ToolExecutor).to receive(:new).and_return(executor)
+    allow(adapter).to receive(:perform).and_return(
+      {
+        assistant_text: nil,
+        tool_calls: [
+          { id: 'call_1', type: 'function', name: 'ikas_catalog_search', arguments: { query: 'mor perde' }.to_json },
+          { id: 'call_2', type: 'function', name: 'ikas_lookup_order', arguments: { order_number: 'ORD-42' }.to_json }
+        ],
+        finish_reason: 'tool_calls'
+      },
+      { assistant_text: 'Mor perdeyi bulamadım. ORD-42 siparişiniz kargoya verildi.', tool_calls: [], finish_reason: 'stop' }
+    )
+
+    result = described_class.new(
+      ai_agent: ai_agent.reload,
+      messages: [{ role: 'user', content: 'Mor perde var mı, ORD-42 ne durumda?' }],
+      mode: :test,
+      adapter: adapter
+    ).perform
+
+    expect(result[:assistant_message]['content']).to include('ORD-42 siparişiniz kargoya verildi')
+    expect(adapter).to have_received(:perform).twice
+  end
+
+  it 'does not replace multiple catalog no-match results with the single-search fallback' do
+    ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'] } })
+    result_one = { status: 'ok', result_type: 'no_match', result_count: 0, candidates: [], query: 'mor perde' }
+    result_two = { status: 'ok', result_type: 'no_match', result_count: 0, candidates: [], query: 'yeşil sineklik' }
+    executions = [result_one, result_two].map.with_index do |tool_result, index|
+      AiAgents::ToolExecutor::Result.new(
+        status: 'executed',
+        tool_event: {
+          'tool' => 'ikas_catalog_search',
+          'status' => 'ok',
+          'tool_call_id' => "call_#{index + 1}",
+          'result' => tool_result.deep_stringify_keys
+        },
+        tool_result: tool_result
+      )
+    end
+    executor = instance_double(AiAgents::ToolExecutor)
+    allow(executor).to receive(:execute).and_return(*executions)
+    allow(AiAgents::ToolExecutor).to receive(:new).and_return(executor)
+    allow(adapter).to receive(:perform).and_return(
+      {
+        assistant_text: nil,
+        tool_calls: [
+          { id: 'call_1', type: 'function', name: 'ikas_catalog_search', arguments: { query: 'mor perde' }.to_json },
+          { id: 'call_2', type: 'function', name: 'ikas_catalog_search', arguments: { query: 'yeşil sineklik' }.to_json }
+        ],
+        finish_reason: 'tool_calls'
+      },
+      { assistant_text: 'Mor perdeyi de yeşil sinekliği de bulamadım.', tool_calls: [], finish_reason: 'stop' }
+    )
+
+    result = described_class.new(
+      ai_agent: ai_agent.reload,
+      messages: [{ role: 'user', content: 'Mor perde ve yeşil sineklik var mı?' }],
+      mode: :test,
+      adapter: adapter
+    ).perform
+
+    expect(result[:assistant_message]['content']).to eq('Mor perdeyi de yeşil sinekliği de bulamadım.')
+    expect(adapter).to have_received(:perform).twice
+  end
+
   it 'retries the finalizer when it emits tool-call markup as text' do
     ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'] } })
     tool_execution = AiAgents::ToolExecutor::Result.new(
@@ -326,7 +410,7 @@ RSpec.describe AiAgents::Orchestrator do
           finish_reason: 'tool_calls'
         }
       elsif calls.length == 2
-        { assistant_text: 'Kedi tüllü pencere sineklik seçenekleri mevcut.', tool_calls: [], finish_reason: 'stop' }
+        { assistant_text: 'Elimdeki 3 arama sonucuna göre kedi tüllü seçenekler mevcut.', tool_calls: [], finish_reason: 'stop' }
       elsif calls.length == 3
         {
           assistant_text: "<｜｜DSML｜｜tool_calls>\n<｜｜DSML｜｜invoke name=\"ikas_catalog_search\">\n</｜｜DSML｜｜invoke>\n</｜｜DSML｜｜tool_calls>",
@@ -363,7 +447,7 @@ RSpec.describe AiAgents::Orchestrator do
           display_name: 'Orjin Pliseli Perde Antrasit',
           price: {
             amount: nil,
-            reference_amount: 12.94,
+            reference_amount: 12.90,
             compare_at_reference_amount: nil,
             final_total_known: false,
             pricing_model: 'custom_options'
@@ -394,11 +478,15 @@ RSpec.describe AiAgents::Orchestrator do
           finish_reason: 'tool_calls'
         }
       elsif calls.length == 2
-        { assistant_text: 'Orjin Pliseli Perde Antrasit özel ölçüyle fiyatlanır.', tool_calls: [], finish_reason: 'stop' }
+        { assistant_text: 'Gördüğünüz 12,9 TL tutarı nihai fiyat değildir.', tool_calls: [], finish_reason: 'stop' }
       elsif calls.length == 3
-        { assistant_text: 'Gördüğünüz **12,94 TL** tutarı nihai fiyat değildir.', tool_calls: [], finish_reason: 'stop' }
+        { assistant_text: 'Gördüğünüz **12,9 TL** tutarı nihai fiyat değildir.', tool_calls: [], finish_reason: 'stop' }
       else
-        { assistant_text: 'Gördüğünüz **12,94 TL** tutarı nihai fiyat değildir. Ölçü ve seçeneklere göre değişir.', tool_calls: [], finish_reason: 'stop' }
+        {
+          assistant_text: 'Gördüğünüz **12,9 TL** tutarı nihai fiyat değildir. Ölçü ve seçeneklere göre değişir.',
+          tool_calls: [],
+          finish_reason: 'stop'
+        }
       end
     end
 
@@ -412,9 +500,28 @@ RSpec.describe AiAgents::Orchestrator do
     ).perform
 
     expect(result[:assistant_message]['content']).to include('Gördüğünüz tutar')
-    expect(result[:assistant_message]['content']).not_to include('12,94', '12.94', 'TL')
+    expect(result[:assistant_message]['content']).not_to include('12,9', '12.9', 'TL')
     expect(adapter).to have_received(:perform).exactly(4).times
     expect(AiAgentLlmCall.pluck(:step)).to include('customer_facing_finalizer_retry')
+  end
+
+  it 'recognizes integer and zero-trimmed non-final reference price formats' do
+    orchestrator = described_class.new(ai_agent: ai_agent, messages: [], mode: :test, adapter: adapter)
+    tool_events = [
+      {
+        'result' => {
+          'candidates' => [
+            { 'price' => { 'reference_amount' => 100, 'final_total_known' => false } },
+            { 'price' => { 'reference_amount' => 12.90, 'final_total_known' => false } },
+            { 'price' => { 'reference_amount' => 1250, 'final_total_known' => false } }
+          ]
+        }
+      }
+    ]
+
+    ['100 TL', '100.0 TL', '100,0 TL', '100.00 TL', '100,00 TL', '12.9 TL', '12,9 TL', '1.250,00 TL'].each do |answer|
+      expect(orchestrator.send(:reference_price_leak?, answer, tool_events)).to be(true), answer
+    end
   end
 
   it 'finalizes tool-backed drafts into customer-facing replies without exposing internal process' do

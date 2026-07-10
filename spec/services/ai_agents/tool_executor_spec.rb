@@ -41,10 +41,10 @@ RSpec.describe AiAgents::ToolExecutor do
     expect(AiAgentToolExecution.last).to have_attributes(tool_key: 'unknown_tool', status: 'rejected', error_code: 'unknown_tool')
   end
 
-  it 'logs disabled tool rejections' do
+  it 'logs disabled optional tool rejections' do
     ai_agent.update!(config: { 'tools' => { 'enabled' => [] } })
 
-    result = executor.execute(tool_call)
+    result = executor.execute(tool_call(name: 'ikas_catalog_search', arguments: { query: '70x90 sineklik' }))
 
     expect(result.status).to eq('rejected')
     expect(AiAgentToolExecution.last.error_code).to eq('tool_not_enabled')
