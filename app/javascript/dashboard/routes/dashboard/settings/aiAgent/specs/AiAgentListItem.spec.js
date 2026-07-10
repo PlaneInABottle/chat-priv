@@ -7,8 +7,8 @@ const pushMock = vi.fn();
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
     t: (key, values = {}) => {
-      if (key === 'AI_AGENTS.ITEM.INBOXES_COUNT') {
-        return `${values.count} inboxes`;
+      if (key === 'AI_ASSISTANT.LIST.INBOX_COUNT') {
+        return `${values} inboxes`;
       }
 
       return key;
@@ -26,7 +26,9 @@ const buildAgent = overrides => ({
   id: 1,
   name: 'Helper',
   enabled: true,
+  lifecycle_status: 'active',
   created_at: '2026-01-01T00:00:00.000Z',
+  updated_at: '2026-02-01T00:00:00.000Z',
   agent_bot: { inbox_ids: [] },
   ...overrides,
 });
@@ -74,9 +76,8 @@ describe('AiAgentListItem.vue', () => {
     const wrapper = mountComponent(buildAgent({ id: 7 }));
     pushMock.mockClear();
 
-    const buttons = wrapper.findAll('button');
-    const deleteButton = buttons.find(
-      b => b.text() === 'AI_AGENTS.ITEM.DELETE'
+    const deleteButton = wrapper.find(
+      'button[aria-label="AI_AGENTS.ITEM.DELETE"]'
     );
     await deleteButton.trigger('click');
 
@@ -85,13 +86,13 @@ describe('AiAgentListItem.vue', () => {
     expect(wrapper.emitted('delete')[0][0].id).toBe(7);
   });
 
-  it('renders enabled status badge when agent is enabled', () => {
-    const wrapper = mountComponent(buildAgent({ enabled: true }));
-    expect(wrapper.text()).toContain('AI_AGENTS.ITEM.STATUS_ENABLED');
+  it('renders active lifecycle status', () => {
+    const wrapper = mountComponent(buildAgent({ lifecycle_status: 'active' }));
+    expect(wrapper.text()).toContain('AI_ASSISTANT.STATUS.ACTIVE');
   });
 
-  it('renders disabled status badge when agent is disabled', () => {
-    const wrapper = mountComponent(buildAgent({ enabled: false }));
-    expect(wrapper.text()).toContain('AI_AGENTS.ITEM.STATUS_DISABLED');
+  it('renders draft lifecycle status', () => {
+    const wrapper = mountComponent(buildAgent({ lifecycle_status: 'draft' }));
+    expect(wrapper.text()).toContain('AI_ASSISTANT.STATUS.DRAFT');
   });
 });

@@ -1,7 +1,7 @@
 {
   "AI_AGENT": {
     "HEADER": "AI Assistant",
-    "DESCRIPTION": "Configure your AI assistant to help manage conversations",
+    "DESCRIPTION": "Set up how this assistant responds, connect inboxes, test it, and publish when ready.",
     "LEARN_MORE": "Learn more about AI Assistant",
     "BACK": "Back",
     "UNSAVED_CHANGES_WARNING": "You have unsaved changes. Are you sure you want to leave?",
@@ -14,10 +14,10 @@
       "PLACEHOLDER": "Enter agent name..."
     },
     "PROMPT": {
-      "LABEL": "System Prompt",
-      "PLACEHOLDER": "Enter instructions for your AI assistant...",
-      "HELP": "This prompt guides how the AI responds to conversations",
-      "REQUIRED_FOR_TESTING": "Add a system prompt, then save your changes before testing this AI agent."
+      "LABEL": "Instructions",
+      "PLACEHOLDER": "Describe how the assistant should respond...",
+      "HELP": "Write clear, plain-language guidance for customer conversations.",
+      "REQUIRED_FOR_TESTING": "Add instructions, then save your changes before testing this AI assistant."
     },
     "ENABLED": {
       "LABEL": "Enable AI Assistant",
@@ -30,11 +30,11 @@
       "ASSIGNED_TO": "Assigned to {owner}"
     },
     "TOOLS": {
-      "LABEL": "Built-in Tools",
-      "HELP": "Enable the allowlisted tools available to this AI agent.",
+      "LABEL": "Capabilities",
+      "HELP": "Choose the customer tasks this assistant can complete. Human support fallback is always available.",
       "HUMAN_HANDOFF": {
-        "LABEL": "Human handoff",
-        "HELP": "Allow the AI agent to hand conversations to a human and limit which existing labels it may apply.",
+        "LABEL": "Human support fallback",
+        "HELP": "The assistant can always send a conversation to your team when a person is needed.",
         "ALLOWED_LABELS_LABEL": "Allowed labels",
         "ALLOWED_LABELS_PLACEHOLDER": "Select labels",
         "ALLOWED_LABELS_SEARCH_PLACEHOLDER": "Search labels",
@@ -42,14 +42,14 @@
         "ALLOWED_LABELS_HELP": "Only existing account labels can be selected. The AI can apply only this subset during handoff."
       },
       "IKAS_LOOKUP_ORDER": {
-        "LABEL": "ikas lookup order",
-        "HELP": "Allow the AI agent to look up connected ikas order, package, payment, cargo, and tracking status from order number, phone, email, or the conversation contact.",
+        "LABEL": "Order updates",
+        "HELP": "Look up order, payment, package, cargo, and tracking information from your connected ikas store.",
         "CONNECTED": "ikas order lookup is ready for order and cargo questions.",
         "UNAVAILABLE": "ikas lookup order is unavailable (state: {state})."
       },
       "IKAS_CATALOG_SEARCH": {
-        "LABEL": "ikas catalog search",
-        "HELP": "Allow the AI agent to search the connected seller catalog before answering product, stock, size, dimension, color, category, weight, volume, and organic product questions.",
+        "LABEL": "Product information",
+        "HELP": "Search your connected ikas catalog before answering product, stock, size, color, and compatibility questions.",
         "READY": "ikas catalog is synced and ready for catalog answers.",
         "UNAVAILABLE": "ikas catalog search is unavailable (connection: {state}, catalog: {catalogStatus})."
       }
@@ -84,7 +84,7 @@
       "NEW": "New Test",
       "CLEAR_ALL": "Clear All",
       "CLEAR_ALL_CONFIRM": "Delete all test conversations? This cannot be undone.",
-      "EMPTY": "No test conversations yet. Start a new one to test your AI agent.",
+      "EMPTY": "No test conversations yet. Start a new one to test your AI assistant.",
       "EMPTY_CHAT": "Select or create a test conversation to begin chatting",
       "DELETE_CONFIRM": "Delete this test conversation?",
       "DELETE": "Delete",
@@ -100,9 +100,9 @@
       "INTERNAL_NOTE": "Internal note",
       "LABELS_TO_APPLY": "Labels to apply",
       "LABELS_IGNORED": "Labels ignored",
-      "SAVE_BEFORE_TESTING": "Save your changes before testing this AI agent.",
-      "ENABLE_BEFORE_TESTING": "Enable this AI agent and save your changes before testing.",
-      "ADD_PROMPT_BEFORE_TESTING": "Add a system prompt and save your changes before testing this AI agent.",
+      "SAVE_BEFORE_TESTING": "Save your changes before testing this AI assistant.",
+      "ENABLE_BEFORE_TESTING": "Publish this AI assistant before testing.",
+      "ADD_PROMPT_BEFORE_TESTING": "Add instructions and save your changes before testing this AI assistant.",
       "ERROR": "Sorry, I couldn't generate a response right now. Please try again."
     },
     "SAVE": {
@@ -111,41 +111,184 @@
       "ERROR": "Failed to save AI Assistant settings"
     }
   },
+  "AI_ASSISTANT": {
+    "STATUS": {
+      "ACTIVE": "Active",
+      "PAUSED": "Paused",
+      "DRAFT": "Draft"
+    },
+    "LIST": {
+      "NAME": "Assistant",
+      "STATUS": "Status",
+      "INBOXES": "Inboxes",
+      "UPDATED": "Updated",
+      "ACTIONS": "Actions",
+      "INBOX_COUNT": "No inboxes | {count} inbox | {count} inboxes"
+    },
+    "USAGE": {
+      "TITLE": "AI Assistant usage",
+      "DESCRIPTION": "Review account-wide conversation usage and recent activity.",
+      "OPEN": "View usage",
+      "BACK": "Back to assistants"
+    },
+    "READINESS": {
+      "TITLE": "Ready to publish?",
+      "DESCRIPTION": "Complete these steps before this assistant can respond to customers.",
+      "INSTRUCTIONS": "Instructions added",
+      "INBOX": "Inbox connected",
+      "TEST": "Test conversation completed"
+    },
+    "ACTIONS": {
+      "PUBLISH": "Publish assistant",
+      "PAUSE": "Pause assistant",
+      "PUBLISHED": "Assistant published",
+      "PAUSED": "Assistant paused and no longer responds to new customer messages.",
+      "PUBLISH_ERROR": "Complete the setup checklist before publishing."
+    },
+    "ACTIVE_NOTICE": "This assistant is responding to customers. Saved changes apply to subsequent conversations without taking it offline.",
+    "CAPABILITIES": {
+      "HANDOFF": "Human support fallback",
+      "ALWAYS_ON": "Always available"
+    },
+    "CREATE": {
+      "PROGRESS": "Assistant setup progress",
+      "STEPS": {
+        "BASICS": "Basics",
+        "INSTRUCTIONS": "Instructions",
+        "INBOXES": "Inboxes",
+        "REVIEW": "Review"
+      },
+      "BASICS_TITLE": "What should this assistant do?",
+      "BASICS_HELP": "Choose a clear purpose. You can refine the instructions before testing.",
+      "GOAL_LABEL": "Primary goal",
+      "GOALS": {
+        "SUPPORT": "Answer customer questions",
+        "SALES": "Help customers choose products",
+        "ORDERS": "Help with orders and delivery",
+        "CUSTOM": "A custom support workflow"
+      },
+      "LANGUAGE": "Response language",
+      "LANGUAGES": {
+        "TR": "Turkish",
+        "EN": "English"
+      },
+      "TONE": "Tone",
+      "TONES": {
+        "FRIENDLY": "Friendly",
+        "PROFESSIONAL": "Professional",
+        "CONCISE": "Concise"
+      },
+      "INSTRUCTIONS_TITLE": "Review the assistant's instructions",
+      "INSTRUCTIONS_HELP": "The draft below is built from your choices. Edit it in plain language so it matches your business.",
+      "BUSINESS_CONTEXT": "What should it know about your business?",
+      "BOUNDARIES": "What should it avoid or leave to a person?",
+      "REBUILD": "Rebuild draft",
+      "INSTRUCTIONS_LABEL": "Instructions",
+      "INSTRUCTIONS_REQUIRED": "Add instructions before continuing.",
+      "INBOXES_TITLE": "Where should it answer?",
+      "INBOXES_HELP": "Connect at least one inbox. An inbox can belong to only one automated assistant.",
+      "INBOX_REQUIRED": "Select at least one inbox before continuing.",
+      "REVIEW_TITLE": "Create your draft",
+      "REVIEW_HELP": "The assistant will stay offline until it passes a test and you publish it.",
+      "BACK": "Back",
+      "CONTINUE": "Continue",
+      "CREATE_AND_TEST": "Create draft and test"
+    }
+  },
   "AI_AGENTS": {
-    "HEADER": "AI Agents",
-    "DESCRIPTION": "Manage your AI agents",
-    "ADD": "Add New Agent",
+    "HEADER": "AI Assistants",
+    "DESCRIPTION": "Create and manage assistants that answer customer conversations.",
+    "ADD": "New assistant",
     "NEW": {
-      "TITLE": "New AI Agent",
-      "NAME_LABEL": "Agent Name",
+      "TITLE": "New AI Assistant",
+      "NAME_LABEL": "Assistant name",
       "NAME_PLACEHOLDER": "e.g., Sales Assistant",
       "CREATE": "Create Agent",
       "CANCEL": "Cancel",
       "NAME_REQUIRED": "Name is required",
-      "SUCCESS": "AI agent created successfully",
-      "ERROR": "Failed to create AI agent"
+      "SUCCESS": "AI assistant created successfully",
+      "ERROR": "Failed to create AI assistant"
     },
     "LIST": {
-      "EMPTY_TITLE": "No AI agents yet",
-      "EMPTY_DESCRIPTION": "Create your first AI agent to get started.",
-      "CREATE_FIRST": "Create First Agent"
+      "EMPTY_TITLE": "No AI assistants yet",
+      "EMPTY_DESCRIPTION": "Create your first AI assistant to get started.",
+      "CREATE_FIRST": "Create first assistant"
     },
     "ITEM": {
       "EDIT": "Edit",
       "DELETE": "Delete",
-      "DELETE_CONFIRM": "Are you sure you want to delete this agent? This action cannot be undone.",
+      "DELETE_CONFIRM": "Are you sure you want to delete this assistant? This action cannot be undone.",
       "INBOXES_COUNT": "{count} inboxes",
-      "DELETE_SUCCESS": "AI agent deleted successfully",
-      "DELETE_ERROR": "Failed to delete AI agent",
+      "DELETE_SUCCESS": "AI assistant deleted successfully",
+      "DELETE_ERROR": "Failed to delete AI assistant",
       "STATUS_ENABLED": "Enabled",
       "STATUS_DISABLED": "Disabled"
     }
   },
   "VOICE_AI": {
-    "HEADER": "Voice AI",
-    "DESCRIPTION": "Configure the LiveKit voice AI MVP and run browser-based test calls before connecting a phone provider.",
+    "HEADER": "Voice Assistants",
+    "DESCRIPTION": "Create, test, and manage assistants that answer customer calls.",
+    "STATUS": {
+      "ACTIVE": "Active",
+      "PAUSED": "Paused",
+      "DRAFT": "Draft"
+    },
+    "CREATE": {
+      "TITLE": "Build a starting point",
+      "DESCRIPTION": "Describe the job and tone, then build editable voice instructions.",
+      "GOAL": "Primary goal",
+      "TONE": "Tone",
+      "BUSINESS_CONTEXT": "What should it know about your business?",
+      "BOUNDARIES": "What should it avoid or leave to a person?",
+      "BUILD_INSTRUCTIONS": "Build instruction draft",
+      "GOALS": {
+        "SUPPORT": "Answer customer questions",
+        "SALES": "Help callers choose products",
+        "ORDERS": "Help with orders and delivery"
+      },
+      "TONES": {
+        "FRIENDLY": "Friendly",
+        "PROFESSIONAL": "Professional",
+        "CONCISE": "Concise"
+      }
+    },
+    "CAPABILITIES": {
+      "ALWAYS_AVAILABLE": "Always available",
+      "HUMAN_HANDOFF": {
+        "LABEL": "Human support fallback",
+        "DESCRIPTION": "Send the call to your team when a person is needed."
+      },
+      "IKAS_LOOKUP_ORDER": {
+        "LABEL": "Order updates",
+        "DESCRIPTION": "Look up order, payment, cargo, and tracking information from ikas."
+      },
+      "IKAS_CATALOG_SEARCH": {
+        "LABEL": "Product information",
+        "DESCRIPTION": "Search the connected catalog before answering product questions."
+      },
+      "END_CUSTOMER_CALL": {
+        "LABEL": "End completed calls",
+        "DESCRIPTION": "Finish the call naturally when the conversation is complete."
+      }
+    },
+    "READINESS": {
+      "TITLE": "Ready to publish?",
+      "DESCRIPTION": "Complete the required steps before this assistant can answer real calls.",
+      "GREETING": "Greeting added",
+      "INSTRUCTIONS": "Instructions added",
+      "INBOX": "Call inbox connected",
+      "TEST": "Browser test call completed",
+      "PHONE": "Production phone number connected",
+      "OPTIONAL": "(not required to publish)"
+    },
+    "PHONE_READINESS": {
+      "TITLE": "Production phone connection",
+      "READY": "A production number is connected and ready for incoming calls.",
+      "MISSING": "No production number is connected. You can still test and publish this assistant, but it cannot receive real calls yet. Contact your installation administrator to connect a number.",
+      "NUMBER_STATUS": "{number} · {status}"
+    },
     "TABS": {
-      "AGENTS": "Voice agents",
+      "AGENTS": "Assistants",
       "TEST": "Test call",
       "RECORDINGS": "Recordings",
       "USAGE": "Usage"
@@ -188,13 +331,13 @@
       "UNLIMITED_SHORT": "Unlimited"
     },
     "AGENTS": {
-      "TITLE": "Voice agents",
+      "TITLE": "Voice assistants",
       "CREATE": "Create voice agent",
-      "NEW": "New",
+      "NEW": "New voice assistant",
       "EMPTY": "No voice agents yet.",
       "LIST_HELP": "Create agents and assign inboxes they can answer.",
       "EDITOR_TITLE": "Voice agent",
-      "EDITOR_DESCRIPTION": "Configure the greeting, prompt, and tools used during calls. Runtime settings are managed by your administrator.",
+      "EDITOR_DESCRIPTION": "Configure the greeting, instructions, capabilities, and call inboxes.",
       "STATUS_ENABLED": "Enabled",
       "STATUS_DISABLED": "Disabled",
       "ASSIGNED_COUNT": "{count} assigned",
@@ -205,10 +348,17 @@
       "DISABLED_BY_ADMIN": "Voice AI is disabled by your administrator.",
       "PROMPT": "Voice prompt",
       "PROMPT_CHAR_COUNT": "{count} / {limit} characters",
-      "TOOLS": "Tools",
+      "TOOLS": "Capabilities",
       "SAVE": "Save voice agent",
       "SAVE_SUCCESS": "Voice agent saved.",
       "SAVE_ERROR": "Failed to save voice agent.",
+      "PUBLISH": "Publish assistant",
+      "PAUSE": "Pause assistant",
+      "PUBLISH_SUCCESS": "Voice assistant published.",
+      "PUBLISH_ERROR": "Complete the setup checklist before publishing.",
+      "PAUSE_SUCCESS": "Voice assistant paused.",
+      "PAUSE_ERROR": "Failed to pause voice assistant.",
+      "LIVE_EDIT_NOTICE": "This assistant is answering calls. Saved changes apply to subsequent calls without taking it offline.",
       "UNSAVED_CHANGES": "You have unsaved voice agent changes. Discard them?",
       "IKAS_READY": "Ikas is connected and the storefront catalog is synced.",
       "IKAS_CATALOG_NOT_SYNCED": "Ikas is connected, but the storefront catalog is not synced yet.",
@@ -219,6 +369,7 @@
       "DESCRIPTION": "Choose which API inboxes this voice agent can answer. Move an inbox here when this agent should handle that test or future voice route.",
       "API_SANDBOX": "API sandbox inbox",
       "ASSIGNED_TO": "Currently assigned to {agent}; saving will move it here.",
+      "RECORDING_LABEL": "Record calls for {inbox}",
       "UNKNOWN_AGENT": "another voice agent"
     },
     "TEST": {

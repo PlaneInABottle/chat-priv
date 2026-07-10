@@ -74,7 +74,10 @@ const sendMessage = async content => {
 
   if (result?.error) {
     useAlert(result.error || t('AI_AGENT.TEST_CONVERSATIONS.ERROR'));
+    return;
   }
+
+  await store.dispatch('aiAgent/show', props.aiAgentId);
 };
 
 const handleBack = () => {

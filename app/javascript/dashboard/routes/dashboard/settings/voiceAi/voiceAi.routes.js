@@ -11,7 +11,7 @@ const meta = {
 export default {
   routes: [
     {
-      path: frontendURL('accounts/:accountId/settings/voice-ai'),
+      path: frontendURL('accounts/:accountId/settings/voice-assistants'),
       component: SettingsWrapper,
       beforeEnter: redirectIfFeatureDisabled,
       children: [
@@ -22,6 +22,10 @@ export default {
           meta,
         },
       ],
+    },
+    {
+      path: frontendURL('accounts/:accountId/settings/voice-ai'),
+      redirect: to => ({ name: 'voice_ai_settings', params: to.params }),
     },
   ],
 };
