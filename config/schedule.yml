@@ -66,6 +66,12 @@ reconcile_stale_livekit_calls_job:
   class: 'Voice::Livekit::ReconcileStaleCallsJob'
   queue: scheduled_jobs
 
+# executed daily at 0215 UTC to remove expired AI payloads and media
+purge_expired_ai_data_job:
+  cron: '15 2 * * *'
+  class: 'AiDataRetention::SchedulePurgeJob'
+  queue: scheduled_jobs
+
 # executed daily at 2230 UTC
 # removes old notifications (>1 month) and trims to 300 per user
 remove_old_notification_job:

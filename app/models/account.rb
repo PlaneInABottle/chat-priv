@@ -70,7 +70,9 @@ class Account < ApplicationRecord
   store_accessor :settings, :keep_pending_on_bot_failure
   store_accessor :settings, :captain_auto_resolve_mode, :captain_false_promise_harness_enabled,
                  :ai_agent_enabled, :ai_agent_model, :ai_agent_conversation_limit, :ai_agent_conversation_reuse_window_hours,
-                 :voice_ai_enabled, :voice_ai_monthly_minute_limit, :voice_ai_max_call_duration_minutes, :voice_ai_concurrent_call_limit
+                 :ai_agent_data_retention_days, :voice_ai_enabled, :voice_ai_monthly_minute_limit,
+                 :voice_ai_max_call_duration_minutes, :voice_ai_concurrent_call_limit,
+                 :voice_ai_data_retention_days
 
   attr_reader :voice_agent_runtime_settings
   include AccountCaptainAutoResolve
@@ -221,6 +223,10 @@ class Account < ApplicationRecord
     value.positive? ? value : 24
   end
 
+  def ai_agent_data_retention_days
+    AiDataRetention::Policy.normalize_days(super)
+  end
+
   def voice_ai_settings
     {
       enabled: voice_ai_enabled?,
@@ -254,6 +260,10 @@ class Account < ApplicationRecord
 
   def voice_ai_concurrent_call_limit
     non_negative_integer(super.presence || 1)
+  end
+
+  def voice_ai_data_retention_days
+    AiDataRetention::Policy.normalize_days(super)
   end
 
   def voice_inbox_setting_for(inbox:, id: nil)

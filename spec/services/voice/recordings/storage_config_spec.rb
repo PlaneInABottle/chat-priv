@@ -76,4 +76,28 @@ RSpec.describe Voice::Recordings::StorageConfig do
       )
     end
   end
+
+  describe '#delete_object' do
+    it 'deletes the recording from its persisted bucket' do
+      recording = instance_double(
+        VoiceRecording,
+        bucket: 'call-recordings',
+        object_key: 'voice-recordings/account-1/call-1/room.mp4'
+      )
+      s3_client = instance_double(Aws::S3::Client)
+      allow(Aws::S3::Client).to receive(:new).and_return(s3_client)
+      expect(s3_client).to receive(:delete_object).with(
+        bucket: 'call-recordings',
+        key: 'voice-recordings/account-1/call-1/room.mp4'
+      )
+
+      with_modified_env(
+        'VOICE_RECORDING_S3_ACCESS_KEY_ID' => 'recording-access',
+        'VOICE_RECORDING_S3_SECRET_ACCESS_KEY' => 'recording-secret',
+        'VOICE_RECORDING_S3_BUCKET' => 'default-recordings'
+      ) do
+        described_class.new.delete_object(recording)
+      end
+    end
+  end
 end
