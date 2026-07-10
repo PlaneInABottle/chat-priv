@@ -78,23 +78,8 @@ RSpec.describe Account do
   end
 
   describe 'voice agent defaults' do
-    it 'creates one default voice agent when the account is created' do
-      account = create(:account)
-
-      expect(account.voice_agents.count).to eq(1)
-      expect(account.voice_agents.first).to have_attributes(
-        name: 'Voice Assistant',
-        enabled: true,
-        language: 'tr',
-        voice: 'Charon'
-      )
-      expect(account.voice_agents.first.tools_config['enabled']).to include('human_handoff', 'end_customer_call')
-    end
-
-    it 'does not create duplicate default voice agents' do
-      account = create(:account)
-
-      expect { account.create_default_voice_agent! }.not_to(change { account.voice_agents.count })
+    it 'does not provision an active voice agent for a new account' do
+      expect { create(:account) }.not_to change(VoiceAgent, :count)
     end
   end
 

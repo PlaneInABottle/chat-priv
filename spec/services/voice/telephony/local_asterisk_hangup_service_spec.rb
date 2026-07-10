@@ -4,7 +4,7 @@ RSpec.describe Voice::Telephony::LocalAsteriskHangupService do
   let(:account) { create(:account) }
   let(:api_channel) { create(:channel_api, account: account) }
   let(:inbox) { api_channel.inbox }
-  let(:voice_agent) { account.voice_agents.first! }
+  let(:voice_agent) { create(:voice_agent, account: account) }
   let(:voice_inbox_setting) { create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: voice_agent) }
   let(:provider_connection) do
     create(

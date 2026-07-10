@@ -5,7 +5,7 @@ RSpec.describe 'Api::V1::Accounts::Voice::Calls', type: :request do
   let(:agent) { create(:user, account: account, role: :agent) }
   let(:api_channel) { create(:channel_api, account: account) }
   let(:inbox) { api_channel.inbox }
-  let(:voice_agent) { account.voice_agents.first! }
+  let(:voice_agent) { create(:voice_agent, account: account) }
   let!(:voice_inbox_setting) { create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: voice_agent) }
   let(:call) { Voice::TestCallBuilder.perform!(account: account, inbox: inbox, voice_agent: voice_agent) }
   let(:conversation_call) { build_conversation_call }
