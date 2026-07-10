@@ -11,6 +11,7 @@ from typing import Any
 import aiohttp
 import aiohttp.web
 from dotenv import load_dotenv
+from google.genai import types
 from livekit import agents, rtc
 from livekit.agents import Agent, AgentSession, AutoSubscribe, RoomInputOptions, RunContext, function_tool, inference
 from livekit.agents.llm import ChatMessage
@@ -346,6 +347,9 @@ def build_session(instructions: str | None = None, runtime: dict[str, Any] | Non
                     voice=voice,
                     temperature=float(os.getenv("VOICE_AGENT_TEMPERATURE", "0.8")),
                     instructions=resolved_instructions,
+                    context_window_compression=types.ContextWindowCompressionConfig(
+                        sliding_window=types.SlidingWindow(),
+                    ),
                 )
             )
         raise ValueError(f"Unsupported realtime provider: {provider}")
