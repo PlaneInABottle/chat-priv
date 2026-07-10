@@ -167,6 +167,7 @@
       "HANDOFF_HELP": "The assistant can always transfer a conversation to your team. Configure which labels it may add during transfer.",
       "CONFIGURED": "Configured",
       "NOT_CONFIGURED": "Not configured",
+      "HANDOFF_DEFAULT_STATUS": "Available by default",
       "ALL_SECTIONS_STATUS": "Combined preview",
       "ALL_SECTIONS_EMPTY": "Add guidance in a section to see the complete instruction set here.",
       "SECTION_SELECTOR": "Instruction section",
@@ -178,9 +179,9 @@
           "DESCRIPTION": "Review the complete instruction set the assistant will use. Select a section to make changes."
         },
         "PROFILE": {
-          "SHORT_TITLE": "Language & style",
-          "TITLE": "Language and style",
-          "DESCRIPTION": "Choose the assistant's default communication style. Leave a field unset when the written instructions already cover it."
+          "SHORT_TITLE": "Language & tone",
+          "TITLE": "Language and tone",
+          "DESCRIPTION": "Choose the assistant's default language and tone. Leave a field unset when the written instructions already cover it."
         },
         "IDENTITY": {
           "SHORT_TITLE": "Identity",
