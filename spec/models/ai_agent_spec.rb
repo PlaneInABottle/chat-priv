@@ -8,6 +8,7 @@ RSpec.describe AiAgent do
     it { is_expected.to have_many(:tool_executions).class_name('AiAgentToolExecution').dependent(:destroy) }
     it { is_expected.to have_many(:evaluation_cases).class_name('AiAgentEvaluationCase').dependent(:destroy) }
     it { is_expected.to have_many(:evaluation_runs).class_name('AiAgentEvaluationRun').dependent(:destroy) }
+    it { is_expected.to have_many(:learning_suggestions).class_name('AiAgentLearningSuggestion').dependent(:destroy) }
     it { is_expected.to have_many(:usage_events).class_name('AiAgentUsageEvent').dependent(:destroy) }
   end
 

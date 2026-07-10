@@ -54,6 +54,16 @@ class Api::V1::Accounts::Conversations::MessagesController < Api::V1::Accounts::
     render json: { content: translated_content }
   end
 
+  def suggest_learning
+    @learning_suggestion = AiAgents::LearningSuggestionCreator.new(
+      message: message,
+      submitted_by: Current.user
+    ).perform
+    render 'api/v1/accounts/ai_agent_learning_suggestions/show', status: :accepted
+  rescue AiAgents::LearningSuggestionCreator::InvalidCandidate => e
+    render json: { error: e.message }, status: :unprocessable_entity
+  end
+
   private
 
   def message

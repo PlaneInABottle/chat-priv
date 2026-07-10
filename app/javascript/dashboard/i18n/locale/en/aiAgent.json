@@ -8,8 +8,8 @@
     "TABS": {
       "INSTRUCTIONS": "Instructions",
       "CONNECTIONS": "Connections",
-      "TEST_HISTORY": "Test history",
-      "EVALUATIONS": "Evaluations"
+      "TEST_HISTORY": "Test",
+      "IMPROVE": "Improve"
     },
     "NAME": {
       "LABEL": "Agent Name",
@@ -209,6 +209,55 @@
         "SAVE": "The evaluation scenario could not be saved.",
         "DELETE": "The evaluation scenario could not be deleted.",
         "RUN": "The evaluation run could not be started."
+      }
+    },
+    "IMPROVE": {
+      "EVALUATIONS": "Evaluations",
+      "LEARNINGS": "Learnings"
+    },
+    "LEARNING": {
+      "TITLE": "Learning suggestions",
+      "DESCRIPTION": "Review reusable guidance proposed from human replies. Applying a suggestion changes only the saved draft.",
+      "LOADING": "Loading learning suggestions...",
+      "OPEN_CONVERSATION": "Open conversation",
+      "CUSTOMER_MESSAGE": "Customer message",
+      "HUMAN_ANSWER": "Human answer",
+      "PROPOSED_INSTRUCTION": "Proposed instruction",
+      "TARGET_SECTION": "Instruction section",
+      "DISMISS": "Dismiss",
+      "APPLY_TO_DRAFT": "Apply to draft",
+      "APPLIED": "Instruction added to the assistant draft",
+      "DISMISSED": "Learning suggestion dismissed",
+      "NO_OPEN": "No suggestions need review.",
+      "HISTORY": "Reviewed suggestions ({count})",
+      "EMPTY": {
+        "TITLE": "No learning suggestions yet",
+        "DESCRIPTION": "Human replies suggested for the assistant will appear here for administrator review."
+      },
+      "STATUS": {
+        "PENDING": "Waiting for analysis",
+        "ANALYZING": "Analyzing",
+        "READY": "Ready to review",
+        "APPLIED": "Added to draft",
+        "DISMISSED": "Dismissed",
+        "FAILED": "Needs attention",
+        "NOT_RECOMMENDED": "Not recommended"
+      },
+      "SECTIONS": {
+        "BUSINESS_CONTEXT": "Business context",
+        "TASKS": "Tasks and conversation flow",
+        "RULES": "Rules and boundaries",
+        "HANDOFF": "Human handoff",
+        "ADDITIONAL": "Additional instructions"
+      },
+      "CONFIRM_DISMISS": {
+        "TITLE": "Dismiss this suggestion?",
+        "DESCRIPTION": "It will move to reviewed suggestions and will not change the assistant draft."
+      },
+      "ERROR": {
+        "LOAD": "Learning suggestions could not be loaded.",
+        "APPLY": "The suggestion could not be applied to the draft.",
+        "DISMISS": "The suggestion could not be dismissed."
       }
     },
     "CAPABILITIES": {

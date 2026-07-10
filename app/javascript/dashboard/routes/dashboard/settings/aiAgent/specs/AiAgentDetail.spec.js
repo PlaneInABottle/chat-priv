@@ -198,9 +198,9 @@ const mountComponent = options => {
           template: '<div class="instruction-workspace" />',
           props: ['modelValue', 'aiAgentId', 'isDirty', 'isDisabled'],
         },
-        EvaluationSuite: {
-          template: '<div class="evaluation-suite" />',
-          props: ['aiAgentId'],
+        ImproveWorkspace: {
+          template: '<div class="improve-workspace">{{ mode }}</div>',
+          props: ['aiAgentId', 'mode'],
         },
         TabBar: {
           template:
@@ -431,9 +431,19 @@ describe('AiAgentDetail.vue', () => {
 
     await flushPromises();
 
-    expect(wrapper.vm.activeTab).toBe('evaluations');
+    expect(wrapper.vm.activeTab).toBe('improve');
     expect(wrapper.vm.isCurrentTabDirty).toBe(false);
-    expect(wrapper.find('.evaluation-suite').exists()).toBe(true);
+    expect(wrapper.find('.improve-workspace').text()).toBe('evaluations');
+  });
+
+  it('opens learning suggestions in the improve workspace', async () => {
+    setRouteName('ai_agent_learning_suggestions');
+    const { wrapper } = mountComponent();
+
+    await flushPromises();
+
+    expect(wrapper.vm.activeTab).toBe('improve');
+    expect(wrapper.find('.improve-workspace').text()).toBe('learnings');
   });
 
   it('discards the current instruction draft without affecting connection edits', async () => {

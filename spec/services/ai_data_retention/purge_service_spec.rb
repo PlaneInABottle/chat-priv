@@ -40,7 +40,13 @@ RSpec.describe AiDataRetention::PurgeService do
 
       result = described_class.new(account: account).perform(kind: 'text')
 
-      expect(result['text']).to eq(llm_calls: 1, tool_executions: 1, test_conversations: 1, evaluation_runs: 1)
+      expect(result['text']).to eq(
+        llm_calls: 1,
+        tool_executions: 1,
+        test_conversations: 1,
+        evaluation_runs: 1,
+        learning_suggestions: 0
+      )
       expect(AiAgentLlmCall.exists?(old_call.id)).to be(false)
       expect(AiAgentToolExecution.exists?(old_tool.id)).to be(false)
       expect(AiAgentTestConversation.exists?(old_test.id)).to be(false)
@@ -50,6 +56,18 @@ RSpec.describe AiDataRetention::PurgeService do
       expect(AiAgentEvaluationRun.exists?(recent_evaluation_run.id)).to be(true)
       expect(AiAgentLlmCall.exists?(recent_call.id)).to be(true)
       expect(AiAgentUsageEvent.exists?(usage_event.id)).to be(true)
+    end
+
+    it 'purges expired learning snapshots while retaining recent review items' do
+      ai_agent = create(:ai_agent, account: account)
+      old_suggestion = create(:ai_agent_learning_suggestion, account: account, ai_agent: ai_agent, created_at: 40.days.ago)
+      recent_suggestion = create(:ai_agent_learning_suggestion, account: account, ai_agent: ai_agent, created_at: 5.days.ago)
+
+      result = described_class.new(account: account).perform(kind: 'text')
+
+      expect(result['text'][:learning_suggestions]).to eq(1)
+      expect(AiAgentLearningSuggestion.exists?(old_suggestion.id)).to be(false)
+      expect(AiAgentLearningSuggestion.exists?(recent_suggestion.id)).to be(true)
     end
 
     it 'removes expired voice payloads while preserving call and message shells' do

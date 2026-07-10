@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_07_10_130000) do
+ActiveRecord::Schema[7.1].define(version: 2026_07_10_213000) do
   # These extensions should be enabled to support this database
   enable_extension "pg_stat_statements"
   enable_extension "pg_trgm"
@@ -194,6 +194,34 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_10_130000) do
     t.index ["ai_agent_id", "created_at"], name: "index_ai_agent_evaluation_runs_on_ai_agent_id_and_created_at"
     t.index ["ai_agent_id"], name: "index_ai_agent_evaluation_runs_on_ai_agent_id"
     t.index ["ai_agent_id"], name: "index_ai_evaluation_runs_on_active_agent", unique: true, where: "(status = ANY (ARRAY[0, 1]))"
+  end
+
+  create_table "ai_agent_learning_suggestions", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "ai_agent_id", null: false
+    t.bigint "conversation_id"
+    t.bigint "source_message_id"
+    t.bigint "submitted_by_id"
+    t.bigint "reviewed_by_id"
+    t.datetime "reviewed_at"
+    t.datetime "applied_at"
+    t.integer "status", default: 0, null: false
+    t.string "target_section"
+    t.text "customer_message", null: false
+    t.text "human_answer", null: false
+    t.text "suggested_instruction"
+    t.text "reason"
+    t.text "error_message"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ai_agent_learning_suggestions_on_account_id"
+    t.index ["ai_agent_id", "source_message_id"], name: "index_ai_learning_suggestions_on_agent_and_message", unique: true, where: "(source_message_id IS NOT NULL)"
+    t.index ["ai_agent_id", "status", "created_at"], name: "index_ai_learning_suggestions_on_agent_status_created"
+    t.index ["ai_agent_id"], name: "index_ai_agent_learning_suggestions_on_ai_agent_id"
+    t.index ["conversation_id"], name: "index_ai_agent_learning_suggestions_on_conversation_id"
+    t.index ["reviewed_by_id"], name: "index_ai_agent_learning_suggestions_on_reviewed_by_id"
+    t.index ["source_message_id"], name: "index_ai_agent_learning_suggestions_on_source_message_id"
+    t.index ["submitted_by_id"], name: "index_ai_agent_learning_suggestions_on_submitted_by_id"
   end
 
   create_table "ai_agent_llm_calls", force: :cascade do |t|
@@ -1649,6 +1677,12 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_10_130000) do
   add_foreign_key "ai_agent_evaluation_results", "ai_agent_evaluation_runs", on_delete: :cascade
   add_foreign_key "ai_agent_evaluation_runs", "accounts", on_delete: :cascade
   add_foreign_key "ai_agent_evaluation_runs", "ai_agents", on_delete: :cascade
+  add_foreign_key "ai_agent_learning_suggestions", "accounts", on_delete: :cascade
+  add_foreign_key "ai_agent_learning_suggestions", "ai_agents", on_delete: :cascade
+  add_foreign_key "ai_agent_learning_suggestions", "conversations", on_delete: :nullify
+  add_foreign_key "ai_agent_learning_suggestions", "messages", column: "source_message_id", on_delete: :nullify
+  add_foreign_key "ai_agent_learning_suggestions", "users", column: "reviewed_by_id", on_delete: :nullify
+  add_foreign_key "ai_agent_learning_suggestions", "users", column: "submitted_by_id", on_delete: :nullify
   add_foreign_key "ai_agent_llm_calls", "accounts", on_delete: :cascade
   add_foreign_key "ai_agent_llm_calls", "ai_agents", on_delete: :cascade
   add_foreign_key "ai_agent_llm_calls", "conversations", on_delete: :nullify

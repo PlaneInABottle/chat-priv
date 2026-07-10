@@ -150,6 +150,14 @@ Rails.application.routes.draw do
             resources :evaluation_runs,
                       only: [:index, :create, :show],
                       controller: 'ai_agent_evaluation_runs'
+            resources :learning_suggestions,
+                      only: [:index],
+                      controller: 'ai_agent_learning_suggestions' do
+              member do
+                post :apply
+                post :dismiss
+              end
+            end
           end
           resources :agent_bots, only: [:index, :create, :show, :update, :destroy] do
             delete :avatar, on: :member
@@ -203,6 +211,7 @@ Rails.application.routes.draw do
                 member do
                   post :translate
                   post :retry
+                  post :suggest_learning
                 end
               end
               resources :assignments, only: [:create]
