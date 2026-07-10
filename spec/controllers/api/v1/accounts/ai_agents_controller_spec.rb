@@ -393,6 +393,38 @@ RSpec.describe 'Ai Agents API', type: :request do
         expect(ai_agent.reload.prompt).to eq('You are a helpful assistant.')
       end
 
+      it 'normalizes structured instructions and compiles the live prompt' do
+        instructions = {
+          version: 1,
+          profile: {
+            language: 'en',
+            tone: 'professional',
+            formality: 'formal',
+            response_length: 'short'
+          },
+          sections: [
+            {
+              key: 'rules',
+              content: '<p>Never invent a price.</p>',
+              critical: true,
+              custom: false
+            }
+          ]
+        }
+
+        patch "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}",
+              headers: admin.create_new_auth_token,
+              params: { config: { instructions: instructions } },
+              as: :json
+
+        expect(response).to have_http_status(:success)
+        ai_agent.reload
+        expect(ai_agent.config.dig('instructions', 'version')).to eq(1)
+        expect(ai_agent.prompt).to include('## Language and tone')
+        expect(ai_agent.prompt).to include('## Rules and boundaries — CRITICAL, must always be followed')
+        expect(ai_agent.prompt).to include('<p>Never invent a price.</p>')
+      end
+
       it 'updates nested tools config without dropping sibling config keys' do
         ai_agent.update!(config: { 'existing' => { 'keep' => true } })
 

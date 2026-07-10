@@ -28,7 +28,6 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
 
   def update
     @ai_agent.assign_attributes(merged_ai_agent_params)
-    @ai_agent.last_tested_at = nil
     @ai_agent.inbox_ids = inbox_ids_param if params.key?(:inbox_ids)
 
     if @ai_agent.save
@@ -84,6 +83,12 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
         merged_config['tools'],
         AiAgents::ToolRegistry.available_definitions
       )
+    end
+
+    if merged_config.key?('instructions')
+      instruction_document = AiAgents::InstructionDocument.new(merged_config['instructions'])
+      merged_config['instructions'] = instruction_document.normalized
+      permitted['prompt'] = instruction_document.compile
     end
 
     permitted.merge('config' => merged_config)

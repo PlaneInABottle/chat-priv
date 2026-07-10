@@ -2,17 +2,18 @@
 #
 # Table name: ai_agents
 #
-#  id             :bigint           not null, primary key
-#  config         :jsonb
-#  enabled        :boolean          default(FALSE), not null
-#  last_tested_at :datetime
-#  name           :string           default("AI Asistan"), not null
-#  prompt         :text             default("")
-#  published_at   :datetime
-#  created_at     :datetime         not null
-#  updated_at     :datetime         not null
-#  account_id     :bigint           not null
-#  agent_bot_id   :bigint
+#  id                        :bigint           not null, primary key
+#  config                    :jsonb
+#  enabled                   :boolean          default(FALSE), not null
+#  last_tested_at            :datetime
+#  last_tested_prompt_digest :string
+#  name                      :string           default("AI Asistan"), not null
+#  prompt                    :text             default("")
+#  published_at              :datetime
+#  created_at                :datetime         not null
+#  updated_at                :datetime         not null
+#  account_id                :bigint           not null
+#  agent_bot_id              :bigint
 #
 # Indexes
 #
@@ -63,11 +64,26 @@ class AiAgent < ApplicationRecord
     update!(enabled: false)
   end
 
-  def mark_test_succeeded!
-    update!(last_tested_at: Time.current)
+  def mark_test_succeeded!(prompt: self.prompt)
+    # Test telemetry must remain writable for agents carrying legacy config.
+    # rubocop:disable Rails/SkipsModelValidations
+    update_columns(
+      last_tested_at: Time.current,
+      last_tested_prompt_digest: prompt_digest(prompt),
+      updated_at: Time.current
+    )
+    # rubocop:enable Rails/SkipsModelValidations
+  end
+
+  def prompt_tested?
+    last_tested_at.present? && last_tested_prompt_digest == prompt_digest(prompt)
   end
 
   private
+
+  def prompt_digest(value)
+    Digest::SHA256.hexdigest(value.to_s)
+  end
 
   def inbox_ids_conflict
     target_ids = Array(inbox_ids).map(&:to_i).select(&:positive?).uniq

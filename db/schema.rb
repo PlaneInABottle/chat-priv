@@ -275,6 +275,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_18_000000) do
     t.string "name", default: "AI Asistan", null: false
     t.datetime "published_at"
     t.datetime "last_tested_at"
+    t.string "last_tested_prompt_digest"
     t.index ["account_id"], name: "index_ai_agents_on_account_id"
     t.index ["agent_bot_id"], name: "index_ai_agents_on_agent_bot_id", unique: true
   end

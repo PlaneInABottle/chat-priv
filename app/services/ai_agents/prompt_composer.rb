@@ -1,11 +1,12 @@
 # frozen_string_literal: true
 
 class AiAgents::PromptComposer
-  def initialize(ai_agent:)
+  def initialize(ai_agent:, prompt_override: nil)
     @ai_agent = ai_agent
+    @prompt_override = prompt_override
   end
 
-  attr_reader :ai_agent
+  attr_reader :ai_agent, :prompt_override
 
   def base_prompt
     AiAgents::Settings.global_instructions
@@ -16,9 +17,10 @@ class AiAgents::PromptComposer
   end
 
   def agent_prompt
-    return if ai_agent.prompt.blank?
+    prompt = prompt_override.nil? ? ai_agent.prompt : prompt_override
+    return if prompt.blank?
 
-    "AI agent instructions:\n#{ai_agent.prompt}"
+    "AI agent instructions:\n#{prompt}"
   end
 
   def tool_policy_prompt
