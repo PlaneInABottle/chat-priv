@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_07_10_110000) do
+ActiveRecord::Schema[7.1].define(version: 2026_07_10_130000) do
   # These extensions should be enabled to support this database
   enable_extension "pg_stat_statements"
   enable_extension "pg_trgm"
@@ -143,6 +143,57 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_10_110000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["account_id"], name: "index_agent_capacity_policies_on_account_id"
+  end
+
+  create_table "ai_agent_evaluation_cases", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "ai_agent_id", null: false
+    t.string "name", null: false
+    t.text "customer_message", null: false
+    t.text "success_criteria", null: false
+    t.integer "position", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ai_agent_evaluation_cases_on_account_id"
+    t.index ["ai_agent_id", "position"], name: "index_ai_agent_evaluation_cases_on_ai_agent_id_and_position"
+    t.index ["ai_agent_id"], name: "index_ai_agent_evaluation_cases_on_ai_agent_id"
+  end
+
+  create_table "ai_agent_evaluation_results", force: :cascade do |t|
+    t.bigint "ai_agent_evaluation_run_id", null: false
+    t.bigint "ai_agent_evaluation_case_id"
+    t.integer "status", default: 0, null: false
+    t.string "case_name", null: false
+    t.text "customer_message", null: false
+    t.text "success_criteria", null: false
+    t.text "assistant_response"
+    t.boolean "passed", default: false, null: false
+    t.text "reason"
+    t.jsonb "tool_events", default: [], null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["ai_agent_evaluation_case_id"], name: "index_ai_evaluation_results_on_case_id"
+    t.index ["ai_agent_evaluation_run_id"], name: "index_ai_evaluation_results_on_run_id"
+  end
+
+  create_table "ai_agent_evaluation_runs", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "ai_agent_id", null: false
+    t.integer "status", default: 0, null: false
+    t.text "prompt_snapshot", null: false
+    t.jsonb "config_snapshot", default: {}, null: false
+    t.string "draft_fingerprint", null: false
+    t.integer "total_count", default: 0, null: false
+    t.integer "passed_count", default: 0, null: false
+    t.datetime "started_at"
+    t.datetime "completed_at"
+    t.text "error_message"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ai_agent_evaluation_runs_on_account_id"
+    t.index ["ai_agent_id", "created_at"], name: "index_ai_agent_evaluation_runs_on_ai_agent_id_and_created_at"
+    t.index ["ai_agent_id"], name: "index_ai_agent_evaluation_runs_on_ai_agent_id"
+    t.index ["ai_agent_id"], name: "index_ai_evaluation_runs_on_active_agent", unique: true, where: "(status = ANY (ARRAY[0, 1]))"
   end
 
   create_table "ai_agent_llm_calls", force: :cascade do |t|
@@ -1592,6 +1643,12 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_10_110000) do
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "ai_agent_evaluation_cases", "accounts", on_delete: :cascade
+  add_foreign_key "ai_agent_evaluation_cases", "ai_agents", on_delete: :cascade
+  add_foreign_key "ai_agent_evaluation_results", "ai_agent_evaluation_cases", on_delete: :nullify
+  add_foreign_key "ai_agent_evaluation_results", "ai_agent_evaluation_runs", on_delete: :cascade
+  add_foreign_key "ai_agent_evaluation_runs", "accounts", on_delete: :cascade
+  add_foreign_key "ai_agent_evaluation_runs", "ai_agents", on_delete: :cascade
   add_foreign_key "ai_agent_llm_calls", "accounts", on_delete: :cascade
   add_foreign_key "ai_agent_llm_calls", "ai_agents", on_delete: :cascade
   add_foreign_key "ai_agent_llm_calls", "conversations", on_delete: :nullify

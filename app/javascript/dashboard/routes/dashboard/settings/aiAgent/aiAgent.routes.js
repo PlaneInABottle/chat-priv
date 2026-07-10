@@ -72,6 +72,12 @@ export default {
           component: () => import('./AiAgentDetail.vue'),
           meta: detailMeta,
         },
+        {
+          path: ':id/evaluations',
+          name: 'ai_agent_evaluations',
+          component: () => import('./AiAgentDetail.vue'),
+          meta: detailMeta,
+        },
       ],
     },
     {

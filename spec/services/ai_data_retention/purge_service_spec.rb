@@ -10,20 +10,44 @@ RSpec.describe AiDataRetention::PurgeService do
   end
 
   describe '#perform' do
-    it 'purges expired text AI payloads without removing usage accounting' do
+    it 'purges expired text AI payloads without removing usage accounting', :aggregate_failures do
       ai_agent = create(:ai_agent, account: account)
       old_call = create(:ai_agent_llm_call, account: account, ai_agent: ai_agent, created_at: 40.days.ago)
       recent_call = create(:ai_agent_llm_call, account: account, ai_agent: ai_agent, created_at: 5.days.ago)
       old_tool = create(:ai_agent_tool_execution, account: account, ai_agent: ai_agent, created_at: 40.days.ago)
       old_test = create(:ai_agent_test_conversation, account: account, ai_agent: ai_agent, updated_at: 40.days.ago)
+      evaluation_case = create(:ai_agent_evaluation_case, account: account, ai_agent: ai_agent)
+      old_evaluation_run = create(
+        :ai_agent_evaluation_run,
+        :completed,
+        account: account,
+        ai_agent: ai_agent,
+        created_at: 40.days.ago
+      )
+      old_evaluation_result = create(
+        :ai_agent_evaluation_result,
+        evaluation_run: old_evaluation_run,
+        evaluation_case: evaluation_case
+      )
+      recent_evaluation_run = create(
+        :ai_agent_evaluation_run,
+        :completed,
+        account: account,
+        ai_agent: ai_agent,
+        created_at: 5.days.ago
+      )
       usage_event = create(:ai_agent_usage_event, account: account, ai_agent: ai_agent, created_at: 40.days.ago)
 
       result = described_class.new(account: account).perform(kind: 'text')
 
-      expect(result['text']).to eq(llm_calls: 1, tool_executions: 1, test_conversations: 1)
+      expect(result['text']).to eq(llm_calls: 1, tool_executions: 1, test_conversations: 1, evaluation_runs: 1)
       expect(AiAgentLlmCall.exists?(old_call.id)).to be(false)
       expect(AiAgentToolExecution.exists?(old_tool.id)).to be(false)
       expect(AiAgentTestConversation.exists?(old_test.id)).to be(false)
+      expect(AiAgentEvaluationRun.exists?(old_evaluation_run.id)).to be(false)
+      expect(AiAgentEvaluationResult.exists?(old_evaluation_result.id)).to be(false)
+      expect(AiAgentEvaluationCase.exists?(evaluation_case.id)).to be(true)
+      expect(AiAgentEvaluationRun.exists?(recent_evaluation_run.id)).to be(true)
       expect(AiAgentLlmCall.exists?(recent_call.id)).to be(true)
       expect(AiAgentUsageEvent.exists?(usage_event.id)).to be(true)
     end

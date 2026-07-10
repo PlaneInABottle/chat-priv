@@ -198,6 +198,10 @@ const mountComponent = options => {
           template: '<div class="instruction-workspace" />',
           props: ['modelValue', 'aiAgentId', 'isDirty', 'isDisabled'],
         },
+        EvaluationSuite: {
+          template: '<div class="evaluation-suite" />',
+          props: ['aiAgentId'],
+        },
         TabBar: {
           template:
             '<div><button v-for="tab in tabs" :key="tab.value" @click="$emit(\'tabChanged\', tab)">{{ tab.label }}</button></div>',
@@ -419,6 +423,17 @@ describe('AiAgentDetail.vue', () => {
       'Version 2 is paused. Resume it as-is or publish a tested draft update.'
     );
     expect(wrapper.vm.publishActionLabel).toBe('Resume assistant');
+  });
+
+  it('opens evaluations as a read-only workspace tab', async () => {
+    setRouteName('ai_agent_evaluations');
+    const { wrapper } = mountComponent();
+
+    await flushPromises();
+
+    expect(wrapper.vm.activeTab).toBe('evaluations');
+    expect(wrapper.vm.isCurrentTabDirty).toBe(false);
+    expect(wrapper.find('.evaluation-suite').exists()).toBe(true);
   });
 
   it('discards the current instruction draft without affecting connection edits', async () => {

@@ -1,11 +1,12 @@
 # frozen_string_literal: true
 
 class AiAgents::LlmAdapters::BaseAdapter
-  def initialize(ai_agent:, account:, prompt_override: nil, config_override: nil)
+  def initialize(ai_agent:, account:, prompt_override: nil, config_override: nil, system_prompt_override: nil)
     @ai_agent = ai_agent
     @account = account
     @prompt_override = prompt_override
     @config_override = config_override
+    @system_prompt_override = system_prompt_override
   end
 
   def perform(messages:, tools:, tool_choice: 'auto')
@@ -14,9 +15,11 @@ class AiAgents::LlmAdapters::BaseAdapter
 
   private
 
-  attr_reader :ai_agent, :account, :prompt_override, :config_override
+  attr_reader :ai_agent, :account, :prompt_override, :config_override, :system_prompt_override
 
   def system_prompt
+    return system_prompt_override if system_prompt_override
+
     AiAgents::PromptComposer.new(
       ai_agent: ai_agent,
       prompt_override: prompt_override,

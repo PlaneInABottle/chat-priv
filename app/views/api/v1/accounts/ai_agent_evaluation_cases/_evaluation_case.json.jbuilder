@@ -1,0 +1,7 @@
+json.id evaluation_case.id
+json.name evaluation_case.name
+json.customer_message evaluation_case.customer_message
+json.success_criteria evaluation_case.success_criteria
+json.position evaluation_case.position
+json.created_at evaluation_case.created_at
+json.updated_at evaluation_case.updated_at

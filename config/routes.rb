@@ -144,6 +144,12 @@ Rails.application.routes.draw do
                 post :send_message
               end
             end
+            resources :evaluation_cases,
+                      only: [:index, :create, :update, :destroy],
+                      controller: 'ai_agent_evaluation_cases'
+            resources :evaluation_runs,
+                      only: [:index, :create, :show],
+                      controller: 'ai_agent_evaluation_runs'
           end
           resources :agent_bots, only: [:index, :create, :show, :update, :destroy] do
             delete :avatar, on: :member

@@ -34,6 +34,8 @@ class AiAgent < ApplicationRecord
   has_many :llm_calls, class_name: 'AiAgentLlmCall', dependent: :destroy
   has_many :tool_executions, class_name: 'AiAgentToolExecution', dependent: :destroy
   has_many :test_conversations, class_name: 'AiAgentTestConversation', dependent: :destroy
+  has_many :evaluation_cases, class_name: 'AiAgentEvaluationCase', dependent: :destroy
+  has_many :evaluation_runs, class_name: 'AiAgentEvaluationRun', dependent: :destroy
   has_many :usage_events, class_name: 'AiAgentUsageEvent', dependent: :destroy
 
   validates :name, presence: true
@@ -96,6 +98,10 @@ class AiAgent < ApplicationRecord
 
   def draft_tested?
     last_tested_at.present? && last_tested_prompt_digest == release_digest(prompt, config)
+  end
+
+  def draft_fingerprint
+    release_digest(prompt, config)
   end
 
   def published_release?
