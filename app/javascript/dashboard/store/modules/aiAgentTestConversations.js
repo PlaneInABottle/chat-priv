@@ -146,7 +146,8 @@ export const actions = {
   },
 
   sendMessage: async ({ commit, rootState }, payload) => {
-    const { aiAgentId, id, message, content } = payload || {};
+    const { aiAgentId, id, message, content, draftInstructions } =
+      payload || {};
     const resolvedAiAgentId = aiAgentId || rootState.aiAgent.activeId;
     if (!resolvedAiAgentId || !id) return null;
 
@@ -166,7 +167,11 @@ export const actions = {
 
     try {
       const api = new AiAgentTestConversationsAPI(resolvedAiAgentId);
-      const response = await api.sendMessage(id, messageContent);
+      const response = await api.sendMessage(
+        id,
+        messageContent,
+        draftInstructions
+      );
       commit('UPDATE_MESSAGES', {
         id,
         messages: response.data.messages,

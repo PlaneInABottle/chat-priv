@@ -36,12 +36,25 @@ export default {
         {
           path: ':id',
           redirect: to => ({
-            name: 'ai_agent_detail',
+            name: 'ai_agent_instructions',
             params: { ...to.params },
           }),
         },
         {
           path: ':id/setup',
+          redirect: to => ({
+            name: 'ai_agent_detail',
+            params: { ...to.params },
+          }),
+        },
+        {
+          path: ':id/instructions',
+          name: 'ai_agent_instructions',
+          component: () => import('./AiAgentDetail.vue'),
+          meta,
+        },
+        {
+          path: ':id/connections',
           name: 'ai_agent_detail',
           component: () => import('./AiAgentDetail.vue'),
           meta,

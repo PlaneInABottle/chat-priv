@@ -33,6 +33,9 @@ vi.mock('vue-router', async importOriginal => {
     setRouteId(id) {
       route.params.id = id;
     },
+    setRouteName(name) {
+      route.name = name;
+    },
     resetRoute() {
       route.name = 'ai_agent_detail';
       route.params.id = '1';
@@ -41,7 +44,7 @@ vi.mock('vue-router', async importOriginal => {
   };
 });
 
-import { setRouteId, resetRoute } from 'vue-router';
+import { setRouteId, setRouteName, resetRoute } from 'vue-router';
 
 const buildAiAgent = overrides => ({
   id: 1,
@@ -181,6 +184,10 @@ const mountComponent = options => {
           template: '<textarea>{{ message }}</textarea>',
           props: ['modelValue', 'message', 'messageType', 'maxLength'],
         },
+        InstructionWorkspace: {
+          template: '<div class="instruction-workspace" />',
+          props: ['modelValue', 'aiAgentId', 'isDirty', 'isDisabled'],
+        },
         TabBar: {
           template:
             '<div><button v-for="tab in tabs" :key="tab.value" @click="$emit(\'tabChanged\', tab)">{{ tab.label }}</button></div>',
@@ -280,7 +287,7 @@ describe('AiAgentDetail.vue', () => {
     expect(wrapper.vm.formState.inbox_ids).toEqual([]);
   });
 
-  it('keeps simulator disabled while form is dirty even if local form looks valid', async () => {
+  it('keeps saved-prompt test history disabled when only a local draft exists', async () => {
     const { wrapper } = mountComponent({
       aiAgentRecord: buildAiAgent({
         enabled: false,
@@ -290,13 +297,13 @@ describe('AiAgentDetail.vue', () => {
       }),
     });
 
-    await nextTick();
-    wrapper.vm.formState.prompt = 'Unsaved prompt';
+    await flushPromises();
+    wrapper.vm.formState.instructions.sections[0].content = 'Unsaved prompt';
     await nextTick();
 
     expect(wrapper.vm.isSimulatorDisabled).toBe(true);
     expect(wrapper.vm.simulatorDisabledMessage).toBe(
-      'Save your changes before testing this AI assistant.'
+      'Add instructions and save your changes before testing this AI assistant.'
     );
   });
 
@@ -318,23 +325,37 @@ describe('AiAgentDetail.vue', () => {
     expect(wrapper.vm.simulatorDisabledMessageKey).toBe(
       'AI_AGENT.TEST_CONVERSATIONS.ADD_PROMPT_BEFORE_TESTING'
     );
-    expect(wrapper.vm.promptMessageKey).toBe(
-      'AI_AGENT.PROMPT.REQUIRED_FOR_TESTING'
-    );
-    expect(wrapper.vm.promptMessageType).toBe('error');
     expect(wrapper.vm.simulatorDisabledMessage).toBe(
       'Add instructions and save your changes before testing this AI assistant.'
     );
-    expect(wrapper.vm.promptMessage).toBe(
-      'Add instructions, then save your changes before testing this AI assistant.'
-    );
   });
 
-  it('saves active assistant edits without changing lifecycle state', async () => {
+  it('saves structured instructions without changing active lifecycle state', async () => {
+    setRouteName('ai_agent_instructions');
     const updatedRecord = buildAiAgent({
       lifecycle_status: 'active',
       enabled: true,
       prompt: 'Updated live instructions',
+      config: {
+        instructions: {
+          version: 1,
+          profile: {
+            language: 'same_as_customer',
+            tone: 'natural',
+            formality: 'balanced',
+            response_length: 'balanced',
+          },
+          sections: [
+            {
+              key: 'current_instructions',
+              title: '',
+              content: 'Updated live instructions',
+              critical: false,
+              custom: false,
+            },
+          ],
+        },
+      },
     });
     const { wrapper, actionMocks } = mountComponent({
       aiAgentRecord: buildAiAgent({
@@ -345,11 +366,15 @@ describe('AiAgentDetail.vue', () => {
     });
 
     await flushPromises();
-    wrapper.vm.formState.prompt = 'Updated live instructions';
+    wrapper.vm.formState.instructions.sections[0].content =
+      'Updated live instructions';
     await wrapper.vm.handleSave();
 
     const [, payload] = actionMocks.update.mock.calls.at(-1);
-    expect(payload.data.prompt).toBe('Updated live instructions');
+    expect(payload.data.prompt).toBeUndefined();
+    expect(payload.data.config.instructions.sections[0].content).toBe(
+      'Updated live instructions'
+    );
     expect(payload.data.enabled).toBeUndefined();
     expect(wrapper.vm.isActive).toBe(true);
   });
