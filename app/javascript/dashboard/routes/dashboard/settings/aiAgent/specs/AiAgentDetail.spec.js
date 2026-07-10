@@ -298,7 +298,7 @@ describe('AiAgentDetail.vue', () => {
     });
 
     await flushPromises();
-    wrapper.vm.formState.instructions.sections[0].content = 'Unsaved prompt';
+    wrapper.vm.formState.instructions.content += '\n\nUnsaved prompt';
     await nextTick();
 
     expect(wrapper.vm.isSimulatorDisabled).toBe(true);
@@ -338,22 +338,14 @@ describe('AiAgentDetail.vue', () => {
       prompt: 'Updated live instructions',
       config: {
         instructions: {
-          version: 1,
+          version: 2,
           profile: {
             language: 'same_as_customer',
             tone: 'natural',
             formality: 'balanced',
             response_length: 'balanced',
           },
-          sections: [
-            {
-              key: 'current_instructions',
-              title: '',
-              content: 'Updated live instructions',
-              critical: false,
-              custom: false,
-            },
-          ],
+          content: '## General instructions\n\nUpdated live instructions',
         },
       },
     });
@@ -366,17 +358,33 @@ describe('AiAgentDetail.vue', () => {
     });
 
     await flushPromises();
-    wrapper.vm.formState.instructions.sections[0].content =
-      'Updated live instructions';
+    wrapper.vm.formState.instructions.content =
+      '## General instructions\n\nUpdated live instructions';
     await wrapper.vm.handleSave();
 
     const [, payload] = actionMocks.update.mock.calls.at(-1);
     expect(payload.data.prompt).toBeUndefined();
-    expect(payload.data.config.instructions.sections[0].content).toBe(
-      'Updated live instructions'
+    expect(payload.data.config.instructions.content).toBe(
+      '## General instructions\n\nUpdated live instructions'
     );
     expect(payload.data.enabled).toBeUndefined();
     expect(wrapper.vm.isActive).toBe(true);
+  });
+
+  it('discards the current instruction draft without affecting connection edits', async () => {
+    setRouteName('ai_agent_instructions');
+    const { wrapper } = mountComponent();
+
+    await flushPromises();
+    const savedContent = wrapper.vm.formState.instructions.content;
+    wrapper.vm.formState.instructions.content += '\n\nUnsaved instruction';
+    wrapper.vm.formState.name = 'Unsaved name';
+    await nextTick();
+
+    wrapper.vm.discardCurrentChanges();
+
+    expect(wrapper.vm.formState.instructions.content).toBe(savedContent);
+    expect(wrapper.vm.formState.name).toBe('Unsaved name');
   });
 
   it('preserves owner labels after save response includes available_inboxes', async () => {

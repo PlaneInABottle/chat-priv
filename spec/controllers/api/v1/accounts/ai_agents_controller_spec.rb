@@ -395,21 +395,14 @@ RSpec.describe 'Ai Agents API', type: :request do
 
       it 'normalizes structured instructions and compiles the live prompt' do
         instructions = {
-          version: 1,
+          version: 2,
           profile: {
             language: 'en',
             tone: 'professional',
             formality: 'formal',
             response_length: 'short'
           },
-          sections: [
-            {
-              key: 'rules',
-              content: '<p>Never invent a price.</p>',
-              critical: true,
-              custom: false
-            }
-          ]
+          content: "## Rules and boundaries\n\nNever invent a price."
         }
 
         patch "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}",
@@ -419,10 +412,10 @@ RSpec.describe 'Ai Agents API', type: :request do
 
         expect(response).to have_http_status(:success)
         ai_agent.reload
-        expect(ai_agent.config.dig('instructions', 'version')).to eq(1)
+        expect(ai_agent.config.dig('instructions', 'version')).to eq(2)
         expect(ai_agent.prompt).to include('## Language and tone')
-        expect(ai_agent.prompt).to include('## Rules and boundaries — CRITICAL, must always be followed')
-        expect(ai_agent.prompt).to include('<p>Never invent a price.</p>')
+        expect(ai_agent.prompt).to include("## Rules and boundaries\n\nNever invent a price.")
+        expect(ai_agent.prompt).not_to include('CRITICAL')
       end
 
       it 'updates nested tools config without dropping sibling config keys' do

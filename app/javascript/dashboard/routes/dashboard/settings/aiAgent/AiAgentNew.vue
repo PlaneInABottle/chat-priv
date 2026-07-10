@@ -9,7 +9,10 @@ import SettingsLayout from '../SettingsLayout.vue';
 import BaseSettingsHeader from '../components/BaseSettingsHeader.vue';
 import Button from 'dashboard/components-next/button/Button.vue';
 import Input from 'dashboard/components-next/input/Input.vue';
-import { createDefaultInstructionDocument } from './helpers/instructionDocument';
+import {
+  createDefaultInstructionDocument,
+  createInstructionContent,
+} from './helpers/instructionDocument';
 
 const store = useStore();
 const { t } = useI18n();
@@ -130,10 +133,7 @@ const buildInstructionDocument = () => {
       'If a customer asks for a person or the request needs human judgment, hand the conversation to a human.',
   };
 
-  document.sections = document.sections.map(section => ({
-    ...section,
-    content: sectionContent[section.key] || '',
-  }));
+  document.content = createInstructionContent(sectionContent);
   return document;
 };
 

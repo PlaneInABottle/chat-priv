@@ -101,6 +101,7 @@ class Api::V1::Accounts::AiAgentTestConversationsController < Api::V1::Accounts:
     params.permit(
       draft_instructions: [
         :version,
+        :content,
         { profile: [:language, :tone, :formality, :response_length] },
         { sections: [:key, :title, :content, :critical, :custom] }
       ]

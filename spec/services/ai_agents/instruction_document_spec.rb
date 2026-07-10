@@ -2,46 +2,57 @@ require 'rails_helper'
 
 RSpec.describe AiAgents::InstructionDocument do
   describe '#normalized' do
-    it 'normalizes profile values and keeps supported sections' do
+    it 'keeps a single Markdown document and normalizes optional profile values' do
       document = described_class.new(
         'profile' => { 'language' => 'tr', 'tone' => 'friendly', 'formality' => 'invalid' },
+        'content' => "## Rules\n\nNever invent prices."
+      ).normalized
+
+      expect(document).to include('version' => 2)
+      expect(document.dig('profile', 'language')).to eq('tr')
+      expect(document.dig('profile', 'formality')).to eq('not_set')
+      expect(document['content']).to eq("## Rules\n\nNever invent prices.")
+    end
+
+    it 'converts version one sections without preserving fake priority metadata' do
+      document = described_class.new(
+        'version' => 1,
         'sections' => [
-          { 'key' => 'identity', 'content' => 'Help customers.', 'critical' => true },
-          { 'key' => 'custom_returns', 'title' => 'Returns', 'content' => 'Explain the return policy.', 'custom' => true }
+          { 'key' => 'rules', 'content' => '<p>Never invent prices.</p>', 'critical' => true }
         ]
       ).normalized
 
-      expect(document.dig('profile', 'language')).to eq('tr')
-      expect(document.dig('profile', 'formality')).to eq('balanced')
-      expect(document['sections']).to contain_exactly(
-        include('key' => 'identity', 'title' => 'Identity and purpose', 'critical' => true),
-        include('key' => 'custom_returns', 'title' => 'Returns', 'custom' => true)
-      )
+      expect(document['content']).to eq("## Rules and boundaries\n\nNever invent prices.")
+      expect(document).not_to have_key('sections')
+      expect(document.to_s).not_to include('critical')
     end
   end
 
   describe '#compile' do
-    it 'compiles profile controls, section headings, rich content, and critical priority' do
+    it 'compiles selected profile controls and rich headings into clean prompt text' do
       prompt = described_class.new(
-        'profile' => { 'language' => 'tr', 'tone' => 'professional', 'response_length' => 'short' },
-        'sections' => [
-          { 'key' => 'rules', 'content' => '<ul><li>Never invent prices.</li></ul>', 'critical' => true }
-        ]
+        'profile' => {
+          'language' => 'tr',
+          'tone' => 'professional',
+          'formality' => 'not_set',
+          'response_length' => 'short'
+        },
+        'content' => "## Rules and boundaries\n\n- Never invent prices."
       ).compile
 
       expect(prompt).to include('Reply language: Turkish', 'Tone: Professional', 'Response length: Short')
-      expect(prompt).to include('## Rules and boundaries — CRITICAL, must always be followed')
-      expect(prompt).to include('<ul><li>Never invent prices.</li></ul>')
+      expect(prompt).not_to include('Formality:', 'CRITICAL')
+      expect(prompt).to include("## Rules and boundaries\n\n- Never invent prices.")
     end
   end
 
   describe '.from_legacy' do
-    it 'preserves the existing prompt in one editable section' do
-      document = described_class.from_legacy('Existing instructions')
+    it 'preserves and escapes the existing prompt in a general instructions document' do
+      document = described_class.from_legacy("Existing <rules>\nSecond line")
 
-      expect(document['sections']).to contain_exactly(
-        include('key' => 'current_instructions', 'content' => 'Existing instructions')
-      )
+      expect(document).to include('version' => 2)
+      expect(document['profile'].values).to all(eq('not_set'))
+      expect(document['content']).to eq("## General instructions\n\nExisting <rules>\nSecond line")
     end
   end
 end

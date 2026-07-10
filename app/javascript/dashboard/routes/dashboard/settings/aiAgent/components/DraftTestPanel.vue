@@ -48,7 +48,7 @@ const sendMessage = async content => {
     aiAgentId: props.aiAgentId,
     id: activeConversation.value.id,
     content,
-    draftInstructions: props.draftInstructions,
+    draftInstructions: props.isDraft ? props.draftInstructions : undefined,
   });
 
   if (result?.error) {
