@@ -1,6 +1,10 @@
 # frozen_string_literal: true
 
 class VoiceAgents::Serializer
+  BASE_ATTRIBUTES = %w[
+    id account_id name enabled greeting prompt architecture provider model voice language config created_at updated_at
+  ].freeze
+
   def initialize(voice_agent)
     @voice_agent = voice_agent
   end
@@ -11,32 +15,31 @@ class VoiceAgents::Serializer
     visible_tool_keys = tool_availability.available_keys(VoiceAgents::ToolRegistry.available_definitions)
     normalized_tools_config[VoiceAgents::Config::ENABLED_KEY] &= visible_tool_keys
 
-    {
-      id: voice_agent.id,
-      account_id: voice_agent.account_id,
-      name: voice_agent.name,
-      enabled: voice_agent.enabled,
-      greeting: voice_agent.greeting,
-      prompt: voice_agent.prompt,
-      architecture: voice_agent.architecture,
-      provider: voice_agent.provider,
-      model: voice_agent.model,
-      voice: voice_agent.voice,
-      language: voice_agent.language,
-      config: voice_agent.config,
+    base_attributes.merge(
       tools_config: normalized_tools_config,
       enabled_tool_keys: tool_config.enabled_tool_keys & visible_tool_keys,
       available_tools: available_tools,
       inbox_settings: inbox_settings,
-      ikas_integration: ikas_integration,
-      created_at: voice_agent.created_at,
-      updated_at: voice_agent.updated_at
-    }
+      ikas_integration: ikas_integration
+    ).merge(lifecycle_attributes)
   end
 
   private
 
   attr_reader :voice_agent
+
+  def base_attributes
+    voice_agent.attributes.slice(*BASE_ATTRIBUTES).symbolize_keys
+  end
+
+  def lifecycle_attributes
+    {
+      lifecycle_status: voice_agent.lifecycle_status,
+      published_at: voice_agent.published_at,
+      last_tested_at: voice_agent.last_tested_at,
+      readiness: voice_agent.readiness
+    }
+  end
 
   def available_tools
     tool_availability.available_definitions(VoiceAgents::ToolRegistry.available_definitions).map do |tool|

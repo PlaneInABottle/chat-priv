@@ -19,6 +19,7 @@ RSpec.describe Voice::TestCallBuilder do
     end
 
     it 'creates a LiveKit voice call in an API inbox', :aggregate_failures do
+      voice_agent.update!(enabled: false)
       call = described_class.perform!(
         account: account,
         inbox: inbox,
@@ -37,7 +38,7 @@ RSpec.describe Voice::TestCallBuilder do
       expect(call.meta['voice_agent_id']).to be_present
       expect(VoiceAgent.find(call.meta['voice_agent_id'])).to have_attributes(
         account_id: account.id,
-        enabled: true
+        enabled: false
       )
       expect(call.contact).to be_nil
       expect(call.conversation).to be_nil

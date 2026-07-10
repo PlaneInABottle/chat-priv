@@ -124,7 +124,13 @@ Rails.application.routes.draw do
           resource :ai_agent_usage, only: [:show], controller: 'ai_agent_usage'
           namespace :voice do
             resource :usage, only: [:show], controller: 'usage'
-            resources :agents
+            resource :telephony_readiness, only: [:show], controller: 'telephony_readiness'
+            resources :agents do
+              member do
+                post :publish
+                post :pause
+              end
+            end
             resources :inbox_settings, only: [:index, :show, :create, :update]
             resources :recordings, only: [:index]
             resources :test_calls, only: [:create]
@@ -137,6 +143,10 @@ Rails.application.routes.draw do
             end
           end
           resources :ai_agents, only: [:index, :show, :create, :update, :destroy] do
+            member do
+              post :publish
+              post :pause
+            end
             resources :test_conversations, only: [:index, :create, :show, :destroy], controller: 'ai_agent_test_conversations' do
               collection do
                 delete :clear_all
