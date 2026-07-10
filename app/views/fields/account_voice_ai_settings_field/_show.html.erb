@@ -34,6 +34,10 @@
     </dd>
   </div>
   <div>
+    <dt><%= t('super_admin.account_voice_ai_settings.data_retention') %></dt>
+    <dd><%= t('super_admin.data_retention.days', count: field.resource.voice_ai_data_retention_days) %></dd>
+  </div>
+  <div>
     <dt><%= t('super_admin.account_voice_ai_settings.active_real_calls') %></dt>
     <dd><%= usage_summary[:active_calls] %></dd>
   </div>

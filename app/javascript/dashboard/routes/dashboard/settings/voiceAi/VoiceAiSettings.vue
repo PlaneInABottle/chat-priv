@@ -20,7 +20,6 @@ import { emitter } from 'shared/helpers/mitt';
 
 import SettingsLayout from '../SettingsLayout.vue';
 import BaseSettingsHeader from '../components/BaseSettingsHeader.vue';
-import AiDataRetentionPanel from '../components/AiDataRetentionPanel.vue';
 import Button from 'dashboard/components-next/button/Button.vue';
 import Input from 'dashboard/components-next/input/Input.vue';
 import Switch from 'dashboard/components-next/switch/Switch.vue';
@@ -136,7 +135,6 @@ const tabs = computed(() => [
   { label: t('VOICE_AI.TABS.TEST'), value: 'test' },
   { label: t('VOICE_AI.TABS.RECORDINGS'), value: 'recordings' },
   { label: t('VOICE_AI.TABS.USAGE'), value: 'usage' },
-  { label: t('VOICE_AI.TABS.PRIVACY'), value: 'privacy' },
 ]);
 const activeTabIndex = computed(() =>
   tabs.value.findIndex(tab => tab.value === activeTab.value)
@@ -892,8 +890,12 @@ watch(currentCallStatus, status => {
 watch(
   () => route.query.section,
   section => {
-    if (tabs.value.some(tab => tab.value === section))
+    if (tabs.value.some(tab => tab.value === section)) {
       activeTab.value = section;
+    } else if (section) {
+      activeTab.value = 'agents';
+      router.replace({ query: { ...route.query, section: 'agents' } });
+    }
   }
 );
 
@@ -920,6 +922,8 @@ const unsubscribeFromVoiceEvents = () => {
 onMounted(() => {
   if (tabs.value.some(tab => tab.value === route.query.section)) {
     activeTab.value = route.query.section;
+  } else if (route.query.section) {
+    router.replace({ query: { ...route.query, section: 'agents' } });
   }
   loadData();
   subscribeToVoiceEvents();
@@ -2013,8 +2017,6 @@ onBeforeUnmount(() => {
             </div>
           </section>
         </section>
-
-        <AiDataRetentionPanel v-if="activeTab === 'privacy'" kind="voice" />
       </div>
     </template>
   </SettingsLayout>

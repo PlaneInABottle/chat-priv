@@ -396,12 +396,19 @@ RSpec.describe Account do
         enabled: false,
         model: 'deepseek/deepseek-v4-flash',
         conversation_limit: 0,
-        conversation_reuse_window_hours: 24
+        conversation_reuse_window_hours: 24,
+        data_retention_days: 30
       )
     end
 
     it 'round-trips ai_agent_settings through virtual attribute' do
-      account.ai_agent_settings = { enabled: true, model: 'anthropic/claude-3.5-sonnet', conversation_limit: 50, conversation_reuse_window_hours: 48 }
+      account.ai_agent_settings = {
+        enabled: true,
+        model: 'anthropic/claude-3.5-sonnet',
+        conversation_limit: 50,
+        conversation_reuse_window_hours: 48,
+        data_retention_days: 90
+      }
       account.save!
       account.reload
 
@@ -409,11 +416,13 @@ RSpec.describe Account do
       expect(account.ai_agent_model).to eq('anthropic/claude-3.5-sonnet')
       expect(account.ai_agent_conversation_limit).to eq(50)
       expect(account.ai_agent_conversation_reuse_window_hours).to eq(48)
+      expect(account.ai_agent_data_retention_days).to eq(90)
       expect(account.ai_agent_settings).to eq(
         enabled: true,
         model: 'anthropic/claude-3.5-sonnet',
         conversation_limit: 50,
-        conversation_reuse_window_hours: 48
+        conversation_reuse_window_hours: 48,
+        data_retention_days: 90
       )
     end
 
@@ -482,7 +491,8 @@ RSpec.describe Account do
         enabled: false,
         monthly_minute_limit: 0,
         max_call_duration_minutes: 15,
-        concurrent_call_limit: 1
+        concurrent_call_limit: 1,
+        data_retention_days: 30
       )
     end
 
@@ -491,7 +501,8 @@ RSpec.describe Account do
         enabled: true,
         monthly_minute_limit: 100,
         max_call_duration_minutes: 20,
-        concurrent_call_limit: 3
+        concurrent_call_limit: 3,
+        data_retention_days: 180
       }
       account.save!
       account.reload
@@ -500,6 +511,7 @@ RSpec.describe Account do
       expect(account.voice_ai_monthly_minute_limit).to eq(100)
       expect(account.voice_ai_max_call_duration_minutes).to eq(20)
       expect(account.voice_ai_concurrent_call_limit).to eq(3)
+      expect(account.voice_ai_data_retention_days).to eq(180)
     end
 
     it 'normalizes invalid numeric values to safe defaults' do

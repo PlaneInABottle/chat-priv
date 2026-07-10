@@ -17,6 +17,10 @@
     <dd><%= field.resource.ai_agent_conversation_reuse_window_hours %> <%= t('super_admin.account_ai_agent_settings.hours') %></dd>
   </div>
   <div>
+    <dt><%= t('super_admin.account_ai_agent_settings.data_retention') %></dt>
+    <dd><%= t('super_admin.data_retention.days', count: field.resource.ai_agent_data_retention_days) %></dd>
+  </div>
+  <div>
     <dt><%= t('super_admin.account_ai_agent_settings.current_month_usage') %></dt>
     <dd><%= usage_summary[:used] %><%= usage_summary[:unlimited] ? '' : " / #{usage_summary[:limit]}" %></dd>
   </div>

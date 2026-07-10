@@ -186,7 +186,8 @@ class Account < ApplicationRecord
       enabled: ai_agent_enabled?,
       model: ai_agent_model,
       conversation_limit: ai_agent_conversation_limit,
-      conversation_reuse_window_hours: ai_agent_conversation_reuse_window_hours
+      conversation_reuse_window_hours: ai_agent_conversation_reuse_window_hours,
+      data_retention_days: ai_agent_data_retention_days
     }
   end
 
@@ -199,6 +200,9 @@ class Account < ApplicationRecord
     self.ai_agent_conversation_limit = settings[:conversation_limit] if settings.key?(:conversation_limit)
     if settings.key?(:conversation_reuse_window_hours)
       self.ai_agent_conversation_reuse_window_hours = settings[:conversation_reuse_window_hours]
+    end
+    if settings.key?(:data_retention_days)
+      self.ai_agent_data_retention_days = AiDataRetention::Policy.normalize_days(settings[:data_retention_days])
     end
   end
 
@@ -228,7 +232,8 @@ class Account < ApplicationRecord
       enabled: voice_ai_enabled?,
       monthly_minute_limit: voice_ai_monthly_minute_limit,
       max_call_duration_minutes: voice_ai_max_call_duration_minutes,
-      concurrent_call_limit: voice_ai_concurrent_call_limit
+      concurrent_call_limit: voice_ai_concurrent_call_limit,
+      data_retention_days: voice_ai_data_retention_days
     }
   end
 
@@ -240,6 +245,9 @@ class Account < ApplicationRecord
     self.voice_ai_monthly_minute_limit = settings[:monthly_minute_limit] if settings.key?(:monthly_minute_limit)
     self.voice_ai_max_call_duration_minutes = settings[:max_call_duration_minutes] if settings.key?(:max_call_duration_minutes)
     self.voice_ai_concurrent_call_limit = settings[:concurrent_call_limit] if settings.key?(:concurrent_call_limit)
+    if settings.key?(:data_retention_days)
+      self.voice_ai_data_retention_days = AiDataRetention::Policy.normalize_days(settings[:data_retention_days])
+    end
   end
 
   def voice_ai_enabled?
