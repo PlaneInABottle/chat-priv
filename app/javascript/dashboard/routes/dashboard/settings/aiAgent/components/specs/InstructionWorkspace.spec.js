@@ -103,6 +103,21 @@ describe('InstructionWorkspace', () => {
     );
   });
 
+  it('shows mandatory human handoff as available when no custom guidance exists', () => {
+    const wrapper = mountComponent();
+    const navigator = wrapper.findComponent({
+      name: 'InstructionSectionNavigator',
+    });
+    const handoffItem = navigator
+      .props('items')
+      .find(item => item.key === 'handoff');
+
+    expect(handoffItem.configured).toBe(true);
+    expect(handoffItem.statusLabel).toBe(
+      'AI_ASSISTANT.INSTRUCTIONS.HANDOFF_DEFAULT_STATUS'
+    );
+  });
+
   it('updates only the selected fixed section', async () => {
     const wrapper = mountComponent();
     const navigator = wrapper.findComponent({

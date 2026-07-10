@@ -95,6 +95,10 @@ const isSectionConfigured = key => {
 
 const sectionStatusLabelKey = key => {
   if (key === 'all') return 'AI_ASSISTANT.INSTRUCTIONS.ALL_SECTIONS_STATUS';
+  if (key === 'handoff' && !isSectionConfigured(key)) {
+    return 'AI_ASSISTANT.INSTRUCTIONS.HANDOFF_DEFAULT_STATUS';
+  }
+
   return isSectionConfigured(key)
     ? 'AI_ASSISTANT.INSTRUCTIONS.CONFIGURED'
     : 'AI_ASSISTANT.INSTRUCTIONS.NOT_CONFIGURED';
@@ -111,7 +115,7 @@ const sectionItems = computed(() =>
       `AI_ASSISTANT.INSTRUCTIONS.SECTIONS.${key.toUpperCase()}.DESCRIPTION`
     ),
     icon: key === 'all' ? 'i-lucide-files' : '',
-    configured: isSectionConfigured(key),
+    configured: key === 'handoff' || isSectionConfigured(key),
     statusLabel: t(sectionStatusLabelKey(key)),
   }))
 );
