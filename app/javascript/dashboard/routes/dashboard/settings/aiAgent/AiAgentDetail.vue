@@ -385,6 +385,21 @@ const handleSave = async () => {
   }
 };
 
+const discardCurrentChanges = () => {
+  if (activeTab.value === 'instructions') {
+    formState.value.instructions = instructionDocumentForAgent(aiAgent.value);
+    return;
+  }
+
+  formState.value = {
+    ...formState.value,
+    name: aiAgent.value?.name || '',
+    inbox_ids: aiAgent.value?.agent_bot?.inbox_ids || [],
+    tools: normalizeToolsState(aiAgent.value?.tools_config),
+  };
+  inboxError.value = '';
+};
+
 const goBack = () => {
   router.push({ name: 'ai_agents' });
 };
@@ -525,13 +540,22 @@ watch(agentId, async (newAgentId, oldAgentId) => {
             :initial-active-tab="activeTabIndex"
             @tab-changed="handleTabChange"
           />
-          <Button
-            v-if="activeTab !== 'test'"
-            :label="t('AI_AGENT.SAVE.BUTTON')"
-            :is-loading="isSaving"
-            :disabled="isSaveDisabled"
-            @click="handleSave"
-          />
+          <div v-if="activeTab !== 'test'" class="flex justify-end gap-2">
+            <Button
+              v-if="isCurrentTabDirty"
+              :label="t('AI_AGENT.SAVE.DISCARD')"
+              variant="ghost"
+              color="slate"
+              :disabled="isSaving"
+              @click="discardCurrentChanges"
+            />
+            <Button
+              :label="t('AI_AGENT.SAVE.BUTTON')"
+              :is-loading="isSaving"
+              :disabled="isSaveDisabled"
+              @click="handleSave"
+            />
+          </div>
         </div>
         <InstructionWorkspace
           v-if="activeTab === 'instructions'"

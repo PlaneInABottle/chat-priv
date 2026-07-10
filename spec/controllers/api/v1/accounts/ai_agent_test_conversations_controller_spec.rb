@@ -281,22 +281,14 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
       it 'tests structured draft instructions without changing the saved prompt' do
         ai_agent.update!(prompt: 'Saved live instructions')
         draft_instructions = {
-          version: 1,
+          version: 2,
           profile: {
             language: 'tr',
             tone: 'friendly',
-            formality: 'balanced',
+            formality: 'not_set',
             response_length: 'short'
           },
-          sections: [
-            {
-              key: 'rules',
-              title: '',
-              content: 'Never invent a price.',
-              critical: true,
-              custom: false
-            }
-          ]
+          content: "## Rules and boundaries\n\nNever invent a price."
         }
         compiled_prompt = AiAgents::InstructionDocument.new(draft_instructions).compile
 
