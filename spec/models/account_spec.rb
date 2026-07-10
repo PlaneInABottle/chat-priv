@@ -94,7 +94,7 @@ RSpec.describe Account do
     it 'does not create duplicate default voice agents' do
       account = create(:account)
 
-      expect { account.create_default_voice_agent! }.not_to change { account.voice_agents.count }
+      expect { account.create_default_voice_agent! }.not_to(change { account.voice_agents.count })
     end
   end
 
@@ -501,7 +501,9 @@ RSpec.describe Account do
 
   describe 'voice_agent_runtime_settings' do
     let(:account) { create(:account) }
-    let!(:voice_agent) { create(:voice_agent, account: account, architecture: 'realtime', provider: 'gemini', model: nil, voice: 'Charon', language: 'tr') }
+    let!(:voice_agent) do
+      create(:voice_agent, account: account, architecture: 'realtime', provider: 'gemini', model: nil, voice: 'Charon', language: 'tr')
+    end
     let!(:other_voice_agent) { create(:voice_agent, architecture: 'realtime', provider: 'gemini', voice: 'Puck', language: 'tr') }
 
     it 'updates runtime settings for account-owned voice agents only' do

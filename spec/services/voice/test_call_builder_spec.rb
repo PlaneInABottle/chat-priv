@@ -7,9 +7,9 @@ RSpec.describe Voice::TestCallBuilder do
     let(:inbox) { api_channel.inbox }
     let(:user) { create(:user, account: account) }
     let(:voice_agent) { account.voice_agents.first! }
-    let!(:voice_inbox_setting) { create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: voice_agent) }
 
     before do
+      create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: voice_agent)
       allow(Voice::Livekit::AgentDispatchService).to receive(:perform).and_return(
         {
           'status' => 'dispatched',
@@ -18,7 +18,7 @@ RSpec.describe Voice::TestCallBuilder do
       )
     end
 
-    it 'creates a LiveKit voice call in an API inbox' do
+    it 'creates a LiveKit voice call in an API inbox', :aggregate_failures do
       call = described_class.perform!(
         account: account,
         inbox: inbox,
@@ -43,14 +43,15 @@ RSpec.describe Voice::TestCallBuilder do
       expect(call.conversation).to be_nil
       expect(call.message).to be_nil
       expect(call.meta.dig('voice_agent_dispatch', 'status')).to eq('dispatched')
-      expect(Voice::CallSerializer.new(call).payload).to include(
+      payload = Voice::CallSerializer.new(call).payload
+      expect(payload).to include(
         test_call: true,
         test_call_source: 'voice_ai_settings',
-        test_call_initiated_by_user_id: user.id,
-        conversation_id: nil,
-        contact_id: nil,
-        message_id: nil
+        test_call_initiated_by_user_id: user.id
       )
+      expect(payload).not_to have_key(:conversation_id)
+      expect(payload).not_to have_key(:contact_id)
+      expect(payload).not_to have_key(:message_id)
       expect(Voice::Livekit::AgentDispatchService).to have_received(:perform).with(
         call: call,
         metadata: hash_including(
