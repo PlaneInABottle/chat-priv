@@ -10,8 +10,11 @@ class AiAgentTestConversationsAPI extends ApiClient {
     return axios.delete(`${this.url}/clear_all`);
   }
 
-  sendMessage(id, content) {
-    return axios.post(`${this.url}/${id}/send_message`, { content });
+  sendMessage(id, content, draftInstructions) {
+    return axios.post(`${this.url}/${id}/send_message`, {
+      content,
+      ...(draftInstructions ? { draft_instructions: draftInstructions } : {}),
+    });
   }
 }
 

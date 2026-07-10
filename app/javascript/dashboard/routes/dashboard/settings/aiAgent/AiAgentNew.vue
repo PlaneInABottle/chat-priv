@@ -9,6 +9,7 @@ import SettingsLayout from '../SettingsLayout.vue';
 import BaseSettingsHeader from '../components/BaseSettingsHeader.vue';
 import Button from 'dashboard/components-next/button/Button.vue';
 import Input from 'dashboard/components-next/input/Input.vue';
+import { createDefaultInstructionDocument } from './helpers/instructionDocument';
 
 const store = useStore();
 const { t } = useI18n();
@@ -115,13 +116,34 @@ const toggleInbox = inboxId => {
   form.value.inboxIds = Array.from(ids);
 };
 
+const buildInstructionDocument = () => {
+  const document = createDefaultInstructionDocument();
+  document.profile.language = form.value.language;
+  document.profile.tone = form.value.tone;
+
+  const sectionContent = {
+    identity: `You are ${form.value.name}, a customer-facing support assistant.`,
+    business_context: form.value.businessContext.trim(),
+    tasks: form.value.instructions.trim(),
+    rules: form.value.boundaries.trim(),
+    handoff:
+      'If a customer asks for a person or the request needs human judgment, hand the conversation to a human.',
+  };
+
+  document.sections = document.sections.map(section => ({
+    ...section,
+    content: sectionContent[section.key] || '',
+  }));
+  return document;
+};
+
 const handleSubmit = async () => {
   errorMessage.value = '';
   const result = await store.dispatch('aiAgent/create', {
     name: form.value.name.trim(),
-    prompt: form.value.instructions.trim(),
     inbox_ids: form.value.inboxIds,
     config: {
+      instructions: buildInstructionDocument(),
       setup_profile: {
         goal: form.value.goal,
         language: form.value.language,
@@ -135,7 +157,7 @@ const handleSubmit = async () => {
   if (result && result.id) {
     useAlert(t('AI_AGENTS.NEW.SUCCESS'));
     router.push({
-      name: 'ai_agent_test',
+      name: 'ai_agent_instructions',
       params: { id: result.id },
     });
   } else if (result && result.error) {

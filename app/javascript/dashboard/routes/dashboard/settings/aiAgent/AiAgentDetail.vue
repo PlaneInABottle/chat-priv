@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, nextTick, onMounted, watch } from 'vue';
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router';
 import { useMapGetter, useStore } from 'dashboard/composables/store';
 import { useAlert } from 'dashboard/composables';
@@ -14,9 +14,15 @@ import Avatar from 'dashboard/components-next/avatar/Avatar.vue';
 import Input from 'dashboard/components-next/input/Input.vue';
 import TestConversationLayout from './components/TestConversationLayout.vue';
 import TabBar from 'dashboard/components-next/tabbar/TabBar.vue';
-import AiAgentPromptEditor from './components/AiAgentPromptEditor.vue';
+import InstructionWorkspace from './components/InstructionWorkspace.vue';
 import AssistantStatusBadge from './components/AssistantStatusBadge.vue';
 import ReadinessChecklist from './components/ReadinessChecklist.vue';
+import {
+  hasInstructionContent,
+  instructionContentLength,
+  instructionDocumentForAgent,
+  normalizeInstructionDocument,
+} from './helpers/instructionDocument';
 
 const defaultToolsState = () => ({
   enabled: ['human_handoff'],
@@ -62,24 +68,34 @@ const labels = useMapGetter('labels/getLabels');
 
 const isSaving = ref(false);
 const inboxError = ref('');
-const activeTab = computed(() =>
-  route.name === 'ai_agent_test' ? 'test' : 'settings'
-);
+const activeTab = computed(() => {
+  if (route.name === 'ai_agent_test') return 'test';
+  if (route.name === 'ai_agent_detail') return 'connections';
+  return 'instructions';
+});
 
 // Local form state - initialized from store on load
 const formState = ref({
   name: '',
-  prompt: '',
+  instructions: normalizeInstructionDocument(),
   inbox_ids: [],
   tools: defaultToolsState(),
 });
 
-const isFormDirty = computed(() => {
+const isInstructionsDirty = computed(() => {
+  const persisted = instructionDocumentForAgent(aiAgent.value);
+  return (
+    JSON.stringify(
+      normalizeInstructionDocument(formState.value.instructions)
+    ) !== JSON.stringify(persisted)
+  );
+});
+
+const isConnectionsDirty = computed(() => {
   const record = aiAgent.value;
   if (!record) {
     return (
       formState.value.name !== '' ||
-      formState.value.prompt !== '' ||
       formState.value.inbox_ids.length !== 0 ||
       JSON.stringify(formState.value.tools) !==
         JSON.stringify(defaultToolsState())
@@ -87,7 +103,6 @@ const isFormDirty = computed(() => {
   }
   return (
     formState.value.name !== (record.name || '') ||
-    formState.value.prompt !== (record.prompt || '') ||
     JSON.stringify(formState.value.inbox_ids) !==
       JSON.stringify(record.agent_bot?.inbox_ids || []) ||
     JSON.stringify(formState.value.tools) !==
@@ -95,11 +110,14 @@ const isFormDirty = computed(() => {
   );
 });
 
-const maxCharacters = 50000;
+const isFormDirty = computed(
+  () => isInstructionsDirty.value || isConnectionsDirty.value
+);
 
 const tabs = computed(() => [
-  { label: t('AI_AGENT.TABS.SETTINGS'), value: 'settings' },
-  { label: t('AI_AGENT.TABS.TEST'), value: 'test' },
+  { label: t('AI_AGENT.TABS.INSTRUCTIONS'), value: 'instructions' },
+  { label: t('AI_AGENT.TABS.CONNECTIONS'), value: 'connections' },
+  { label: t('AI_AGENT.TABS.TEST_HISTORY'), value: 'test' },
 ]);
 
 const activeTabIndex = computed(() =>
@@ -124,40 +142,12 @@ const inboxList = computed(() => {
   }));
 });
 
-const hasPersistedPrompt = computed(() => {
-  return Boolean(aiAgent.value?.prompt?.trim());
-});
-
 const simulatorDisabledMessageKey = computed(() => {
-  if (isFormDirty.value) {
-    return 'AI_AGENT.TEST_CONVERSATIONS.SAVE_BEFORE_TESTING';
-  }
-
-  if (!hasPersistedPrompt.value) {
+  if (!aiAgent.value?.prompt?.trim()) {
     return 'AI_AGENT.TEST_CONVERSATIONS.ADD_PROMPT_BEFORE_TESTING';
   }
 
   return null;
-});
-
-const promptMessageKey = computed(() => {
-  if (!formState.value.prompt.trim()) {
-    return 'AI_AGENT.PROMPT.REQUIRED_FOR_TESTING';
-  }
-
-  return 'AI_AGENT.PROMPT.HELP';
-});
-
-const promptMessageType = computed(() => {
-  if (!formState.value.prompt.trim()) {
-    return 'error';
-  }
-
-  return 'info';
-});
-
-const promptMessage = computed(() => {
-  return t(promptMessageKey.value);
 });
 
 const isSimulatorDisabled = computed(() => {
@@ -175,7 +165,21 @@ const simulatorDisabledMessage = computed(() => {
     : '';
 });
 
-const isSaveDisabled = computed(() => isSaving.value || !isFormDirty.value);
+const isCurrentTabDirty = computed(() =>
+  activeTab.value === 'instructions'
+    ? isInstructionsDirty.value
+    : isConnectionsDirty.value
+);
+
+const isSaveDisabled = computed(() => {
+  if (isSaving.value || !isCurrentTabDirty.value) return true;
+  if (activeTab.value !== 'instructions') return false;
+
+  return (
+    !hasInstructionContent(formState.value.instructions) ||
+    instructionContentLength(formState.value.instructions) > 50000
+  );
+});
 
 const availableTools = computed(() => aiAgent.value?.available_tools || []);
 
@@ -212,14 +216,14 @@ function syncFormState() {
   if (record) {
     formState.value = {
       name: record.name || '',
-      prompt: record.prompt || '',
+      instructions: instructionDocumentForAgent(record),
       inbox_ids: record.agent_bot?.inbox_ids || [],
       tools: normalizeToolsState(record.tools_config),
     };
   } else {
     formState.value = {
       name: '',
-      prompt: '',
+      instructions: normalizeInstructionDocument(),
       inbox_ids: [],
       tools: defaultToolsState(),
     };
@@ -314,33 +318,57 @@ const getInboxStatusText = inbox => {
 const handleSave = async () => {
   isSaving.value = true;
   inboxError.value = '';
+  const instructionsDraft = formState.value.instructions;
+  const connectionsDraft = {
+    name: formState.value.name,
+    inbox_ids: formState.value.inbox_ids,
+    tools: formState.value.tools,
+  };
+  const preserveInstructionsDraft =
+    activeTab.value === 'connections' && isInstructionsDirty.value;
+  const preserveConnectionsDraft =
+    activeTab.value === 'instructions' && isConnectionsDirty.value;
+
   try {
     const tools = normalizeToolsState(formState.value.tools);
+    const config = {
+      ...(aiAgent.value?.config || {}),
+      tools: {
+        enabled: tools.enabled,
+        human_handoff: {
+          allowed_labels: tools.human_handoff.allowed_labels,
+        },
+        ikas_lookup_order: {
+          enabled: tools.enabled.includes('ikas_lookup_order'),
+        },
+        ikas_catalog_search: {},
+      },
+    };
+
+    if (activeTab.value === 'instructions') {
+      config.instructions = normalizeInstructionDocument(
+        formState.value.instructions
+      );
+    }
+
     const payload = {
       id: agentId.value,
       data: {
         name: formState.value.name,
-        prompt: formState.value.prompt,
         inbox_ids: formState.value.inbox_ids,
-        config: {
-          ...(aiAgent.value?.config || {}),
-          tools: {
-            enabled: tools.enabled,
-            human_handoff: {
-              allowed_labels: tools.human_handoff.allowed_labels,
-            },
-            ikas_lookup_order: {
-              enabled: tools.enabled.includes('ikas_lookup_order'),
-            },
-            ikas_catalog_search: {},
-          },
-        },
+        config,
       },
     };
     const result = await store.dispatch('aiAgent/update', payload);
     if (result?.id) {
       useAlert(t('AI_AGENT.SAVE.SUCCESS'));
       syncFormState();
+      if (preserveInstructionsDraft) {
+        formState.value.instructions = instructionsDraft;
+      }
+      if (preserveConnectionsDraft) {
+        formState.value = { ...formState.value, ...connectionsDraft };
+      }
       return;
     }
 
@@ -361,7 +389,17 @@ const goBack = () => {
   router.push({ name: 'ai_agents' });
 };
 
-onBeforeRouteLeave(() => {
+onBeforeRouteLeave(to => {
+  const detailRoutes = [
+    'ai_agent_instructions',
+    'ai_agent_detail',
+    'ai_agent_test',
+  ];
+  const staysOnCurrentAgent =
+    detailRoutes.includes(to.name) && Number(to.params.id) === agentId.value;
+
+  if (staysOnCurrentAgent) return true;
+
   if (isFormDirty.value) {
     const confirm = window.confirm(t('AI_AGENT.UNSAVED_CHANGES_WARNING'));
     if (!confirm) {
@@ -372,10 +410,33 @@ onBeforeRouteLeave(() => {
 });
 
 const handleTabChange = tab => {
+  const routeNames = {
+    instructions: 'ai_agent_instructions',
+    connections: 'ai_agent_detail',
+    test: 'ai_agent_test',
+  };
   router.push({
-    name: tab.value === 'test' ? 'ai_agent_test' : 'ai_agent_detail',
+    name: routeNames[tab.value],
     params: { id: agentId.value },
   });
+};
+
+const configureHandoff = async () => {
+  await router.push({
+    name: 'ai_agent_detail',
+    params: { id: agentId.value },
+    query: { section: 'human-handoff' },
+  });
+  await nextTick();
+  document
+    .getElementById('tool-human_handoff')
+    ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+};
+
+const refreshAfterDraftTest = async () => {
+  const draft = formState.value.instructions;
+  await store.dispatch('aiAgent/show', agentId.value);
+  formState.value.instructions = draft;
 };
 
 const handlePause = async () => {
@@ -456,12 +517,32 @@ watch(agentId, async (newAgentId, oldAgentId) => {
           <span class="i-lucide-shield-check mt-0.5 size-4 flex-shrink-0" />
           <p class="m-0">{{ t('AI_ASSISTANT.ACTIVE_NOTICE') }}</p>
         </div>
-        <TabBar
-          :tabs="tabs"
-          :initial-active-tab="activeTabIndex"
-          @tab-changed="handleTabChange"
+        <div
+          class="sticky top-0 z-20 flex flex-col gap-3 border-b border-n-weak bg-n-surface-1 py-3 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <TabBar
+            :tabs="tabs"
+            :initial-active-tab="activeTabIndex"
+            @tab-changed="handleTabChange"
+          />
+          <Button
+            v-if="activeTab !== 'test'"
+            :label="t('AI_AGENT.SAVE.BUTTON')"
+            :is-loading="isSaving"
+            :disabled="isSaveDisabled"
+            @click="handleSave"
+          />
+        </div>
+        <InstructionWorkspace
+          v-if="activeTab === 'instructions'"
+          v-model="formState.instructions"
+          :ai-agent-id="agentId"
+          :is-dirty="isInstructionsDirty"
+          :is-disabled="!hasInstructionContent(formState.instructions)"
+          @configure-handoff="configureHandoff"
+          @tested="refreshAfterDraftTest"
         />
-        <template v-if="activeTab === 'settings'">
+        <template v-if="activeTab === 'connections'">
           <div
             class="grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,640px)_280px]"
           >
@@ -472,16 +553,6 @@ watch(agentId, async (newAgentId, oldAgentId) => {
                   v-model="formState.name"
                   :label="t('AI_AGENT.NAME.LABEL')"
                   :placeholder="t('AI_AGENT.NAME.PLACEHOLDER')"
-                />
-              </div>
-
-              <!-- Prompt Editor -->
-              <div>
-                <AiAgentPromptEditor
-                  v-model="formState.prompt"
-                  :message="promptMessage"
-                  :message-type="promptMessageType"
-                  :max-length="maxCharacters"
                 />
               </div>
 
@@ -554,6 +625,7 @@ watch(agentId, async (newAgentId, oldAgentId) => {
                 <div class="flex flex-col gap-4">
                   <div
                     v-for="tool in availableTools"
+                    :id="`tool-${tool.key}`"
                     :key="tool.key"
                     class="p-4 rounded-lg border border-n-weak dark:border-n-weak"
                   >
@@ -692,18 +764,6 @@ watch(agentId, async (newAgentId, oldAgentId) => {
             />
           </div>
           <ReadinessChecklist :readiness="aiAgent?.readiness" />
-        </div>
-        <!-- Save Button -->
-        <div
-          v-if="activeTab === 'settings'"
-          class="sticky bottom-0 flex justify-end border-t border-n-weak bg-n-surface-1 py-4"
-        >
-          <Button
-            :label="t('AI_AGENT.SAVE.BUTTON')"
-            :is-loading="isSaving"
-            :disabled="isSaveDisabled"
-            @click="handleSave"
-          />
         </div>
       </div>
     </template>
