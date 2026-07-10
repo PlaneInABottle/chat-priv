@@ -85,6 +85,8 @@ class Account < ApplicationRecord
   has_many :ai_agent_llm_calls, dependent: :destroy
   has_many :ai_agent_tool_executions, dependent: :destroy
   has_many :ai_agent_usage_events, dependent: :destroy
+  has_many :ai_agent_evaluation_cases, dependent: :destroy
+  has_many :ai_agent_evaluation_runs, dependent: :destroy
   has_many :api_channels, dependent: :destroy_async, class_name: '::Channel::Api'
   has_many :articles, dependent: :destroy_async, class_name: '::Article'
   has_many :assignment_policies, dependent: :destroy_async

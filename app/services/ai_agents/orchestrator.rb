@@ -50,13 +50,13 @@ module AiAgents
     MAX_ORDER_LOOKUP_CALLS = 1
     MAX_HUMAN_HANDOFF_CALLS = 1
 
-    def initialize(ai_agent:, messages:, mode:, conversation: nil, trigger_message: nil, adapter: nil, prompt_override: nil)
+    def initialize(ai_agent:, messages:, mode:, conversation: nil, trigger_message: nil, adapter: nil, prompt_override: nil, config_override: nil)
       @ai_agent = ai_agent
       @messages = messages
       @mode = mode
       @conversation = conversation
       @trigger_message = trigger_message
-      @runtime_config = mode.to_s == 'live' ? ai_agent.live_config : ai_agent.config
+      @runtime_config = config_override || (mode.to_s == 'live' ? ai_agent.live_config : ai_agent.config)
       @prompt_override = if mode.to_s == 'live' && prompt_override.nil?
                            ai_agent.live_prompt
                          else

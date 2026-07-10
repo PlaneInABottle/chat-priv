@@ -15,6 +15,7 @@ import Input from 'dashboard/components-next/input/Input.vue';
 import TestConversationLayout from './components/TestConversationLayout.vue';
 import TabBar from 'dashboard/components-next/tabbar/TabBar.vue';
 import InstructionWorkspace from './components/InstructionWorkspace.vue';
+import EvaluationSuite from './components/EvaluationSuite.vue';
 import AssistantStatusBadge from './components/AssistantStatusBadge.vue';
 import ReadinessChecklist from './components/ReadinessChecklist.vue';
 import {
@@ -70,6 +71,7 @@ const isSaving = ref(false);
 const inboxError = ref('');
 const activeTab = computed(() => {
   if (route.name === 'ai_agent_test') return 'test';
+  if (route.name === 'ai_agent_evaluations') return 'evaluations';
   if (route.name === 'ai_agent_detail') return 'connections';
   return 'instructions';
 });
@@ -118,6 +120,7 @@ const tabs = computed(() => [
   { label: t('AI_AGENT.TABS.INSTRUCTIONS'), value: 'instructions' },
   { label: t('AI_AGENT.TABS.CONNECTIONS'), value: 'connections' },
   { label: t('AI_AGENT.TABS.TEST_HISTORY'), value: 'test' },
+  { label: t('AI_AGENT.TABS.EVALUATIONS'), value: 'evaluations' },
 ]);
 
 const activeTabIndex = computed(() =>
@@ -214,11 +217,12 @@ const simulatorDisabledMessage = computed(() => {
     : '';
 });
 
-const isCurrentTabDirty = computed(() =>
-  activeTab.value === 'instructions'
-    ? isInstructionsDirty.value
-    : isConnectionsDirty.value
-);
+const isCurrentTabDirty = computed(() => {
+  if (activeTab.value === 'instructions') return isInstructionsDirty.value;
+  if (activeTab.value === 'connections') return isConnectionsDirty.value;
+
+  return false;
+});
 
 const isSaveDisabled = computed(() => {
   if (isSaving.value || !isCurrentTabDirty.value) return true;
@@ -462,6 +466,7 @@ onBeforeRouteLeave(to => {
     'ai_agent_instructions',
     'ai_agent_detail',
     'ai_agent_test',
+    'ai_agent_evaluations',
   ];
   const staysOnCurrentAgent =
     detailRoutes.includes(to.name) && Number(to.params.id) === agentId.value;
@@ -482,6 +487,7 @@ const handleTabChange = tab => {
     instructions: 'ai_agent_instructions',
     connections: 'ai_agent_detail',
     test: 'ai_agent_test',
+    evaluations: 'ai_agent_evaluations',
   };
   router.push({
     name: routeNames[tab.value],
@@ -610,7 +616,10 @@ watch(agentId, async (newAgentId, oldAgentId) => {
             :initial-active-tab="activeTabIndex"
             @tab-changed="handleTabChange"
           />
-          <div v-if="activeTab !== 'test'" class="flex justify-end gap-2">
+          <div
+            v-if="['instructions', 'connections'].includes(activeTab)"
+            class="flex justify-end gap-2"
+          >
             <Button
               v-if="isCurrentTabDirty"
               :label="t('AI_AGENT.SAVE.DISCARD')"
@@ -859,6 +868,10 @@ watch(agentId, async (newAgentId, oldAgentId) => {
           </div>
           <ReadinessChecklist :readiness="aiAgent?.readiness" />
         </div>
+        <EvaluationSuite
+          v-if="activeTab === 'evaluations'"
+          :ai-agent-id="agentId"
+        />
       </div>
     </template>
   </SettingsLayout>

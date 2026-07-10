@@ -8,7 +8,8 @@
     "TABS": {
       "INSTRUCTIONS": "Instructions",
       "CONNECTIONS": "Connections",
-      "TEST_HISTORY": "Test history"
+      "TEST_HISTORY": "Test history",
+      "EVALUATIONS": "Evaluations"
     },
     "NAME": {
       "LABEL": "Agent Name",
@@ -156,6 +157,59 @@
       "LIVE": "Version {version} is responding to customers. You can edit and test a draft without interrupting it.",
       "PENDING": "Version {version} is still responding to customers. Your saved draft is not live until you test and publish the update.",
       "PAUSED": "Version {version} is paused. Resume it as-is or publish a tested draft update."
+    },
+    "EVALUATIONS": {
+      "TITLE": "Evaluation scenarios",
+      "DESCRIPTION": "Save real customer questions and describe what a good answer must do. Runs use the current draft and never contact customers.",
+      "ADD": "Add scenario",
+      "EDIT": "Edit scenario",
+      "DELETE": "Delete scenario",
+      "LOADING": "Loading evaluation scenarios...",
+      "SAVED": "Evaluation scenario saved",
+      "DELETED": "Evaluation scenario deleted",
+      "CRITERIA_LABEL": "Good answer: ",
+      "RUN": {
+        "ACTION": "Run all",
+        "RUNNING": "Evaluating the current draft...",
+        "FAILED": "The evaluation run could not complete.",
+        "SUMMARY": "{passed} of {total} scenarios passed",
+        "OLDER_DRAFT": "These results belong to an older draft. Run the scenarios again before relying on them."
+      },
+      "FORM": {
+        "NAME": "Scenario name",
+        "NAME_PLACEHOLDER": "For example: Delivery time question",
+        "MESSAGE": "Customer message",
+        "MESSAGE_PLACEHOLDER": "Write the message exactly as a customer might send it...",
+        "CRITERIA": "What should a good answer do?",
+        "CRITERIA_PLACEHOLDER": "For example: Explain that delivery depends on location and do not promise an exact date.",
+        "CRITERIA_HELP": "Describe required facts, actions, or boundaries in plain language.",
+        "CANCEL": "Cancel",
+        "SAVE": "Save scenario"
+      },
+      "RESULT": {
+        "NOT_RUN": "Not run",
+        "PASSED": "Passed",
+        "FAILED": "Needs attention",
+        "OLDER_DRAFT": "Older draft",
+        "CHANGED": "Changed since run",
+        "ANSWER": "Assistant answer",
+        "REASON": "Evaluation"
+      },
+      "EMPTY": {
+        "TITLE": "No evaluation scenarios yet",
+        "DESCRIPTION": "Start with the customer questions where accuracy, tone, or handoff behavior matters most."
+      },
+      "CONFIRM_DELETE": {
+        "TITLE": "Delete this scenario?",
+        "DESCRIPTION": "Past run results keep their snapshot, but this scenario will no longer be included in future runs."
+      },
+      "ERROR": {
+        "LOAD": "Evaluation scenarios could not be loaded.",
+        "REFRESH": "The evaluation run could not be refreshed.",
+        "SAVE": "The evaluation scenario could not be saved.",
+        "DELETE": "The evaluation scenario could not be deleted.",
+        "RUN": "The evaluation run could not be started."
+      }
     },
     "CAPABILITIES": {
       "HANDOFF": "Human support fallback",
