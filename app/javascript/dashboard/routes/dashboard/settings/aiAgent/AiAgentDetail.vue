@@ -315,6 +315,32 @@ const getInboxStatusText = inbox => {
   return inbox.channel_type;
 };
 
+const instructionSaveData = () => ({
+  config: {
+    instructions: normalizeInstructionDocument(formState.value.instructions),
+  },
+});
+
+const connectionSaveData = () => {
+  const tools = normalizeToolsState(formState.value.tools);
+  return {
+    name: formState.value.name,
+    inbox_ids: formState.value.inbox_ids,
+    config: {
+      tools: {
+        enabled: tools.enabled,
+        human_handoff: {
+          allowed_labels: tools.human_handoff.allowed_labels,
+        },
+        ikas_lookup_order: {
+          enabled: tools.enabled.includes('ikas_lookup_order'),
+        },
+        ikas_catalog_search: {},
+      },
+    },
+  };
+};
+
 const handleSave = async () => {
   isSaving.value = true;
   inboxError.value = '';
@@ -330,34 +356,12 @@ const handleSave = async () => {
     activeTab.value === 'instructions' && isConnectionsDirty.value;
 
   try {
-    const tools = normalizeToolsState(formState.value.tools);
-    const config = {
-      ...(aiAgent.value?.config || {}),
-      tools: {
-        enabled: tools.enabled,
-        human_handoff: {
-          allowed_labels: tools.human_handoff.allowed_labels,
-        },
-        ikas_lookup_order: {
-          enabled: tools.enabled.includes('ikas_lookup_order'),
-        },
-        ikas_catalog_search: {},
-      },
-    };
-
-    if (activeTab.value === 'instructions') {
-      config.instructions = normalizeInstructionDocument(
-        formState.value.instructions
-      );
-    }
-
     const payload = {
       id: agentId.value,
-      data: {
-        name: formState.value.name,
-        inbox_ids: formState.value.inbox_ids,
-        config,
-      },
+      data:
+        activeTab.value === 'instructions'
+          ? instructionSaveData()
+          : connectionSaveData(),
     };
     const result = await store.dispatch('aiAgent/update', payload);
     if (result?.id) {
@@ -450,7 +454,7 @@ const configureHandoff = async () => {
 
 const refreshAfterDraftTest = async () => {
   const draft = formState.value.instructions;
-  await store.dispatch('aiAgent/show', agentId.value);
+  await store.dispatch('aiAgent/refresh', agentId.value);
   formState.value.instructions = draft;
 };
 
@@ -491,7 +495,7 @@ watch(agentId, async (newAgentId, oldAgentId) => {
   <SettingsLayout :is-loading="uiFlags.isFetching">
     <template #header>
       <BaseSettingsHeader
-        :title="t('AI_AGENT.HEADER')"
+        :title="aiAgent?.name || t('AI_AGENT.HEADER')"
         :description="t('AI_AGENT.DESCRIPTION')"
         :link-text="t('AI_AGENT.LEARN_MORE')"
         feature-name="ai_agent"
@@ -527,7 +531,7 @@ watch(agentId, async (newAgentId, oldAgentId) => {
       <div class="flex flex-col gap-6">
         <div
           v-if="isActive"
-          class="flex items-start gap-3 rounded-lg border border-n-teal-5 bg-n-teal-2 p-4 text-sm text-n-teal-11"
+          class="flex items-start gap-3 rounded-lg border border-n-teal-5 bg-n-teal-2 p-3 text-sm text-n-teal-11"
         >
           <span class="i-lucide-shield-check mt-0.5 size-4 flex-shrink-0" />
           <p class="m-0">{{ t('AI_ASSISTANT.ACTIVE_NOTICE') }}</p>

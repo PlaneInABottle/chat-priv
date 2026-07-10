@@ -122,10 +122,11 @@ describe('AiAgentNew.vue', () => {
       expect.objectContaining({
         config: expect.objectContaining({
           instructions: expect.objectContaining({
-            version: 2,
-            content: expect.stringContaining(
-              '## Tasks and conversation flow\n\nHelp customers choose a product.'
-            ),
+            version: 3,
+            sections: expect.objectContaining({
+              tasks: 'Help customers choose a product.',
+              rules: 'Never invent prices.',
+            }),
           }),
         }),
       })

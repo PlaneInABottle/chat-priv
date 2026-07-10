@@ -15,7 +15,10 @@ const route = useRoute();
   <div
     class="flex flex-col w-full h-full m-0 pb-8 pt-4 px-6 overflow-auto bg-n-surface-1"
   >
-    <div class="flex items-start w-full max-w-5xl mx-auto">
+    <div
+      class="flex items-start w-full mx-auto"
+      :class="route.meta.wideLayout ? 'max-w-[90rem]' : 'max-w-5xl'"
+    >
       <router-view v-slot="{ Component }">
         <keep-alive v-if="keepAlive">
           <component :is="Component" :key="route.fullPath" />
