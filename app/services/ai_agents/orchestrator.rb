@@ -50,12 +50,13 @@ module AiAgents
     MAX_ORDER_LOOKUP_CALLS = 1
     MAX_HUMAN_HANDOFF_CALLS = 1
 
-    def initialize(ai_agent:, messages:, mode:, conversation: nil, trigger_message: nil, adapter: nil)
+    def initialize(ai_agent:, messages:, mode:, conversation: nil, trigger_message: nil, adapter: nil, prompt_override: nil)
       @ai_agent = ai_agent
       @messages = messages
       @mode = mode
       @conversation = conversation
       @trigger_message = trigger_message
+      @prompt_override = prompt_override
       @adapter = adapter || default_adapter
       @config = AiAgents::Config.new(ai_agent.config, allow_legacy_human_handoff_settings: true)
       @executed_tool_keys = Set.new
@@ -105,10 +106,15 @@ module AiAgents
 
     private
 
-    attr_reader :ai_agent, :messages, :mode, :conversation, :trigger_message, :adapter, :config, :executed_tool_keys, :executed_tool_counts
+    attr_reader :ai_agent, :messages, :mode, :conversation, :trigger_message, :adapter, :config, :executed_tool_keys,
+                :executed_tool_counts, :prompt_override
 
     def default_adapter
-      AiAgents::LlmAdapters::OpenAiCompatibleAdapter.new(ai_agent: ai_agent, account: ai_agent.account)
+      AiAgents::LlmAdapters::OpenAiCompatibleAdapter.new(
+        ai_agent: ai_agent,
+        account: ai_agent.account,
+        prompt_override: prompt_override
+      )
     end
 
     def tool_executor
@@ -219,7 +225,10 @@ module AiAgents
     end
 
     def effective_system_prompt
-      @effective_system_prompt ||= AiAgents::EffectivePromptPreview.new(ai_agent: ai_agent).effective_system_prompt
+      @effective_system_prompt ||= AiAgents::EffectivePromptPreview.new(
+        ai_agent: ai_agent,
+        prompt_override: prompt_override
+      ).effective_system_prompt
     end
 
     def duration_ms(started_at)

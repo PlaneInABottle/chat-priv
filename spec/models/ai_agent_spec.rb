@@ -170,5 +170,15 @@ RSpec.describe AiAgent do
       expect(ai_agent).to have_attributes(enabled: false, last_tested_at: tested_at)
       expect(ai_agent.lifecycle_status).to eq('paused')
     end
+
+    it 'requires the current prompt to match the successfully tested prompt' do
+      ai_agent.mark_test_succeeded!
+
+      expect(ai_agent.reload.prompt_tested?).to be(true)
+
+      ai_agent.update!(prompt: 'Changed after the test')
+
+      expect(ai_agent.prompt_tested?).to be(false)
+    end
   end
 end
