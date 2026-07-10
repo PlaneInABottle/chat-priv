@@ -48,6 +48,7 @@ const ButtonStub = {
 };
 
 const mountComponent = createResult => {
+  const createAction = vi.fn().mockResolvedValue(createResult);
   const store = createStore({
     state: { inboxes: [] },
     getters: {
@@ -55,7 +56,7 @@ const mountComponent = createResult => {
       'inboxes/getInboxes': state => state.inboxes,
     },
     actions: {
-      'aiAgent/create': vi.fn().mockResolvedValue(createResult),
+      'aiAgent/create': createAction,
       'inboxes/get': vi.fn().mockResolvedValue([]),
     },
   });
@@ -74,7 +75,7 @@ const mountComponent = createResult => {
     },
   });
 
-  return { wrapper, store };
+  return { wrapper, store, createAction };
 };
 
 describe('AiAgentNew.vue', () => {
@@ -104,5 +105,37 @@ describe('AiAgentNew.vue', () => {
     await wrapper.vm.$nextTick();
 
     expect(wrapper.find('[role="alert"]').text()).toBe('Name already exists');
+  });
+
+  it('creates structured instructions and opens the instructions workspace', async () => {
+    const { wrapper, createAction } = mountComponent({ id: 42 });
+
+    wrapper.vm.form.name = 'Support bot';
+    wrapper.vm.form.instructions = 'Help customers choose a product.';
+    wrapper.vm.form.businessContext = 'We sell window products.';
+    wrapper.vm.form.boundaries = 'Never invent prices.';
+    wrapper.vm.form.inboxIds = [1];
+    await wrapper.vm.handleSubmit();
+
+    expect(createAction).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        config: expect.objectContaining({
+          instructions: expect.objectContaining({
+            sections: expect.arrayContaining([
+              expect.objectContaining({
+                key: 'tasks',
+                content: 'Help customers choose a product.',
+              }),
+            ]),
+          }),
+        }),
+      })
+    );
+    expect(createAction.mock.calls[0][1].prompt).toBeUndefined();
+    expect(routerPush).toHaveBeenCalledWith({
+      name: 'ai_agent_instructions',
+      params: { id: 42 },
+    });
   });
 });
