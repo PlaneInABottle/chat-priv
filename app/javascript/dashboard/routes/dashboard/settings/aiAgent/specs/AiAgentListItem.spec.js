@@ -95,4 +95,9 @@ describe('AiAgentListItem.vue', () => {
     const wrapper = mountComponent(buildAgent({ lifecycle_status: 'draft' }));
     expect(wrapper.text()).toContain('AI_ASSISTANT.STATUS.DRAFT');
   });
+
+  it('shows when a published assistant has an update pending', () => {
+    const wrapper = mountComponent(buildAgent({ draft_changes: true }));
+    expect(wrapper.text()).toContain('AI_ASSISTANT.LIST.DRAFT_UPDATE');
+  });
 });

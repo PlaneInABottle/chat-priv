@@ -657,16 +657,31 @@ RSpec.describe 'Ai Agents API', type: :request do
       expect(response.parsed_body.dig('readiness', 'can_publish')).to be(false)
     end
 
-    it 'applies edits while active without taking the assistant offline' do
-      ai_agent.update!(enabled: true, published_at: Time.current)
+    it 'saves active edits as a draft without changing the published release' do
+      inbox = create(:inbox, account: account)
+      AgentBotInbox.create!(agent_bot: ai_agent.agent_bot, inbox: inbox, account: account)
+      ai_agent.mark_test_succeeded!
+      ai_agent.publish!
+      published_prompt = ai_agent.live_prompt
 
       patch "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}",
-            params: { name: 'Live edit' },
+            params: { name: 'Live edit', prompt: 'Draft instructions' },
             headers: admin.create_new_auth_token,
             as: :json
 
       expect(response).to have_http_status(:ok)
-      expect(ai_agent.reload).to have_attributes(name: 'Live edit', enabled: true, last_tested_at: nil)
+      expect(ai_agent.reload).to have_attributes(name: 'Live edit', prompt: 'Draft instructions', enabled: true, published_revision: 1)
+      expect(ai_agent.live_prompt).to eq(published_prompt)
+      expect(response.parsed_body).to include('draft_changes' => true, 'published_revision' => 1)
+
+      ai_agent.mark_test_succeeded!
+      post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/publish",
+           headers: admin.create_new_auth_token,
+           as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body).to include('draft_changes' => false, 'published_revision' => 2)
+      expect(ai_agent.reload.live_prompt).to eq('Draft instructions')
     end
   end
 end

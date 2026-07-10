@@ -46,7 +46,16 @@ const goToDetail = () => {
         {{ t('AI_ASSISTANT.LIST.INBOX_COUNT', inboxCount) }}
       </span>
     </button>
-    <AssistantStatusBadge :status="agent.lifecycle_status" />
+    <div class="flex min-w-0 flex-col items-start gap-1">
+      <AssistantStatusBadge :status="agent.lifecycle_status" />
+      <span
+        v-if="agent.draft_changes"
+        class="flex items-center gap-1 text-xs text-n-amber-11"
+      >
+        <span class="i-lucide-file-clock size-3.5 flex-shrink-0" />
+        {{ t('AI_ASSISTANT.LIST.DRAFT_UPDATE') }}
+      </span>
+    </div>
     <span class="hidden text-sm text-n-slate-11 md:block">
       {{ t('AI_ASSISTANT.LIST.INBOX_COUNT', inboxCount) }}
     </span>

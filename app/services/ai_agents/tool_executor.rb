@@ -8,7 +8,7 @@ class AiAgents::ToolExecutor
     @account = account
     @mode = mode
     @executed_tool_keys = executed_tool_keys
-    @config = AiAgents::Config.new(ai_agent.config, allow_legacy_human_handoff_settings: true)
+    @config = AiAgents::Config.new(context[:config] || ai_agent.config, allow_legacy_human_handoff_settings: true)
     @conversation = context[:conversation]
     @trigger_message = context[:trigger_message]
   end

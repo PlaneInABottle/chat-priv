@@ -10,6 +10,9 @@
 #  name                      :string           default("AI Asistan"), not null
 #  prompt                    :text             default("")
 #  published_at              :datetime
+#  published_config          :jsonb            not null
+#  published_prompt          :text
+#  published_revision        :integer          default(0), not null
 #  created_at                :datetime         not null
 #  updated_at                :datetime         not null
 #  account_id                :bigint           not null
@@ -55,34 +58,87 @@ class AiAgent < ApplicationRecord
   end
 
   def publish!
-    raise ActiveRecord::RecordInvalid, self unless readiness[:can_publish]
+    with_lock do
+      raise ActiveRecord::RecordInvalid, self unless readiness[:can_publish]
 
-    update!(enabled: true, published_at: published_at || Time.current)
+      if published_release? && !draft_changes?
+        update!(enabled: true)
+      else
+        update!(
+          enabled: true,
+          published_at: Time.current,
+          published_prompt: prompt,
+          published_config: config || {},
+          published_revision: published_revision.to_i + 1
+        )
+      end
+    end
   end
 
   def pause!
     update!(enabled: false)
   end
 
-  def mark_test_succeeded!(prompt: self.prompt)
+  def mark_test_succeeded!(prompt: self.prompt, config: self.config)
     # Test telemetry must remain writable for agents carrying legacy config.
     # rubocop:disable Rails/SkipsModelValidations
     update_columns(
       last_tested_at: Time.current,
-      last_tested_prompt_digest: prompt_digest(prompt),
+      last_tested_prompt_digest: release_digest(prompt, config),
       updated_at: Time.current
     )
     # rubocop:enable Rails/SkipsModelValidations
   end
 
   def prompt_tested?
-    last_tested_at.present? && last_tested_prompt_digest == prompt_digest(prompt)
+    draft_tested?
+  end
+
+  def draft_tested?
+    last_tested_at.present? && last_tested_prompt_digest == release_digest(prompt, config)
+  end
+
+  def published_release?
+    published_revision.to_i.positive?
+  end
+
+  def draft_changes?
+    return false unless published_release?
+
+    release_digest(prompt, config) != release_digest(live_prompt, live_config)
+  end
+
+  def live_prompt
+    published_release? ? published_prompt.to_s : prompt.to_s
+  end
+
+  def live_config
+    published_release? ? published_config.to_h : config.to_h
   end
 
   private
 
-  def prompt_digest(value)
-    Digest::SHA256.hexdigest(value.to_s)
+  def release_digest(prompt_value, config_value)
+    payload = {
+      'prompt' => prompt_value.to_s,
+      'config' => runtime_config(config_value)
+    }
+    Digest::SHA256.hexdigest(JSON.generate(canonicalize(payload)))
+  end
+
+  def runtime_config(value)
+    value.is_a?(Hash) ? value.deep_stringify_keys.except('instructions') : {}
+  end
+
+  def canonicalize(value)
+    case value
+    when Hash
+      value.keys.sort.index_with { |key| canonicalize(value[key]) }
+    when Array
+      value.map { |item| canonicalize(item) }
+    else
+      value
+    end
   end
 
   def inbox_ids_conflict

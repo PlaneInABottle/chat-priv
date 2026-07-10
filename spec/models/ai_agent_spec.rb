@@ -161,7 +161,12 @@ RSpec.describe AiAgent do
       expect(ai_agent.readiness[:can_publish]).to be(true)
 
       ai_agent.publish!
-      expect(ai_agent).to have_attributes(enabled: true)
+      expect(ai_agent).to have_attributes(
+        enabled: true,
+        published_prompt: ai_agent.prompt,
+        published_config: ai_agent.config,
+        published_revision: 1
+      )
       expect(ai_agent.lifecycle_status).to eq('active')
       expect(ai_agent.published_at).to be_present
       tested_at = ai_agent.last_tested_at
@@ -179,6 +184,49 @@ RSpec.describe AiAgent do
       ai_agent.update!(prompt: 'Changed after the test')
 
       expect(ai_agent.prompt_tested?).to be(false)
+    end
+
+    it 'keeps the published release live while a tested update is prepared', :aggregate_failures do
+      inbox = create(:inbox, account: account)
+      AgentBotInbox.create!(agent_bot: ai_agent.agent_bot, inbox: inbox, account: account)
+      ai_agent.mark_test_succeeded!
+      ai_agent.publish!
+
+      published_prompt = ai_agent.live_prompt
+      ai_agent.update!(prompt: 'A new draft', config: { 'tools' => { 'enabled' => %w[human_handoff ikas_catalog_search] } })
+
+      expect(ai_agent).to have_attributes(enabled: true, published_revision: 1)
+      expect(ai_agent.live_prompt).to eq(published_prompt)
+      expect(ai_agent.live_config).to eq({})
+      expect(ai_agent.draft_changes?).to be(true)
+      expect(ai_agent.draft_tested?).to be(false)
+
+      ai_agent.mark_test_succeeded!
+      ai_agent.publish!
+
+      expect(ai_agent).to have_attributes(published_prompt: 'A new draft', published_revision: 2)
+      expect(ai_agent.live_config.dig('tools', 'enabled')).to contain_exactly('human_handoff', 'ikas_catalog_search')
+      expect(ai_agent.draft_changes?).to be(false)
+    end
+
+    it 'resumes an unchanged published release without incrementing its revision' do
+      inbox = create(:inbox, account: account)
+      AgentBotInbox.create!(agent_bot: ai_agent.agent_bot, inbox: inbox, account: account)
+      ai_agent.mark_test_succeeded!
+      ai_agent.publish!
+      ai_agent.pause!
+
+      expect { ai_agent.publish! }.not_to change(ai_agent, :published_revision)
+      expect(ai_agent).to be_enabled
+    end
+
+    it 'requires another test when draft capabilities change' do
+      ai_agent.mark_test_succeeded!
+      expect(ai_agent).to be_draft_tested
+
+      ai_agent.update!(config: { 'tools' => { 'enabled' => %w[human_handoff ikas_catalog_search] } })
+
+      expect(ai_agent).not_to be_draft_tested
     end
   end
 end

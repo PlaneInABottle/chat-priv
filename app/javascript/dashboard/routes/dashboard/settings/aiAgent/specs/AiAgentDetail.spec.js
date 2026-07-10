@@ -50,6 +50,10 @@ const buildAiAgent = overrides => ({
   id: 1,
   name: 'Helper',
   enabled: true,
+  lifecycle_status: 'active',
+  published_revision: 1,
+  draft_changes: false,
+  readiness: { can_publish: true, checks: [] },
   prompt: 'Persisted prompt',
   agent_bot: { inbox_ids: [2] },
   available_inboxes: [],
@@ -379,6 +383,42 @@ describe('AiAgentDetail.vue', () => {
     );
     expect(payload.data.enabled).toBeUndefined();
     expect(wrapper.vm.isActive).toBe(true);
+  });
+
+  it('shows the live version and a publish-update action for a saved draft', async () => {
+    const { wrapper } = mountComponent({
+      aiAgentRecord: buildAiAgent({
+        lifecycle_status: 'active',
+        published_revision: 3,
+        draft_changes: true,
+      }),
+    });
+
+    await flushPromises();
+
+    expect(wrapper.vm.releaseNotice.message).toBe(
+      'Version 3 is still responding to customers. Your saved draft is not live until you test and publish the update.'
+    );
+    expect(wrapper.vm.showPublishAction).toBe(true);
+    expect(wrapper.vm.publishActionLabel).toBe('Publish');
+  });
+
+  it('offers to resume an unchanged paused version without presenting it as an update', async () => {
+    const { wrapper } = mountComponent({
+      aiAgentRecord: buildAiAgent({
+        enabled: false,
+        lifecycle_status: 'paused',
+        published_revision: 2,
+        draft_changes: false,
+      }),
+    });
+
+    await flushPromises();
+
+    expect(wrapper.vm.releaseNotice.message).toBe(
+      'Version 2 is paused. Resume it as-is or publish a tested draft update.'
+    );
+    expect(wrapper.vm.publishActionLabel).toBe('Resume assistant');
   });
 
   it('discards the current instruction draft without affecting connection edits', async () => {

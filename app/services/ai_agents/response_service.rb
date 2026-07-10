@@ -21,7 +21,12 @@ class AiAgents::ResponseService
   private
 
   def adapter
-    @adapter ||= AiAgents::LlmAdapters::OpenAiCompatibleAdapter.new(ai_agent: @ai_agent, account: @account)
+    @adapter ||= AiAgents::LlmAdapters::OpenAiCompatibleAdapter.new(
+      ai_agent: @ai_agent,
+      account: @account,
+      prompt_override: @ai_agent.live_prompt,
+      config_override: @ai_agent.live_config
+    )
   end
 
   def normalized_messages
@@ -62,7 +67,11 @@ class AiAgents::ResponseService
   def build_messages
     system_msg = {
       role: 'system',
-      content: AiAgents::PromptComposer.new(ai_agent: @ai_agent).effective_system_prompt
+      content: AiAgents::PromptComposer.new(
+        ai_agent: @ai_agent,
+        prompt_override: @ai_agent.live_prompt,
+        config_override: @ai_agent.live_config
+      ).effective_system_prompt
     }
 
     history = @messages.map do |msg|
