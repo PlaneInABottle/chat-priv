@@ -1,12 +1,13 @@
 # frozen_string_literal: true
 
 class AiAgents::PromptComposer
-  def initialize(ai_agent:, prompt_override: nil)
+  def initialize(ai_agent:, prompt_override: nil, config_override: nil)
     @ai_agent = ai_agent
     @prompt_override = prompt_override
+    @config_override = config_override
   end
 
-  attr_reader :ai_agent, :prompt_override
+  attr_reader :ai_agent, :prompt_override, :config_override
 
   def base_prompt
     AiAgents::Settings.global_instructions
@@ -38,6 +39,6 @@ class AiAgents::PromptComposer
   end
 
   def tool_config
-    @tool_config ||= AiAgents::Config.new(ai_agent.config, allow_legacy_human_handoff_settings: true)
+    @tool_config ||= AiAgents::Config.new(config_override || ai_agent.config, allow_legacy_human_handoff_settings: true)
   end
 end

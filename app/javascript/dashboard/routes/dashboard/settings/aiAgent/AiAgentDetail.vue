@@ -158,6 +158,55 @@ const lifecycleStatus = computed(
   () => aiAgent.value?.lifecycle_status || 'draft'
 );
 const isActive = computed(() => lifecycleStatus.value === 'active');
+const hasPublishedRelease = computed(
+  () => (aiAgent.value?.published_revision || 0) > 0
+);
+const hasDraftChanges = computed(() => Boolean(aiAgent.value?.draft_changes));
+
+const showPublishAction = computed(
+  () => !isActive.value || hasDraftChanges.value
+);
+
+const publishActionLabel = computed(() => {
+  if (isActive.value) return t('AI_ASSISTANT.ACTIONS.PUBLISH_UPDATE');
+  if (lifecycleStatus.value === 'paused' && !hasDraftChanges.value) {
+    return t('AI_ASSISTANT.ACTIONS.RESUME');
+  }
+
+  return t('AI_ASSISTANT.ACTIONS.PUBLISH');
+});
+
+const releaseNotice = computed(() => {
+  if (!hasPublishedRelease.value) return null;
+
+  if (isActive.value && hasDraftChanges.value) {
+    return {
+      icon: 'i-lucide-file-clock',
+      classes: 'border-n-amber-5 bg-n-amber-2 text-n-amber-11',
+      message: t('AI_ASSISTANT.RELEASE.PENDING', {
+        version: aiAgent.value.published_revision,
+      }),
+    };
+  }
+
+  if (isActive.value) {
+    return {
+      icon: 'i-lucide-shield-check',
+      classes: 'border-n-teal-5 bg-n-teal-2 text-n-teal-11',
+      message: t('AI_ASSISTANT.RELEASE.LIVE', {
+        version: aiAgent.value.published_revision,
+      }),
+    };
+  }
+
+  return {
+    icon: 'i-lucide-circle-pause',
+    classes: 'border-n-slate-5 bg-n-slate-2 text-n-slate-11',
+    message: t('AI_ASSISTANT.RELEASE.PAUSED', {
+      version: aiAgent.value.published_revision,
+    }),
+  };
+});
 
 const simulatorDisabledMessage = computed(() => {
   return simulatorDisabledMessageKey.value
@@ -469,10 +518,16 @@ const handlePause = async () => {
 };
 
 const handlePublish = async () => {
+  let successMessage = t('AI_ASSISTANT.ACTIONS.PUBLISHED');
+  if (isActive.value) {
+    successMessage = t('AI_ASSISTANT.ACTIONS.UPDATED');
+  } else if (lifecycleStatus.value === 'paused' && !hasDraftChanges.value) {
+    successMessage = t('AI_ASSISTANT.ACTIONS.RESUMED');
+  }
   const result = await store.dispatch('aiAgent/publish', agentId.value);
   if (result?.id) {
     syncFormState();
-    useAlert(t('AI_ASSISTANT.ACTIONS.PUBLISHED'));
+    useAlert(successMessage);
   } else {
     useAlert(result?.error || t('AI_ASSISTANT.ACTIONS.PUBLISH_ERROR'));
   }
@@ -501,27 +556,34 @@ watch(agentId, async (newAgentId, oldAgentId) => {
         feature-name="ai_agent"
       >
         <template #actions>
-          <AssistantStatusBadge :status="lifecycleStatus" />
+          <AssistantStatusBadge
+            :status="lifecycleStatus"
+            class="flex-shrink-0"
+          />
           <Button
             v-if="isActive"
             icon="i-lucide-pause"
             variant="outline"
             color="amber"
+            class="flex-shrink-0"
             :label="t('AI_ASSISTANT.ACTIONS.PAUSE')"
             @click="handlePause"
           />
           <Button
-            v-else
+            v-if="showPublishAction"
             icon="i-lucide-rocket"
-            :label="t('AI_ASSISTANT.ACTIONS.PUBLISH')"
+            class="flex-shrink-0"
+            :label="publishActionLabel"
             :disabled="!aiAgent?.readiness?.can_publish || isFormDirty"
             @click="handlePublish"
           />
           <Button
+            v-tooltip="t('AI_AGENT.BACK')"
             icon="i-lucide-arrow-left"
             variant="outline"
             color="slate"
-            :label="t('AI_AGENT.BACK')"
+            class="flex-shrink-0"
+            :aria-label="t('AI_AGENT.BACK')"
             @click="goBack"
           />
         </template>
@@ -530,11 +592,15 @@ watch(agentId, async (newAgentId, oldAgentId) => {
     <template #body>
       <div class="flex flex-col gap-6">
         <div
-          v-if="isActive"
-          class="flex items-start gap-3 rounded-lg border border-n-teal-5 bg-n-teal-2 p-3 text-sm text-n-teal-11"
+          v-if="releaseNotice"
+          class="flex items-start gap-3 rounded-lg border p-3 text-sm"
+          :class="releaseNotice.classes"
         >
-          <span class="i-lucide-shield-check mt-0.5 size-4 flex-shrink-0" />
-          <p class="m-0">{{ t('AI_ASSISTANT.ACTIVE_NOTICE') }}</p>
+          <span
+            class="mt-0.5 size-4 flex-shrink-0"
+            :class="releaseNotice.icon"
+          />
+          <p class="m-0">{{ releaseNotice.message }}</p>
         </div>
         <div
           class="sticky top-0 z-20 flex flex-col gap-3 border-b border-n-weak bg-n-surface-1 py-3 sm:flex-row sm:items-center sm:justify-between"

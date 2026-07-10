@@ -65,6 +65,26 @@ RSpec.describe AiAgents::LiveProcessor do
     )
   end
 
+  it 'uses the published prompt and capabilities while an update remains in draft' do
+    ai_agent.update!(prompt: 'Published customer guidance')
+    ai_agent.mark_test_succeeded!
+    ai_agent.publish!
+    ai_agent.update!(
+      prompt: 'Unpublished draft guidance',
+      config: { 'tools' => { 'enabled' => %w[human_handoff ikas_catalog_search] } }
+    )
+    message = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming', sender: conversation.contact,
+                               content: 'Hello')
+    allow(adapter).to receive(:perform).and_return({ assistant_text: 'Hi there', tool_calls: [], finish_reason: 'stop' })
+
+    described_class.new(message: message, adapter: adapter).perform
+
+    system_prompt = AiAgentLlmCall.last.request_messages.first.fetch('content')
+    expect(system_prompt).to include('Published customer guidance')
+    expect(system_prompt).not_to include('Unpublished draft guidance')
+    expect(AiAgentLlmCall.last.request_tool_names).to eq(['human_handoff'])
+  end
+
   it 'consumes one monthly usage event for a successful live AI response' do
     account.update!(ai_agent_conversation_limit: 2, ai_agent_conversation_reuse_window_hours: 24)
     message = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming', sender: conversation.contact,

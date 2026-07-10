@@ -303,7 +303,8 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
           hash_including(ai_agent: ai_agent, prompt_override: compiled_prompt)
         )
         expect(ai_agent.reload.prompt).to eq('Saved live instructions')
-        expect(ai_agent.last_tested_prompt_digest).to eq(Digest::SHA256.hexdigest(compiled_prompt))
+        expected_digest = ai_agent.send(:release_digest, compiled_prompt, ai_agent.config)
+        expect(ai_agent.last_tested_prompt_digest).to eq(expected_digest)
       end
 
       it 'does not count simulator messages against AI usage limits' do

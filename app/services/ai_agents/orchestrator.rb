@@ -56,9 +56,14 @@ module AiAgents
       @mode = mode
       @conversation = conversation
       @trigger_message = trigger_message
-      @prompt_override = prompt_override
+      @runtime_config = mode.to_s == 'live' ? ai_agent.live_config : ai_agent.config
+      @prompt_override = if mode.to_s == 'live' && prompt_override.nil?
+                           ai_agent.live_prompt
+                         else
+                           prompt_override
+                         end
       @adapter = adapter || default_adapter
-      @config = AiAgents::Config.new(ai_agent.config, allow_legacy_human_handoff_settings: true)
+      @config = AiAgents::Config.new(@runtime_config, allow_legacy_human_handoff_settings: true)
       @executed_tool_keys = Set.new
       @executed_tool_counts = Hash.new(0)
     end
@@ -107,13 +112,14 @@ module AiAgents
     private
 
     attr_reader :ai_agent, :messages, :mode, :conversation, :trigger_message, :adapter, :config, :executed_tool_keys,
-                :executed_tool_counts, :prompt_override
+                :executed_tool_counts, :prompt_override, :runtime_config
 
     def default_adapter
       AiAgents::LlmAdapters::OpenAiCompatibleAdapter.new(
         ai_agent: ai_agent,
         account: ai_agent.account,
-        prompt_override: prompt_override
+        prompt_override: prompt_override,
+        config_override: runtime_config
       )
     end
 
@@ -123,7 +129,7 @@ module AiAgents
         account: ai_agent.account,
         mode: mode,
         executed_tool_keys: executed_tool_keys,
-        context: { conversation: conversation, trigger_message: trigger_message }
+        context: { conversation: conversation, trigger_message: trigger_message, config: runtime_config }
       )
     end
 
@@ -227,7 +233,8 @@ module AiAgents
     def effective_system_prompt
       @effective_system_prompt ||= AiAgents::EffectivePromptPreview.new(
         ai_agent: ai_agent,
-        prompt_override: prompt_override
+        prompt_override: prompt_override,
+        config_override: runtime_config
       ).effective_system_prompt
     end
 

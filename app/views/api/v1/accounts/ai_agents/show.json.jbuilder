@@ -50,6 +50,8 @@ json.created_at @ai_agent.created_at
 json.updated_at @ai_agent.updated_at
 json.lifecycle_status @ai_agent.lifecycle_status
 json.published_at @ai_agent.published_at
+json.published_revision @ai_agent.published_revision
+json.draft_changes @ai_agent.draft_changes?
 json.last_tested_at @ai_agent.last_tested_at
 json.readiness @ai_agent.readiness
 

@@ -125,6 +125,7 @@
       "INBOXES": "Inboxes",
       "UPDATED": "Updated",
       "ACTIONS": "Actions",
+      "DRAFT_UPDATE": "Update pending",
       "INBOX_COUNT": "No inboxes | {count} inbox | {count} inboxes"
     },
     "USAGE": {
@@ -142,19 +143,27 @@
     },
     "ACTIONS": {
       "PUBLISH": "Publish assistant",
-      "PAUSE": "Pause assistant",
+      "PUBLISH_UPDATE": "Publish",
+      "RESUME": "Resume assistant",
+      "PAUSE": "Pause",
       "PUBLISHED": "Assistant published",
+      "UPDATED": "Assistant update published",
+      "RESUMED": "Assistant resumed",
       "PAUSED": "Assistant paused and no longer responds to new customer messages.",
       "PUBLISH_ERROR": "Complete the setup checklist before publishing."
     },
-    "ACTIVE_NOTICE": "This assistant is responding to customers. Saved changes apply to subsequent conversations without taking it offline.",
+    "RELEASE": {
+      "LIVE": "Version {version} is responding to customers. You can edit and test a draft without interrupting it.",
+      "PENDING": "Version {version} is still responding to customers. Your saved draft is not live until you test and publish the update.",
+      "PAUSED": "Version {version} is paused. Resume it as-is or publish a tested draft update."
+    },
     "CAPABILITIES": {
       "HANDOFF": "Human support fallback",
       "ALWAYS_ON": "Always available"
     },
     "INSTRUCTIONS": {
       "TITLE": "Instructions",
-      "DESCRIPTION": "Shape how this assistant speaks, decides, and handles customer requests. Saved changes apply to new replies without taking the assistant offline.",
+      "DESCRIPTION": "Shape how this assistant speaks, decides, and handles customer requests. Save and test a draft, then publish it when you are ready.",
       "DRAFT_TEST": "Test this draft",
       "DRAFT_TEST_HELP": "Messages here use the instructions on this screen, including unsaved changes.",
       "UNSAVED_DRAFT": "Unsaved draft",
