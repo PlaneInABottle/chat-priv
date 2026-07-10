@@ -1,0 +1,193 @@
+name: Run Chatwoot CE spec
+permissions:
+  contents: read
+on:
+  push:
+    branches:
+      - develop
+      - master
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Separate linting jobs for faster feedback
+  lint-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Find changed Ruby files
+        id: changed-ruby-files
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+          RUBY_FILES_PATH: ${{ runner.temp }}/changed-ruby-files
+        run: |
+          if [[ -z "$BASE_SHA" || "$BASE_SHA" =~ ^0+$ ]] || ! git cat-file -e "$BASE_SHA^{commit}"; then
+            BASE_SHA="$HEAD_SHA^"
+          fi
+
+          : > "$RUBY_FILES_PATH"
+          while IFS= read -r -d '' file; do
+            case "$file" in
+              enterprise/*|spec/enterprise/*) continue ;;
+            esac
+            printf '%s\0' "$file" >> "$RUBY_FILES_PATH"
+          done < <(git diff --name-only --diff-filter=ACMR -z "$BASE_SHA" "$HEAD_SHA" -- '*.rb')
+
+          if [[ -s "$RUBY_FILES_PATH" ]]; then
+            echo 'has_files=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'No changed Community Edition Ruby files.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: ruby/setup-ruby@v1
+        if: steps.changed-ruby-files.outputs.has_files == 'true'
+        with:
+          bundler-cache: true
+      - name: Run Rubocop
+        if: steps.changed-ruby-files.outputs.has_files == 'true'
+        env:
+          RUBY_FILES_PATH: ${{ runner.temp }}/changed-ruby-files
+        run: xargs -0 bundle exec rubocop --parallel --force-exclusion < "$RUBY_FILES_PATH"
+
+  lint-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: 'pnpm'
+      - name: Install pnpm dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Run ESLint
+        run: pnpm run eslint
+
+  # Frontend tests run in parallel with backend
+  frontend-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: 'pnpm'
+      - name: Install pnpm dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Run frontend tests
+        run: pnpm run test:coverage
+
+  # Backend tests with parallelization
+  backend-tests:
+    runs-on: ubuntu-latest
+    env:
+      RAILS_ENV: test
+      POSTGRES_HOST: localhost
+      POSTGRES_PASSWORD: ${{ github.run_id }}
+      NODE_OPTIONS: '--max-old-space-size=4096 --openssl-legacy-provider'
+    strategy:
+      fail-fast: false
+      matrix:
+        ci_node_total: [16]
+        ci_node_index: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ${{ github.run_id }}
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --mount type=tmpfs,destination=/var/lib/postgresql/data
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:alpine
+        ports:
+          - 6379:6379
+        options: --entrypoint redis-server
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: 'pnpm'
+
+      - name: Install pnpm dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Strip enterprise code
+        run: |
+          rm -rf enterprise
+          rm -rf spec/enterprise
+
+      - name: Generate test encryption keys
+        run: |
+          {
+            echo "ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY=$(openssl rand -hex 32)"
+            echo "ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY=$(openssl rand -hex 32)"
+            echo "ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT=$(openssl rand -hex 32)"
+          } >> "$GITHUB_ENV"
+
+      - name: Create database
+        run: bundle exec rake db:create
+
+      - name: Seed database
+        run: bundle exec rake db:schema:load
+
+      - name: Run backend tests (parallelized)
+        env:
+          CI_NODE_INDEX: ${{ matrix.ci_node_index }}
+          CI_NODE_TOTAL: ${{ matrix.ci_node_total }}
+        run: |
+          # Get all spec files and split them using round-robin distribution
+          # This ensures slow tests are distributed evenly across all nodes
+          SPEC_FILES=()
+          while IFS= read -r spec_file; do
+            SPEC_FILES+=("$spec_file")
+          done < <(find spec -name '*_spec.rb' | sort)
+          TESTS=()
+
+          for i in "${!SPEC_FILES[@]}"; do
+            # Assign spec to this node if: index % total == node_index
+            if ((i % CI_NODE_TOTAL == CI_NODE_INDEX)); then
+              TESTS+=("${SPEC_FILES[$i]}")
+            fi
+          done
+
+          if ((${#TESTS[@]} > 0)); then
+            bundle exec rspec --profile=10 --format progress --format json --out tmp/rspec_results.json "${TESTS[@]}"
+          fi
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: rspec-results-${{ matrix.ci_node_index }}
+          path: tmp/rspec_results.json
+
+      - name: Upload rails log folder
+        uses: actions/upload-artifact@v6
+        if: failure()
+        with:
+          name: rails-log-folder-${{ matrix.ci_node_index }}
+          path: log
