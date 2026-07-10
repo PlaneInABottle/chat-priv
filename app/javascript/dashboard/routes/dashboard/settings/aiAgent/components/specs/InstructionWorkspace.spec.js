@@ -44,9 +44,17 @@ const mountComponent = () =>
           props: [
             'modelValue',
             'editorKey',
+            'ariaLabel',
             'enabledMenuOptions',
             'placeholder',
+            'minHeight',
+            'maxHeight',
           ],
+        },
+      },
+      directives: {
+        dompurifyHtml: (element, binding) => {
+          element.innerHTML = binding.value;
         },
       },
     },
@@ -65,6 +73,34 @@ describe('InstructionWorkspace', () => {
     expect(editor.props('modelValue')).toBe('Never invent prices.');
     expect(editor.props('enabledMenuOptions')).not.toContain('h2');
     expect(editor.props('enabledMenuOptions')).not.toContain('h3');
+    expect(editor.props('minHeight')).toBe('10rem');
+    expect(editor.props('maxHeight')).toBe(
+      'clamp(10rem, calc(100dvh - 37rem), 28rem)'
+    );
+    expect(editor.props('ariaLabel')).toContain('RULES.TITLE');
+    expect(
+      wrapper.get('[data-testid="instruction-section-content"]').classes()
+    ).toContain('overflow-y-auto');
+  });
+
+  it('shows the compiled instruction set without mounting multiple editors', async () => {
+    const wrapper = mountComponent();
+    const navigator = wrapper.findComponent({
+      name: 'InstructionSectionNavigator',
+    });
+
+    await navigator.vm.$emit('select', 'all');
+
+    expect(wrapper.findComponent({ name: 'Editor' }).exists()).toBe(false);
+    expect(wrapper.vm.compiledInstructions).toContain(
+      '## Identity and purpose\n\nRepresent the store.'
+    );
+    expect(wrapper.vm.compiledInstructions).toContain(
+      '## Rules and boundaries\n\nNever invent prices.'
+    );
+    expect(wrapper.text()).toContain(
+      'AI_ASSISTANT.INSTRUCTIONS.SECTIONS.ALL.TITLE'
+    );
   });
 
   it('updates only the selected fixed section', async () => {

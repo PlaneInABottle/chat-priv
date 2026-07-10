@@ -7,6 +7,7 @@ import WootEditor from 'dashboard/components/widgets/WootWriter/Editor.vue';
 const props = defineProps({
   modelValue: { type: String, default: '' },
   editorKey: { type: String, default: '' },
+  ariaLabel: { type: String, default: '' },
   label: { type: String, default: '' },
   placeholder: { type: String, default: '' },
   focusOnMount: { type: Boolean, default: false },
@@ -124,6 +125,7 @@ watch(
       <FullEditor
         v-if="variant === 'article'"
         :editor-id="editorKey"
+        :aria-label="ariaLabel"
         :model-value="modelValue"
         :placeholder="placeholder"
         :autofocus="focusOnMount"
