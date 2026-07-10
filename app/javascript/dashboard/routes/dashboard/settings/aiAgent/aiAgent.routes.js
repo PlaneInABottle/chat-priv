@@ -11,7 +11,7 @@ const meta = {
 export default {
   routes: [
     {
-      path: frontendURL('accounts/:accountId/settings/ai-agents'),
+      path: frontendURL('accounts/:accountId/settings/ai-assistants'),
       component: SettingsWrapper,
       beforeEnter: redirectIfFeatureDisabled,
       children: [
@@ -22,6 +22,12 @@ export default {
           meta,
         },
         {
+          path: 'usage',
+          name: 'ai_agent_usage',
+          component: () => import('./AiAgentUsage.vue'),
+          meta,
+        },
+        {
           path: 'new',
           name: 'ai_agent_new',
           component: () => import('./AiAgentNew.vue'),
@@ -29,11 +35,28 @@ export default {
         },
         {
           path: ':id',
+          redirect: to => ({
+            name: 'ai_agent_detail',
+            params: { ...to.params },
+          }),
+        },
+        {
+          path: ':id/setup',
           name: 'ai_agent_detail',
           component: () => import('./AiAgentDetail.vue'),
           meta,
         },
+        {
+          path: ':id/test',
+          name: 'ai_agent_test',
+          component: () => import('./AiAgentDetail.vue'),
+          meta,
+        },
       ],
+    },
+    {
+      path: frontendURL('accounts/:accountId/settings/ai-agents'),
+      redirect: to => ({ name: 'ai_agents', params: to.params }),
     },
   ],
 };

@@ -22,12 +22,32 @@ class VoiceAPI extends ApiClient {
     return axios.get(`${this.url}/agents`);
   }
 
+  getAgent(id) {
+    return axios.get(`${this.url}/agents/${id}`);
+  }
+
   createAgent(data) {
     return axios.post(`${this.url}/agents`, data);
   }
 
   updateAgent(id, data) {
     return axios.patch(`${this.url}/agents/${id}`, data);
+  }
+
+  deleteAgent(id) {
+    return axios.delete(`${this.url}/agents/${id}`);
+  }
+
+  publishAgent(id) {
+    return axios.post(`${this.url}/agents/${id}/publish`);
+  }
+
+  pauseAgent(id) {
+    return axios.post(`${this.url}/agents/${id}/pause`);
+  }
+
+  getTelephonyReadiness() {
+    return axios.get(`${this.url}/telephony_readiness`);
   }
 
   createSetting(data) {
