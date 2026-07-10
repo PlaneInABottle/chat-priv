@@ -36,7 +36,7 @@ class VoiceAgents::ToolExecutor
   def rejection_code_for(definition)
     return 'unknown_tool' unless definition
     return 'tool_not_enabled' unless config.enabled_tool?(definition.key)
-    return 'voice_agent_disabled' unless voice_agent.enabled?
+    return 'voice_agent_disabled' unless voice_agent.enabled? || call.test_call?
 
     validate_integration_gate(definition)
   end

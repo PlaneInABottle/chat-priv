@@ -2,7 +2,7 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
   before_action :current_account
   before_action :check_authorization
   before_action :ensure_ai_agent_enabled
-  before_action :set_ai_agent, only: [:show, :update, :destroy]
+  before_action :set_ai_agent, only: [:show, :update, :destroy, :publish, :pause]
 
   def index
     @ai_agents = Current.account.ai_agents.includes(agent_bot: :inboxes).order(:created_at)
@@ -14,6 +14,7 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
 
   def create
     @ai_agent = Current.account.ai_agents.build(merged_ai_agent_params)
+    @ai_agent.enabled = false
     @ai_agent.inbox_ids = inbox_ids_param if params.key?(:inbox_ids)
 
     if @ai_agent.save
@@ -27,6 +28,7 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
 
   def update
     @ai_agent.assign_attributes(merged_ai_agent_params)
+    @ai_agent.last_tested_at = nil
     @ai_agent.inbox_ids = inbox_ids_param if params.key?(:inbox_ids)
 
     if @ai_agent.save
@@ -44,6 +46,20 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
     head :no_content
   end
 
+  def publish
+    return render_readiness_error unless @ai_agent.readiness[:can_publish]
+
+    @ai_agent.publish!
+    load_available_inboxes
+    render :show
+  end
+
+  def pause
+    @ai_agent.pause!
+    load_available_inboxes
+    render :show
+  end
+
   private
 
   def set_ai_agent
@@ -51,7 +67,7 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
   end
 
   def ai_agent_params
-    params.permit(:name, :prompt, :enabled, config: {})
+    params.permit(:name, :prompt, config: {})
   end
 
   def inbox_ids_param
@@ -63,10 +79,12 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
     return permitted unless permitted.key?('config')
 
     merged_config = existing_config.deep_merge(permitted['config'] || {})
-    merged_config['tools'] = tool_availability.filter_tools_config(
-      merged_config['tools'],
-      AiAgents::ToolRegistry.available_definitions
-    ) if merged_config.key?('tools')
+    if merged_config.key?('tools')
+      merged_config['tools'] = tool_availability.filter_tools_config(
+        merged_config['tools'],
+        AiAgents::ToolRegistry.available_definitions
+      )
+    end
 
     permitted.merge('config' => merged_config)
   end
@@ -103,5 +121,9 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
 
   def load_available_inboxes
     @available_inboxes = Current.account.inboxes.includes(:channel, agent_bot: :ai_agent).order_by_name
+  end
+
+  def render_readiness_error
+    render json: { error: 'Complete the required setup before publishing.', readiness: @ai_agent.readiness }, status: :unprocessable_entity
   end
 end

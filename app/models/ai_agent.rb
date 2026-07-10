@@ -2,15 +2,17 @@
 #
 # Table name: ai_agents
 #
-#  id           :bigint           not null, primary key
-#  config       :jsonb
-#  enabled      :boolean          default(FALSE), not null
-#  name         :string           default("AI Asistan"), not null
-#  prompt       :text             default("")
-#  created_at   :datetime         not null
-#  updated_at   :datetime         not null
-#  account_id   :bigint           not null
-#  agent_bot_id :bigint
+#  id             :bigint           not null, primary key
+#  config         :jsonb
+#  enabled        :boolean          default(FALSE), not null
+#  last_tested_at :datetime
+#  name           :string           default("AI Asistan"), not null
+#  prompt         :text             default("")
+#  published_at   :datetime
+#  created_at     :datetime         not null
+#  updated_at     :datetime         not null
+#  account_id     :bigint           not null
+#  agent_bot_id   :bigint
 #
 # Indexes
 #
@@ -39,6 +41,31 @@ class AiAgent < ApplicationRecord
 
   after_create :create_linked_agent_bot
   before_destroy :destroy_linked_agent_bot
+
+  def lifecycle_status
+    return 'active' if enabled?
+    return 'paused' if published_at.present?
+
+    'draft'
+  end
+
+  def readiness
+    AiAgents::Readiness.new(self).payload
+  end
+
+  def publish!
+    raise ActiveRecord::RecordInvalid, self unless readiness[:can_publish]
+
+    update!(enabled: true, published_at: published_at || Time.current)
+  end
+
+  def pause!
+    update!(enabled: false)
+  end
+
+  def mark_test_succeeded!
+    update!(last_tested_at: Time.current)
+  end
 
   private
 

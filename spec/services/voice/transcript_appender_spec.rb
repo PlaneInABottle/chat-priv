@@ -34,5 +34,13 @@ RSpec.describe Voice::TranscriptAppender do
       expect(call.transcript_segments.count).to eq(1)
       expect(call.reload.transcript).to eq('caller: Merhaba')
     end
+
+    it 'marks the draft as tested after an assistant transcript segment' do
+      voice_agent.update!(enabled: false, last_tested_at: nil)
+
+      described_class.perform!(call: call, role: 'ai', text: 'Merhaba, nasil yardimci olabilirim?', source: 'livekit_agent')
+
+      expect(voice_agent.reload.last_tested_at).to be_present
+    end
   end
 end

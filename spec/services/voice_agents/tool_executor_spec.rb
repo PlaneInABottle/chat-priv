@@ -19,15 +19,15 @@ RSpec.describe VoiceAgents::ToolExecutor do
       )
     end
 
-    it 'rejects disabled tools and records the rejection' do
+    it 'keeps human handoff enabled and rejects other disabled tools' do
       voice_agent.update!(
-        tools_config: VoiceAgents::Config.new('enabled' => [VoiceAgents::Config::END_CUSTOMER_CALL_TOOL]).normalized_config
+        tools_config: VoiceAgents::Config.new('enabled' => [VoiceAgents::Config::HUMAN_HANDOFF_TOOL]).normalized_config
       )
 
       result = described_class.perform!(
         call: call,
         voice_agent: voice_agent,
-        tool_key: VoiceAgents::Config::HUMAN_HANDOFF_TOOL,
+        tool_key: VoiceAgents::Config::END_CUSTOMER_CALL_TOOL,
         args: { reason: 'agent please' },
         external_id: 'tool-1'
       )
@@ -35,7 +35,7 @@ RSpec.describe VoiceAgents::ToolExecutor do
       expect(result[:status]).to eq('rejected')
       expect(result.dig(:result, :error_code)).to eq('tool_not_enabled')
       expect(call.voice_tool_events.find_by!(external_id: 'tool-1')).to have_attributes(
-        tool: VoiceAgents::Config::HUMAN_HANDOFF_TOOL,
+        tool: VoiceAgents::Config::END_CUSTOMER_CALL_TOOL,
         status: 'rejected'
       )
     end

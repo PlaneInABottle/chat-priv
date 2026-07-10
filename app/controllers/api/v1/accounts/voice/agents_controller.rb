@@ -2,7 +2,7 @@ class Api::V1::Accounts::Voice::AgentsController < Api::V1::Accounts::BaseContro
   before_action :current_account
   before_action :check_admin_authorization?
   before_action :ensure_voice_ai_enabled
-  before_action :set_voice_agent, only: [:show, :update, :destroy]
+  before_action :set_voice_agent, only: [:show, :update, :destroy, :publish, :pause]
 
   def index
     voice_agents = Current.account.voice_agents.order(:created_at)
@@ -15,6 +15,7 @@ class Api::V1::Accounts::Voice::AgentsController < Api::V1::Accounts::BaseContro
 
   def create
     voice_agent = Current.account.voice_agents.new(voice_agent_params)
+    voice_agent.enabled = false
     ActiveRecord::Base.transaction do
       voice_agent.save!
       sync_inbox_assignments!(voice_agent) if inbox_settings_provided?
@@ -24,7 +25,9 @@ class Api::V1::Accounts::Voice::AgentsController < Api::V1::Accounts::BaseContro
 
   def update
     ActiveRecord::Base.transaction do
-      @voice_agent.update!(voice_agent_params)
+      @voice_agent.assign_attributes(voice_agent_params)
+      @voice_agent.last_tested_at = nil
+      @voice_agent.save!
       sync_inbox_assignments!(@voice_agent) if inbox_settings_provided?
     end
     render json: VoiceAgents::Serializer.new(@voice_agent).payload
@@ -33,6 +36,18 @@ class Api::V1::Accounts::Voice::AgentsController < Api::V1::Accounts::BaseContro
   def destroy
     @voice_agent.destroy!
     head :no_content
+  end
+
+  def publish
+    return render_readiness_error unless @voice_agent.readiness[:can_publish]
+
+    @voice_agent.publish!
+    render json: VoiceAgents::Serializer.new(@voice_agent).payload
+  end
+
+  def pause
+    @voice_agent.pause!
+    render json: VoiceAgents::Serializer.new(@voice_agent).payload
   end
 
   private
@@ -49,7 +64,6 @@ class Api::V1::Accounts::Voice::AgentsController < Api::V1::Accounts::BaseContro
   def voice_agent_request_params
     @voice_agent_request_params ||= params.permit(
       :name,
-      :enabled,
       :greeting,
       :prompt,
       tools_config: {},
@@ -100,11 +114,13 @@ class Api::V1::Accounts::Voice::AgentsController < Api::V1::Accounts::BaseContro
     setting = Current.account.voice_inbox_settings.find_or_initialize_by(inbox: inbox)
     setting.voice_agent = voice_agent
     setting.fallback_team_id = assignment['fallback_team_id'].presence
-    if assignment.key?('recording_enabled')
-      setting.recording_enabled = ActiveModel::Type::Boolean.new.cast(assignment['recording_enabled'])
-    end
+    setting.recording_enabled = ActiveModel::Type::Boolean.new.cast(assignment['recording_enabled']) if assignment.key?('recording_enabled')
     setting.settings = assignment['settings'] if assignment['settings'].is_a?(Hash)
     setting.save!
     setting.id
+  end
+
+  def render_readiness_error
+    render json: { error: 'Complete the required setup before publishing.', readiness: @voice_agent.readiness }, status: :unprocessable_entity
   end
 end

@@ -2,21 +2,23 @@
 #
 # Table name: voice_agents
 #
-#  id           :bigint           not null, primary key
-#  architecture :string           default("realtime"), not null
-#  config       :jsonb            not null
-#  enabled      :boolean          default(FALSE), not null
-#  greeting     :text
-#  language     :string           default("tr"), not null
-#  model        :string
-#  name         :string           default("Voice Assistant"), not null
-#  prompt       :text             default(""), not null
-#  provider     :string           default("gemini"), not null
-#  tools_config :jsonb            not null
-#  voice        :string           default("Charon"), not null
-#  created_at   :datetime         not null
-#  updated_at   :datetime         not null
-#  account_id   :bigint           not null
+#  id             :bigint           not null, primary key
+#  architecture   :string           default("realtime"), not null
+#  config         :jsonb            not null
+#  enabled        :boolean          default(FALSE), not null
+#  greeting       :text
+#  language       :string           default("tr"), not null
+#  last_tested_at :datetime
+#  model          :string
+#  name           :string           default("Voice Assistant"), not null
+#  prompt         :text             default(""), not null
+#  provider       :string           default("gemini"), not null
+#  published_at   :datetime
+#  tools_config   :jsonb            not null
+#  voice          :string           default("Charon"), not null
+#  created_at     :datetime         not null
+#  updated_at     :datetime         not null
+#  account_id     :bigint           not null
 #
 # Indexes
 #
@@ -46,6 +48,31 @@ class VoiceAgent < ApplicationRecord
   validate :tools_config_must_be_valid
 
   before_validation :set_defaults
+
+  def lifecycle_status
+    return 'active' if enabled?
+    return 'paused' if published_at.present?
+
+    'draft'
+  end
+
+  def readiness
+    VoiceAgents::Readiness.new(self).payload
+  end
+
+  def publish!
+    raise ActiveRecord::RecordInvalid, self unless readiness[:can_publish]
+
+    update!(enabled: true, published_at: published_at || Time.current)
+  end
+
+  def pause!
+    update!(enabled: false)
+  end
+
+  def mark_test_succeeded!
+    update!(last_tested_at: Time.current)
+  end
 
   private
 

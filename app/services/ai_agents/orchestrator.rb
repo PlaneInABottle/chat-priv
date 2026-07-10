@@ -63,7 +63,7 @@ module AiAgents
     end
 
     def perform
-      return failure_result unless ai_agent.enabled?
+      return failure_result unless ai_agent.enabled? || mode.to_s == 'test'
       return failure_result unless ai_agent.account.ai_agent_enabled?
       return failure_result unless config.valid?
 

@@ -147,4 +147,28 @@ RSpec.describe AiAgent do
       expect(build(:ai_agent)).to be_valid
     end
   end
+
+  describe 'lifecycle' do
+    let(:account) { create(:account) }
+    let(:ai_agent) { create(:ai_agent, account: account) }
+
+    it 'moves a tested draft through active and paused states' do
+      inbox = create(:inbox, account: account)
+      AgentBotInbox.create!(agent_bot: ai_agent.agent_bot, inbox: inbox, account: account)
+      ai_agent.mark_test_succeeded!
+
+      expect(ai_agent.reload.lifecycle_status).to eq('draft')
+      expect(ai_agent.readiness[:can_publish]).to be(true)
+
+      ai_agent.publish!
+      expect(ai_agent).to have_attributes(enabled: true)
+      expect(ai_agent.lifecycle_status).to eq('active')
+      expect(ai_agent.published_at).to be_present
+      tested_at = ai_agent.last_tested_at
+
+      ai_agent.pause!
+      expect(ai_agent).to have_attributes(enabled: false, last_tested_at: tested_at)
+      expect(ai_agent.lifecycle_status).to eq('paused')
+    end
+  end
 end

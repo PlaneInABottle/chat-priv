@@ -587,4 +587,50 @@ RSpec.describe 'Ai Agents API', type: :request do
       end
     end
   end
+
+  describe 'assistant lifecycle actions' do
+    let!(:ai_agent) { create(:ai_agent, account: account) }
+
+    it 'publishes a ready draft and pauses it explicitly' do
+      inbox = create(:inbox, account: account)
+      AgentBotInbox.create!(agent_bot: ai_agent.agent_bot, inbox: inbox, account: account)
+      ai_agent.mark_test_succeeded!
+
+      post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/publish",
+           headers: admin.create_new_auth_token,
+           as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body).to include('lifecycle_status' => 'active', 'enabled' => true)
+
+      post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/pause",
+           headers: admin.create_new_auth_token,
+           as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body).to include('lifecycle_status' => 'paused', 'enabled' => false)
+      expect(response.parsed_body['last_tested_at']).to be_present
+    end
+
+    it 'rejects publication before the readiness checklist is complete' do
+      post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/publish",
+           headers: admin.create_new_auth_token,
+           as: :json
+
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response.parsed_body.dig('readiness', 'can_publish')).to be(false)
+    end
+
+    it 'applies edits while active without taking the assistant offline' do
+      ai_agent.update!(enabled: true, published_at: Time.current)
+
+      patch "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}",
+            params: { name: 'Live edit' },
+            headers: admin.create_new_auth_token,
+            as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(ai_agent.reload).to have_attributes(name: 'Live edit', enabled: true, last_tested_at: nil)
+    end
+  end
 end
