@@ -4,10 +4,12 @@ import { useI18n } from 'vue-i18n';
 
 import Button from 'dashboard/components-next/button/Button.vue';
 import Editor from 'dashboard/components-next/Editor/Editor.vue';
+import { useMessageFormatter } from 'shared/composables/useMessageFormatter';
 import DraftTestPanel from './DraftTestPanel.vue';
 import InstructionSectionNavigator from './InstructionSectionNavigator.vue';
 import {
   INSTRUCTION_SECTION_KEYS,
+  compileInstructionDocument,
   instructionContentLength,
 } from '../helpers/instructionDocument';
 
@@ -21,6 +23,7 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue', 'configureHandoff', 'tested']);
 
 const { t } = useI18n();
+const { formatMessage } = useMessageFormatter();
 const mobileView = ref('edit');
 const selectedSection = ref('profile');
 
@@ -78,15 +81,23 @@ const profileFields = computed(() => [
   },
 ]);
 
-const sectionKeys = ['profile', ...INSTRUCTION_SECTION_KEYS];
+const sectionKeys = ['all', 'profile', ...INSTRUCTION_SECTION_KEYS];
 
 const isProfileConfigured = computed(() =>
   Object.values(props.modelValue.profile).some(value => value !== 'not_set')
 );
 
 const isSectionConfigured = key => {
+  if (key === 'all') return null;
   if (key === 'profile') return isProfileConfigured.value;
   return Boolean(props.modelValue.sections[key]?.trim());
+};
+
+const sectionStatusLabelKey = key => {
+  if (key === 'all') return 'AI_ASSISTANT.INSTRUCTIONS.ALL_SECTIONS_STATUS';
+  return isSectionConfigured(key)
+    ? 'AI_ASSISTANT.INSTRUCTIONS.CONFIGURED'
+    : 'AI_ASSISTANT.INSTRUCTIONS.NOT_CONFIGURED';
 };
 
 const sectionItems = computed(() =>
@@ -99,12 +110,9 @@ const sectionItems = computed(() =>
     description: t(
       `AI_ASSISTANT.INSTRUCTIONS.SECTIONS.${key.toUpperCase()}.DESCRIPTION`
     ),
+    icon: key === 'all' ? 'i-lucide-files' : '',
     configured: isSectionConfigured(key),
-    statusLabel: t(
-      isSectionConfigured(key)
-        ? 'AI_ASSISTANT.INSTRUCTIONS.CONFIGURED'
-        : 'AI_ASSISTANT.INSTRUCTIONS.NOT_CONFIGURED'
-    ),
+    statusLabel: t(sectionStatusLabelKey(key)),
   }))
 );
 
@@ -114,6 +122,12 @@ const selectedItem = computed(() =>
 
 const totalLength = computed(() => instructionContentLength(props.modelValue));
 const isOverLimit = computed(() => totalLength.value > 50000);
+const compiledInstructions = computed(() =>
+  compileInstructionDocument(props.modelValue)
+);
+const formattedInstructions = computed(() =>
+  formatMessage(compiledInstructions.value, false, false, false)
+);
 
 const editorOptions = [
   'strong',
@@ -152,7 +166,7 @@ const updateSection = value => {
     >
       <button
         type="button"
-        class="h-9 rounded-md text-sm font-medium"
+        class="h-9 rounded-md text-sm font-medium hover:text-n-slate-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-n-brand"
         :aria-pressed="mobileView === 'edit'"
         :class="
           mobileView === 'edit'
@@ -165,7 +179,7 @@ const updateSection = value => {
       </button>
       <button
         type="button"
-        class="h-9 rounded-md text-sm font-medium"
+        class="h-9 rounded-md text-sm font-medium hover:text-n-slate-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-n-brand"
         :aria-pressed="mobileView === 'test'"
         :class="
           mobileView === 'test'
@@ -185,13 +199,15 @@ const updateSection = value => {
         :items="sectionItems"
         :selected-key="selectedSection"
         :class="
-          mobileView === 'test' ? 'hidden min-[1360px]:flex' : 'hidden md:flex'
+          mobileView === 'test'
+            ? 'hidden min-[1360px]:flex min-[1360px]:h-[calc(100dvh-22rem)] min-[1360px]:min-h-[26rem] min-[1360px]:max-h-[48rem]'
+            : 'hidden md:flex md:h-[calc(100dvh-22rem)] md:min-h-[26rem] md:max-h-[48rem]'
         "
         @select="selectedSection = $event"
       />
 
       <section
-        class="h-[calc(100vh-22rem)] min-h-[26rem] max-h-[48rem] min-w-0 flex-col overflow-hidden"
+        class="min-h-[32rem] min-w-0 flex-col md:h-[calc(100dvh-22rem)] md:min-h-[26rem] md:max-h-[48rem] md:overflow-hidden"
         :class="mobileView === 'test' ? 'hidden min-[1360px]:flex' : 'flex'"
       >
         <label class="mb-4 flex flex-col gap-1 text-sm font-medium md:hidden">
@@ -220,8 +236,22 @@ const updateSection = value => {
         </header>
 
         <div
-          v-if="selectedSection === 'profile'"
-          class="flex-1 overflow-y-auto py-5"
+          v-if="selectedSection === 'all'"
+          class="min-h-0 flex-1 overflow-y-auto py-5 pr-1"
+        >
+          <div
+            v-if="compiledInstructions"
+            v-dompurify-html="formattedInstructions"
+            class="prose prose-sm max-w-none break-words text-n-slate-12 dark:prose-invert prose-headings:scroll-mt-4 prose-headings:text-n-slate-12 prose-h2:mb-2 prose-h2:mt-6 prose-h2:border-b prose-h2:border-n-weak prose-h2:pb-2 prose-p:leading-relaxed prose-li:leading-relaxed"
+          />
+          <div v-else class="py-12 text-center text-sm text-n-slate-10">
+            {{ t('AI_ASSISTANT.INSTRUCTIONS.ALL_SECTIONS_EMPTY') }}
+          </div>
+        </div>
+
+        <div
+          v-else-if="selectedSection === 'profile'"
+          class="min-h-0 flex-1 overflow-y-auto py-5 pr-1"
         >
           <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <label
@@ -247,10 +277,16 @@ const updateSection = value => {
           </div>
         </div>
 
-        <div v-else class="min-h-0 flex-1 py-5">
+        <div
+          v-else
+          data-testid="instruction-section-content"
+          class="min-h-0 flex-1 overflow-y-auto py-5 pr-1"
+        >
           <Editor
+            :key="selectedSection"
             :model-value="modelValue.sections[selectedSection] || ''"
             :editor-key="`ai-agent-instructions-${selectedSection}`"
+            :aria-label="selectedItem.title"
             :placeholder="
               t(
                 `AI_ASSISTANT.INSTRUCTIONS.SECTIONS.${selectedSection.toUpperCase()}.PLACEHOLDER`
@@ -261,38 +297,41 @@ const updateSection = value => {
             :enable-canned-responses="false"
             variant="article"
             :enabled-menu-options="editorOptions"
-            :min-height="28"
-            :max-height="42"
+            min-height="10rem"
+            max-height="clamp(10rem, calc(100dvh - 37rem), 28rem)"
             @update:model-value="updateSection"
           />
-        </div>
 
-        <div
-          v-if="selectedSection === 'handoff'"
-          class="flex flex-shrink-0 flex-wrap items-center justify-between gap-3 border-t border-n-weak py-4"
-        >
-          <div class="flex min-w-0 items-start gap-3">
-            <span class="i-lucide-users mt-0.5 size-4 text-n-slate-10" />
-            <div>
-              <p class="m-0 text-sm font-medium text-n-slate-12">
-                {{ t('AI_ASSISTANT.CAPABILITIES.HANDOFF') }}
-              </p>
-              <p class="mb-0 mt-1 text-xs text-n-slate-10">
-                {{ t('AI_ASSISTANT.INSTRUCTIONS.HANDOFF_HELP') }}
-              </p>
+          <div
+            v-if="selectedSection === 'handoff'"
+            class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-n-weak pt-4"
+          >
+            <div class="flex min-w-0 items-start gap-3">
+              <span
+                aria-hidden="true"
+                class="i-lucide-users mt-0.5 size-4 flex-shrink-0 text-n-slate-10"
+              />
+              <div class="min-w-0">
+                <p class="m-0 text-sm font-medium text-n-slate-12">
+                  {{ t('AI_ASSISTANT.CAPABILITIES.HANDOFF') }}
+                </p>
+                <p class="mb-0 mt-1 break-words text-xs text-n-slate-10">
+                  {{ t('AI_ASSISTANT.INSTRUCTIONS.HANDOFF_HELP') }}
+                </p>
+              </div>
             </div>
-          </div>
-          <div class="flex items-center gap-2">
-            <span class="text-xs font-medium text-n-teal-11">
-              {{ t('AI_ASSISTANT.CAPABILITIES.ALWAYS_ON') }}
-            </span>
-            <Button
-              :label="t('AI_ASSISTANT.INSTRUCTIONS.CONFIGURE')"
-              size="sm"
-              variant="outline"
-              color="slate"
-              @click="emit('configureHandoff')"
-            />
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="text-xs font-medium text-n-teal-11">
+                {{ t('AI_ASSISTANT.CAPABILITIES.ALWAYS_ON') }}
+              </span>
+              <Button
+                :label="t('AI_ASSISTANT.INSTRUCTIONS.CONFIGURE')"
+                size="sm"
+                variant="outline"
+                color="slate"
+                @click="emit('configureHandoff')"
+              />
+            </div>
           </div>
         </div>
 

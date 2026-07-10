@@ -71,7 +71,7 @@ onMounted(() => selectLatestConversation(conversations.value));
 
 <template>
   <aside
-    class="flex h-[calc(100vh-22rem)] min-h-[26rem] max-h-[48rem] flex-col overflow-hidden rounded-lg border border-n-weak bg-n-solid-1"
+    class="flex h-[32rem] flex-col overflow-hidden rounded-lg border border-n-weak bg-n-solid-1 md:h-[calc(100dvh-22rem)] md:min-h-[26rem] md:max-h-[48rem]"
     :aria-label="t('AI_ASSISTANT.INSTRUCTIONS.DRAFT_TEST')"
   >
     <div class="flex flex-col gap-3 border-b border-n-weak p-4">
