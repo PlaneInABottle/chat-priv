@@ -31,7 +31,8 @@ class AiDataRetention::PurgeService
       llm_calls: account.ai_agent_llm_calls.where('created_at < ?', cutoff).delete_all,
       tool_executions: account.ai_agent_tool_executions.where('created_at < ?', cutoff).delete_all,
       test_conversations: AiAgentTestConversation.where(account_id: account.id).where('updated_at < ?', cutoff).delete_all,
-      evaluation_runs: account.ai_agent_evaluation_runs.where('created_at < ?', cutoff).delete_all
+      evaluation_runs: account.ai_agent_evaluation_runs.where('created_at < ?', cutoff).delete_all,
+      learning_suggestions: account.ai_agent_learning_suggestions.where('created_at < ?', cutoff).delete_all
     }
   end
 

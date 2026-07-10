@@ -78,6 +78,12 @@ export default {
           component: () => import('./AiAgentDetail.vue'),
           meta: detailMeta,
         },
+        {
+          path: ':id/learnings',
+          name: 'ai_agent_learning_suggestions',
+          component: () => import('./AiAgentDetail.vue'),
+          meta: detailMeta,
+        },
       ],
     },
     {

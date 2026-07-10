@@ -114,6 +114,12 @@ class MessageApi extends ApiClient {
       }
     );
   }
+
+  suggestLearning(conversationId, messageId) {
+    return axios.post(
+      `${this.url}/${conversationId}/messages/${messageId}/suggest_learning`
+    );
+  }
 }
 
 export default new MessageApi();

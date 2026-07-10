@@ -16,6 +16,9 @@ import MenuItem from '../../../components/widgets/conversation/contextMenu/menuI
 import { useTrack } from 'dashboard/composables';
 import NextButton from 'dashboard/components-next/button/Button.vue';
 import ReportCaptainMessageDialog from './ReportCaptainMessageDialog.vue';
+import MessageApi from 'dashboard/api/inbox/message';
+import { parseAPIErrorResponse } from 'dashboard/store/utils/api';
+import { FEATURE_FLAGS } from 'dashboard/featureFlags';
 
 export default {
   components: {
@@ -59,6 +62,7 @@ export default {
     return {
       isCannedResponseModalOpen: false,
       showDeleteModal: false,
+      isSubmittingLearning: false,
     };
   },
   computed: {
@@ -66,6 +70,7 @@ export default {
       getAccount: 'accounts/getAccount',
       currentAccountId: 'getCurrentAccountId',
       getUISettings: 'getUISettings',
+      isFeatureEnabledonAccount: 'accounts/isFeatureEnabledonAccount',
     }),
     plainTextContent() {
       return this.getPlainText(this.messageContent);
@@ -82,6 +87,12 @@ export default {
     contentAttributes() {
       return useSnakeCase(
         this.message.content_attributes ?? this.message.contentAttributes
+      );
+    },
+    isAiLearningEnabled() {
+      return this.isFeatureEnabledonAccount(
+        this.currentAccountId,
+        FEATURE_FLAGS.AI_AGENT
       );
     },
   },
@@ -109,6 +120,38 @@ export default {
     showCannedResponseModal() {
       useTrack(ACCOUNT_EVENTS.ADDED_TO_CANNED_RESPONSE);
       this.isCannedResponseModalOpen = true;
+    },
+    async suggestLearning() {
+      if (this.isSubmittingLearning) return;
+
+      this.isSubmittingLearning = true;
+      try {
+        const response = await MessageApi.suggestLearning(
+          this.conversationId,
+          this.messageId
+        );
+        useAlert(this.learningSuggestionMessage(response.data.status));
+        this.handleClose();
+      } catch (error) {
+        useAlert(
+          parseAPIErrorResponse(error) ||
+            this.$t('CONVERSATION.CONTEXT_MENU.AI_LEARNING.ERROR')
+        );
+      } finally {
+        this.isSubmittingLearning = false;
+      }
+    },
+    learningSuggestionMessage(status) {
+      if (status === 'applied') {
+        return this.$t('CONVERSATION.CONTEXT_MENU.AI_LEARNING.ALREADY_APPLIED');
+      }
+      if (['dismissed', 'not_recommended'].includes(status)) {
+        return this.$t(
+          'CONVERSATION.CONTEXT_MENU.AI_LEARNING.ALREADY_REVIEWED'
+        );
+      }
+
+      return this.$t('CONVERSATION.CONTEXT_MENU.AI_LEARNING.SUGGESTED');
     },
     hideCannedResponseModal() {
       this.isCannedResponseModalOpen = false;
@@ -263,6 +306,17 @@ export default {
           }"
           variant="icon"
           @click.stop="openReportDialog"
+        />
+        <MenuItem
+          v-if="isAiLearningEnabled && enabledOptions['learning']"
+          :option="{
+            icon: 'i-lucide-lightbulb',
+            label: isSubmittingLearning
+              ? $t('CONVERSATION.CONTEXT_MENU.AI_LEARNING.SAVING')
+              : $t('CONVERSATION.CONTEXT_MENU.AI_LEARNING.ACTION'),
+          }"
+          variant="icon"
+          @click.stop="suggestLearning"
         />
         <hr v-if="enabledOptions['delete']" />
         <MenuItem

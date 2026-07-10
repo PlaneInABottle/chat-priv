@@ -15,7 +15,7 @@ import Input from 'dashboard/components-next/input/Input.vue';
 import TestConversationLayout from './components/TestConversationLayout.vue';
 import TabBar from 'dashboard/components-next/tabbar/TabBar.vue';
 import InstructionWorkspace from './components/InstructionWorkspace.vue';
-import EvaluationSuite from './components/EvaluationSuite.vue';
+import ImproveWorkspace from './components/ImproveWorkspace.vue';
 import AssistantStatusBadge from './components/AssistantStatusBadge.vue';
 import ReadinessChecklist from './components/ReadinessChecklist.vue';
 import {
@@ -71,10 +71,19 @@ const isSaving = ref(false);
 const inboxError = ref('');
 const activeTab = computed(() => {
   if (route.name === 'ai_agent_test') return 'test';
-  if (route.name === 'ai_agent_evaluations') return 'evaluations';
+  if (
+    ['ai_agent_evaluations', 'ai_agent_learning_suggestions'].includes(
+      route.name
+    )
+  ) {
+    return 'improve';
+  }
   if (route.name === 'ai_agent_detail') return 'connections';
   return 'instructions';
 });
+const improveMode = computed(() =>
+  route.name === 'ai_agent_learning_suggestions' ? 'learnings' : 'evaluations'
+);
 
 // Local form state - initialized from store on load
 const formState = ref({
@@ -120,7 +129,7 @@ const tabs = computed(() => [
   { label: t('AI_AGENT.TABS.INSTRUCTIONS'), value: 'instructions' },
   { label: t('AI_AGENT.TABS.CONNECTIONS'), value: 'connections' },
   { label: t('AI_AGENT.TABS.TEST_HISTORY'), value: 'test' },
-  { label: t('AI_AGENT.TABS.EVALUATIONS'), value: 'evaluations' },
+  { label: t('AI_AGENT.TABS.IMPROVE'), value: 'improve' },
 ]);
 
 const activeTabIndex = computed(() =>
@@ -467,6 +476,7 @@ onBeforeRouteLeave(to => {
     'ai_agent_detail',
     'ai_agent_test',
     'ai_agent_evaluations',
+    'ai_agent_learning_suggestions',
   ];
   const staysOnCurrentAgent =
     detailRoutes.includes(to.name) && Number(to.params.id) === agentId.value;
@@ -487,7 +497,7 @@ const handleTabChange = tab => {
     instructions: 'ai_agent_instructions',
     connections: 'ai_agent_detail',
     test: 'ai_agent_test',
-    evaluations: 'ai_agent_evaluations',
+    improve: 'ai_agent_evaluations',
   };
   router.push({
     name: routeNames[tab.value],
@@ -868,9 +878,10 @@ watch(agentId, async (newAgentId, oldAgentId) => {
           </div>
           <ReadinessChecklist :readiness="aiAgent?.readiness" />
         </div>
-        <EvaluationSuite
-          v-if="activeTab === 'evaluations'"
+        <ImproveWorkspace
+          v-if="activeTab === 'improve'"
           :ai-agent-id="agentId"
+          :mode="improveMode"
         />
       </div>
     </template>
