@@ -41,6 +41,17 @@
                              min: 1 %>
         <span class="ai-agent-settings-control__hint"><%= t('super_admin.account_ai_agent_settings.reuse_window_hint') %></span>
       </div>
+
+      <div class="ai-agent-settings-control">
+        <%= label_tag "#{field_id_prefix}_data_retention_days", t('super_admin.account_ai_agent_settings.data_retention') %>
+        <%= select_tag "#{field.html_name}[data_retention_days]",
+                       options_for_select(
+                         AiDataRetention::Policy::ALLOWED_DAYS.map { |days| [t('super_admin.data_retention.days', count: days), days] },
+                         field.resource.ai_agent_data_retention_days
+                       ),
+                       id: "#{field_id_prefix}_data_retention_days" %>
+        <span class="ai-agent-settings-control__hint"><%= t('super_admin.account_ai_agent_settings.data_retention_hint') %></span>
+      </div>
     </div>
   </div>
 </div>

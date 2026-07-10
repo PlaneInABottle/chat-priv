@@ -33,8 +33,6 @@ const navigateToNew = () => {
 };
 
 const navigateToUsage = () => router.push({ name: 'ai_agent_usage' });
-const navigateToDataPrivacy = () =>
-  router.push({ name: 'ai_agent_data_privacy' });
 
 const openDeleteDialog = agent => {
   agentToDelete.value = agent;
@@ -78,13 +76,6 @@ const confirmDelete = async () => {
     <template #body>
       <div class="flex flex-col gap-6">
         <div class="flex flex-wrap justify-end gap-2">
-          <Button
-            icon="i-lucide-shield-check"
-            variant="outline"
-            color="slate"
-            :label="t('AI_DATA_RETENTION.OPEN')"
-            @click="navigateToDataPrivacy"
-          />
           <Button
             icon="i-lucide-chart-no-axes-column"
             variant="outline"

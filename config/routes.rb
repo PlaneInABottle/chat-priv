@@ -122,9 +122,6 @@ Rails.application.routes.draw do
           end
           resource :saml_settings, only: [:show, :create, :update, :destroy]
           resource :ai_agent_usage, only: [:show], controller: 'ai_agent_usage'
-          resource :ai_data_retention, only: [:show, :update], controller: 'ai_data_retention' do
-            post :purge
-          end
           namespace :voice do
             resource :usage, only: [:show], controller: 'usage'
             resource :telephony_readiness, only: [:show], controller: 'telephony_readiness'
@@ -784,6 +781,7 @@ Rails.application.routes.draw do
       resources :accounts, only: [:index, :new, :create, :show, :edit, :update, :destroy] do
         post :seed, on: :member
         post :reset_cache, on: :member
+        post :purge_ai_data, on: :member
       end
       resources :users, only: [:index, :new, :create, :show, :edit, :update, :destroy] do
         delete :avatar, on: :member, action: :destroy_avatar

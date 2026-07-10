@@ -134,8 +134,8 @@ class AccountDashboard < Administrate::BaseDashboard
     attrs = super + [
       limits: {},
       captain_models: {},
-      ai_agent_settings: %i[enabled model conversation_limit conversation_reuse_window_hours],
-      voice_ai_settings: %i[enabled monthly_minute_limit max_call_duration_minutes concurrent_call_limit],
+      ai_agent_settings: %i[enabled model conversation_limit conversation_reuse_window_hours data_retention_days],
+      voice_ai_settings: %i[enabled monthly_minute_limit max_call_duration_minutes concurrent_call_limit data_retention_days],
       voice_agent_runtime_settings: {}
     ]
     attrs += %i[suspension_category suspension_reason] if action == 'update'

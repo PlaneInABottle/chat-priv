@@ -66,6 +66,22 @@ class SuperAdmin::AccountsController < SuperAdmin::ApplicationController
     # rubocop:enable Rails/I18nLocaleTexts
   end
 
+  def purge_ai_data
+    kind = params[:kind].to_s
+    unless AiDataRetention::Policy.valid_kind?(kind)
+      return redirect_back(
+        fallback_location: [namespace, requested_resource],
+        alert: I18n.t('super_admin.data_retention.invalid_kind')
+      )
+    end
+
+    AiDataRetention::PurgeAccountJob.perform_later(requested_resource.id, kind)
+    redirect_back(
+      fallback_location: [namespace, requested_resource],
+      notice: I18n.t('super_admin.data_retention.queued', kind: kind.capitalize)
+    )
+  end
+
   def destroy
     account = Account.find(params[:id])
 

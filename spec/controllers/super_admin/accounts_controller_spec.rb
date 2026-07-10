@@ -200,7 +200,8 @@ RSpec.describe 'Super Admin accounts API', type: :request do
               enabled: 'true',
               model: 'anthropic/claude-3.5-sonnet',
               conversation_limit: 100,
-              conversation_reuse_window_hours: 48
+              conversation_reuse_window_hours: 48,
+              data_retention_days: 90
             }
           }
         }
@@ -211,6 +212,7 @@ RSpec.describe 'Super Admin accounts API', type: :request do
         expect(account.ai_agent_model).to eq('anthropic/claude-3.5-sonnet')
         expect(account.ai_agent_conversation_limit).to eq(100)
         expect(account.ai_agent_conversation_reuse_window_hours).to eq(48)
+        expect(account.ai_agent_data_retention_days).to eq(90)
       end
 
       it 'does not wipe existing settings keys when updating AI settings' do
@@ -247,7 +249,8 @@ RSpec.describe 'Super Admin accounts API', type: :request do
               enabled: 'true',
               monthly_minute_limit: 120,
               max_call_duration_minutes: 20,
-              concurrent_call_limit: 3
+              concurrent_call_limit: 3,
+              data_retention_days: 180
             }
           }
         }
@@ -258,6 +261,7 @@ RSpec.describe 'Super Admin accounts API', type: :request do
         expect(account.voice_ai_monthly_minute_limit).to eq(120)
         expect(account.voice_ai_max_call_duration_minutes).to eq(20)
         expect(account.voice_ai_concurrent_call_limit).to eq(3)
+        expect(account.voice_ai_data_retention_days).to eq(180)
       end
 
       it 'persists voice agent runtime settings' do
@@ -287,6 +291,88 @@ RSpec.describe 'Super Admin accounts API', type: :request do
           voice: 'alloy',
           language: 'en'
         )
+      end
+    end
+  end
+
+  describe 'POST /super_admin/accounts/{account_id}/purge_ai_data' do
+    it 'redirects unauthenticated users without queueing cleanup' do
+      expect do
+        post "/super_admin/accounts/#{account.id}/purge_ai_data", params: { kind: 'text' }
+      end.not_to have_enqueued_job(AiDataRetention::PurgeAccountJob)
+
+      expect(response).to have_http_status(:redirect)
+    end
+
+    it 'queues cleanup for a valid AI mode' do
+      sign_in(super_admin, scope: :super_admin)
+
+      expect do
+        post "/super_admin/accounts/#{account.id}/purge_ai_data", params: { kind: 'voice' }
+      end.to have_enqueued_job(AiDataRetention::PurgeAccountJob).with(account.id, 'voice')
+
+      expect(response).to redirect_to(super_admin_account_path(account))
+      expect(flash[:notice]).to eq('Voice AI data cleanup queued.')
+    end
+
+    it 'rejects unsupported cleanup modes' do
+      sign_in(super_admin, scope: :super_admin)
+
+      expect do
+        post "/super_admin/accounts/#{account.id}/purge_ai_data", params: { kind: 'all' }
+      end.not_to have_enqueued_job(AiDataRetention::PurgeAccountJob)
+
+      expect(response).to redirect_to(super_admin_account_path(account))
+      expect(flash[:alert]).to eq('AI data cleanup must target Text or Voice.')
+    end
+  end
+
+  describe 'PATCH /super_admin/accounts/{account_id}' do
+    context 'when it is an unauthenticated user' do
+      it 'returns unauthorized' do
+        patch "/super_admin/accounts/#{account.id}", params: { account: { name: 'New Name' } }
+        expect(response).to have_http_status(:redirect)
+      end
+    end
+
+    context 'when it is an authenticated user' do
+      it 'persists ai_agent_model and ai_agent_conversation_limit into settings' do
+        sign_in(super_admin, scope: :super_admin)
+        patch "/super_admin/accounts/#{account.id}", params: {
+          account: {
+            name: account.name,
+            ai_agent_settings: {
+              model: 'anthropic/claude-3.5-sonnet',
+              conversation_limit: 100
+            }
+          }
+        }
+
+        expect(response).to have_http_status(:redirect)
+        account.reload
+        expect(account.ai_agent_model).to eq('anthropic/claude-3.5-sonnet')
+        expect(account.ai_agent_conversation_limit).to eq(100)
+      end
+
+      it 'does not wipe existing settings keys when updating AI settings' do
+        account.update!(settings: { auto_resolve_after: 30, auto_resolve_message: 'Hello' })
+        sign_in(super_admin, scope: :super_admin)
+        patch "/super_admin/accounts/#{account.id}", params: {
+          account: {
+            name: account.name,
+            ai_agent_settings: {
+              model: 'openai/gpt-4o-mini',
+              conversation_limit: 25
+            }
+          }
+        }
+
+        expect(response).to have_http_status(:redirect)
+        account.reload
+        expect(account.settings['auto_resolve_after']).to eq(30)
+        expect(account.settings['auto_resolve_message']).to eq('Hello')
+        expect(account.ai_agent_model).to eq('openai/gpt-4o-mini')
+        expect(account.ai_agent_conversation_limit).to eq(25)
       end
     end
   end
