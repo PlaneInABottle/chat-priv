@@ -36,6 +36,7 @@ class Api::V1::Accounts::AiAgentTestConversationsController < Api::V1::Accounts:
     content = params[:content].to_s.strip
     return render json: { error: 'Content is required' }, status: :bad_request if content.blank?
     return render json: { error: 'Message limit reached (200 messages max)' }, status: :unprocessable_entity if @test_conversation.at_message_limit?
+    return render json: { error: 'Draft instructions are too long' }, status: :unprocessable_entity if effective_test_prompt.length > 50_000
 
     @test_conversation.append_message(role: 'user', content: content)
     @test_conversation.update!(title: content.truncate(50)) if @test_conversation.title == 'New Test Conversation'
@@ -58,19 +59,51 @@ class Api::V1::Accounts::AiAgentTestConversationsController < Api::V1::Accounts:
       ai_agent: @ai_agent,
       messages: @test_conversation.messages,
       mode: :test,
-      conversation: @test_conversation
+      conversation: @test_conversation,
+      prompt_override: effective_test_prompt
     ).perform
 
     if result[:assistant_message]
-      @test_conversation.append_message(
-        role: 'assistant',
-        content: result[:assistant_message]['content'],
-        metadata: result[:assistant_message].except('id', 'role', 'content', 'created_at')
-      )
-      @ai_agent.mark_test_succeeded!
-      render json: { message: @test_conversation.messages.last, messages: @test_conversation.messages, title: @test_conversation.title }
+      append_assistant_message(result[:assistant_message])
+      @ai_agent.mark_test_succeeded!(prompt: effective_test_prompt)
+      render json: {
+        message: @test_conversation.messages.last,
+        messages: @test_conversation.messages,
+        title: @test_conversation.title,
+        tested_draft: draft_instructions_provided?
+      }
     else
       render json: { error: 'Failed to generate response' }, status: :unprocessable_entity
     end
+  end
+
+  def append_assistant_message(message)
+    @test_conversation.append_message(
+      role: 'assistant',
+      content: message['content'],
+      metadata: message.except('id', 'role', 'content', 'created_at')
+    )
+  end
+
+  def effective_test_prompt
+    @effective_test_prompt ||= if draft_instructions_provided?
+                                 AiAgents::InstructionDocument.new(draft_instructions_param).compile
+                               else
+                                 @ai_agent.prompt.to_s
+                               end
+  end
+
+  def draft_instructions_provided?
+    params.key?(:draft_instructions)
+  end
+
+  def draft_instructions_param
+    params.permit(
+      draft_instructions: [
+        :version,
+        { profile: [:language, :tone, :formality, :response_length] },
+        { sections: [:key, :title, :content, :critical, :custom] }
+      ]
+    ).fetch(:draft_instructions, {}).to_h
   end
 end

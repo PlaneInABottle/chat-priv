@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_07_10_070000) do
+ActiveRecord::Schema[7.1].define(version: 2026_07_10_080000) do
   # These extensions should be enabled to support this database
   enable_extension "pg_stat_statements"
   enable_extension "pg_trgm"
@@ -249,6 +249,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_10_070000) do
     t.string "name", default: "AI Asistan", null: false
     t.datetime "published_at"
     t.datetime "last_tested_at"
+    t.string "last_tested_prompt_digest"
     t.index ["account_id"], name: "index_ai_agents_on_account_id"
     t.index ["agent_bot_id"], name: "index_ai_agents_on_agent_bot_id", unique: true
   end

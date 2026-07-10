@@ -1,11 +1,12 @@
 # frozen_string_literal: true
 
 class AiAgents::EffectivePromptPreview
-  def initialize(ai_agent:)
+  def initialize(ai_agent:, prompt_override: nil)
     @ai_agent = ai_agent
+    @prompt_override = prompt_override
   end
 
-  attr_reader :ai_agent
+  attr_reader :ai_agent, :prompt_override
 
   delegate :account, to: :ai_agent
 
@@ -52,7 +53,7 @@ class AiAgents::EffectivePromptPreview
   end
 
   def prompt_composer
-    @prompt_composer ||= AiAgents::PromptComposer.new(ai_agent: ai_agent)
+    @prompt_composer ||= AiAgents::PromptComposer.new(ai_agent: ai_agent, prompt_override: prompt_override)
   end
 
   def integration_gate_for(definition)

@@ -20,7 +20,7 @@ class AiAgents::Readiness
     @checks ||= [
       check('instructions', ai_agent.prompt.present?, 'Add instructions for how the assistant should respond.'),
       check('inbox', ai_agent.agent_bot&.inboxes&.exists?, 'Connect at least one inbox.'),
-      check('test', ai_agent.last_tested_at.present?, 'Complete a successful test conversation.')
+      check('test', ai_agent.prompt_tested?, 'Complete a successful test conversation for the current instructions.')
     ]
   end
 
