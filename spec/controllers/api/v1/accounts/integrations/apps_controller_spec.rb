@@ -17,6 +17,8 @@ RSpec.describe 'Integration Apps API', type: :request do
       let(:agent) { create(:user, account: account, role: :agent) }
       let(:admin) { create(:user, account: account, role: :administrator) }
 
+      before { account.enable_features('ikas_integration') }
+
       it 'returns all active apps without sensitive information if the user is an agent' do
         first_app = Integrations::App.all.find { |app| app.active?(account) }
         get api_v1_account_integrations_apps_url(account),
@@ -95,7 +97,7 @@ RSpec.describe 'Integration Apps API', type: :request do
 
       it 'lists ikas as reconnect_required for malformed hooks' do
         hook = create(:integrations_hook, :ikas, account: account)
-        hook.update_column(:access_token, nil)
+        hook.update!(access_token: nil)
         allow(Chatwoot).to receive(:encryption_configured?).and_return(true)
 
         get api_v1_account_integrations_apps_url(account),
@@ -121,6 +123,8 @@ RSpec.describe 'Integration Apps API', type: :request do
     context 'when it is an authenticated user' do
       let(:agent) { create(:user, account: account, role: :agent) }
       let(:admin) { create(:user, account: account, role: :administrator) }
+
+      before { account.enable_features('ikas_integration') }
 
       it 'returns details of the default visible app' do
         get api_v1_account_integrations_app_url(account_id: account.id, id: 'ikas'),

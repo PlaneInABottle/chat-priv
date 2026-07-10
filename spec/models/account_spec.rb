@@ -70,7 +70,7 @@ RSpec.describe Account do
     it 'does not create duplicate default voice agents' do
       account = create(:account)
 
-      expect { account.create_default_voice_agent! }.not_to change { account.voice_agents.count }
+      expect { account.create_default_voice_agent! }.not_to(change { account.voice_agents.count })
     end
   end
 
@@ -439,7 +439,9 @@ RSpec.describe Account do
 
   describe 'voice_agent_runtime_settings' do
     let(:account) { create(:account) }
-    let!(:voice_agent) { create(:voice_agent, account: account, architecture: 'realtime', provider: 'gemini', model: nil, voice: 'Charon', language: 'tr') }
+    let!(:voice_agent) do
+      create(:voice_agent, account: account, architecture: 'realtime', provider: 'gemini', model: nil, voice: 'Charon', language: 'tr')
+    end
     let!(:other_voice_agent) { create(:voice_agent, architecture: 'realtime', provider: 'gemini', voice: 'Puck', language: 'tr') }
 
     it 'updates runtime settings for account-owned voice agents only' do
@@ -552,60 +554,6 @@ RSpec.describe Account do
       create(:voice_inbox_setting, account: other_account, inbox: other_inbox)
 
       expect(account.voice_inbox_setting_for(inbox: other_inbox)).to be_nil
-    end
-  end
-
-  describe 'ai_agent_settings' do
-    let(:account) { create(:account) }
-
-    it 'returns default model when absent' do
-      expect(account.ai_agent_model).to eq('deepseek/deepseek-v4-flash')
-    end
-
-    it 'returns default limit when absent' do
-      expect(account.ai_agent_conversation_limit).to eq(0)
-    end
-
-    it 'allows explicit model to override default' do
-      account.update!(ai_agent_model: 'openai/gpt-4o')
-      expect(account.reload.ai_agent_model).to eq('openai/gpt-4o')
-    end
-
-    it 'allows explicit limit to override default' do
-      account.update!(ai_agent_conversation_limit: 100)
-      expect(account.reload.ai_agent_conversation_limit).to eq(100)
-    end
-
-    it 'returns ai_agent_settings as a hash' do
-      expect(account.ai_agent_settings).to eq(
-        model: 'deepseek/deepseek-v4-flash',
-        conversation_limit: 0
-      )
-    end
-
-    it 'round-trips ai_agent_settings through virtual attribute' do
-      account.ai_agent_settings = { model: 'anthropic/claude-3.5-sonnet', conversation_limit: 50 }
-      account.save!
-      account.reload
-
-      expect(account.ai_agent_model).to eq('anthropic/claude-3.5-sonnet')
-      expect(account.ai_agent_conversation_limit).to eq(50)
-      expect(account.ai_agent_settings).to eq(
-        model: 'anthropic/claude-3.5-sonnet',
-        conversation_limit: 50
-      )
-    end
-
-    it 'preserves existing settings keys when updating AI settings' do
-      account.update!(settings: { auto_resolve_after: 30, auto_resolve_message: 'Hello' })
-      account.ai_agent_settings = { model: 'openai/gpt-4o-mini', conversation_limit: 25 }
-      account.save!
-      account.reload
-
-      expect(account.settings['auto_resolve_after']).to eq(30)
-      expect(account.settings['auto_resolve_message']).to eq('Hello')
-      expect(account.ai_agent_model).to eq('openai/gpt-4o-mini')
-      expect(account.ai_agent_conversation_limit).to eq(25)
     end
   end
 

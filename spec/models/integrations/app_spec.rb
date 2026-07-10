@@ -32,12 +32,12 @@ RSpec.describe Integrations::App do
 
     context 'when the app is slack' do
       it 'returns the action URL with client_id and redirect_uri' do
-        with_modified_env SLACK_CLIENT_ID: 'dummy_client_id' do
-          expect(app.action).to include('client_id=dummy_client_id')
-          expect(app.action).to include(
-            "/app/accounts/#{account.id}/settings/integrations/slack"
-          )
-        end
+        allow(GlobalConfigService).to receive(:load).with('SLACK_CLIENT_ID', nil).and_return('dummy_client_id')
+
+        expect(app.action).to include('client_id=dummy_client_id')
+        expect(app.action).to include(
+          "/app/accounts/#{account.id}/settings/integrations/slack"
+        )
       end
     end
   end
@@ -92,7 +92,9 @@ RSpec.describe Integrations::App do
     context 'when the app is ikas' do
       let(:app_name) { 'ikas' }
 
-      it 'returns true by default' do
+      before { account.enable_features('ikas_integration') }
+
+      it 'returns true when the ikas integration feature is enabled' do
         expect(app.active?(account)).to be true
       end
 
