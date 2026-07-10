@@ -16,6 +16,7 @@
 
 - `.env.local` must define `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `CHATWOOT_INTERNAL_API_URL`, `VOICE_AGENT_INTERNAL_TOKEN`, `VOICE_AGENT_NAME`, `VOICE_AGENT_ARCHITECTURE`, and provider-specific keys such as `GOOGLE_API_KEY`.
 - For Gemini realtime, use `VOICE_AGENT_ARCHITECTURE=realtime` and `VOICE_AGENT_REALTIME_PROVIDER=gemini`.
+- Gemini realtime sessions must enable `ContextWindowCompressionConfig` with a sliding window. The worker uses provider-selected trigger and target defaults so model-specific context limits do not terminate longer calls.
 - Keep `.env.local` out of git. Never print or commit secret values.
 - The Python worker entrypoint is `services/voice_agent/agent.py`.
 - The Rails dispatch path is `Voice::Livekit::AgentDispatchService`.
@@ -84,7 +85,17 @@ Use `uv lock --check --directory services/voice_agent` after dependency changes.
 
 ## Browser Test Call
 
-1. Open `/app/accounts/:account_id/settings/voice-ai` with `agent-browser`.
+For automated speech proof, run `agent-browser` in headed mode with a valid WAV file and fake-media flags. Chromium's headless shell returns `NotSupportedError` from `getUserMedia` even when fake-device flags are present. Include several seconds of silence after the spoken fixture so Gemini's server-side activity detection closes the turn.
+
+```bash
+agent-browser --session voice-media --headed \
+  --args '--use-fake-ui-for-media-stream,--use-fake-device-for-media-stream,--use-file-for-fake-audio-capture=/tmp/customer-talk.wav,--autoplay-policy=no-user-gesture-required' \
+  open 'http://localhost:3000/app/accounts/<account_id>/settings/voice-assistants?section=test'
+```
+
+Before creating a call, verify the browser can open an audio track with `navigator.mediaDevices.getUserMedia({ audio: true })`. A dispatched room without a live audio track is not customer-speech proof.
+
+1. Open `/app/accounts/:account_id/settings/voice-assistants?section=test` with `agent-browser`.
 2. Snapshot before clicking.
 3. On the Voice agents tab, select or create the voice agent.
 4. In that agent's Inbox assignments panel, assign an API sandbox inbox, choose fallback team and recording, then save the voice agent. The local verified path used account `36`, but always verify current local data.
