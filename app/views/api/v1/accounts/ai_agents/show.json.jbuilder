@@ -41,6 +41,10 @@ end
 json.account_ai_agent_enabled @ai_agent.account.ai_agent_enabled?
 json.created_at @ai_agent.created_at
 json.updated_at @ai_agent.updated_at
+json.lifecycle_status @ai_agent.lifecycle_status
+json.published_at @ai_agent.published_at
+json.last_tested_at @ai_agent.last_tested_at
+json.readiness @ai_agent.readiness
 
 if @ai_agent.agent_bot.present?
   json.agent_bot do

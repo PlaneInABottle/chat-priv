@@ -6,6 +6,10 @@ json.array! @ai_agents do |ai_agent|
   json.enabled_tool_keys AiAgents::Config.new(ai_agent.config).enabled_tool_keys
   json.created_at ai_agent.created_at
   json.updated_at ai_agent.updated_at
+  json.lifecycle_status ai_agent.lifecycle_status
+  json.published_at ai_agent.published_at
+  json.last_tested_at ai_agent.last_tested_at
+  json.readiness ai_agent.readiness
 
   if ai_agent.agent_bot.present?
     json.agent_bot do

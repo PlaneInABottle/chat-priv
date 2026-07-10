@@ -24,8 +24,6 @@ class Voice::TestCallBuilder
     Voice::Usage::Admission.check!(account: account, test_call: true)
 
     setting = assigned_setting!
-    raise ArgumentError, 'Voice agent must be enabled before starting a test call' unless setting.voice_agent&.enabled?
-
     room_name = room_name_for(setting)
     call = build_call!(setting, room_name)
     start_call!(call, room_name)

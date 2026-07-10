@@ -67,6 +67,7 @@ class Api::V1::Accounts::AiAgentTestConversationsController < Api::V1::Accounts:
         content: result[:assistant_message]['content'],
         metadata: result[:assistant_message].except('id', 'role', 'content', 'created_at')
       )
+      @ai_agent.mark_test_succeeded!
       render json: { message: @test_conversation.messages.last, messages: @test_conversation.messages, title: @test_conversation.title }
     else
       render json: { error: 'Failed to generate response' }, status: :unprocessable_entity
