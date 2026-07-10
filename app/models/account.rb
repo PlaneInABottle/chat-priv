@@ -136,7 +136,6 @@ class Account < ApplicationRecord
   scope :with_auto_resolve, -> { where("(settings ->> 'auto_resolve_after')::int IS NOT NULL") }
 
   before_validation :validate_limit_keys
-  after_create :create_default_voice_agent!
   after_create_commit :notify_creation
   after_save :apply_voice_agent_runtime_settings, if: -> { @voice_agent_runtime_settings.present? }
   after_update_commit :clear_unread_conversation_counts_cache, if: :saved_change_to_feature_conversation_unread_counts?
@@ -259,18 +258,6 @@ class Account < ApplicationRecord
 
   def voice_agent_runtime_settings=(value)
     @voice_agent_runtime_settings = value if value.is_a?(Hash)
-  end
-
-  def create_default_voice_agent!
-    return if voice_agents.exists?
-
-    voice_agents.create!(
-      name: 'Voice Assistant',
-      enabled: true,
-      greeting: 'Merhaba, size nasil yardimci olabilirim?',
-      prompt: 'Yalnizca dogal Istanbul Turkcesiyle konus. Kisa, net ve sakin musteri destek cevaplari ver.',
-      tools_config: VoiceAgents::Config.new({}).normalized_config
-    )
   end
 
   def usage_limits

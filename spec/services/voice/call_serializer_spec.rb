@@ -4,7 +4,7 @@ RSpec.describe Voice::CallSerializer do
   let(:account) { create(:account, settings: { voice_ai_enabled: true }) }
   let(:api_channel) { create(:channel_api, account: account) }
   let(:inbox) { api_channel.inbox }
-  let(:voice_agent) { account.voice_agents.first! }
+  let(:voice_agent) { create(:voice_agent, account: account) }
   let(:conversation) { create(:conversation, account: account, inbox: inbox) }
   let(:call) do
     create(

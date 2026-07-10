@@ -6,13 +6,13 @@ RSpec.describe VoiceAgents::RuntimeContext do
     let(:api_channel) { create(:channel_api, account: account) }
     let(:inbox) { api_channel.inbox }
     let(:voice_agent) do
-      account.voice_agents.first.tap do |agent|
-        agent.update!(
-          name: 'Phone voice',
-          prompt: 'Answer briefly.',
-          tools_config: VoiceAgents::Config.new('enabled' => %w[human_handoff end_customer_call]).normalized_config
-        )
-      end
+      create(
+        :voice_agent,
+        account: account,
+        name: 'Phone voice',
+        prompt: 'Answer briefly.',
+        tools_config: VoiceAgents::Config.new('enabled' => %w[human_handoff end_customer_call]).normalized_config
+      )
     end
 
     it 'returns account-scoped voice agent instructions, tools, and runtime settings' do

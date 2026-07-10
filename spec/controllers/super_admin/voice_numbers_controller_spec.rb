@@ -4,7 +4,7 @@ RSpec.describe 'Super Admin voice numbers', type: :request do
   let(:super_admin) { create(:super_admin) }
   let(:account) { create(:account, settings: { voice_ai_enabled: true }) }
   let(:inbox) { create(:channel_api, account: account).inbox }
-  let(:voice_agent) { account.voice_agents.first! }
+  let(:voice_agent) { create(:voice_agent, account: account) }
   let(:voice_inbox_setting) { create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: voice_agent) }
   let(:provider_connection) { create(:voice_provider_connection, account: account, provider: 'test_sip') }
 

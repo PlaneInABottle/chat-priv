@@ -4,8 +4,9 @@ RSpec.describe VoiceAgents::Serializer do
   describe '#payload' do
     it 'hides unavailable ikas tools from account-facing payloads' do
       account = create(:account)
-      voice_agent = account.voice_agents.first
-      voice_agent.update!(
+      voice_agent = create(
+        :voice_agent,
+        account: account,
         tools_config: VoiceAgents::Config.new('enabled' => %w[human_handoff ikas_catalog_search]).normalized_config
       )
 
@@ -29,8 +30,9 @@ RSpec.describe VoiceAgents::Serializer do
       account = create(:account)
       account.enable_features('ikas_integration')
       stub_ikas_status(state: 'connected', hook: ikas_hook_with_catalog)
+      voice_agent = create(:voice_agent, account: account)
 
-      payload = described_class.new(account.voice_agents.first).payload
+      payload = described_class.new(voice_agent).payload
 
       expect(payload[:available_tools].pluck(:key)).to include('ikas_lookup_order', 'ikas_catalog_search')
     end

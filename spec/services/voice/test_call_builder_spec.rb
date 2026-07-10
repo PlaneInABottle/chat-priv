@@ -6,7 +6,7 @@ RSpec.describe Voice::TestCallBuilder do
     let(:api_channel) { create(:channel_api, account: account) }
     let(:inbox) { api_channel.inbox }
     let(:user) { create(:user, account: account) }
-    let(:voice_agent) { account.voice_agents.first! }
+    let(:voice_agent) { create(:voice_agent, account: account) }
 
     before do
       create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: voice_agent)

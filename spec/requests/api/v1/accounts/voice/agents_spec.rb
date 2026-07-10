@@ -6,8 +6,6 @@ RSpec.describe 'Api::V1::Accounts::Voice::Agents', type: :request do
 
   describe 'GET /api/v1/accounts/:account_id/voice/agents' do
     it 'returns voice agents for the account without creating records' do
-      account.voice_agents.destroy_all
-
       get "/api/v1/accounts/#{account.id}/voice/agents",
           headers: admin.create_new_auth_token,
           as: :json
@@ -31,7 +29,7 @@ RSpec.describe 'Api::V1::Accounts::Voice::Agents', type: :request do
 
   describe 'GET /api/v1/accounts/:account_id/voice/agents/:id' do
     it 'returns only account-owned voice agents' do
-      voice_agent = account.voice_agents.first!
+      voice_agent = create(:voice_agent, account: account)
       other_agent = create(:voice_agent)
 
       get "/api/v1/accounts/#{account.id}/voice/agents/#{voice_agent.id}",
