@@ -108,6 +108,9 @@ Rails.application.routes.draw do
           end
           resource :saml_settings, only: [:show, :create, :update, :destroy]
           resource :ai_agent_usage, only: [:show], controller: 'ai_agent_usage'
+          resource :ai_data_retention, only: [:show, :update], controller: 'ai_data_retention' do
+            post :purge
+          end
           namespace :voice do
             resource :usage, only: [:show], controller: 'usage'
             resource :telephony_readiness, only: [:show], controller: 'telephony_readiness'

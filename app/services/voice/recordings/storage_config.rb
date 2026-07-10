@@ -79,6 +79,16 @@ class Voice::Recordings::StorageConfig
     )
   end
 
+  def delete_object(recording)
+    return if recording.object_key.blank?
+    raise 'Voice recording storage is not configured' unless configured?
+
+    s3_client.delete_object(
+      bucket: recording.bucket.presence || bucket,
+      key: recording.object_key
+    )
+  end
+
   private
 
   def presigner

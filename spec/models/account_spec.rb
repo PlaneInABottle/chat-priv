@@ -357,6 +357,16 @@ RSpec.describe Account do
       expect(account.ai_agent_conversation_reuse_window_hours).to eq(24)
     end
 
+    it 'normalizes text AI data retention to a supported duration' do
+      expect(account.ai_agent_data_retention_days).to eq(30)
+
+      account.update!(ai_agent_data_retention_days: '90')
+      expect(account.reload.ai_agent_data_retention_days).to eq(90)
+
+      account.update!(ai_agent_data_retention_days: 14)
+      expect(account.reload.ai_agent_data_retention_days).to eq(30)
+    end
+
     it 'is disabled by default' do
       expect(account.ai_agent_enabled?).to be(false)
     end
@@ -459,6 +469,13 @@ RSpec.describe Account do
 
   describe 'voice_ai_settings' do
     let(:account) { create(:account) }
+
+    it 'normalizes voice AI data retention to a supported duration' do
+      expect(account.voice_ai_data_retention_days).to eq(30)
+
+      account.update!(voice_ai_data_retention_days: 180)
+      expect(account.reload.voice_ai_data_retention_days).to eq(180)
+    end
 
     it 'returns defaults when absent' do
       expect(account.voice_ai_settings).to eq(

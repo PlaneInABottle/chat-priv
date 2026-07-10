@@ -333,6 +333,35 @@
       "STATUS_DISABLED": "Disabled"
     }
   },
+  "AI_DATA_RETENTION": {
+    "PAGE_TITLE": "Text AI data privacy",
+    "PAGE_DESCRIPTION": "Control how long sensitive Text AI activity is retained.",
+    "OPEN": "Data privacy",
+    "TEXT": {
+      "TITLE": "Text AI activity",
+      "DESCRIPTION": "Model diagnostics, tool activity, and test conversations are deleted after this period."
+    },
+    "VOICE": {
+      "TITLE": "Voice AI activity",
+      "DESCRIPTION": "Transcripts, summaries, tool activity, and recordings are deleted after this period."
+    },
+    "DELETE_AFTER": "Delete data after",
+    "DAYS": "{count} days",
+    "CORE_DATA_NOTICE": "Customer conversations, call records, and usage totals are kept.",
+    "SAVE": "Save retention policy",
+    "SAVE_SUCCESS": "Retention policy saved.",
+    "SAVE_ERROR": "Failed to save the retention policy.",
+    "LOAD_ERROR": "Failed to load the retention policy.",
+    "CLEANUP_TITLE": "Expired data cleanup",
+    "CLEANUP_DESCRIPTION": "Queue cleanup for data older than {days} days. Daily cleanup runs automatically.",
+    "CLEANUP": "Run cleanup now",
+    "CLEANUP_CONFIRM_TITLE": "Queue expired data cleanup?",
+    "CLEANUP_CONFIRM_DESCRIPTION": "Sensitive activity older than {days} days will be permanently deleted.",
+    "CLEANUP_CONFIRM": "Queue cleanup",
+    "CLEANUP_QUEUED": "Expired data cleanup queued.",
+    "CLEANUP_ERROR": "Failed to queue expired data cleanup.",
+    "CANCEL": "Cancel"
+  },
   "VOICE_AI": {
     "HEADER": "Voice Assistants",
     "DESCRIPTION": "Create, test, and manage assistants that answer customer calls.",
@@ -399,7 +428,8 @@
       "AGENTS": "Assistants",
       "TEST": "Test call",
       "RECORDINGS": "Recordings",
-      "USAGE": "Usage"
+      "USAGE": "Usage",
+      "PRIVACY": "Data privacy"
     },
     "SETUP": {
       "TITLE": "Voice setup",

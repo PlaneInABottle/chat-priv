@@ -38,6 +38,10 @@ const updateIndicator = () => {
       left: `${activeElement.value.offsetLeft}px`,
       width: `${activeElement.value.offsetWidth}px`,
     };
+    activeElement.value.scrollIntoView?.({
+      block: 'nearest',
+      inline: 'nearest',
+    });
   });
 };
 

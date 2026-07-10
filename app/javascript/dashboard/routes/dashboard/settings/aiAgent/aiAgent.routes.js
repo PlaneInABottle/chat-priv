@@ -29,6 +29,12 @@ export default {
           meta,
         },
         {
+          path: 'privacy',
+          name: 'ai_agent_data_privacy',
+          component: () => import('./AiAgentDataPrivacy.vue'),
+          meta,
+        },
+        {
           path: 'new',
           name: 'ai_agent_new',
           component: () => import('./AiAgentNew.vue'),
