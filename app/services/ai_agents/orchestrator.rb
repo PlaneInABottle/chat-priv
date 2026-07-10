@@ -92,7 +92,7 @@ module AiAgents
 
         request_messages = [
           *follow_up_context_messages(request_messages, tool_executions),
-          assistant_tool_call_message(response, tool_calls),
+          assistant_tool_call_message(tool_calls),
           *tool_result_messages(tool_executions)
         ]
       end
@@ -282,6 +282,8 @@ module AiAgents
     def customer_facing_answer(content, request_messages:, tool_events:)
       answer = content.to_s.strip
       return answer if tool_events.blank?
+      return catalog_no_match_fallback_answer(tool_events) if single_catalog_no_match_without_candidates?(tool_events)
+      return answer if safe_customer_facing_answer?(answer, tool_events)
 
       finalize_customer_facing_answer(request_messages: request_messages, tool_events: tool_events)
     end
@@ -297,7 +299,6 @@ module AiAgents
         tools: []
       )
       answer = response[:assistant_text].to_s.strip.presence
-      return catalog_no_match_fallback_answer(tool_events) if answer && catalog_no_match_without_candidates?(tool_events)
       return answer if answer && safe_customer_facing_answer?(answer, tool_events)
 
       retry_response = perform_llm_call(
@@ -310,7 +311,6 @@ module AiAgents
       )
       retry_answer = retry_response[:assistant_text].to_s.strip.presence
       return if retry_answer && unsafe_customer_facing_answer?(retry_answer)
-      return catalog_no_match_fallback_answer(tool_events) if retry_answer && catalog_no_match_without_candidates?(tool_events)
 
       sanitize_reference_prices(retry_answer, tool_events)
     end
@@ -320,14 +320,25 @@ module AiAgents
     end
 
     def unsafe_customer_facing_answer?(answer)
-      answer.match?(/DSML|tool_calls|<\s*\/?\s*tool|<\s*\/?\s*function|invoke name=/i)
+      return true if answer.match?(/DSML|tool_calls|<\s*\/?\s*tool|<\s*\/?\s*function|invoke name=/i)
+
+      answer.match?(internal_process_language_pattern)
     end
 
-    def catalog_no_match_without_candidates?(tool_events)
-      catalog_events = Array(tool_events).select { |event| event['tool'] == AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL }
-      return false if catalog_events.blank?
+    def internal_process_language_pattern
+      %r{
+        \belimdeki\s+\d+\s+arama\s+sonucuna\s+göre\b |
+        \b(?:based\s+on|according\s+to|from)\s+(?:the\s+)?(?:\d+\s+)?search\s+results?\b |
+        \b(?:i|we)\s+(?:found|have)\s+\d+\s+search\s+results?\b
+      }ix
+    end
 
-      catalog_events.all? { |event| no_match_without_candidates?(event['result'] || event[:result]) }
+    def single_catalog_no_match_without_candidates?(tool_events)
+      events = Array(tool_events)
+      return false unless events.one?
+
+      event = events.first
+      event['tool'] == AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL && no_match_without_candidates?(event['result'] || event[:result])
     end
 
     def no_match_without_candidates?(result)
@@ -426,18 +437,23 @@ module AiAgents
       integer, fraction = format('%.2f', rounded).split('.')
       grouped_dot = integer.reverse.gsub(/(\d{3})(?=\d)/, '\\1.').reverse
       grouped_comma = integer.reverse.gsub(/(\d{3})(?=\d)/, '\\1,').reverse
+      fractions = fraction == '00' ? [nil, '0', '00'] : [fraction.delete_suffix('0'), fraction].uniq
 
-      [
-        "#{integer},#{fraction}",
-        "#{integer}.#{fraction}",
-        "#{grouped_dot},#{fraction}",
-        "#{grouped_comma}.#{fraction}"
-      ].uniq
+      fractions.flat_map do |decimal|
+        next [integer, grouped_dot, grouped_comma] unless decimal
+
+        ["#{integer}.#{decimal}", "#{integer},#{decimal}", "#{grouped_dot},#{decimal}", "#{grouped_comma}.#{decimal}"]
+      end.uniq
     end
 
     def reference_amount_pattern(formatted_amount)
       currency = '(?:TL|TRY|USD|EUR|GBP|₺|\$|€|£)'
-      Regexp.new("(?<![\\d[:alpha:]])(?:[₺$€£]\\s*)?#{Regexp.escape(formatted_amount)}(?:\\s*#{currency})?(?![\\d[:alpha:]])", Regexp::IGNORECASE)
+      amount = Regexp.escape(formatted_amount)
+
+      Regexp.new(
+        "(?<![\\d[:alpha:]])(?:[₺$€£]\\s*)?#{amount}(?:\\s*#{currency})?(?![\\d[:alpha:]]|[.,]\\d)",
+        Regexp::IGNORECASE
+      )
     end
 
     def failure_result
@@ -558,7 +574,7 @@ module AiAgents
       tool_execution.tool_event['tool'] == AiAgents::Config::IKAS_LOOKUP_ORDER_TOOL
     end
 
-    def assistant_tool_call_message(response, tool_calls)
+    def assistant_tool_call_message(tool_calls)
       {
         role: 'assistant',
         content: nil,

@@ -14,12 +14,12 @@ class AiAgents::ToolAvailability
   end
 
   def filter_enabled_keys(keys, definitions)
-    Array(keys).map(&:to_s) & available_keys(definitions)
+    [AiAgents::Config::HUMAN_HANDOFF_TOOL, *Array(keys)].map(&:to_s).uniq & available_keys(definitions)
   end
 
   def filter_tools_config(tools_config, definitions)
     config = tools_config.is_a?(Hash) ? tools_config.deep_stringify_keys : {}
-    config['enabled'] = filter_enabled_keys(config['enabled'], definitions) if config.key?('enabled')
+    config['enabled'] = filter_enabled_keys(config['enabled'], definitions)
     if unavailable?(AiAgents::Config::IKAS_LOOKUP_ORDER_TOOL, definitions) && config['ikas_lookup_order'].is_a?(Hash)
       config['ikas_lookup_order']['enabled'] = false
     end
