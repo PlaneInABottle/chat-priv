@@ -9,6 +9,7 @@ import agent from './agents/agent.routes';
 import assignmentPolicy from './assignmentPolicy/assignmentPolicy.routes';
 import agentBot from './agentBots/agentBot.routes';
 import aiAgent from './aiAgent/aiAgent.routes';
+import aiSetup from './aiSetup/aiSetup.routes';
 import attributes from './attributes/attributes.routes';
 import automation from './automation/automation.routes';
 import auditlogs from './auditlogs/audit.routes';
@@ -54,6 +55,7 @@ export default {
     ...assignmentPolicy.routes,
     ...agentBot.routes,
     ...aiAgent.routes,
+    ...aiSetup.routes,
     ...attributes.routes,
     ...automation.routes,
     ...auditlogs.routes,

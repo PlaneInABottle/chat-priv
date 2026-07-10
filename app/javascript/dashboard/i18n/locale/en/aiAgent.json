@@ -333,6 +333,46 @@
       "STATUS_DISABLED": "Disabled"
     }
   },
+  "AI_SETUP": {
+    "TITLE": "AI setup",
+    "DESCRIPTION": "Prepare messaging and phone assistants in separate tracks.",
+    "LOAD_ERROR": "Failed to load AI setup progress.",
+    "UNAVAILABLE": "AI assistants are not enabled for this account.",
+    "PROGRESS": "{complete} of {total} complete",
+    "STATUS": {
+      "NOT_STARTED": "Not started",
+      "IN_PROGRESS": "In progress",
+      "READY": "Ready"
+    },
+    "TEXT": {
+      "TITLE": "Text AI",
+      "DESCRIPTION": "Respond to customer messages while keeping human support available.",
+      "START": "Set up Text AI",
+      "CONTINUE": "Continue Text AI setup",
+      "MANAGE": "Manage Text AI",
+      "STEPS": {
+        "ASSISTANT": "Create a Text AI assistant",
+        "INSTRUCTIONS": "Define language, tone, and business rules",
+        "INBOX": "Connect a customer inbox",
+        "TEST": "Complete a test conversation",
+        "ACTIVE": "Activate the assistant"
+      }
+    },
+    "VOICE": {
+      "TITLE": "Voice AI",
+      "DESCRIPTION": "Answer customer calls with a separately configured voice assistant.",
+      "START": "Set up Voice AI",
+      "CONTINUE": "Continue Voice AI setup",
+      "MANAGE": "Manage Voice AI",
+      "STEPS": {
+        "ASSISTANT": "Create a Voice AI assistant",
+        "INSTRUCTIONS": "Set the greeting and call behavior",
+        "INBOX": "Assign a call inbox",
+        "TEST": "Complete a browser test call",
+        "ACTIVE": "Activate the assistant"
+      }
+    }
+  },
   "AI_DATA_RETENTION": {
     "PAGE_TITLE": "Text AI data privacy",
     "PAGE_DESCRIPTION": "Control how long sensitive Text AI activity is retained.",
