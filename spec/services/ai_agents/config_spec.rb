@@ -18,7 +18,7 @@ RSpec.describe AiAgents::Config do
       config = described_class.new({ 'other' => true })
 
       expect(config.tools_summary['enabled']).to eq(['human_handoff'])
-      expect(config.normalized_config).to eq({ 'other' => true })
+      expect(config.normalized_config['tools']['enabled']).to eq(['human_handoff'])
     end
 
     it 'defaults human handoff on when tools enabled is missing' do
@@ -28,11 +28,11 @@ RSpec.describe AiAgents::Config do
       expect(config.normalized_config['tools']['enabled']).to eq(['human_handoff'])
     end
 
-    it 'respects an explicit empty enabled array as opt-out' do
+    it 'keeps human handoff enabled when the enabled array is explicitly empty' do
       config = described_class.new({ 'tools' => { 'enabled' => [] } })
 
-      expect(config.enabled_tool_keys).to eq([])
-      expect(config.tools_summary['enabled']).to eq([])
+      expect(config.enabled_tool_keys).to eq(['human_handoff'])
+      expect(config.tools_summary['enabled']).to eq(['human_handoff'])
     end
 
     it 'does not default-enable ikas lookup order' do
@@ -46,7 +46,7 @@ RSpec.describe AiAgents::Config do
       config = described_class.new({ 'tools' => { 'enabled' => ['ikas_catalog_search'], 'ikas_catalog_search' => {} } })
 
       expect(config).to be_valid
-      expect(config.enabled_tool_keys).to eq(['ikas_catalog_search'])
+      expect(config.enabled_tool_keys).to eq(%w[human_handoff ikas_catalog_search])
       expect(config.tools_summary['ikas_catalog_search']).to eq({})
     end
 
@@ -59,7 +59,7 @@ RSpec.describe AiAgents::Config do
                                    })
 
       expect(config).to be_valid
-      expect(config.enabled_tool_keys).to eq(['ikas_lookup_order'])
+      expect(config.enabled_tool_keys).to eq(%w[human_handoff ikas_lookup_order])
       expect(config.tools_summary['ikas_lookup_order']).to eq({ 'enabled' => true })
     end
 

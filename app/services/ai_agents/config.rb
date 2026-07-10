@@ -26,7 +26,8 @@ module AiAgents
 
     def normalized_config
       normalized = config.deep_dup
-      return normalized unless tools_config
+      return normalized.merge(TOOLS_KEY => normalized_tools_config) if tools_config.nil?
+      return normalized unless tools_config.is_a?(Hash)
 
       normalized[TOOLS_KEY] = normalized_tools_config
       normalized
@@ -34,7 +35,7 @@ module AiAgents
 
     def enabled_tool_keys
       @enabled_tool_keys ||= begin
-        keys = Array(enabled_tools_value).filter_map(&:presence).map(&:to_s).uniq
+        keys = [HUMAN_HANDOFF_TOOL, *Array(enabled_tools_value)].filter_map(&:presence).map(&:to_s).uniq
         keys & AiAgents::ToolRegistry.keys
       end
     end

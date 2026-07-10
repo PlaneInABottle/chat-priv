@@ -18,7 +18,7 @@ import AiAgentPromptEditor from './components/AiAgentPromptEditor.vue';
 import AiAgentUsageSummary from './components/AiAgentUsageSummary.vue';
 
 const defaultToolsState = () => ({
-  enabled: [],
+  enabled: ['human_handoff'],
   human_handoff: {
     allowed_labels: [],
   },
@@ -32,7 +32,9 @@ const normalizeToolsState = toolsConfig => {
   const tools = toolsConfig || {};
 
   return {
-    enabled: Array.from(new Set(tools.enabled || [])).filter(Boolean),
+    enabled: Array.from(
+      new Set(['human_handoff', ...(tools.enabled || [])])
+    ).filter(Boolean),
     human_handoff: {
       allowed_labels: Array.from(
         new Set(tools.human_handoff?.allowed_labels || [])
@@ -244,6 +246,10 @@ const isToolEnabled = toolKey =>
   formState.value.tools.enabled.includes(toolKey);
 
 const toggleTool = toolKey => {
+  if (toolKey === 'human_handoff') {
+    return;
+  }
+
   const enabled = new Set(formState.value.tools.enabled);
   if (enabled.has(toolKey)) {
     enabled.delete(toolKey);
@@ -326,6 +332,7 @@ const handleSave = async () => {
   isSaving.value = true;
   inboxError.value = '';
   try {
+    const tools = normalizeToolsState(formState.value.tools);
     const payload = {
       id: agentId.value,
       data: {
@@ -336,14 +343,12 @@ const handleSave = async () => {
         config: {
           ...(aiAgent.value?.config || {}),
           tools: {
-            enabled: formState.value.tools.enabled,
+            enabled: tools.enabled,
             human_handoff: {
-              allowed_labels:
-                formState.value.tools.human_handoff.allowed_labels,
+              allowed_labels: tools.human_handoff.allowed_labels,
             },
             ikas_lookup_order: {
-              enabled:
-                formState.value.tools.enabled.includes('ikas_lookup_order'),
+              enabled: tools.enabled.includes('ikas_lookup_order'),
             },
             ikas_catalog_search: {},
           },
@@ -540,6 +545,8 @@ watch(agentId, async (newAgentId, oldAgentId) => {
                     </p>
                   </div>
                   <Switch
+                    v-if="tool.key !== 'human_handoff'"
+                    :data-testid="`tool-toggle-${tool.key}`"
                     :model-value="isToolEnabled(tool.key)"
                     :disabled="
                       tool.key === 'ikas_catalog_search'

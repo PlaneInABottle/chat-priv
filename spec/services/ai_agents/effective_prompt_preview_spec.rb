@@ -69,9 +69,9 @@ RSpec.describe AiAgents::EffectivePromptPreview do
 
       preview = described_class.new(ai_agent: ai_agent)
 
-      expect(preview.enabled_tool_definitions.map(&:key)).to eq(%w[ikas_lookup_order ikas_catalog_search])
-      expect(preview.integration_gates.map { |gate| gate[:tool_key] }).to eq(%w[ikas_lookup_order ikas_catalog_search])
-      expect(preview.integration_gates.map { |gate| gate[:app_id] }).to all(eq('ikas'))
+      expect(preview.enabled_tool_definitions.map(&:key)).to eq(%w[human_handoff ikas_lookup_order ikas_catalog_search])
+      expect(preview.integration_gates.map { |gate| gate[:tool_key] }).to eq(%w[human_handoff ikas_lookup_order ikas_catalog_search])
+      expect(preview.integration_gates.map { |gate| gate[:app_id] }).to eq([nil, 'ikas', 'ikas'])
     end
   end
 

@@ -429,6 +429,25 @@ describe('AiAgentDetail.vue', () => {
     );
   });
 
+  it('always enables human handoff without rendering a toggle for it', async () => {
+    const { wrapper, actionMocks } = mountComponent();
+
+    await flushPromises();
+
+    expect(wrapper.vm.formState.tools.enabled).toContain('human_handoff');
+    expect(
+      wrapper.find('[data-testid="tool-toggle-human_handoff"]').exists()
+    ).toBe(false);
+
+    wrapper.vm.toggleTool('human_handoff');
+
+    expect(wrapper.vm.formState.tools.enabled).toContain('human_handoff');
+
+    await wrapper.vm.handleSave();
+    const [, payload] = actionMocks.update.mock.calls.at(-1);
+    expect(payload.data.config.tools.enabled).toContain('human_handoff');
+  });
+
   it('hydrates and saves tools subtree config', async () => {
     const { wrapper, actionMocks } = mountComponent({
       aiAgentRecord: buildAiAgent({
