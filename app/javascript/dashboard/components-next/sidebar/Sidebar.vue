@@ -667,6 +667,16 @@ const menuItems = computed(() => {
           icon: 'i-lucide-bot',
           to: accountScopedRoute('agent_bots'),
         },
+        ...(hasAiAgent.value || hasVoiceAi.value
+          ? [
+              {
+                name: 'Settings AI Setup',
+                label: t('SIDEBAR.AI_SETUP'),
+                icon: 'i-lucide-list-checks',
+                to: accountScopedRoute('ai_setup'),
+              },
+            ]
+          : []),
         ...(hasAiAgent.value
           ? [
               {
