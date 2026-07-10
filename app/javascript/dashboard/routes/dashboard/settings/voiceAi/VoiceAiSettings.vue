@@ -885,6 +885,10 @@ watch(selectedVoiceAgentId, () => {
   }
 });
 
+watch(currentCallStatus, status => {
+  if (TERMINAL_CALL_STATUSES.includes(status)) disconnectRoom();
+});
+
 watch(
   () => route.query.section,
   section => {
