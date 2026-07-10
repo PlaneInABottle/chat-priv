@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class AiAgents::InstructionDocument
-  VERSION = 1
+  VERSION = 2
   MAX_SECTIONS = 20
   SECTION_TITLES = {
     'identity' => 'Identity and purpose',
@@ -10,13 +10,13 @@ class AiAgents::InstructionDocument
     'rules' => 'Rules and boundaries',
     'handoff' => 'Human handoff',
     'examples' => 'Example conversations',
-    'current_instructions' => 'Current instructions'
+    'current_instructions' => 'General instructions'
   }.freeze
   PROFILE_OPTIONS = {
-    'language' => %w[same_as_customer tr en],
-    'tone' => %w[natural friendly professional warm concise],
-    'formality' => %w[balanced casual formal],
-    'response_length' => %w[balanced short detailed]
+    'language' => %w[not_set same_as_customer tr en],
+    'tone' => %w[not_set natural friendly professional warm concise],
+    'formality' => %w[not_set balanced casual formal],
+    'response_length' => %w[not_set balanced short detailed]
   }.freeze
   PROFILE_LABELS = {
     'language' => {
@@ -43,10 +43,24 @@ class AiAgents::InstructionDocument
     }
   }.freeze
   DEFAULT_PROFILE = {
-    'language' => 'same_as_customer',
-    'tone' => 'natural',
-    'formality' => 'balanced',
-    'response_length' => 'balanced'
+    'language' => 'not_set',
+    'tone' => 'not_set',
+    'formality' => 'not_set',
+    'response_length' => 'not_set'
+  }.freeze
+  NODE_RENDERERS = {
+    'h2' => :render_h2,
+    'h3' => :render_h3,
+    'p' => :render_paragraph,
+    'strong' => :render_strong,
+    'b' => :render_strong,
+    'em' => :render_emphasis,
+    'i' => :render_emphasis,
+    'ul' => :render_unordered_list,
+    'ol' => :render_ordered_list,
+    'li' => :render_children,
+    'a' => :render_link,
+    'br' => :render_break
   }.freeze
 
   def initialize(document)
@@ -57,27 +71,19 @@ class AiAgents::InstructionDocument
     {
       'version' => VERSION,
       'profile' => normalized_profile,
-      'sections' => normalized_sections
+      'content' => normalized_content
     }
   end
 
   def compile
-    [profile_prompt, *section_prompts].compact.join("\n\n")
+    [profile_prompt, prompt_content].compact_blank.join("\n\n")
   end
 
   def self.from_legacy(prompt)
     new(
       'version' => VERSION,
       'profile' => DEFAULT_PROFILE,
-      'sections' => [
-        {
-          'key' => 'current_instructions',
-          'title' => SECTION_TITLES['current_instructions'],
-          'content' => prompt.to_s,
-          'critical' => false,
-          'custom' => false
-        }
-      ]
+      'content' => "## #{SECTION_TITLES['current_instructions']}\n\n#{prompt}"
     ).normalized
   end
 
@@ -93,47 +99,81 @@ class AiAgents::InstructionDocument
     end
   end
 
-  def normalized_sections
-    Array(document['sections']).first(MAX_SECTIONS).filter_map do |section|
-      normalize_section(section)
-    end
+  def normalized_content
+    @normalized_content ||= (document['content'].presence || content_from_legacy_sections).to_s
   end
 
-  def normalize_section(section)
-    return unless section.is_a?(Hash)
+  def content_from_legacy_sections
+    Array(document['sections']).first(MAX_SECTIONS).filter_map do |section|
+      next unless section.is_a?(Hash)
 
-    data = section.deep_stringify_keys
-    key = data['key'].to_s.presence || "custom_#{SecureRandom.hex(4)}"
-    custom = ActiveModel::Type::Boolean.new.cast(data['custom']) || !SECTION_TITLES.key?(key)
-    title = custom ? data['title'].to_s.strip.truncate(80) : SECTION_TITLES[key]
-    return if title.blank?
+      data = section.deep_stringify_keys
+      key = data['key'].to_s
+      title = SECTION_TITLES[key] || data['title'].to_s.strip.truncate(80)
+      next if title.blank?
 
-    {
-      'key' => key,
-      'title' => title,
-      'content' => data['content'].to_s,
-      'critical' => ActiveModel::Type::Boolean.new.cast(data['critical']),
-      'custom' => custom
-    }
+      "## #{title}\n\n#{legacy_content_to_markdown(data['content'])}"
+    end.join("\n\n")
   end
 
   def profile_prompt
     profile = normalized_profile
+    lines = PROFILE_LABELS.filter_map do |key, labels|
+      value = profile[key]
+      next if value == 'not_set'
+
+      "- #{profile_field_name(key)}: #{labels[value]}"
+    end
+    return if lines.empty?
+
     <<~PROMPT.strip
       ## Language and tone
-      - Reply language: #{PROFILE_LABELS['language'][profile['language']]}
-      - Tone: #{PROFILE_LABELS['tone'][profile['tone']]}
-      - Formality: #{PROFILE_LABELS['formality'][profile['formality']]}
-      - Response length: #{PROFILE_LABELS['response_length'][profile['response_length']]}
+      #{lines.join("\n")}
     PROMPT
   end
 
-  def section_prompts
-    normalized_sections.filter_map do |section|
-      next if section['content'].blank?
+  def profile_field_name(key)
+    {
+      'language' => 'Reply language',
+      'tone' => 'Tone',
+      'formality' => 'Formality',
+      'response_length' => 'Response length'
+    }.fetch(key)
+  end
 
-      priority = section['critical'] ? ' — CRITICAL, must always be followed' : ''
-      "## #{section['title']}#{priority}\n#{section['content'].strip}"
-    end
+  def prompt_content
+    normalized_content.strip
+  end
+
+  def legacy_content_to_markdown(content)
+    return content.to_s unless content.to_s.match?(%r{</?[a-z][^>]*>}i)
+
+    fragment = Nokogiri::HTML5.fragment(content.to_s)
+    fragment.children.map { |node| render_node(node) }.join.strip
+  end
+
+  def render_node(node)
+    return node.text if node.text?
+
+    children = node.children.map { |child| render_node(child) }.join
+    renderer = NODE_RENDERERS[node.name]
+    renderer ? send(renderer, node, children) : children
+  end
+
+  def render_h2(_node, children) = "\n\n## #{children.strip}\n"
+  def render_h3(_node, children) = "\n\n### #{children.strip}\n"
+  def render_paragraph(_node, children) = "#{children.strip}\n\n"
+  def render_strong(_node, children) = "**#{children}**"
+  def render_emphasis(_node, children) = "*#{children}*"
+  def render_children(_node, children) = children
+  def render_link(node, children) = "#{children} (#{node['href']})"
+  def render_break(_node, _children) = "\n"
+
+  def render_unordered_list(node, _children)
+    "#{node.element_children.map { |item| "- #{render_node(item).strip}" }.join("\n")}\n\n"
+  end
+
+  def render_ordered_list(node, _children)
+    "#{node.element_children.map.with_index(1) { |item, index| "#{index}. #{render_node(item).strip}" }.join("\n")}\n\n"
   end
 end

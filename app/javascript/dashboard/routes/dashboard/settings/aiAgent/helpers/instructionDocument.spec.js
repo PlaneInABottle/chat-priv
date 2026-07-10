@@ -1,52 +1,60 @@
 import {
   createDefaultInstructionDocument,
+  createInstructionContent,
   hasInstructionContent,
   instructionDocumentForAgent,
   normalizeInstructionDocument,
 } from './instructionDocument';
 
 describe('instructionDocument', () => {
-  it('creates the guided standard sections for new assistants', () => {
+  it('creates one guided document with heading-based sections', () => {
     const document = createDefaultInstructionDocument();
 
-    expect(document.sections.map(section => section.key)).toEqual([
-      'identity',
-      'business_context',
-      'tasks',
-      'rules',
-      'handoff',
-      'examples',
-    ]);
-    expect(
-      document.sections.find(section => section.key === 'rules').critical
-    ).toBe(true);
+    expect(document).toMatchObject({
+      version: 2,
+      profile: { tone: 'natural' },
+    });
+    expect(document.content).toContain('## Identity and purpose');
+    expect(document.content).toContain('## Rules and boundaries');
+    expect(document).not.toHaveProperty('sections');
   });
 
-  it('preserves a legacy prompt as one editable section', () => {
+  it('presents a legacy prompt in the default document without claiming profile settings', () => {
     const document = instructionDocumentForAgent({
       prompt: 'Existing instructions',
       config: {},
     });
 
-    expect(document.sections).toEqual([
-      expect.objectContaining({
-        key: 'current_instructions',
-        content: 'Existing instructions',
-      }),
-    ]);
+    expect(document.profile).toEqual({
+      language: 'not_set',
+      tone: 'not_set',
+      formality: 'not_set',
+      response_length: 'not_set',
+    });
+    expect(document.content).toContain('## General instructions');
+    expect(document.content).toContain('Existing instructions');
+    expect(document.content).toContain('## Human handoff');
   });
 
-  it('normalizes saved profile defaults without losing rich section content', () => {
+  it('converts saved version one sections into a continuous document', () => {
     const document = normalizeInstructionDocument({
       profile: { language: 'tr' },
-      sections: [{ key: 'identity', content: '<strong>Help</strong>' }],
+      sections: [{ key: 'identity', content: '<p><strong>Help</strong></p>' }],
     });
 
-    expect(document.profile).toMatchObject({
-      language: 'tr',
-      tone: 'natural',
-    });
-    expect(document.sections[0].content).toBe('<strong>Help</strong>');
-    expect(hasInstructionContent(document)).toBe(true);
+    expect(document.version).toBe(2);
+    expect(document.content).toBe('## Identity and purpose\n\n**Help**');
+    expect(document).not.toHaveProperty('sections');
+  });
+
+  it('detects body content separately from empty template headings', () => {
+    expect(hasInstructionContent({ content: createInstructionContent() })).toBe(
+      false
+    );
+    expect(
+      hasInstructionContent({
+        content: createInstructionContent({ rules: 'Never invent prices.' }),
+      })
+    ).toBe(true);
   });
 });

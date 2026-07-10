@@ -108,6 +108,7 @@
     },
     "SAVE": {
       "BUTTON": "Save Changes",
+      "DISCARD": "Discard changes",
       "SUCCESS": "AI Assistant settings saved",
       "ERROR": "Failed to save AI Assistant settings"
     }
@@ -159,22 +160,15 @@
       "UNSAVED_DRAFT": "Unsaved draft",
       "TEST_CONVERSATION": "Test conversation",
       "SELECT_TEST": "Select a conversation",
-      "ADD_SECTION": "Add section",
-      "ORGANIZE": "Organize into sections",
-      "ORGANIZE_HELP": "Keep the current instructions intact while splitting the workspace into clear areas you can improve one at a time.",
-      "CUSTOM_SECTION": "Custom section",
-      "SECTION_TITLE": "Section title",
-      "SECTION_PLACEHOLDER": "Write clear guidance in plain language...",
-      "CRITICAL": "Always follow",
-      "CRITICAL_HELP": "Give this section higher priority.",
-      "MOVE_UP": "Move section up",
-      "MOVE_DOWN": "Move section down",
-      "REMOVE_SECTION": "Remove section",
+      "EDIT_VIEW": "Edit instructions",
+      "TEST_VIEW": "Test draft",
+      "DOCUMENT_PLACEHOLDER": "Write the assistant's instructions...",
       "CONFIGURE": "Configure",
       "HANDOFF_HELP": "The assistant can always transfer a conversation to your team. Configure which labels it may add during transfer.",
       "PROFILE": {
         "TITLE": "Language and tone",
         "DESCRIPTION": "Set the default communication style without writing prompt syntax.",
+        "NOT_SET": "Use written instructions",
         "LANGUAGE_LABEL": "Reply language",
         "TONE_LABEL": "Tone",
         "FORMALITY_LABEL": "Formality",
@@ -200,36 +194,6 @@
           "BALANCED": "Balanced",
           "SHORT": "Short",
           "DETAILED": "Detailed"
-        }
-      },
-      "SECTIONS": {
-        "IDENTITY": {
-          "TITLE": "Identity and purpose",
-          "DESCRIPTION": "Define who the assistant represents and the outcome it should work toward."
-        },
-        "BUSINESS_CONTEXT": {
-          "TITLE": "Business context",
-          "DESCRIPTION": "Add the facts, policies, and product context it should understand."
-        },
-        "TASKS": {
-          "TITLE": "Tasks and conversation flow",
-          "DESCRIPTION": "Explain what it should do and how it should guide a customer through a request."
-        },
-        "RULES": {
-          "TITLE": "Rules and boundaries",
-          "DESCRIPTION": "State what it must always do, must avoid, or should never claim."
-        },
-        "HANDOFF": {
-          "TITLE": "Human handoff",
-          "DESCRIPTION": "Describe when the assistant should stop and involve your team."
-        },
-        "EXAMPLES": {
-          "TITLE": "Example conversations",
-          "DESCRIPTION": "Show examples of preferred answers for important or difficult situations."
-        },
-        "CURRENT": {
-          "TITLE": "Current instructions",
-          "DESCRIPTION": "These are the assistant's existing instructions. You can keep them together or replace them with structured sections."
         }
       }
     },
