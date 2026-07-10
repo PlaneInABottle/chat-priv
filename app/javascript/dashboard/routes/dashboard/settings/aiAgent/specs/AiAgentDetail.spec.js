@@ -23,7 +23,7 @@ vi.mock(
 vi.mock('vue-router', async importOriginal => {
   const actual = await importOriginal();
   const { reactive } = await import('vue');
-  const route = reactive({ params: { id: '1' } });
+  const route = reactive({ name: 'ai_agent_detail', params: { id: '1' } });
   const push = vi.fn();
 
   return {
@@ -34,6 +34,7 @@ vi.mock('vue-router', async importOriginal => {
       route.params.id = id;
     },
     resetRoute() {
+      route.name = 'ai_agent_detail';
       route.params.id = '1';
       push.mockReset();
     },
@@ -290,17 +291,16 @@ describe('AiAgentDetail.vue', () => {
     });
 
     await nextTick();
-    wrapper.vm.formState.enabled = true;
     wrapper.vm.formState.prompt = 'Unsaved prompt';
     await nextTick();
 
     expect(wrapper.vm.isSimulatorDisabled).toBe(true);
-    expect(wrapper.text()).toContain(
-      'Save your changes before testing this AI agent.'
+    expect(wrapper.vm.simulatorDisabledMessage).toBe(
+      'Save your changes before testing this AI assistant.'
     );
   });
 
-  it('shows prompt guidance and keeps save actionable when enabled agent has no prompt', async () => {
+  it('shows prompt guidance when an active assistant has no prompt', async () => {
     const { wrapper } = mountComponent({
       aiAgentRecord: buildAiAgent({
         name: 'Browser Verify Bot',
@@ -322,15 +322,36 @@ describe('AiAgentDetail.vue', () => {
       'AI_AGENT.PROMPT.REQUIRED_FOR_TESTING'
     );
     expect(wrapper.vm.promptMessageType).toBe('error');
-    expect(wrapper.text()).toContain(
-      'Add a system prompt and save your changes before testing this AI agent.'
+    expect(wrapper.vm.simulatorDisabledMessage).toBe(
+      'Add instructions and save your changes before testing this AI assistant.'
     );
-    expect(wrapper.text()).toContain(
-      'Add a system prompt, then save your changes before testing this AI agent.'
+    expect(wrapper.vm.promptMessage).toBe(
+      'Add instructions, then save your changes before testing this AI assistant.'
     );
+  });
 
-    const buttons = wrapper.findAll('button');
-    expect(buttons.at(-1).attributes('disabled')).toBeUndefined();
+  it('saves active assistant edits without changing lifecycle state', async () => {
+    const updatedRecord = buildAiAgent({
+      lifecycle_status: 'active',
+      enabled: true,
+      prompt: 'Updated live instructions',
+    });
+    const { wrapper, actionMocks } = mountComponent({
+      aiAgentRecord: buildAiAgent({
+        lifecycle_status: 'active',
+        enabled: true,
+      }),
+      updateResult: updatedRecord,
+    });
+
+    await flushPromises();
+    wrapper.vm.formState.prompt = 'Updated live instructions';
+    await wrapper.vm.handleSave();
+
+    const [, payload] = actionMocks.update.mock.calls.at(-1);
+    expect(payload.data.prompt).toBe('Updated live instructions');
+    expect(payload.data.enabled).toBeUndefined();
+    expect(wrapper.vm.isActive).toBe(true);
   });
 
   it('preserves owner labels after save response includes available_inboxes', async () => {
@@ -405,7 +426,7 @@ describe('AiAgentDetail.vue', () => {
       aiAgentId: 2,
     });
     expect(wrapper.vm.formState.name).toBe('Agent Two');
-    expect(wrapper.find('.test-conversation-layout').exists()).toBe(true);
+    expect(wrapper.find('.test-conversation-layout').exists()).toBe(false);
   });
 
   it('loads labels and exposes existing-label options for human handoff settings', async () => {

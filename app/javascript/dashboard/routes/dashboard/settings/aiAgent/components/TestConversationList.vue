@@ -67,6 +67,7 @@ const confirmClearAll = () => {
           size="sm"
           variant="faded"
           color="ruby"
+          :aria-label="t('AI_AGENT.TEST_CONVERSATIONS.CLEAR_ALL')"
           :is-loading="uiFlags.isClearing"
           :disabled="isDisabled || uiFlags.isClearing"
           @click="handleClearAll"

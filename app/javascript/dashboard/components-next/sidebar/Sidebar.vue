@@ -688,12 +688,6 @@ const menuItems = computed(() => {
             ]
           : []),
         {
-          name: 'Settings AI Agent',
-          label: t('SIDEBAR.AI_ASISTAN'),
-          icon: 'i-lucide-sparkles',
-          to: accountScopedRoute('ai_agents'),
-        },
-        {
           name: 'Settings Macros',
           label: t('SIDEBAR.MACROS'),
           icon: 'i-lucide-toy-brick',

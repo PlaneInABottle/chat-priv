@@ -135,6 +135,26 @@ export const actions = {
       commit('SET_AI_AGENT_UI_FLAG', { isDeleting: false });
     }
   },
+
+  publish: async ({ commit }, id) => {
+    try {
+      const response = await AiAgentAPI.publish(id);
+      commit('UPDATE_AI_AGENT', response.data);
+      return response.data;
+    } catch (error) {
+      return { error: parseAPIErrorResponse(error) };
+    }
+  },
+
+  pause: async ({ commit }, id) => {
+    try {
+      const response = await AiAgentAPI.pause(id);
+      commit('UPDATE_AI_AGENT', response.data);
+      return response.data;
+    } catch (error) {
+      return { error: parseAPIErrorResponse(error) };
+    }
+  },
 };
 
 export const mutations = {

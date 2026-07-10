@@ -49,11 +49,14 @@ const ButtonStub = {
 
 const mountComponent = createResult => {
   const store = createStore({
+    state: { inboxes: [] },
     getters: {
       'aiAgent/getUIFlags': () => ({ isCreating: false }),
+      'inboxes/getInboxes': state => state.inboxes,
     },
     actions: {
       'aiAgent/create': vi.fn().mockResolvedValue(createResult),
+      'inboxes/get': vi.fn().mockResolvedValue([]),
     },
   });
 
@@ -79,26 +82,27 @@ describe('AiAgentNew.vue', () => {
     routerPush.mockClear();
   });
 
-  it('renders blank-name validation errors through the Input message API', async () => {
+  it('shows a blank-name validation error before continuing', async () => {
     const { wrapper } = mountComponent();
 
-    await wrapper.find('form').trigger('submit');
+    wrapper.vm.nextStep();
+    await wrapper.vm.$nextTick();
 
-    const input = wrapper.findComponent(InputStub);
-    expect(input.props('message')).toBe('AI_AGENTS.NEW.NAME_REQUIRED');
-    expect(input.props('messageType')).toBe('error');
-    expect(wrapper.text()).toContain('AI_AGENTS.NEW.NAME_REQUIRED');
+    const alert = wrapper.find('[role="alert"]');
+    expect(alert.text()).toBe('AI_AGENTS.NEW.NAME_REQUIRED');
+    expect(wrapper.vm.currentStep).toBe(0);
   });
 
-  it('renders create API errors through the Input message API', async () => {
+  it('shows create API errors on the review step', async () => {
     const { wrapper } = mountComponent({ error: 'Name already exists' });
 
-    await wrapper.find('input').setValue('Support bot');
-    await wrapper.find('form').trigger('submit');
+    wrapper.vm.form.name = 'Support bot';
+    wrapper.vm.form.instructions = 'Help customers.';
+    wrapper.vm.form.inboxIds = [1];
+    wrapper.vm.currentStep = 3;
+    await wrapper.vm.handleSubmit();
+    await wrapper.vm.$nextTick();
 
-    const input = wrapper.findComponent(InputStub);
-    expect(input.props('message')).toBe('Name already exists');
-    expect(input.props('messageType')).toBe('error');
-    expect(wrapper.text()).toContain('Name already exists');
+    expect(wrapper.find('[role="alert"]').text()).toBe('Name already exists');
   });
 });

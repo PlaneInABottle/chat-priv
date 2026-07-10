@@ -10,15 +10,12 @@ import BaseSettingsHeader from '../components/BaseSettingsHeader.vue';
 import Button from 'dashboard/components-next/button/Button.vue';
 import Dialog from 'dashboard/components-next/dialog/Dialog.vue';
 import AiAgentListItem from './AiAgentListItem.vue';
-import AiAgentUsageSummary from './components/AiAgentUsageSummary.vue';
 
 const store = useStore();
 const { t } = useI18n();
 const router = useRouter();
 
 const agents = useMapGetter('aiAgent/getAiAgents');
-const usage = useMapGetter('aiAgent/getUsage');
-const usageError = useMapGetter('aiAgent/getUsageError');
 const uiFlags = useMapGetter('aiAgent/getUIFlags');
 
 const deleteDialogRef = ref(null);
@@ -29,12 +26,13 @@ const hasAgents = computed(() => agents.value.length > 0);
 
 onMounted(() => {
   store.dispatch('aiAgent/get');
-  store.dispatch('aiAgent/getUsage');
 });
 
 const navigateToNew = () => {
   router.push({ name: 'ai_agent_new' });
 };
+
+const navigateToUsage = () => router.push({ name: 'ai_agent_usage' });
 
 const openDeleteDialog = agent => {
   agentToDelete.value = agent;
@@ -77,11 +75,28 @@ const confirmDelete = async () => {
 
     <template #body>
       <div class="flex flex-col gap-6">
-        <AiAgentUsageSummary :usage="usage" :has-error="usageError" />
+        <div class="flex justify-end">
+          <Button
+            icon="i-lucide-chart-no-axes-column"
+            variant="outline"
+            color="slate"
+            :label="t('AI_ASSISTANT.USAGE.OPEN')"
+            @click="navigateToUsage"
+          />
+        </div>
         <div
           v-if="hasAgents"
-          class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+          class="overflow-hidden rounded-lg border border-n-weak bg-n-alpha-1"
         >
+          <div
+            class="hidden grid-cols-[minmax(0,1fr)_120px_140px_140px_auto] gap-3 border-b border-n-weak bg-n-alpha-2 px-4 py-2 text-xs font-medium text-n-slate-11 md:grid"
+          >
+            <span>{{ t('AI_ASSISTANT.LIST.NAME') }}</span>
+            <span>{{ t('AI_ASSISTANT.LIST.STATUS') }}</span>
+            <span>{{ t('AI_ASSISTANT.LIST.INBOXES') }}</span>
+            <span>{{ t('AI_ASSISTANT.LIST.UPDATED') }}</span>
+            <span class="sr-only">{{ t('AI_ASSISTANT.LIST.ACTIONS') }}</span>
+          </div>
           <AiAgentListItem
             v-for="agent in agents"
             :key="agent.id"
