@@ -140,6 +140,17 @@ RSpec.describe 'Ai Agents API', type: :request do
         expect(json['ikas_integration']).to include('feature_enabled', 'state', 'can_connect')
       end
 
+      it 'presents legacy instructions as a normalized fixed-section document without persisting migration' do
+        ai_agent.update!(prompt: 'Existing live instructions', config: {})
+
+        get "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}", headers: admin.create_new_auth_token, as: :json
+
+        instructions = response.parsed_body.dig('config', 'instructions')
+        expect(instructions['version']).to eq(3)
+        expect(instructions.dig('sections', 'additional')).to eq('Existing live instructions')
+        expect(ai_agent.reload.config).not_to have_key('instructions')
+      end
+
       it 'returns ikas tools only when the integration and catalog are usable' do
         account.enable_features('ikas_integration')
         stub_ikas_status(state: 'connected', hook: ikas_hook_with_catalog)
@@ -395,14 +406,14 @@ RSpec.describe 'Ai Agents API', type: :request do
 
       it 'normalizes structured instructions and compiles the live prompt' do
         instructions = {
-          version: 2,
+          version: 3,
           profile: {
             language: 'en',
             tone: 'professional',
             formality: 'formal',
             response_length: 'short'
           },
-          content: "## Rules and boundaries\n\nNever invent a price."
+          sections: { rules: 'Never invent a price.' }
         }
 
         patch "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}",
@@ -412,7 +423,7 @@ RSpec.describe 'Ai Agents API', type: :request do
 
         expect(response).to have_http_status(:success)
         ai_agent.reload
-        expect(ai_agent.config.dig('instructions', 'version')).to eq(2)
+        expect(ai_agent.config.dig('instructions', 'version')).to eq(3)
         expect(ai_agent.prompt).to include('## Language and tone')
         expect(ai_agent.prompt).to include("## Rules and boundaries\n\nNever invent a price.")
         expect(ai_agent.prompt).not_to include('CRITICAL')

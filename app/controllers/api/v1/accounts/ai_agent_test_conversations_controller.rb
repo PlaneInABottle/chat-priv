@@ -103,7 +103,12 @@ class Api::V1::Accounts::AiAgentTestConversationsController < Api::V1::Accounts:
         :version,
         :content,
         { profile: [:language, :tone, :formality, :response_length] },
-        { sections: [:key, :title, :content, :critical, :custom] }
+        {
+          sections: [
+            :identity, :business_context, :tasks, :rules, :handoff, :examples, :additional,
+            :key, :title, :content, :critical, :custom
+          ]
+        }
       ]
     ).fetch(:draft_instructions, {}).to_h
   end

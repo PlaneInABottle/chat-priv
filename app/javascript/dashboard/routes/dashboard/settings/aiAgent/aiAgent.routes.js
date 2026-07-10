@@ -7,6 +7,7 @@ const meta = {
   permissions: ['administrator'],
   featureFlag: FEATURE_FLAGS.AI_AGENT,
 };
+const detailMeta = { ...meta, wideLayout: true };
 
 export default {
   routes: [
@@ -51,19 +52,19 @@ export default {
           path: ':id/instructions',
           name: 'ai_agent_instructions',
           component: () => import('./AiAgentDetail.vue'),
-          meta,
+          meta: detailMeta,
         },
         {
           path: ':id/connections',
           name: 'ai_agent_detail',
           component: () => import('./AiAgentDetail.vue'),
-          meta,
+          meta: detailMeta,
         },
         {
           path: ':id/test',
           name: 'ai_agent_test',
           component: () => import('./AiAgentDetail.vue'),
-          meta,
+          meta: detailMeta,
         },
       ],
     },

@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 class AiAgents::InstructionDocument
-  VERSION = 2
-  MAX_SECTIONS = 20
+  VERSION = 3
+  SECTION_ORDER = %w[identity business_context tasks rules handoff examples additional].freeze
   SECTION_TITLES = {
     'identity' => 'Identity and purpose',
     'business_context' => 'Business context',
@@ -10,7 +10,21 @@ class AiAgents::InstructionDocument
     'rules' => 'Rules and boundaries',
     'handoff' => 'Human handoff',
     'examples' => 'Example conversations',
-    'current_instructions' => 'General instructions'
+    'additional' => 'Additional instructions'
+  }.freeze
+  LEGACY_SECTION_KEYS = {
+    'current_instructions' => 'additional'
+  }.freeze
+  HEADING_SECTION_KEYS = {
+    'identity and purpose' => 'identity',
+    'business context' => 'business_context',
+    'tasks and conversation flow' => 'tasks',
+    'rules and boundaries' => 'rules',
+    'human handoff' => 'handoff',
+    'example conversations' => 'examples',
+    'additional instructions' => 'additional',
+    'general instructions' => 'additional',
+    'current instructions' => 'additional'
   }.freeze
   PROFILE_OPTIONS = {
     'language' => %w[not_set same_as_customer tr en],
@@ -48,21 +62,6 @@ class AiAgents::InstructionDocument
     'formality' => 'not_set',
     'response_length' => 'not_set'
   }.freeze
-  NODE_RENDERERS = {
-    'h2' => :render_h2,
-    'h3' => :render_h3,
-    'p' => :render_paragraph,
-    'strong' => :render_strong,
-    'b' => :render_strong,
-    'em' => :render_emphasis,
-    'i' => :render_emphasis,
-    'ul' => :render_unordered_list,
-    'ol' => :render_ordered_list,
-    'li' => :render_children,
-    'a' => :render_link,
-    'br' => :render_break
-  }.freeze
-
   def initialize(document)
     @document = document.is_a?(Hash) ? document.deep_stringify_keys : {}
   end
@@ -71,7 +70,7 @@ class AiAgents::InstructionDocument
     {
       'version' => VERSION,
       'profile' => normalized_profile,
-      'content' => normalized_content
+      'sections' => normalized_sections
     }
   end
 
@@ -83,7 +82,7 @@ class AiAgents::InstructionDocument
     new(
       'version' => VERSION,
       'profile' => DEFAULT_PROFILE,
-      'content' => "## #{SECTION_TITLES['current_instructions']}\n\n#{prompt}"
+      'sections' => { 'additional' => prompt.to_s }
     ).normalized
   end
 
@@ -99,21 +98,17 @@ class AiAgents::InstructionDocument
     end
   end
 
-  def normalized_content
-    @normalized_content ||= (document['content'].presence || content_from_legacy_sections).to_s
+  def normalized_sections
+    @normalized_sections ||= document['sections'].is_a?(Hash) ? sections_from_hash : migrated_sections
   end
 
-  def content_from_legacy_sections
-    Array(document['sections']).first(MAX_SECTIONS).filter_map do |section|
-      next unless section.is_a?(Hash)
+  def sections_from_hash
+    source = document['sections'].deep_stringify_keys
+    SECTION_ORDER.index_with { |key| source[key].to_s }
+  end
 
-      data = section.deep_stringify_keys
-      key = data['key'].to_s
-      title = SECTION_TITLES[key] || data['title'].to_s.strip.truncate(80)
-      next if title.blank?
-
-      "## #{title}\n\n#{legacy_content_to_markdown(data['content'])}"
-    end.join("\n\n")
+  def migrated_sections
+    AiAgents::InstructionDocumentMigrator.new(document).sections
   end
 
   def profile_prompt
@@ -142,38 +137,11 @@ class AiAgents::InstructionDocument
   end
 
   def prompt_content
-    normalized_content.strip
-  end
+    SECTION_ORDER.filter_map do |key|
+      content = normalized_sections[key].to_s.strip
+      next if content.blank?
 
-  def legacy_content_to_markdown(content)
-    return content.to_s unless content.to_s.match?(%r{</?[a-z][^>]*>}i)
-
-    fragment = Nokogiri::HTML5.fragment(content.to_s)
-    fragment.children.map { |node| render_node(node) }.join.strip
-  end
-
-  def render_node(node)
-    return node.text if node.text?
-
-    children = node.children.map { |child| render_node(child) }.join
-    renderer = NODE_RENDERERS[node.name]
-    renderer ? send(renderer, node, children) : children
-  end
-
-  def render_h2(_node, children) = "\n\n## #{children.strip}\n"
-  def render_h3(_node, children) = "\n\n### #{children.strip}\n"
-  def render_paragraph(_node, children) = "#{children.strip}\n\n"
-  def render_strong(_node, children) = "**#{children}**"
-  def render_emphasis(_node, children) = "*#{children}*"
-  def render_children(_node, children) = children
-  def render_link(node, children) = "#{children} (#{node['href']})"
-  def render_break(_node, _children) = "\n"
-
-  def render_unordered_list(node, _children)
-    "#{node.element_children.map { |item| "- #{render_node(item).strip}" }.join("\n")}\n\n"
-  end
-
-  def render_ordered_list(node, _children)
-    "#{node.element_children.map.with_index(1) { |item, index| "#{index}. #{render_node(item).strip}" }.join("\n")}\n\n"
+      "## #{SECTION_TITLES.fetch(key)}\n\n#{content}"
+    end.join("\n\n")
   end
 end

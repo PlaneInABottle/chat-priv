@@ -8,7 +8,7 @@
     "TABS": {
       "INSTRUCTIONS": "Instructions",
       "CONNECTIONS": "Connections",
-      "TEST_HISTORY": "Tests"
+      "TEST_HISTORY": "Test history"
     },
     "NAME": {
       "LABEL": "Agent Name",
@@ -165,10 +165,63 @@
       "DOCUMENT_PLACEHOLDER": "Write the assistant's instructions...",
       "CONFIGURE": "Configure",
       "HANDOFF_HELP": "The assistant can always transfer a conversation to your team. Configure which labels it may add during transfer.",
+      "CONFIGURED": "Configured",
+      "NOT_CONFIGURED": "Not configured",
+      "SECTION_SELECTOR": "Instruction section",
+      "TOTAL_CHAR_COUNT": "{count} / {limit} total characters",
+      "SECTIONS": {
+        "PROFILE": {
+          "SHORT_TITLE": "Language & style",
+          "TITLE": "Language and style",
+          "DESCRIPTION": "Choose the assistant's default communication style. Leave a field unset when the written instructions already cover it."
+        },
+        "IDENTITY": {
+          "SHORT_TITLE": "Identity",
+          "TITLE": "Identity and purpose",
+          "DESCRIPTION": "Define who the assistant represents and the outcome it should work toward.",
+          "PLACEHOLDER": "Describe the assistant's role, responsibilities, and primary goal..."
+        },
+        "BUSINESS_CONTEXT": {
+          "SHORT_TITLE": "Business context",
+          "TITLE": "Business context",
+          "DESCRIPTION": "Provide the business, product, policy, and customer context it should understand.",
+          "PLACEHOLDER": "Add the important facts the assistant should know about your business..."
+        },
+        "TASKS": {
+          "SHORT_TITLE": "Conversation flow",
+          "TITLE": "Tasks and conversation flow",
+          "DESCRIPTION": "Explain what the assistant should do and how it should guide customers through requests.",
+          "PLACEHOLDER": "Describe the actions and conversation flow the assistant should follow..."
+        },
+        "RULES": {
+          "SHORT_TITLE": "Rules",
+          "TITLE": "Rules and boundaries",
+          "DESCRIPTION": "State what the assistant must do, must avoid, and should never claim.",
+          "PLACEHOLDER": "Add clear rules, restrictions, and boundaries..."
+        },
+        "HANDOFF": {
+          "SHORT_TITLE": "Human handoff",
+          "TITLE": "Human handoff",
+          "DESCRIPTION": "Describe when the assistant should stop responding and transfer the conversation to your team.",
+          "PLACEHOLDER": "Describe the situations that require a human teammate..."
+        },
+        "EXAMPLES": {
+          "SHORT_TITLE": "Examples",
+          "TITLE": "Example conversations",
+          "DESCRIPTION": "Provide examples of preferred answers for important or difficult customer situations.",
+          "PLACEHOLDER": "Add example customer questions and preferred responses..."
+        },
+        "ADDITIONAL": {
+          "SHORT_TITLE": "Additional",
+          "TITLE": "Additional instructions",
+          "DESCRIPTION": "Keep guidance that does not belong in another fixed section.",
+          "PLACEHOLDER": "Add any remaining guidance for the assistant..."
+        }
+      },
       "PROFILE": {
         "TITLE": "Language and tone",
         "DESCRIPTION": "Set the default communication style without writing prompt syntax.",
-        "NOT_SET": "Use written instructions",
+        "NOT_SET": "Not set here",
         "LANGUAGE_LABEL": "Reply language",
         "TONE_LABEL": "Tone",
         "FORMALITY_LABEL": "Formality",

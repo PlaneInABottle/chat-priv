@@ -1,22 +1,26 @@
 import {
+  compileInstructionDocument,
   createDefaultInstructionDocument,
-  createInstructionContent,
   hasInstructionContent,
+  instructionContentLength,
   instructionDocumentForAgent,
   normalizeInstructionDocument,
 } from './instructionDocument';
 
 describe('instructionDocument', () => {
-  it('creates one guided document with heading-based sections', () => {
+  it('creates one guided document with fixed sections', () => {
     const document = createDefaultInstructionDocument();
 
     expect(document).toMatchObject({
-      version: 2,
+      version: 3,
       profile: { tone: 'natural' },
     });
-    expect(document.content).toContain('## Identity and purpose');
-    expect(document.content).toContain('## Rules and boundaries');
-    expect(document).not.toHaveProperty('sections');
+    expect(document.sections).toMatchObject({
+      identity: '',
+      rules: '',
+      additional: '',
+    });
+    expect(document).not.toHaveProperty('content');
   });
 
   it('presents a legacy prompt in the default document without claiming profile settings', () => {
@@ -31,30 +35,34 @@ describe('instructionDocument', () => {
       formality: 'not_set',
       response_length: 'not_set',
     });
-    expect(document.content).toContain('## General instructions');
-    expect(document.content).toContain('Existing instructions');
-    expect(document.content).toContain('## Human handoff');
+    expect(document.sections.additional).toBe('Existing instructions');
+    expect(document.sections.identity).toBe('');
   });
 
-  it('converts saved version one sections into a continuous document', () => {
+  it('normalizes supported fixed section keys and drops unknown keys', () => {
     const document = normalizeInstructionDocument({
       profile: { language: 'tr' },
-      sections: [{ key: 'identity', content: '<p><strong>Help</strong></p>' }],
+      sections: { identity: '**Help**', unknown: 'Ignore' },
     });
 
-    expect(document.version).toBe(2);
-    expect(document.content).toBe('## Identity and purpose\n\n**Help**');
-    expect(document).not.toHaveProperty('sections');
+    expect(document.version).toBe(3);
+    expect(document.sections.identity).toBe('**Help**');
+    expect(document.sections).not.toHaveProperty('unknown');
   });
 
-  it('detects body content separately from empty template headings', () => {
-    expect(hasInstructionContent({ content: createInstructionContent() })).toBe(
-      false
+  it('detects section content and compiles only configured sections', () => {
+    const document = normalizeInstructionDocument();
+    expect(hasInstructionContent(document)).toBe(false);
+    expect(hasInstructionContent(createDefaultInstructionDocument())).toBe(
+      true
     );
-    expect(
-      hasInstructionContent({
-        content: createInstructionContent({ rules: 'Never invent prices.' }),
-      })
-    ).toBe(true);
+
+    document.sections.rules = 'Never invent prices.';
+    const prompt = compileInstructionDocument(document);
+
+    expect(hasInstructionContent(document)).toBe(true);
+    expect(prompt).toContain('## Rules and boundaries\n\nNever invent prices.');
+    expect(prompt).not.toContain('## Identity and purpose');
+    expect(instructionContentLength(document)).toBe(prompt.length);
   });
 });

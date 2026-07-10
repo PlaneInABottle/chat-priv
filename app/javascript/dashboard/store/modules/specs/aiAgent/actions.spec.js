@@ -59,4 +59,20 @@ describe('aiAgent actions', () => {
       });
     });
   });
+
+  describe('refresh', () => {
+    it('refreshes the active record without toggling the page loading state', async () => {
+      const agent = { id: 1, name: 'Assistant' };
+      AiAgentAPI.show.mockResolvedValue({ data: agent });
+
+      const result = await actions.refresh({ commit }, 1);
+
+      expect(result).toEqual(agent);
+      expect(commit).toHaveBeenCalledWith('SET_AI_AGENT', agent);
+      expect(commit).not.toHaveBeenCalledWith(
+        'SET_AI_AGENT_UI_FLAG',
+        expect.anything()
+      );
+    });
+  });
 });
