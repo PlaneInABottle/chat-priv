@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_07_10_213000) do
+ActiveRecord::Schema[7.1].define(version: 2026_07_11_120000) do
   # These extensions should be enabled to support this database
   enable_extension "pg_stat_statements"
   enable_extension "pg_trgm"
@@ -315,6 +315,30 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_10_213000) do
     t.index ["conversation_id", "created_at"], name: "idx_ai_agent_usage_events_on_conversation_created_at"
     t.index ["conversation_id"], name: "index_ai_agent_usage_events_on_conversation_id"
     t.index ["message_id"], name: "index_ai_agent_usage_events_on_message_id"
+  end
+
+  create_table "ai_agent_website_imports", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "ai_agent_id", null: false
+    t.bigint "requested_by_id"
+    t.string "website_url", null: false
+    t.integer "mode", default: 0, null: false
+    t.integer "status", default: 0, null: false
+    t.integer "stage", default: 0, null: false
+    t.jsonb "source_urls", default: [], null: false
+    t.jsonb "proposed_sections", default: {}, null: false
+    t.string "base_draft_fingerprint", null: false
+    t.string "error_code"
+    t.text "error_message"
+    t.datetime "started_at"
+    t.datetime "completed_at"
+    t.datetime "applied_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ai_agent_website_imports_on_account_id"
+    t.index ["ai_agent_id"], name: "index_ai_agent_website_imports_on_ai_agent_id"
+    t.index ["ai_agent_id"], name: "index_ai_website_imports_on_active_agent", unique: true, where: "(status = ANY (ARRAY[0, 1]))"
+    t.index ["requested_by_id"], name: "index_ai_agent_website_imports_on_requested_by_id"
   end
 
   create_table "ai_agents", force: :cascade do |t|
@@ -1696,6 +1720,9 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_10_213000) do
   add_foreign_key "ai_agent_usage_events", "contacts", on_delete: :nullify
   add_foreign_key "ai_agent_usage_events", "conversations", on_delete: :nullify
   add_foreign_key "ai_agent_usage_events", "messages", on_delete: :nullify
+  add_foreign_key "ai_agent_website_imports", "accounts", on_delete: :cascade
+  add_foreign_key "ai_agent_website_imports", "ai_agents", on_delete: :cascade
+  add_foreign_key "ai_agent_website_imports", "users", column: "requested_by_id", on_delete: :nullify
   add_foreign_key "ai_agents", "accounts", on_delete: :cascade
   add_foreign_key "ai_agents", "agent_bots", on_delete: :nullify
   add_foreign_key "call_transcript_segments", "accounts"

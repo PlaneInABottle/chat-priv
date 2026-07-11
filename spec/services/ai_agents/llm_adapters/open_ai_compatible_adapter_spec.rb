@@ -97,6 +97,33 @@ RSpec.describe AiAgents::LlmAdapters::OpenAiCompatibleAdapter do
     adapter.perform(messages: [{ role: 'user', content: 'Hi' }], tools: [], tool_choice: 'auto')
   end
 
+  it 'sends task-specific generation options without changing defaults' do
+    configured_adapter = described_class.new(
+      ai_agent: ai_agent,
+      account: account,
+      llm_options: {
+        max_tokens: 4_096,
+        temperature: 0.1,
+        response_format: { type: 'json_object' }
+      }
+    )
+    response_payload = {
+      'choices' => [{ 'finish_reason' => 'stop', 'message' => { 'content' => '{"ok":true}' } }]
+    }
+    allow(http).to receive(:request).and_return(http_response(response_payload))
+
+    expect(request).to receive(:body=) do |body|
+      payload = JSON.parse(body)
+      expect(payload).to include(
+        'max_tokens' => 4_096,
+        'temperature' => 0.1,
+        'response_format' => { 'type' => 'json_object' }
+      )
+    end
+
+    configured_adapter.perform(messages: [{ role: 'user', content: 'Return JSON' }], tools: [], tool_choice: 'auto')
+  end
+
   it 'does not stringify nil assistant content for tool call messages' do
     response_payload = {
       'choices' => [{ 'finish_reason' => 'stop', 'message' => { 'content' => 'Done' } }]

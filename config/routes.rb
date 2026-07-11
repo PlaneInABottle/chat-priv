@@ -155,6 +155,16 @@ Rails.application.routes.draw do
                 post :dismiss
               end
             end
+            resources :website_imports,
+                      only: [:index, :create, :show],
+                      controller: 'ai_agent_website_imports' do
+              member do
+                post :apply
+              end
+            end
+          end
+          resource :ai_agent_onboarding, only: [:show, :create], controller: 'ai_agent_onboarding' do
+            post :complete
           end
           resources :agent_bots, only: [:index, :create, :show, :update, :destroy] do
             delete :avatar, on: :member

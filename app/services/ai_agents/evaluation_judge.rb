@@ -37,7 +37,7 @@ class AiAgents::EvaluationJudge
     AiAgents::LlmAdapters::OpenAiCompatibleAdapter.new(
       ai_agent: ai_agent,
       account: ai_agent.account,
-      system_prompt_override: SYSTEM_PROMPT
+      llm_options: { system_prompt: SYSTEM_PROMPT }
     )
   end
 

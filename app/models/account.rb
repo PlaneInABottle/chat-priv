@@ -85,6 +85,7 @@ class Account < ApplicationRecord
   has_many :ai_agent_evaluation_cases, dependent: :destroy
   has_many :ai_agent_evaluation_runs, dependent: :destroy
   has_many :ai_agent_learning_suggestions, dependent: :destroy
+  has_many :ai_agent_website_imports, dependent: :destroy
   has_many :api_channels, dependent: :destroy_async, class_name: '::Channel::Api'
   has_many :articles, dependent: :destroy_async, class_name: '::Article'
   has_many :assignment_policies, dependent: :destroy_async

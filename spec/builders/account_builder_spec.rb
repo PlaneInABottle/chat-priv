@@ -57,6 +57,11 @@ RSpec.describe AccountBuilder do
         _user, account = account_builder.perform
         expect(account.custom_attributes['onboarding_step']).to eq('account_details')
       end
+
+      it 'enables Text AI for the new account' do
+        _user, account = account_builder.perform
+        expect(account).to be_ai_agent_enabled
+      end
     end
   end
 end

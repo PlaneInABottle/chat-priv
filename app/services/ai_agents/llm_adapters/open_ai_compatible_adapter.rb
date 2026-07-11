@@ -25,11 +25,12 @@ class AiAgents::LlmAdapters::OpenAiCompatibleAdapter < AiAgents::LlmAdapters::Ba
     body = {
       model: account.ai_agent_model,
       messages: build_messages(messages),
-      temperature: 0.2,
-      max_tokens: 1024
+      temperature: temperature.nil? ? 0.2 : temperature,
+      max_tokens: max_tokens || 1024
     }
     body[:tools] = tools if tools.present?
     body[:tool_choice] = tool_choice if tools.present?
+    body[:response_format] = response_format if response_format.present?
     body
   end
 
