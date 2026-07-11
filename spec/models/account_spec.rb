@@ -513,11 +513,11 @@ RSpec.describe Account do
     it 'updates runtime settings for account-owned voice agents only' do
       account.voice_agent_runtime_settings = {
         voice_agent.id.to_s => {
-          architecture: 'pipeline',
+          architecture: 'realtime',
           provider: 'openai',
-          model: 'gpt-4o-realtime-preview',
-          voice: 'alloy',
-          language: 'en',
+          model: 'gpt-realtime-2.1',
+          voice: 'marin',
+          language: 'tr',
           prompt: 'ignored'
         },
         other_voice_agent.id.to_s => {
@@ -527,11 +527,11 @@ RSpec.describe Account do
       account.save!
 
       expect(voice_agent.reload).to have_attributes(
-        architecture: 'pipeline',
+        architecture: 'realtime',
         provider: 'openai',
-        model: 'gpt-4o-realtime-preview',
-        voice: 'alloy',
-        language: 'en'
+        model: 'gpt-realtime-2.1',
+        voice: 'marin',
+        language: 'tr'
       )
       expect(voice_agent.prompt).not_to eq('ignored')
       expect(other_voice_agent.reload.voice).to eq('Puck')

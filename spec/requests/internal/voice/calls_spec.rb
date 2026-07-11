@@ -305,7 +305,7 @@ RSpec.describe 'Internal voice calls API', type: :request do
 
       expect(response).to have_http_status(:ok)
       expect(response.parsed_body.dig('voice_agent', 'id')).to eq(call.meta['voice_agent_id'])
-      expect(response.parsed_body['instructions']).to include('Voice agent instructions')
+      expect(response.parsed_body['instructions']).to include('# Customer Instructions')
       expect(response.parsed_body['tools'].pluck('key')).to include('human_handoff', 'end_customer_call')
     end
 

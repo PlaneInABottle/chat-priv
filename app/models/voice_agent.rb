@@ -32,6 +32,8 @@
 class VoiceAgent < ApplicationRecord
   ARCHITECTURES = %w[realtime pipeline].freeze
   PROVIDERS = %w[gemini openai].freeze
+  OPENAI_REALTIME_MODELS = %w[gpt-realtime-2.1].freeze
+  OPENAI_REALTIME_VOICES = %w[alloy ash ballad coral echo sage shimmer verse marin cedar].freeze
 
   belongs_to :account
   has_many :voice_inbox_settings, dependent: :nullify
@@ -46,6 +48,7 @@ class VoiceAgent < ApplicationRecord
   validates :greeting, length: { maximum: 20_000 }
   validates :prompt, length: { maximum: 50_000 }
   validate :tools_config_must_be_valid
+  validate :openai_realtime_runtime_must_be_valid
 
   before_validation :set_defaults
 
@@ -86,5 +89,12 @@ class VoiceAgent < ApplicationRecord
     return if parsed_config.valid?
 
     parsed_config.errors.each { |message| errors.add(:tools_config, message) }
+  end
+
+  def openai_realtime_runtime_must_be_valid
+    return unless architecture == 'realtime' && provider == 'openai'
+
+    errors.add(:model, 'must be a supported OpenAI realtime model') unless OPENAI_REALTIME_MODELS.include?(model)
+    errors.add(:voice, 'must be a supported OpenAI realtime voice') unless OPENAI_REALTIME_VOICES.include?(voice)
   end
 end

@@ -14,8 +14,9 @@
 
 ## Prerequisites
 
-- `.env.local` must define `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `CHATWOOT_INTERNAL_API_URL`, `VOICE_AGENT_INTERNAL_TOKEN`, `VOICE_AGENT_NAME`, `VOICE_AGENT_ARCHITECTURE`, and provider-specific keys such as `GOOGLE_API_KEY`.
+- `.env.local` must define `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `CHATWOOT_INTERNAL_API_URL`, `VOICE_AGENT_INTERNAL_TOKEN`, `VOICE_AGENT_NAME`, `VOICE_AGENT_ARCHITECTURE`, and provider-specific keys such as `GOOGLE_API_KEY` or `OPENAI_API_KEY`.
 - For Gemini realtime, use `VOICE_AGENT_ARCHITECTURE=realtime` and `VOICE_AGENT_REALTIME_PROVIDER=gemini`.
+- For OpenAI realtime, set the voice agent runtime to `provider=openai`, `model=gpt-realtime-2.1`, and a supported voice such as `marin`. The worker uses low reasoning, semantic VAD, and `gpt-realtime-whisper` input transcription.
 - Gemini realtime sessions must enable `ContextWindowCompressionConfig` with a sliding window. The worker uses provider-selected trigger and target defaults so model-specific context limits do not terminate longer calls.
 - Keep `.env.local` out of git. Never print or commit secret values.
 - The Python worker entrypoint is `services/voice_agent/agent.py`.
@@ -66,10 +67,14 @@ pm2 start zsh --name chatwoot-worker -- -lc 'set -a; source /Users/Y_ALTAY1/Docu
 
 The voice agent must log `registered worker` with `agent_name` matching `VOICE_AGENT_NAME`. The Sidekiq worker is required for live conversation-thread updates because Chatwoot broadcasts `message.created` and `message.updated` through queued `ActionCableBroadcastJob`s.
 
+The worker health check is `GET /` on `VOICE_AGENT_HEALTH_PORT` (default `9090`). If `VOICE_AGENT_PROMETHEUS_PORT` is set, verify `/metrics` exposes `lk_agents_active_job_count` and `lk_agents_worker_load`.
+
 ## Fast Checks
 
 ```bash
 curl -fsS http://localhost:3000/health
+curl -fsS http://localhost:9090/
+curl -fsS http://localhost:9091/metrics
 python3 -m py_compile services/voice_agent/agent.py
 set -a; source .env.local; set +a; uv run --directory services/voice_agent python -c "import agent; print(agent.voice_agent_architecture()); print(type(agent.build_session()).__name__)"
 set -a; source .env.local; set +a; eval "$(rbenv init -)"; bundle exec rspec spec/services/voice/test_call_builder_spec.rb spec/services/voice/livekit/agent_dispatch_service_spec.rb spec/services/voice/telephony/inbound_call_bootstrapper_spec.rb spec/services/voice/transcript_appender_spec.rb spec/requests/internal/voice/calls_spec.rb
@@ -85,7 +90,7 @@ Use `uv lock --check --directory services/voice_agent` after dependency changes.
 
 ## Browser Test Call
 
-For automated speech proof, run `agent-browser` in headed mode with a valid WAV file and fake-media flags. Chromium's headless shell returns `NotSupportedError` from `getUserMedia` even when fake-device flags are present. Include several seconds of silence after the spoken fixture so Gemini's server-side activity detection closes the turn.
+For automated speech proof, run `agent-browser` in headed mode with a valid WAV file and fake-media flags. Chromium's headless shell returns `NotSupportedError` from `getUserMedia` even when fake-device flags are present. Include several seconds of silence after the spoken fixture so provider turn detection closes the turn.
 
 ```bash
 agent-browser --session voice-media --headed \

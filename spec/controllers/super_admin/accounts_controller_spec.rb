@@ -273,11 +273,11 @@ RSpec.describe 'Super Admin accounts API', type: :request do
             name: account.name,
             voice_agent_runtime_settings: {
               voice_agent.id => {
-                architecture: 'pipeline',
+                architecture: 'realtime',
                 provider: 'openai',
-                model: 'gpt-4o-realtime-preview',
-                voice: 'alloy',
-                language: 'en'
+                model: 'gpt-realtime-2.1',
+                voice: 'marin',
+                language: 'tr'
               }
             }
           }
@@ -285,11 +285,11 @@ RSpec.describe 'Super Admin accounts API', type: :request do
 
         expect(response).to have_http_status(:redirect)
         expect(voice_agent.reload).to have_attributes(
-          architecture: 'pipeline',
+          architecture: 'realtime',
           provider: 'openai',
-          model: 'gpt-4o-realtime-preview',
-          voice: 'alloy',
-          language: 'en'
+          model: 'gpt-realtime-2.1',
+          voice: 'marin',
+          language: 'tr'
         )
       end
     end
