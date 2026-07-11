@@ -7,6 +7,7 @@ import Editor from 'dashboard/components-next/Editor/Editor.vue';
 import { useMessageFormatter } from 'shared/composables/useMessageFormatter';
 import DraftTestPanel from './DraftTestPanel.vue';
 import InstructionSectionNavigator from './InstructionSectionNavigator.vue';
+import WebsiteImportDialog from './WebsiteImportDialog.vue';
 import {
   INSTRUCTION_SECTION_KEYS,
   compileInstructionDocument,
@@ -18,14 +19,21 @@ const props = defineProps({
   aiAgentId: { type: Number, required: true },
   isDirty: { type: Boolean, default: false },
   isDisabled: { type: Boolean, default: false },
+  defaultWebsite: { type: String, default: '' },
 });
 
-const emit = defineEmits(['update:modelValue', 'configureHandoff', 'tested']);
+const emit = defineEmits([
+  'update:modelValue',
+  'configureHandoff',
+  'tested',
+  'websiteImportApplied',
+]);
 
 const { t } = useI18n();
 const { formatMessage } = useMessageFormatter();
 const mobileView = ref('edit');
 const selectedSection = ref('profile');
+const websiteImportDialog = ref(null);
 
 const profileOptions = computed(() => ({
   language: [
@@ -165,6 +173,27 @@ const updateSection = value => {
 
 <template>
   <div class="min-w-0">
+    <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h2 class="m-0 text-base font-semibold text-n-slate-12">
+          {{ t('AI_ASSISTANT.WEBSITE_IMPORT.ENTRY_TITLE') }}
+        </h2>
+        <p class="mb-0 mt-1 text-sm text-n-slate-10">
+          {{ t('AI_ASSISTANT.WEBSITE_IMPORT.ENTRY_HELP') }}
+        </p>
+      </div>
+      <Button
+        v-tooltip="
+          isDirty ? t('AI_ASSISTANT.WEBSITE_IMPORT.SAVE_FIRST') : undefined
+        "
+        icon="i-lucide-globe-2"
+        variant="outline"
+        color="slate"
+        :label="t('AI_ASSISTANT.WEBSITE_IMPORT.OPEN')"
+        :disabled="isDirty"
+        @click="websiteImportDialog.open()"
+      />
+    </div>
     <div
       class="mb-5 grid grid-cols-2 rounded-lg bg-n-alpha-black2 p-1 min-[1360px]:hidden"
     >
@@ -366,5 +395,13 @@ const updateSection = value => {
         @tested="emit('tested')"
       />
     </div>
+
+    <WebsiteImportDialog
+      ref="websiteImportDialog"
+      :ai-agent-id="aiAgentId"
+      :current-document="modelValue"
+      :default-website="defaultWebsite"
+      @applied="emit('websiteImportApplied')"
+    />
   </div>
 </template>

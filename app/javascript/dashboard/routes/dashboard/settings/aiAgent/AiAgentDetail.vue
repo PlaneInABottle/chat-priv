@@ -3,6 +3,7 @@ import { ref, computed, nextTick, onMounted, watch } from 'vue';
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router';
 import { useMapGetter, useStore } from 'dashboard/composables/store';
 import { useAlert } from 'dashboard/composables';
+import { useAccount } from 'dashboard/composables/useAccount';
 import { useI18n } from 'vue-i18n';
 
 import SettingsLayout from '../SettingsLayout.vue';
@@ -59,6 +60,7 @@ const store = useStore();
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
+const { currentAccount } = useAccount();
 
 const agentId = computed(() => Number(route.params.id));
 
@@ -66,6 +68,9 @@ const aiAgent = useMapGetter('aiAgent/getAiAgent');
 const uiFlags = useMapGetter('aiAgent/getUIFlags');
 const inboxes = useMapGetter('inboxes/getInboxes');
 const labels = useMapGetter('labels/getLabels');
+const accountWebsite = computed(
+  () => currentAccount.value?.custom_attributes?.website || ''
+);
 
 const isSaving = ref(false);
 const inboxError = ref('');
@@ -527,6 +532,11 @@ const refreshAfterLearningApplied = () => {
   formState.value.instructions = instructionDocumentForAgent(aiAgent.value);
 };
 
+const refreshAfterWebsiteImport = async () => {
+  await store.dispatch('aiAgent/refresh', agentId.value);
+  formState.value.instructions = instructionDocumentForAgent(aiAgent.value);
+};
+
 const handlePause = async () => {
   const result = await store.dispatch('aiAgent/pause', agentId.value);
   if (result?.id) {
@@ -657,8 +667,10 @@ watch(agentId, async (newAgentId, oldAgentId) => {
           :ai-agent-id="agentId"
           :is-dirty="isInstructionsDirty"
           :is-disabled="!hasInstructionContent(formState.instructions)"
+          :default-website="accountWebsite"
           @configure-handoff="configureHandoff"
           @tested="refreshAfterDraftTest"
+          @website-import-applied="refreshAfterWebsiteImport"
         />
         <template v-if="activeTab === 'connections'">
           <div

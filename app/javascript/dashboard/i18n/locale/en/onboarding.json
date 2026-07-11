@@ -4,6 +4,8 @@
     "SUBTITLE": "Please review the following details",
     "YOUR_DETAILS": "Your details",
     "COMPANY_DETAILS": "Company details",
+    "ASSISTANT_DETAILS": "Your AI assistant",
+    "ASSISTANT_DRAFT_HELP": "We will create a private draft you can review and test. It will not answer customers until you connect an inbox and publish it.",
     "FIELDS": {
       "EMAIL": "Email",
       "YOUR_ROLE": "Your Role",
@@ -12,7 +14,9 @@
       "TIMEZONE": "Timezone",
       "COMPANY_SIZE": "Company Size",
       "INDUSTRY": "Industry",
-      "REFERRAL_SOURCE": "Where did you find us?"
+      "REFERRAL_SOURCE": "Where did you find us?",
+      "AI_PURPOSE": "Main purpose",
+      "AI_TONE": "Tone"
     },
     "PLACEHOLDERS": {
       "SELECT_ROLE": "Select your role",
@@ -29,6 +33,19 @@
     "SAVING": "Saving...",
     "VALIDATION_ERROR": "Please fill in all required fields",
     "SUCCESS": "Details saved successfully",
-    "ERROR": "Could not save details. Please try again."
+    "ERROR": "Could not save details. Please try again.",
+    "BUILDING": {
+      "TITLE": "Preparing your first assistant",
+      "DESCRIPTION": "Your private starter draft is ready immediately. When a website is provided, we also read a few key pages to add stable business facts and policies.",
+      "STAGES": {
+        "CRAWLING": "Read key website pages",
+        "GENERATING": "Draft business instructions",
+        "APPLYING": "Prepare your review copy"
+      },
+      "FALLBACK": "We could not read the website, but your starter draft is ready. You can add business details in the instruction editor.",
+      "DRAFT_READY": "Starter draft ready",
+      "DRAFT_READY_HELP": "Review the instructions, connect an inbox, and test the assistant before publishing.",
+      "REVIEW": "Review assistant"
+    }
   }
 }
