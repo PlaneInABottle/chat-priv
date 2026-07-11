@@ -66,3 +66,17 @@ export const USER_ROLE_OPTIONS = [
   { value: 'sales', label: 'Sales' },
   { value: 'other', label: 'Other' },
 ];
+
+export const AI_PURPOSE_OPTIONS = [
+  { value: 'support', label: 'Answer customer questions' },
+  { value: 'sales', label: 'Help customers choose and buy' },
+  { value: 'support_and_sales', label: 'Support customers and drive sales' },
+  { value: 'orders', label: 'Help with orders and delivery' },
+];
+
+export const AI_TONE_OPTIONS = [
+  { value: 'friendly', label: 'Friendly' },
+  { value: 'professional', label: 'Professional' },
+  { value: 'warm', label: 'Warm' },
+  { value: 'concise', label: 'Concise' },
+];

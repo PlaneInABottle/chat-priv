@@ -8,7 +8,12 @@ import { validateLoggedInRoutes } from '../helper/routeHelpers';
 import { isOnOnboardingView } from 'v3/helpers/RouteHelper';
 import AnalyticsHelper from '../helper/AnalyticsHelper';
 
-const ONBOARDING_STEPS = ['account_details', 'enrichment', 'inbox_setup'];
+const ONBOARDING_STEPS = [
+  'account_details',
+  'enrichment',
+  'ai_assistant',
+  'inbox_setup',
+];
 const routes = [...dashboard.routes];
 
 const onboardingPath = step =>

@@ -137,4 +137,15 @@ describe('InstructionWorkspace', () => {
       },
     });
   });
+
+  it('prevents website import while the instruction draft has unsaved changes', () => {
+    const wrapper = mountComponent();
+    const importButton = wrapper
+      .findAllComponents({ name: 'Button' })
+      .find(button =>
+        button.props('label')?.includes('AI_ASSISTANT.WEBSITE_IMPORT.OPEN')
+      );
+
+    expect(importButton.vm.$attrs.disabled).toBe(true);
+  });
 });

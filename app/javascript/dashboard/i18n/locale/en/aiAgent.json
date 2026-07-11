@@ -266,6 +266,39 @@
       "HANDOFF": "Human support fallback",
       "ALWAYS_ON": "Always available"
     },
+    "WEBSITE_IMPORT": {
+      "ENTRY_TITLE": "Business knowledge",
+      "ENTRY_HELP": "Bring stable company facts and policies into this draft from your website.",
+      "OPEN": "Import from website",
+      "SAVE_FIRST": "Save or discard instruction changes before importing from a website.",
+      "TITLE": "Import business knowledge",
+      "DESCRIPTION": "We read the home page and up to four relevant pages. Nothing changes until you review and apply selected sections.",
+      "URL_LABEL": "Company website",
+      "URL_PLACEHOLDER": "https://example.com",
+      "ANALYZE": "Analyze website",
+      "PROGRESS_HELP": "You can close this window. The analysis continues in the background.",
+      "STAGE": {
+        "QUEUED": "Waiting to analyze the website...",
+        "CRAWLING": "Reading key website pages...",
+        "GENERATING": "Preparing instruction suggestions...",
+        "APPLYING": "Applying selected suggestions...",
+        "COMPLETE": "Analysis complete"
+      },
+      "REVIEW_HELP": "Select only the suggestions you want. Existing language, tone, human handoff, examples, and additional instructions are not changed.",
+      "CURRENT": "Current draft",
+      "SUGGESTED": "Website suggestion",
+      "EMPTY": "No instruction in this section",
+      "NO_CHANGES": "The website did not produce any new instruction suggestions.",
+      "APPLY_SELECTED": "Apply selected sections",
+      "APPLIED": "Website suggestions added to the saved draft",
+      "TRY_AGAIN": "Try another website",
+      "CANCEL": "Close",
+      "ERROR": {
+        "LOAD": "Previous website analysis could not be loaded.",
+        "START": "The website could not be analyzed. Check the address and try again.",
+        "APPLY": "The suggestions could not be applied. Refresh the draft and try again."
+      }
+    },
     "INSTRUCTIONS": {
       "TITLE": "Instructions",
       "DESCRIPTION": "Shape how this assistant speaks, decides, and handles customer requests. Save and test a draft, then publish it when you are ready.",
