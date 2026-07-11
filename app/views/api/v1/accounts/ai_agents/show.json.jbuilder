@@ -51,6 +51,8 @@ json.updated_at @ai_agent.updated_at
 json.lifecycle_status @ai_agent.lifecycle_status
 json.published_at @ai_agent.published_at
 json.published_revision @ai_agent.published_revision
+json.current_release AssistantReleases::Serializer.new(@ai_agent.current_release).payload if @ai_agent.current_release
+json.releases_count @ai_agent.releases.count
 json.draft_changes @ai_agent.draft_changes?
 json.last_tested_at @ai_agent.last_tested_at
 json.readiness @ai_agent.readiness

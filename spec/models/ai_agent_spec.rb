@@ -231,5 +231,24 @@ RSpec.describe AiAgent do
 
       expect(ai_agent).not_to be_draft_tested
     end
+
+    it 'keeps immutable releases and rolls back by creating a new revision' do
+      inbox = create(:inbox, account: account)
+      AgentBotInbox.create!(agent_bot: ai_agent.agent_bot, inbox: inbox, account: account)
+      ai_agent.mark_test_succeeded!
+      ai_agent.publish!
+      first_release = ai_agent.current_release
+
+      ai_agent.update!(prompt: 'Second release')
+      ai_agent.mark_test_succeeded!
+      ai_agent.publish!
+      restored = ai_agent.rollback_to!(first_release)
+
+      expect(ai_agent.reload).to have_attributes(prompt: first_release.prompt, current_release: restored, published_revision: 3)
+      expect(restored).to have_attributes(source: 'rollback', revision: 3, fingerprint: first_release.fingerprint)
+      expect(ai_agent.releases.order(:revision).pluck(:revision, :source)).to eq(
+        [[1, 'publish'], [2, 'publish'], [3, 'rollback']]
+      )
+    end
   end
 end

@@ -2,24 +2,25 @@
 #
 # Table name: calls
 #
-#  id                   :bigint           not null, primary key
-#  direction            :integer          not null
-#  duration_seconds     :integer
-#  end_reason           :string
-#  meta                 :jsonb
-#  provider             :integer          default("twilio"), not null
-#  started_at           :datetime
-#  status               :string           default("ringing"), not null
-#  transcript           :text
-#  created_at           :datetime         not null
-#  updated_at           :datetime         not null
-#  accepted_by_agent_id :bigint
-#  account_id           :bigint           not null
-#  contact_id           :bigint
-#  conversation_id      :bigint
-#  inbox_id             :bigint           not null
-#  message_id           :bigint
-#  provider_call_id     :string           not null
+#  id                     :bigint           not null, primary key
+#  direction              :integer          not null
+#  duration_seconds       :integer
+#  end_reason             :string
+#  meta                   :jsonb
+#  provider               :integer          default("twilio"), not null
+#  started_at             :datetime
+#  status                 :string           default("ringing"), not null
+#  transcript             :text
+#  created_at             :datetime         not null
+#  updated_at             :datetime         not null
+#  accepted_by_agent_id   :bigint
+#  account_id             :bigint           not null
+#  contact_id             :bigint
+#  conversation_id        :bigint
+#  inbox_id               :bigint           not null
+#  message_id             :bigint
+#  provider_call_id       :string           not null
+#  voice_agent_release_id :bigint
 #
 # Indexes
 #
@@ -27,6 +28,11 @@
 #  index_calls_on_account_id_and_conversation_id  (account_id,conversation_id)
 #  index_calls_on_message_id                      (message_id)
 #  index_calls_on_provider_and_provider_call_id   (provider,provider_call_id) UNIQUE
+#  index_calls_on_voice_agent_release_id          (voice_agent_release_id)
+#
+# Foreign Keys
+#
+#  fk_rails_...  (voice_agent_release_id => voice_agent_releases.id) ON DELETE => nullify
 #
 class Call < ApplicationRecord
   STATUSES = %w[ringing in_progress completed no_answer failed].freeze
@@ -48,6 +54,7 @@ class Call < ApplicationRecord
   belongs_to :contact, optional: true
   belongs_to :message, optional: true, inverse_of: :call
   belongs_to :accepted_by_agent, class_name: 'User', optional: true
+  belongs_to :voice_agent_release, optional: true
 
   has_many :transcript_segments, class_name: 'CallTranscriptSegment', dependent: :destroy
   has_many :voice_tool_events, dependent: :destroy

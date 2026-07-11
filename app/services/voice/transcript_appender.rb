@@ -67,6 +67,10 @@ class Voice::TranscriptAppender
     return unless call.test_call? && segment.role == 'ai'
 
     voice_agent_id = call.meta&.fetch('voice_agent_id', nil)
-    call.account.voice_agents.find_by(id: voice_agent_id)&.mark_test_succeeded!
+    voice_agent = call.account.voice_agents.find_by(id: voice_agent_id)
+    return unless voice_agent
+
+    tested_fingerprint = call.meta&.fetch('voice_agent_draft_fingerprint', nil) || voice_agent.draft_fingerprint
+    voice_agent.mark_test_succeeded!(tested_fingerprint: tested_fingerprint)
   end
 end

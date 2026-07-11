@@ -42,5 +42,16 @@ RSpec.describe Voice::TranscriptAppender do
 
       expect(voice_agent.reload.last_tested_at).to be_present
     end
+
+    it 'does not approve edits made while the test call is in progress' do
+      test_call = call
+      tested_fingerprint = test_call.meta['voice_agent_draft_fingerprint']
+      voice_agent.update!(prompt: 'Changed during the call')
+
+      described_class.perform!(call: test_call, role: 'ai', text: 'Original draft response', source: 'livekit_agent')
+
+      expect(voice_agent.reload.last_tested_draft_fingerprint).to eq(tested_fingerprint)
+      expect(voice_agent).not_to be_draft_tested
+    end
   end
 end

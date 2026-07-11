@@ -61,5 +61,26 @@ RSpec.describe VoiceAgent do
       expect(voice_agent).to have_attributes(enabled: false, last_tested_at: tested_at)
       expect(voice_agent.lifecycle_status).to eq('paused')
     end
+
+    it 'keeps the live release stable while editing and supports rollback' do
+      inbox = create(:channel_api, account: account).inbox
+      create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: voice_agent)
+      voice_agent.mark_test_succeeded!
+      voice_agent.publish!
+      first_release = voice_agent.current_release
+
+      voice_agent.update!(prompt: 'A new voice draft')
+
+      expect(voice_agent).to be_draft_changes
+      expect(voice_agent.live_value(:prompt)).to eq(first_release.value(:prompt))
+      expect(voice_agent).not_to be_draft_tested
+
+      voice_agent.mark_test_succeeded!
+      voice_agent.publish!
+      restored = voice_agent.rollback_to!(first_release)
+
+      expect(voice_agent.reload).to have_attributes(prompt: first_release.value(:prompt), current_release: restored)
+      expect(restored).to have_attributes(source: 'rollback', revision: 3)
+    end
   end
 end

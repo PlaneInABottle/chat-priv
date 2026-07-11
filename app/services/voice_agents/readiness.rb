@@ -21,7 +21,7 @@ class VoiceAgents::Readiness
       check('greeting', voice_agent.greeting.present?, 'Add a greeting for callers.'),
       check('instructions', voice_agent.prompt.present?, 'Add instructions for how the assistant should respond.'),
       check('inbox', voice_agent.voice_inbox_settings.exists?, 'Connect at least one call inbox.'),
-      check('test', voice_agent.last_tested_at.present?, 'Complete a successful browser test call.'),
+      check('test', voice_agent.draft_tested?, 'Complete a successful browser test call for the current draft.'),
       check('phone', active_phone_number?, 'No production phone number is connected yet.', blocking: false)
     ]
   end

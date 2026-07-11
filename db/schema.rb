@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_07_11_120000) do
+ActiveRecord::Schema[7.1].define(version: 2026_07_11_141000) do
   # These extensions should be enabled to support this database
   enable_extension "pg_stat_statements"
   enable_extension "pg_trgm"
@@ -253,6 +253,23 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_11_120000) do
     t.index ["status"], name: "index_ai_agent_llm_calls_on_status"
   end
 
+  create_table "ai_agent_releases", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "ai_agent_id", null: false
+    t.bigint "created_by_id"
+    t.integer "revision", null: false
+    t.string "source", default: "publish", null: false
+    t.string "fingerprint", null: false
+    t.jsonb "snapshot", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "created_at"], name: "index_ai_agent_releases_on_account_id_and_created_at"
+    t.index ["account_id"], name: "index_ai_agent_releases_on_account_id"
+    t.index ["ai_agent_id", "revision"], name: "index_ai_agent_releases_on_ai_agent_id_and_revision", unique: true
+    t.index ["ai_agent_id"], name: "index_ai_agent_releases_on_ai_agent_id"
+    t.index ["created_by_id"], name: "index_ai_agent_releases_on_created_by_id"
+  end
+
   create_table "ai_agent_test_conversations", force: :cascade do |t|
     t.bigint "account_id", null: false
     t.bigint "ai_agent_id", null: false
@@ -356,8 +373,10 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_11_120000) do
     t.text "published_prompt"
     t.jsonb "published_config", default: {}, null: false
     t.integer "published_revision", default: 0, null: false
+    t.bigint "current_release_id"
     t.index ["account_id"], name: "index_ai_agents_on_account_id"
     t.index ["agent_bot_id"], name: "index_ai_agents_on_agent_bot_id", unique: true
+    t.index ["current_release_id"], name: "index_ai_agents_on_current_release_id"
   end
 
   create_table "applied_slas", force: :cascade do |t|
@@ -516,10 +535,12 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_11_120000) do
     t.text "transcript"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.bigint "voice_agent_release_id"
     t.index ["account_id", "contact_id"], name: "index_calls_on_account_id_and_contact_id"
     t.index ["account_id", "conversation_id"], name: "index_calls_on_account_id_and_conversation_id"
     t.index ["message_id"], name: "index_calls_on_message_id"
     t.index ["provider", "provider_call_id"], name: "index_calls_on_provider_and_provider_call_id", unique: true
+    t.index ["voice_agent_release_id"], name: "index_calls_on_voice_agent_release_id"
   end
 
   create_table "campaigns", force: :cascade do |t|
@@ -945,10 +966,12 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_11_120000) do
     t.datetime "waiting_since"
     t.text "cached_label_list"
     t.bigint "assignee_agent_bot_id"
+    t.bigint "ai_agent_release_id"
     t.index ["account_id", "display_id"], name: "index_conversations_on_account_id_and_display_id", unique: true
     t.index ["account_id", "id"], name: "index_conversations_on_id_and_account_id"
     t.index ["account_id", "inbox_id", "status", "assignee_id"], name: "conv_acid_inbid_stat_asgnid_idx"
     t.index ["account_id"], name: "index_conversations_on_account_id"
+    t.index ["ai_agent_release_id"], name: "index_conversations_on_ai_agent_release_id"
     t.index ["assignee_id", "account_id"], name: "index_conversations_on_assignee_id_and_account_id"
     t.index ["campaign_id"], name: "index_conversations_on_campaign_id"
     t.index ["contact_id"], name: "index_conversations_on_contact_id"
@@ -1549,6 +1572,23 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_11_120000) do
     t.index ["uid", "provider"], name: "index_users_on_uid_and_provider", unique: true
   end
 
+  create_table "voice_agent_releases", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "voice_agent_id", null: false
+    t.bigint "created_by_id"
+    t.integer "revision", null: false
+    t.string "source", default: "publish", null: false
+    t.string "fingerprint", null: false
+    t.jsonb "snapshot", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "created_at"], name: "index_voice_agent_releases_on_account_id_and_created_at"
+    t.index ["account_id"], name: "index_voice_agent_releases_on_account_id"
+    t.index ["created_by_id"], name: "index_voice_agent_releases_on_created_by_id"
+    t.index ["voice_agent_id", "revision"], name: "index_voice_agent_releases_on_voice_agent_id_and_revision", unique: true
+    t.index ["voice_agent_id"], name: "index_voice_agent_releases_on_voice_agent_id"
+  end
+
   create_table "voice_agents", force: :cascade do |t|
     t.bigint "account_id", null: false
     t.string "name", default: "Voice Assistant", null: false
@@ -1566,8 +1606,11 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_11_120000) do
     t.datetime "updated_at", null: false
     t.datetime "published_at"
     t.datetime "last_tested_at"
+    t.bigint "current_release_id"
+    t.string "last_tested_draft_fingerprint"
     t.index ["account_id", "created_at"], name: "index_voice_agents_on_account_id_and_created_at"
     t.index ["account_id"], name: "index_voice_agents_on_account_id"
+    t.index ["current_release_id"], name: "index_voice_agents_on_current_release_id"
   end
 
   create_table "voice_inbox_settings", force: :cascade do |t|
@@ -1711,6 +1754,9 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_11_120000) do
   add_foreign_key "ai_agent_llm_calls", "ai_agents", on_delete: :cascade
   add_foreign_key "ai_agent_llm_calls", "conversations", on_delete: :nullify
   add_foreign_key "ai_agent_llm_calls", "messages", on_delete: :nullify
+  add_foreign_key "ai_agent_releases", "accounts", on_delete: :cascade
+  add_foreign_key "ai_agent_releases", "ai_agents", on_delete: :cascade
+  add_foreign_key "ai_agent_releases", "users", column: "created_by_id", on_delete: :nullify
   add_foreign_key "ai_agent_tool_executions", "accounts", on_delete: :cascade
   add_foreign_key "ai_agent_tool_executions", "ai_agents", on_delete: :cascade
   add_foreign_key "ai_agent_tool_executions", "conversations", on_delete: :nullify
@@ -1725,13 +1771,20 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_11_120000) do
   add_foreign_key "ai_agent_website_imports", "users", column: "requested_by_id", on_delete: :nullify
   add_foreign_key "ai_agents", "accounts", on_delete: :cascade
   add_foreign_key "ai_agents", "agent_bots", on_delete: :nullify
+  add_foreign_key "ai_agents", "ai_agent_releases", column: "current_release_id", on_delete: :nullify
   add_foreign_key "call_transcript_segments", "accounts"
   add_foreign_key "call_transcript_segments", "calls"
   add_foreign_key "call_transcript_segments", "conversations"
+  add_foreign_key "calls", "voice_agent_releases", on_delete: :nullify
+  add_foreign_key "conversations", "ai_agent_releases", on_delete: :nullify
   add_foreign_key "ikas_catalog_snapshots", "accounts", on_delete: :cascade
   add_foreign_key "ikas_catalog_snapshots", "integrations_hooks", on_delete: :cascade
   add_foreign_key "inboxes", "portals"
+  add_foreign_key "voice_agent_releases", "accounts", on_delete: :cascade
+  add_foreign_key "voice_agent_releases", "users", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "voice_agent_releases", "voice_agents", on_delete: :cascade
   add_foreign_key "voice_agents", "accounts", on_delete: :cascade
+  add_foreign_key "voice_agents", "voice_agent_releases", column: "current_release_id", on_delete: :nullify
   add_foreign_key "voice_inbox_settings", "accounts"
   add_foreign_key "voice_inbox_settings", "inboxes"
   add_foreign_key "voice_inbox_settings", "teams", column: "fallback_team_id"

@@ -36,9 +36,18 @@ class VoiceAgents::Serializer
     {
       lifecycle_status: voice_agent.lifecycle_status,
       published_at: voice_agent.published_at,
+      published_revision: voice_agent.published_revision,
+      draft_changes: voice_agent.draft_changes?,
+      current_release: current_release_payload,
       last_tested_at: voice_agent.last_tested_at,
       readiness: voice_agent.readiness
     }
+  end
+
+  def current_release_payload
+    return unless voice_agent.current_release
+
+    AssistantReleases::Serializer.new(voice_agent.current_release).payload
   end
 
   def available_tools

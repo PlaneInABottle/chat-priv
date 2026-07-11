@@ -22,8 +22,9 @@ class VoiceAgents::PromptComposer
     If the conversation is complete and the caller is ready to finish, call `end_customer_call`.
   PROMPT
 
-  def initialize(voice_agent:)
+  def initialize(voice_agent:, snapshot: nil)
     @voice_agent = voice_agent
+    @snapshot = snapshot&.deep_stringify_keys
   end
 
   def effective_system_prompt
@@ -39,7 +40,7 @@ class VoiceAgents::PromptComposer
 
   private
 
-  attr_reader :voice_agent
+  attr_reader :voice_agent, :snapshot
 
   def base_prompt
     installation_name = GlobalConfigService.load('INSTALLATION_NAME', 'Chatwoot').presence || 'Chatwoot'
@@ -54,21 +55,21 @@ class VoiceAgents::PromptComposer
   end
 
   def language_prompt
-    return if voice_agent.language.blank?
+    return if value(:language).blank?
 
-    "# Language\nVoice language: #{voice_agent.language}. Use this language unless the caller clearly asks otherwise."
+    "# Language\nVoice language: #{value(:language)}. Use this language unless the caller clearly asks otherwise."
   end
 
   def greeting_prompt
-    return if voice_agent.greeting.blank?
+    return if value(:greeting).blank?
 
-    "# Greeting\nPreferred greeting: #{voice_agent.greeting}"
+    "# Greeting\nPreferred greeting: #{value(:greeting)}"
   end
 
   def agent_prompt
-    return if voice_agent.prompt.blank?
+    return if value(:prompt).blank?
 
-    "# Customer Instructions\n#{voice_agent.prompt}"
+    "# Customer Instructions\n#{value(:prompt)}"
   end
 
   def tool_policy_prompt
@@ -86,6 +87,12 @@ class VoiceAgents::PromptComposer
   end
 
   def enabled_tool_keys
-    @enabled_tool_keys ||= VoiceAgents::Config.new(voice_agent.tools_config).enabled_tool_keys
+    @enabled_tool_keys ||= VoiceAgents::Config.new(value(:tools_config)).enabled_tool_keys
+  end
+
+  def value(key)
+    return snapshot[key.to_s] if snapshot&.key?(key.to_s)
+
+    voice_agent.public_send(key)
   end
 end

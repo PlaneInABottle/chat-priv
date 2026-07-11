@@ -2,32 +2,36 @@
 #
 # Table name: voice_agents
 #
-#  id             :bigint           not null, primary key
-#  architecture   :string           default("realtime"), not null
-#  config         :jsonb            not null
-#  enabled        :boolean          default(FALSE), not null
-#  greeting       :text
-#  language       :string           default("tr"), not null
-#  last_tested_at :datetime
-#  model          :string
-#  name           :string           default("Voice Assistant"), not null
-#  prompt         :text             default(""), not null
-#  provider       :string           default("gemini"), not null
-#  published_at   :datetime
-#  tools_config   :jsonb            not null
-#  voice          :string           default("Charon"), not null
-#  created_at     :datetime         not null
-#  updated_at     :datetime         not null
-#  account_id     :bigint           not null
+#  id                            :bigint           not null, primary key
+#  architecture                  :string           default("realtime"), not null
+#  config                        :jsonb            not null
+#  enabled                       :boolean          default(FALSE), not null
+#  greeting                      :text
+#  language                      :string           default("tr"), not null
+#  last_tested_at                :datetime
+#  last_tested_draft_fingerprint :string
+#  model                         :string
+#  name                          :string           default("Voice Assistant"), not null
+#  prompt                        :text             default(""), not null
+#  provider                      :string           default("gemini"), not null
+#  published_at                  :datetime
+#  tools_config                  :jsonb            not null
+#  voice                         :string           default("Charon"), not null
+#  created_at                    :datetime         not null
+#  updated_at                    :datetime         not null
+#  account_id                    :bigint           not null
+#  current_release_id            :bigint
 #
 # Indexes
 #
 #  index_voice_agents_on_account_id                 (account_id)
 #  index_voice_agents_on_account_id_and_created_at  (account_id,created_at)
+#  index_voice_agents_on_current_release_id         (current_release_id)
 #
 # Foreign Keys
 #
 #  fk_rails_...  (account_id => accounts.id) ON DELETE => cascade
+#  fk_rails_...  (current_release_id => voice_agent_releases.id) ON DELETE => nullify
 #
 class VoiceAgent < ApplicationRecord
   ARCHITECTURES = %w[realtime pipeline].freeze
@@ -36,6 +40,8 @@ class VoiceAgent < ApplicationRecord
   OPENAI_REALTIME_VOICES = %w[alloy ash ballad coral echo sage shimmer verse marin cedar].freeze
 
   belongs_to :account
+  belongs_to :current_release, class_name: 'VoiceAgentRelease', optional: true
+  has_many :releases, class_name: 'VoiceAgentRelease', dependent: :destroy
   has_many :voice_inbox_settings, dependent: :nullify
 
   scope :enabled, -> { where(enabled: true) }
@@ -63,21 +69,86 @@ class VoiceAgent < ApplicationRecord
     VoiceAgents::Readiness.new(self).payload
   end
 
-  def publish!
+  def publish!(created_by: nil)
     raise ActiveRecord::RecordInvalid, self unless readiness[:can_publish]
 
-    update!(enabled: true, published_at: published_at || Time.current)
+    with_lock do
+      snapshot = VoiceAgents::ReleaseSnapshot.for(self)
+      fingerprint = AssistantReleases::Snapshot.fingerprint(snapshot)
+      if current_release&.fingerprint == fingerprint
+        update!(enabled: true)
+      else
+        release = releases.create!(
+          account: account,
+          created_by: created_by,
+          revision: next_release_revision,
+          source: 'publish',
+          fingerprint: fingerprint,
+          snapshot: snapshot
+        )
+        update!(enabled: true, published_at: Time.current, current_release: release)
+      end
+    end
+  end
+
+  def rollback_to!(release, created_by: nil)
+    raise ActiveRecord::RecordNotFound unless release&.voice_agent_id == id
+
+    with_lock do
+      restored = releases.create!(
+        account: account,
+        created_by: created_by,
+        revision: next_release_revision,
+        source: 'rollback',
+        fingerprint: release.fingerprint,
+        snapshot: release.snapshot
+      )
+      assign_attributes(restored.snapshot.slice(*VoiceAgents::ReleaseSnapshot::ATTRIBUTES))
+      self.enabled = true
+      self.published_at = Time.current
+      self.current_release = restored
+      self.last_tested_at = Time.current
+      self.last_tested_draft_fingerprint = restored.fingerprint
+      save!
+      restored
+    end
   end
 
   def pause!
     update!(enabled: false)
   end
 
-  def mark_test_succeeded!
-    update!(last_tested_at: Time.current)
+  def mark_test_succeeded!(tested_fingerprint: draft_fingerprint)
+    update!(last_tested_at: Time.current, last_tested_draft_fingerprint: tested_fingerprint)
+  end
+
+  def draft_fingerprint
+    AssistantReleases::Snapshot.fingerprint(VoiceAgents::ReleaseSnapshot.for(self))
+  end
+
+  def draft_tested?
+    last_tested_at.present? && last_tested_draft_fingerprint == draft_fingerprint
+  end
+
+  def draft_changes?
+    current_release.present? && current_release.fingerprint != draft_fingerprint
+  end
+
+  def published_revision
+    current_release&.revision.to_i
+  end
+
+  def live_value(key)
+    return current_release.value(key) if current_release
+
+    public_send(key)
   end
 
   private
+
+  def next_release_revision
+    releases.maximum(:revision).to_i + 1
+  end
 
   def set_defaults
     self.tools_config = {} unless tools_config.is_a?(Hash)
