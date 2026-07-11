@@ -77,12 +77,16 @@ class AiAgents::EvaluationRunner
 
   def complete_run
     completed_results = run.evaluation_results.completed
+    completed_count = completed_results.count
+    passed_count = completed_results.where(passed: true).count
     run.update!(
       status: :completed,
-      passed_count: completed_results.where(passed: true).count,
+      passed_count: passed_count,
       completed_at: Time.current
     )
-    ai_agent.mark_test_succeeded!(prompt: run.prompt_snapshot, config: run.config_snapshot) if completed_results.exists?
+    return unless run.total_count.positive? && completed_count == run.total_count && passed_count == run.total_count
+
+    ai_agent.mark_test_succeeded!(prompt: run.prompt_snapshot, config: run.config_snapshot)
   end
 
   def fail_run(error)

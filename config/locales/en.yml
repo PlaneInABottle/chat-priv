@@ -696,7 +696,7 @@ en:
       unlimited_hint: "0 = unlimited"
       reuse_window_hint: "Hours. New AI conversations from the same contact inside this window count once."
       data_retention: "Sensitive Activity Retention"
-      data_retention_hint: "Model diagnostics, tool activity, tests, evaluations, and reviewed learning snapshots."
+      data_retention_hint: "Model diagnostics, tool activity, test conversations, evaluation run results, and reviewed learning snapshots."
     account_voice_ai_settings:
       title: "Voice AI Settings"
       account_access: "Account access"
@@ -723,7 +723,7 @@ en:
       cleanup_description: "Permanently delete sensitive Text AI or Voice AI activity older than the account's configured retention period. Customer conversations, call records, and usage totals are retained."
       text_action: "Clean Up Expired Text AI Data"
       voice_action: "Clean Up Expired Voice AI Data"
-      text_warning: "Deletes Text AI diagnostics, tool activity, tests, evaluations, and reviewed learning snapshots older than %{days} days."
+      text_warning: "Deletes Text AI diagnostics, tool activity, test conversations, evaluation run results, and reviewed learning snapshots older than %{days} days. Saved evaluation scenarios are retained."
       voice_warning: "Deletes Voice AI transcripts, summaries, tool activity, and recordings older than %{days} days."
       confirm: "This permanently deletes expired sensitive AI activity. Continue?"
       queued: "%{kind} AI data cleanup queued."
