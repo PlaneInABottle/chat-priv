@@ -624,12 +624,6 @@ async def _entrypoint_inner(ctx: agents.JobContext, provider_call_id: str) -> No
         except asyncio.TimeoutError:
             await chatwoot.end_call(provider_call_id, "participant_timeout")
             return
-        await chatwoot.record_event(
-            provider_call_id,
-            "agent_listening",
-            {"participant_identity": participant.identity},
-        )
-
         ended = False
 
         async def end_call_once(reason: str) -> None:
@@ -675,6 +669,11 @@ async def _entrypoint_inner(ctx: agents.JobContext, provider_call_id: str) -> No
                 realtime_model_name=realtime_model_name,
             ),
             room_input_options=RoomInputOptions(participant_identity=participant.identity),
+        )
+        await chatwoot.record_event(
+            provider_call_id,
+            "agent_listening",
+            {"participant_identity": participant.identity},
         )
     finally:
         await chatwoot.close()
