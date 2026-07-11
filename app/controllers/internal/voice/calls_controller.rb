@@ -36,12 +36,14 @@ class Internal::Voice::CallsController < Internal::Voice::BaseController
     return if reject_voice_event?(event_name)
 
     meta = @call.meta || {}
+    record_test_call_customer_joined(meta, event_name)
     ai_status = ai_status_for_event(event_name)
     meta['last_voice_agent_event'] = event_name
     meta['last_voice_agent_event_at'] = Time.zone.now.iso8601
     meta['last_voice_agent_payload'] = hash_param(:payload)
     meta['ai_status'] = ai_status if ai_status
     @call.update!(meta: meta)
+    schedule_test_call_improvement_budget
     Voice::CallMessageBuilder.new(@call).update_status!(status: @call.status) if @call.message_id
     Voice::CallBroadcaster.safe_call_status_changed(@call)
     render json: { status: 'stored' }
@@ -89,10 +91,12 @@ class Internal::Voice::CallsController < Internal::Voice::BaseController
   def end
     return render_ignored_dispatch_cancelled_end if ignore_dispatch_cancelled_after_takeover?
 
+    reason = params[:end_reason].presence
     Voice::CallFinalizer.perform!(
       call: @call,
       status: terminal_status,
-      end_reason: params[:end_reason].presence
+      end_reason: reason,
+      timing: improvement_budget_timing(reason)
     )
     render json: Voice::CallSerializer.new(@call).payload
   end
@@ -188,6 +192,19 @@ class Internal::Voice::CallsController < Internal::Voice::BaseController
     Call::TERMINAL_STATUSES.include?(status) ? status : 'completed'
   end
 
+  def improvement_budget_timing(reason)
+    duration_limit = @call.meta.to_h['ai_improvement_max_duration_seconds'].to_i
+    improvement_started_at = Time.zone.parse(@call.meta.to_h['ai_improvement_started_at'].to_s)
+    return {} unless reason == 'ai_improvement_credit_limit' && @call.test_call? && improvement_started_at && duration_limit.positive?
+
+    {
+      ended_at: improvement_started_at + duration_limit.seconds,
+      duration_seconds: duration_limit
+    }
+  rescue ArgumentError
+    {}
+  end
+
   def ignore_dispatch_cancelled_after_takeover?
     params[:end_reason].to_s == 'livekit_dispatch_cancelled' &&
       @call.livekit? &&
@@ -224,6 +241,25 @@ class Internal::Voice::CallsController < Internal::Voice::BaseController
 
     ensure_runtime_action_allowed
     performed?
+  end
+
+  def record_test_call_customer_joined(meta, event_name)
+    return unless event_name.to_s == 'test_call_customer_joined' && @call.test_call?
+    return if meta['ai_improvement_started_at'].present?
+
+    meta['ai_improvement_started_at'] = Time.current.iso8601(3)
+    @schedule_test_call_improvement_budget = true
+  end
+
+  def schedule_test_call_improvement_budget
+    return unless @schedule_test_call_improvement_budget
+
+    duration_limit = @call.meta.to_h['ai_improvement_max_duration_seconds'].to_i
+    return unless duration_limit.positive?
+
+    Voice::TestCallImprovementBudgetJob.set(wait: duration_limit.seconds).perform_later(@call)
+  rescue StandardError => e
+    Rails.logger.warn("voice test budget guard scheduling failed call_id=#{@call.id} error=#{e.class.name}: #{e.message}")
   end
 
   def ai_status_for_event(event_name)

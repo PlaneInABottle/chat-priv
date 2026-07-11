@@ -17,6 +17,7 @@ class Api::V1::Accounts::Voice::TestCallsController < Api::V1::Accounts::BaseCon
     render json: Voice::CallSerializer.new(call).payload, status: :created
   rescue ArgumentError => e
     render json: { error: e.message }, status: :unprocessable_entity
+  rescue AiImprovements::Usage::Exhausted => e
+    render_ai_improvement_credits_exhausted(e)
   end
-
 end

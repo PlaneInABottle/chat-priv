@@ -25,6 +25,7 @@ import Input from 'dashboard/components-next/input/Input.vue';
 import Switch from 'dashboard/components-next/switch/Switch.vue';
 import TabBar from 'dashboard/components-next/tabbar/TabBar.vue';
 import AssistantReleaseHistoryDialog from '../aiAgent/components/AssistantReleaseHistoryDialog.vue';
+import ImprovementCreditsSummary from '../aiAgent/components/ImprovementCreditsSummary.vue';
 
 const TERMINAL_CALL_STATUSES = [
   'completed',
@@ -83,6 +84,7 @@ const router = useRouter();
 const settings = ref([]);
 const voiceAgents = ref([]);
 const voiceUsage = ref(null);
+const improvementUsage = ref(null);
 const recordings = ref([]);
 const telephonyReadiness = ref({ configured: false, numbers: [] });
 const selectedVoiceAgentId = ref('');
@@ -95,6 +97,7 @@ const isLoading = ref(false);
 const isLoadingRecordings = ref(false);
 const isSavingAgent = ref(false);
 const releaseHistoryRef = ref(null);
+const improvementCreditsRef = ref(null);
 const isCreatingCall = ref(false);
 const isEnding = ref(false);
 const isRefreshing = ref(false);
@@ -231,11 +234,40 @@ const hasActiveTestCall = computed(
 const canEditTest = computed(
   () => voiceAccessEnabled.value && !hasActiveTestCall.value
 );
+const improvementCreditsExhausted = computed(
+  () => improvementUsage.value?.status === 'exhausted'
+);
+const availableVoiceTestSeconds = computed(() => {
+  if (hasActiveTestCall.value) {
+    return currentCall.value?.test_duration_limit_seconds || null;
+  }
+  if (!improvementUsage.value || improvementUsage.value.unlimited) return null;
+
+  const secondsPerCredit = improvementUsage.value.rates?.audio_seconds || 10;
+  const accountMaximum =
+    (voiceUsage.value?.max_call_duration_minutes || 15) * 60;
+  return Math.min(
+    improvementUsage.value.remaining_credits * secondsPerCredit,
+    accountMaximum
+  );
+});
+const voiceTestDurationText = computed(() => {
+  const seconds = availableVoiceTestSeconds.value;
+  if (!seconds) return '';
+  if (seconds >= 60 && seconds % 60 === 0) {
+    return t('VOICE_AI.SETUP.TEST_CREDIT_DURATION_MINUTES', {
+      minutes: seconds / 60,
+    });
+  }
+
+  return t('VOICE_AI.SETUP.TEST_CREDIT_DURATION_SECONDS', { seconds });
+});
 const canStartTest = computed(
   () =>
     voiceAccessEnabled.value &&
     Boolean(selectedTestInboxSetting.value) &&
     !isCreatingCall.value &&
+    !improvementCreditsExhausted.value &&
     !hasActiveTestCall.value
 );
 const canJoin = computed(
@@ -777,6 +809,10 @@ const toggleTool = toolKey => {
   };
 };
 
+const handleImprovementUsageLoaded = usage => {
+  improvementUsage.value = usage;
+};
+
 const createTestCall = async () => {
   if (!canStartTest.value) return;
   isCreatingCall.value = true;
@@ -788,9 +824,13 @@ const createTestCall = async () => {
       caller_number: callerNumber.value,
     });
     currentCall.value = response.data;
+    await improvementCreditsRef.value?.refresh();
     disconnectRoom();
     useAlert(t('VOICE_AI.SETUP.START_SUCCESS'));
   } catch (error) {
+    if (error.response?.data?.usage) {
+      improvementUsage.value = error.response.data.usage;
+    }
     useAlert(error.response?.data?.error || t('VOICE_AI.SETUP.START_ERROR'));
   } finally {
     isCreatingCall.value = false;
@@ -845,6 +885,7 @@ const endCall = async () => {
     currentCall.value = response.data;
     disconnectRoom();
     await refreshUsage();
+    await improvementCreditsRef.value?.refresh();
     useAlert(t('VOICE_AI.SESSION.END_SUCCESS'));
   } catch {
     useAlert(t('VOICE_AI.SESSION.ACTION_ERROR'));
@@ -1482,6 +1523,14 @@ onBeforeUnmount(() => {
                 {{ t('VOICE_AI.TEST.DESCRIPTION') }}
               </p>
             </div>
+
+            <ImprovementCreditsSummary
+              ref="improvementCreditsRef"
+              @loaded="handleImprovementUsageLoaded"
+            />
+            <p v-if="voiceTestDurationText" class="m-0 text-xs text-n-slate-10">
+              {{ voiceTestDurationText }}
+            </p>
 
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
               <label class="flex flex-col gap-1">

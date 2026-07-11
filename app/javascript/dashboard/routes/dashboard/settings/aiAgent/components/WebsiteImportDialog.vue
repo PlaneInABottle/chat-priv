@@ -8,13 +8,14 @@ import Button from 'dashboard/components-next/button/Button.vue';
 import Dialog from 'dashboard/components-next/dialog/Dialog.vue';
 import Icon from 'dashboard/components-next/icon/Icon.vue';
 import Spinner from 'dashboard/components-next/spinner/Spinner.vue';
+import ImprovementCreditsSummary from './ImprovementCreditsSummary.vue';
 
 const props = defineProps({
   aiAgentId: { type: Number, required: true },
   defaultWebsite: { type: String, default: '' },
 });
 
-const emit = defineEmits(['applied']);
+const emit = defineEmits(['applied', 'usageChanged']);
 const { t } = useI18n();
 const dialog = ref(null);
 const websiteUrl = ref('');
@@ -23,6 +24,8 @@ const selectedSections = ref([]);
 const isStarting = ref(false);
 const isApplying = ref(false);
 const isDialogOpen = ref(false);
+const improvementCreditsRef = ref(null);
+const improvementUsage = ref(null);
 let pollTimer = null;
 
 const api = computed(() => new AiAgentWebsiteImportsAPI(props.aiAgentId));
@@ -37,6 +40,9 @@ const currentDocument = computed(
   () => websiteImport.value?.current_document || { sections: {} }
 );
 const hasDraftConflict = computed(() => websiteImport.value?.draft_changed);
+const creditsExhausted = computed(
+  () => improvementUsage.value?.status === 'exhausted'
+);
 const canApply = computed(
   () =>
     isReady.value &&
@@ -46,6 +52,7 @@ const canApply = computed(
 
 const errorKeys = {
   invalid_website: 'INVALID_WEBSITE',
+  ai_improvement_credits_exhausted: 'CREDITS_EXHAUSTED',
   website_import_rate_limited: 'RATE_LIMITED',
   timed_out: 'TIMED_OUT',
   website_too_large: 'TOO_LARGE',
@@ -86,6 +93,12 @@ const stopPolling = () => {
   pollTimer = null;
 };
 
+const handleImprovementUsageLoaded = usage => {
+  improvementUsage.value = usage;
+};
+
+const refreshImprovementUsage = () => improvementCreditsRef.value?.refresh();
+
 const pollImport = async () => {
   try {
     const { data } = await api.value.show(websiteImport.value.id);
@@ -95,6 +108,9 @@ const pollImport = async () => {
     stopPolling();
     if (['pending', 'running'].includes(data.status)) {
       pollTimer = setTimeout(pollImport, 1500);
+    } else {
+      await refreshImprovementUsage();
+      emit('usageChanged');
     }
   } catch {
     stopPolling();
@@ -103,7 +119,7 @@ const pollImport = async () => {
 };
 
 const startImport = async () => {
-  if (!websiteUrl.value.trim()) return;
+  if (!websiteUrl.value.trim() || creditsExhausted.value) return;
 
   isStarting.value = true;
   try {
@@ -117,6 +133,8 @@ const startImport = async () => {
       pollTimer = setTimeout(pollImport, 1000);
     }
   } catch (error) {
+    await refreshImprovementUsage();
+    emit('usageChanged');
     useAlert(
       localizedError(
         error.response?.data?.code,
@@ -164,6 +182,7 @@ const open = async () => {
   websiteImport.value = null;
   selectedSections.value = [];
   dialog.value.open();
+  await refreshImprovementUsage();
 
   try {
     const { data } = await api.value.get();
@@ -209,6 +228,10 @@ defineExpose({ open });
     <div
       class="flex max-h-[60dvh] min-h-72 flex-col gap-5 overflow-y-auto overscroll-contain pr-1"
     >
+      <ImprovementCreditsSummary
+        ref="improvementCreditsRef"
+        @loaded="handleImprovementUsageLoaded"
+      />
       <form
         v-if="!websiteImport"
         class="flex flex-col gap-2 sm:flex-row"
@@ -233,7 +256,7 @@ defineExpose({ open });
           class="self-end"
           :label="t('AI_ASSISTANT.WEBSITE_IMPORT.ANALYZE')"
           :is-loading="isStarting"
-          :disabled="!websiteUrl.trim()"
+          :disabled="!websiteUrl.trim() || creditsExhausted"
         />
       </form>
 

@@ -1,0 +1,23 @@
+<div class="field-unit__label">
+  <%= f.label field.attribute, t('super_admin.account_ai_improvement_settings.title') %>
+</div>
+<div class="field-unit__field">
+  <% field_id = "account_#{field.resource.id || 'new'}_ai_improvement_monthly_credit_limit" %>
+  <div class="ai-agent-settings-panel">
+    <div class="ai-agent-settings-panel__header">
+      <span class="ai-agent-settings-panel__title"><%= t('super_admin.account_ai_improvement_settings.monthly_limit') %></span>
+    </div>
+    <div class="ai-agent-settings-panel__body">
+      <div class="ai-agent-settings-control">
+        <%= label_tag field_id, t('super_admin.account_ai_improvement_settings.credits') %>
+        <%= number_field_tag "#{field.html_name}[monthly_credit_limit]",
+                             field.resource.ai_improvement_monthly_credit_limit,
+                             id: field_id,
+                             min: 0,
+                             step: 1,
+                             required: true %>
+        <span class="ai-agent-settings-control__hint"><%= t('super_admin.account_ai_improvement_settings.limit_hint') %></span>
+      </div>
+    </div>
+  </div>
+</div>

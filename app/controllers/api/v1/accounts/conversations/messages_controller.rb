@@ -62,6 +62,8 @@ class Api::V1::Accounts::Conversations::MessagesController < Api::V1::Accounts::
     render 'api/v1/accounts/ai_agent_learning_suggestions/show', status: :accepted
   rescue AiAgents::LearningSuggestionCreator::InvalidCandidate => e
     render json: { error: e.message }, status: :unprocessable_entity
+  rescue AiImprovements::Usage::Exhausted => e
+    render_ai_improvement_credits_exhausted(e)
   end
 
   private

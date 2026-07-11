@@ -186,4 +186,24 @@ describe('EvaluationSuite.vue', () => {
 
     expect(apiMocks.createRun).not.toHaveBeenCalled();
   });
+
+  it('keeps scenarios editable but blocks a run when credits are exhausted', async () => {
+    apiMocks.get.mockResolvedValue({ data: [evaluationCase] });
+    const wrapper = mountComponent({ creditsExhausted: true });
+    await flushPromises();
+
+    const buttons = wrapper.findAll('button');
+    const runButton = buttons.find(button =>
+      button.text().includes('AI_ASSISTANT.EVALUATIONS.RUN.ACTION')
+    );
+    const addButton = buttons.find(button =>
+      button.text().includes('AI_ASSISTANT.EVALUATIONS.ADD')
+    );
+    expect(runButton.attributes('disabled')).toBeDefined();
+    expect(addButton.attributes('disabled')).toBeUndefined();
+
+    await wrapper.vm.startRun();
+
+    expect(apiMocks.createRun).not.toHaveBeenCalled();
+  });
 });

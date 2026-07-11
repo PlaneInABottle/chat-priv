@@ -58,6 +58,7 @@ class Voice::CallSerializer
       test_call: call.test_call?,
       test_call_source: call.test_call_source,
       test_call_initiated_by_user_id: call.test_call_initiated_by_user_id,
+      test_duration_limit_seconds: test_duration_limit_seconds,
       handoff_status: call.handoff_status,
       ai_status: call.ai_status,
       summary: summary_payload,
@@ -66,6 +67,10 @@ class Voice::CallSerializer
       duration_seconds: call.duration_seconds,
       end_reason: call.end_reason
     }
+  end
+
+  def test_duration_limit_seconds
+    call.meta&.fetch('ai_improvement_max_duration_seconds', nil)
   end
 
   def transcript_segments

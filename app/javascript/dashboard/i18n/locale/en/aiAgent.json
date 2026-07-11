@@ -238,6 +238,14 @@
       "LEARNINGS": "Learnings",
       "SAVE_DRAFT_FIRST": "Save or discard instruction changes first. Evaluations and learnings use the saved draft."
     },
+    "IMPROVEMENT_CREDITS": {
+      "TITLE": "Improvement credits",
+      "LOADING": "Loading usage…",
+      "UNLIMITED": "Unlimited",
+      "SUMMARY": "{remaining} of {limit} left - resets {date}",
+      "DESCRIPTION": "Used by assistant tests and improvement tools. Live customer conversations and real calls have separate limits.",
+      "LOAD_ERROR": "Improvement credit usage could not be loaded."
+    },
     "LEARNING": {
       "TITLE": "Learning suggestions",
       "DESCRIPTION": "Review reusable guidance proposed from human replies. Applying a suggestion changes only the saved draft.",
@@ -319,6 +327,7 @@
         "LOAD": "Previous website analysis could not be loaded.",
         "START": "The website could not be analyzed. Check the address and try again.",
         "APPLY": "The suggestions could not be applied. Refresh the draft and try again.",
+        "CREDITS_EXHAUSTED": "Improvement credits are exhausted for this month. Contact your service administrator.",
         "INVALID_WEBSITE": "Enter a public company website, such as https://example.com.",
         "RATE_LIMITED": "Website analysis was requested recently. Wait a moment and try again.",
         "TIMED_OUT": "Website analysis took too long. Try again or add the business details manually.",
@@ -632,6 +641,8 @@
       "RECORDING_HELP": "Store call recordings when LiveKit recording is enabled.",
       "SAVE": "Save settings",
       "START_TEST": "Start test call",
+      "TEST_CREDIT_DURATION_SECONDS": "This test can run for up to {seconds} seconds with the credits currently available.",
+      "TEST_CREDIT_DURATION_MINUTES": "This test can run for up to {minutes} minutes with the credits currently available.",
       "NO_API_INBOX": "Create an API inbox before testing voice AI.",
       "SAVE_SUCCESS": "Voice AI settings saved.",
       "SAVE_ERROR": "Failed to save Voice AI settings.",

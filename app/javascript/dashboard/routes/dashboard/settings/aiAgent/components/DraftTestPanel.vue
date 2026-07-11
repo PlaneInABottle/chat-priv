@@ -1,10 +1,11 @@
 <script setup>
-import { onMounted, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import { useAlert } from 'dashboard/composables';
 import { useMapGetter, useStore } from 'dashboard/composables/store';
 import Button from 'dashboard/components-next/button/Button.vue';
+import ImprovementCreditsSummary from './ImprovementCreditsSummary.vue';
 import TestConversationChatPanel from './TestConversationChatPanel.vue';
 
 const props = defineProps({
@@ -18,6 +19,15 @@ const emit = defineEmits(['tested']);
 
 const store = useStore();
 const { t } = useI18n();
+const improvementCreditsRef = ref(null);
+const improvementUsage = ref(null);
+const creditsExhausted = computed(
+  () => improvementUsage.value?.status === 'exhausted'
+);
+
+const handleImprovementUsageLoaded = usage => {
+  improvementUsage.value = usage;
+};
 
 const conversations = useMapGetter(
   'aiAgentTestConversations/getTestConversations'
@@ -42,7 +52,7 @@ const createConversation = async () => {
 };
 
 const sendMessage = async content => {
-  if (!activeConversation.value) return;
+  if (!activeConversation.value || creditsExhausted.value) return;
 
   const result = await store.dispatch('aiAgentTestConversations/sendMessage', {
     aiAgentId: props.aiAgentId,
@@ -53,9 +63,11 @@ const sendMessage = async content => {
 
   if (result?.error) {
     useAlert(result.error || t('AI_AGENT.TEST_CONVERSATIONS.ERROR'));
+    await improvementCreditsRef.value?.refresh?.();
     return;
   }
 
+  await improvementCreditsRef.value?.refresh?.();
   emit('tested');
 };
 
@@ -67,11 +79,14 @@ const selectLatestConversation = items => {
 
 watch(conversations, selectLatestConversation);
 onMounted(() => selectLatestConversation(conversations.value));
+defineExpose({
+  refreshCredits: () => improvementCreditsRef.value?.refresh?.(),
+});
 </script>
 
 <template>
   <aside
-    class="flex h-[32rem] flex-col overflow-hidden rounded-lg border border-n-weak bg-n-solid-1 md:h-[calc(100dvh-22rem)] md:min-h-[26rem] md:max-h-[48rem]"
+    class="flex h-[32rem] flex-col overflow-hidden rounded-lg border border-n-weak bg-n-solid-1 md:h-[calc(100dvh-25rem)] md:min-h-[22rem] md:max-h-[48rem]"
     :aria-label="t('AI_ASSISTANT.INSTRUCTIONS.DRAFT_TEST')"
   >
     <div class="flex flex-col gap-3 border-b border-n-weak p-4">
@@ -124,13 +139,18 @@ onMounted(() => selectLatestConversation(conversations.value));
           </option>
         </select>
       </label>
+      <ImprovementCreditsSummary
+        ref="improvementCreditsRef"
+        compact
+        @loaded="handleImprovementUsageLoaded"
+      />
     </div>
 
     <div class="min-h-0 flex-1">
       <TestConversationChatPanel
         :conversation="activeConversation"
         :ui-flags="uiFlags"
-        :is-disabled="isDisabled"
+        :is-disabled="isDisabled || creditsExhausted"
         @send="sendMessage"
       />
     </div>

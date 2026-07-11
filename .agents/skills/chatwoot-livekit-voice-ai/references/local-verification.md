@@ -24,6 +24,7 @@
 - Voice agents are separate from text AI agents. Configure them in Settings -> Voice AI -> Voice agents. Assign API sandbox inboxes inside each voice agent; do not use a separate global voice setup tab. Voice inbox settings select `voice_agent_id`; do not expect `ai_agent_id`, setting-level `greeting`, or setting-level `instructions`.
 - Voice inbox assignments do not have a separate readiness `status`. If an inbox is assigned to a voice agent and account Voice AI access is enabled, it is eligible for browser tests and SIP routing.
 - Super Admin controls account-level Voice AI access and limits under `/super_admin/accounts/:id/edit`. Test calls are excluded from monthly minute and concurrent-call limits, but Voice AI must still be enabled for the account.
+- Browser Voice tests use the account's separate AI improvement credits at 10 seconds per credit. Credits are reserved when the room is created, but metering and the `test_duration_limit_seconds` timer start only after the caller joins; unjoined tests release the reservation. The Voice worker enforces the connected duration, and `Voice::TestCallImprovementBudgetJob` is the delayed recovery guard.
 - If Voice AI is disabled after a call is already active, account users and the voice worker should not be able to join, take over, fetch runtime context, append transcript, post non-terminal lifecycle events, or record tool calls. Ending/finalizing the call remains allowed so LiveKit/SIP cleanup can complete. A late terminal `agent_session_ended` event is still accepted only to mark `ai_status: completed`.
 - Integration tools such as `ikas_catalog_search` and `ikas_lookup_order` are enabled per voice agent. Ikas tools also require the account `ikas_integration` feature, a connected `ikas` hook, and a completed storefront catalog sync.
 - SIP/phone-number routing is modeled separately from browser test calls:
@@ -139,7 +140,7 @@ The floating incoming-call popup is LiveKit-aware. Accepting a LiveKit call from
 Expected proof:
 
 - Rails returns `201 Created` for `/api/v1/accounts/:id/voice/test_calls`.
-- The call payload includes `test_call: true`, `test_call_source: voice_ai_settings`, `test_call_initiated_by_user_id`, and nil `conversation_id`, `contact_id`, and `message_id`.
+- The call payload includes `test_call: true`, `test_call_source: voice_ai_settings`, `test_call_initiated_by_user_id`, `test_duration_limit_seconds`, and nil `conversation_id`, `contact_id`, and `message_id`.
 - The call metadata includes `voice_agent_id` and `voice_agent_dispatch.status = dispatched`.
 - The worker fetches `/internal/voice/calls/:provider_call_id/agent_context` and receives voice-agent instructions, runtime provider/model/voice, and the enabled voice tool schemas.
 - The worker receives a LiveKit job request for the room.

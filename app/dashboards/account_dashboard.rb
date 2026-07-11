@@ -36,6 +36,7 @@ class AccountDashboard < Administrate::BaseDashboard
     account_users: Field::HasMany,
     custom_attributes: Field::String,
     ai_agent_settings: AccountAiAgentSettingsField,
+    ai_improvement_settings: AccountAiImprovementSettingsField,
     voice_ai_settings: AccountVoiceAiSettingsField,
     voice_agent_runtime_settings: AccountVoiceAgentRuntimeSettingsField
   }.merge(enterprise_attribute_types).freeze
@@ -74,6 +75,7 @@ class AccountDashboard < Administrate::BaseDashboard
     conversations
     account_users
     ai_agent_settings
+    ai_improvement_settings
     voice_ai_settings
     voice_agent_runtime_settings
   ] + enterprise_show_page_attributes).freeze
@@ -94,6 +96,7 @@ class AccountDashboard < Administrate::BaseDashboard
     locale
     status
     ai_agent_settings
+    ai_improvement_settings
     voice_ai_settings
     voice_agent_runtime_settings
   ] + enterprise_form_attributes).freeze
@@ -129,6 +132,7 @@ class AccountDashboard < Administrate::BaseDashboard
     attrs = super + [
       limits: {},
       ai_agent_settings: %i[enabled model conversation_limit conversation_reuse_window_hours data_retention_days],
+      ai_improvement_settings: %i[monthly_credit_limit],
       voice_ai_settings: %i[enabled monthly_minute_limit max_call_duration_minutes concurrent_call_limit data_retention_days],
       voice_agent_runtime_settings: {}
     ]

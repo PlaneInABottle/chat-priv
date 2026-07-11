@@ -15,11 +15,14 @@ class Api::V1::Accounts::AiAgentEvaluationRunsController < Api::V1::Accounts::Ba
     return render_empty_suite_error if @ai_agent.evaluation_cases.none?
     return render_running_error if @ai_agent.evaluation_runs.pending.or(@ai_agent.evaluation_runs.running).exists?
 
+    ensure_ai_improvement_credits!(operation: 'evaluation', ai_agent: @ai_agent)
     create_evaluation_run
     AiAgents::EvaluationRunJob.perform_later(@evaluation_run)
     render :show, status: :accepted
   rescue ActiveRecord::RecordNotUnique
     render_running_error
+  rescue AiImprovements::Usage::Exhausted => e
+    render_ai_improvement_credits_exhausted(e)
   end
 
   private

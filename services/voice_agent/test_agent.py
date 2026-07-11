@@ -103,6 +103,60 @@ class VoiceAssistantTest(unittest.TestCase):
         assistant._bind_realtime_metrics()
 
 
+class ImprovementBudgetTest(unittest.IsolatedAsyncioTestCase):
+    def test_duration_uses_the_reserved_test_allowance(self) -> None:
+        context = {"call": {"test_duration_limit_seconds": 20}}
+
+        self.assertEqual(agent.improvement_budget_duration_seconds(context), 20.0)
+
+    def test_duration_is_disabled_without_a_positive_allowance(self) -> None:
+        self.assertIsNone(agent.improvement_budget_duration_seconds({"call": {}}))
+        self.assertIsNone(
+            agent.improvement_budget_duration_seconds(
+                {"call": {"test_duration_limit_seconds": "invalid"}}
+            )
+        )
+        self.assertIsNone(
+            agent.improvement_budget_duration_seconds(
+                {"call": {"test_duration_limit_seconds": 0}}
+            )
+        )
+
+    async def test_enforcement_ends_the_call_after_the_remaining_delay(self) -> None:
+        end_call = AsyncMock()
+        sleep = AsyncMock()
+        with patch.object(agent, "improvement_budget_duration_seconds", return_value=2.5):
+            with patch.object(agent.asyncio, "sleep", sleep):
+                await agent.enforce_improvement_budget({"call": {}}, end_call)
+
+        sleep.assert_awaited_once_with(2.5)
+        end_call.assert_awaited_once_with("ai_improvement_credit_limit")
+
+    async def test_budget_starts_only_after_the_customer_join_is_recorded(self) -> None:
+        context = {"call": {"test_duration_limit_seconds": 20}}
+        chatwoot = SimpleNamespace(record_event=AsyncMock())
+        end_call = AsyncMock()
+        background_task = Mock()
+        with patch.object(agent, "enforce_improvement_budget", new=Mock(return_value="budget-coro")) as enforce_budget:
+            with patch.object(agent, "_fire_and_forget", return_value=background_task) as fire_and_forget:
+                result = await agent.start_improvement_budget(
+                    context,
+                    chatwoot,
+                    "call-1",
+                    "customer-1",
+                    end_call,
+                )
+
+        chatwoot.record_event.assert_awaited_once_with(
+            "call-1",
+            "test_call_customer_joined",
+            {"participant_identity": "customer-1"},
+        )
+        enforce_budget.assert_called_once_with(context, end_call)
+        fire_and_forget.assert_called_once_with("improvement_budget", "budget-coro")
+        self.assertIs(result, background_task)
+
+
 class VoiceToolTest(unittest.IsolatedAsyncioTestCase):
     async def test_terminal_tool_result_stops_agent_input(self) -> None:
         chatwoot = SimpleNamespace(execute_tool=AsyncMock(return_value={"result": {"terminal_action": "handoff", "handoff_status": "requested"}}))

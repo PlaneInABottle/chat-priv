@@ -11,6 +11,7 @@ class Api::V1::Accounts::AiAgentWebsiteImportsController < Api::V1::Accounts::Ba
   def show; end
 
   def create
+    ensure_ai_improvement_credits!(operation: 'website_import', ai_agent: @ai_agent)
     @website_import = AiAgents::WebsiteImportCreator.new(
       ai_agent: @ai_agent,
       website_url: params[:website_url],
@@ -22,6 +23,8 @@ class Api::V1::Accounts::AiAgentWebsiteImportsController < Api::V1::Accounts::Ba
     render json: { error: e.message, code: 'invalid_website' }, status: :unprocessable_entity
   rescue AiAgents::WebsiteImportCreator::RateLimited => e
     render json: { code: 'website_import_rate_limited', retry_after: e.retry_after }, status: :too_many_requests
+  rescue AiImprovements::Usage::Exhausted => e
+    render_ai_improvement_credits_exhausted(e)
   end
 
   def apply

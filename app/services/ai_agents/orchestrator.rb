@@ -50,7 +50,8 @@ module AiAgents
     MAX_ORDER_LOOKUP_CALLS = 1
     MAX_HUMAN_HANDOFF_CALLS = 1
 
-    def initialize(ai_agent:, messages:, mode:, conversation: nil, trigger_message: nil, adapter: nil, prompt_override: nil, config_override: nil)
+    def initialize(ai_agent:, messages:, mode:, conversation: nil, trigger_message: nil, adapter: nil, prompt_override: nil, config_override: nil,
+                   improvement_operation: nil, initiated_by: nil)
       @ai_agent = ai_agent
       @messages = messages
       @mode = mode
@@ -62,6 +63,8 @@ module AiAgents
                          else
                            prompt_override
                          end
+      @improvement_operation = improvement_operation || ('text_test' if mode.to_s == 'test')
+      @initiated_by = initiated_by
       @adapter = adapter || default_adapter
       @config = AiAgents::Config.new(@runtime_config, allow_legacy_human_handoff_settings: true)
       @executed_tool_keys = Set.new
@@ -104,6 +107,8 @@ module AiAgents
       end
 
       final_answer_result(request_messages, tool_events, TOOL_BUDGET_EXHAUSTED_PROMPT, budget_exhausted: true)
+    rescue AiImprovements::Usage::Exhausted
+      raise
     rescue StandardError => e
       Rails.logger.error("[AiAgents::Orchestrator] #{e.class}: #{e.message}")
       failure_result
@@ -112,14 +117,16 @@ module AiAgents
     private
 
     attr_reader :ai_agent, :messages, :mode, :conversation, :trigger_message, :adapter, :config, :executed_tool_keys,
-                :executed_tool_counts, :prompt_override, :runtime_config
+                :executed_tool_counts, :prompt_override, :runtime_config, :improvement_operation, :initiated_by
 
     def default_adapter
       AiAgents::LlmAdapters::OpenAiCompatibleAdapter.new(
         ai_agent: ai_agent,
         account: ai_agent.account,
         prompt_override: prompt_override,
-        config_override: runtime_config
+        config_override: runtime_config,
+        improvement_operation: improvement_operation,
+        initiated_by: initiated_by
       )
     end
 

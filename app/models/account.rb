@@ -41,6 +41,7 @@ class Account < ApplicationRecord
     'google/gemini-2.0-flash-001',
     'meta-llama/llama-3.3-70b-instruct'
   ].freeze
+  DEFAULT_AI_IMPROVEMENT_MONTHLY_CREDIT_LIMIT = 1000
 
   DEFAULT_QUERY_SETTING = {
     flag_query_mode: :bit_operator,
@@ -67,6 +68,7 @@ class Account < ApplicationRecord
   store_accessor :settings, :captain_auto_resolve_mode
   store_accessor :settings, :ai_agent_enabled, :ai_agent_model, :ai_agent_conversation_limit, :ai_agent_conversation_reuse_window_hours,
                  :ai_agent_data_retention_days
+  store_accessor :settings, :ai_improvement_monthly_credit_limit
   store_accessor :settings, :voice_ai_enabled, :voice_ai_monthly_minute_limit, :voice_ai_max_call_duration_minutes, :voice_ai_concurrent_call_limit,
                  :voice_ai_data_retention_days
 
@@ -82,6 +84,7 @@ class Account < ApplicationRecord
   has_many :ai_agent_llm_calls, dependent: :destroy
   has_many :ai_agent_tool_executions, dependent: :destroy
   has_many :ai_agent_usage_events, dependent: :destroy
+  has_many :ai_improvement_usage_events, dependent: :destroy
   has_many :ai_agent_evaluation_cases, dependent: :destroy
   has_many :ai_agent_evaluation_runs, dependent: :destroy
   has_many :ai_agent_learning_suggestions, dependent: :destroy
@@ -226,6 +229,31 @@ class Account < ApplicationRecord
 
   def ai_agent_data_retention_days
     AiDataRetention::Policy.normalize_days(super)
+  end
+
+  def ai_improvement_settings
+    { monthly_credit_limit: ai_improvement_monthly_credit_limit }
+  end
+
+  def ai_improvement_settings=(value)
+    return unless value.is_a?(Hash)
+
+    settings = value.with_indifferent_access
+    return unless settings.key?(:monthly_credit_limit)
+
+    parsed = Integer(settings[:monthly_credit_limit], exception: false)
+    valid_limit = parsed && !parsed.negative?
+    self.ai_improvement_monthly_credit_limit = valid_limit ? parsed : DEFAULT_AI_IMPROVEMENT_MONTHLY_CREDIT_LIMIT
+  end
+
+  def ai_improvement_monthly_credit_limit
+    value = super
+    return DEFAULT_AI_IMPROVEMENT_MONTHLY_CREDIT_LIMIT if value.nil?
+
+    parsed = Integer(value, exception: false)
+    return DEFAULT_AI_IMPROVEMENT_MONTHLY_CREDIT_LIMIT if parsed.nil? || parsed.negative?
+
+    parsed
   end
 
   def voice_ai_settings

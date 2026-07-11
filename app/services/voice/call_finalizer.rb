@@ -15,6 +15,7 @@ class Voice::CallFinalizer
   def perform!
     return call unless mark_terminal!
 
+    consume_test_improvement_credit
     recording_result = stop_recording
     terminate_livekit_room
     persist_finalization_meta(recording_result)
@@ -58,6 +59,45 @@ class Voice::CallFinalizer
     return unless call.started_at
 
     (ended_at - call.started_at).to_i
+  end
+
+  def consume_test_improvement_credit
+    return unless call.test_call?
+
+    event = test_improvement_usage_event
+    return unless event
+
+    limiter = AiImprovements::Usage::Limiter.new(account: call.account, operation: event.operation)
+    improvement_started_at = test_improvement_started_at
+    return limiter.release!(event) unless improvement_started_at
+
+    limiter.consume!(
+      event,
+      unit_type: 'audio_seconds',
+      units: test_improvement_duration_seconds(improvement_started_at),
+      metadata: { 'end_reason' => call.end_reason }
+    )
+  rescue StandardError => e
+    Rails.logger.warn("voice test credit recording failed call_id=#{call.id} error=#{e.class.name}: #{e.message}")
+  end
+
+  def test_improvement_usage_event
+    event_id = call.meta&.fetch('ai_improvement_usage_event_id', nil)
+    call.account.ai_improvement_usage_events.find_by(id: event_id, call_id: call.id)
+  end
+
+  def test_improvement_started_at
+    Time.zone.parse(call.meta.to_h['ai_improvement_started_at'].to_s)
+  rescue ArgumentError
+    nil
+  end
+
+  def test_improvement_duration_seconds(improvement_started_at)
+    elapsed_seconds = [ended_at - improvement_started_at, 0].max
+    duration_limit = call.meta.to_h['ai_improvement_max_duration_seconds'].to_i
+    return elapsed_seconds unless duration_limit.positive?
+
+    [elapsed_seconds, duration_limit].min
   end
 
   def stop_recording

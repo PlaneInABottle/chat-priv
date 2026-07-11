@@ -1,9 +1,17 @@
 # frozen_string_literal: true
 
 class AiAgents::LlmAdapters::OpenAiCompatibleAdapter < AiAgents::LlmAdapters::BaseAdapter
+  class RequestFailed < StandardError; end
+
   def perform(messages:, tools:, tool_choice: 'auto')
+    usage_event = reserve_improvement_credit
     response = make_api_request(messages: messages, tools: tools, tool_choice: tool_choice)
-    normalize_response(response)
+    normalized = normalize_response(response)
+    consume_improvement_credit(usage_event, normalized[:usage])
+    normalized
+  rescue StandardError
+    improvement_limiter&.release!(usage_event)
+    raise
   end
 
   private
@@ -18,6 +26,8 @@ class AiAgents::LlmAdapters::OpenAiCompatibleAdapter < AiAgents::LlmAdapters::Ba
     request.body = request_body(messages: messages, tools: tools, tool_choice: tool_choice).to_json
 
     response = http.request(request)
+    raise RequestFailed, "LLM request failed with HTTP #{response.code}" unless response.code.to_i.between?(200, 299)
+
     JSON.parse(response.body)
   end
 
@@ -67,6 +77,41 @@ class AiAgents::LlmAdapters::OpenAiCompatibleAdapter < AiAgents::LlmAdapters::Ba
       usage: response['usage'],
       raw_response: response
     }
+  end
+
+  def reserve_improvement_credit
+    return unless improvement_limiter
+
+    improvement_limiter.reserve_or_raise!(metadata: { 'model' => account.ai_agent_model })
+  end
+
+  def consume_improvement_credit(event, usage)
+    return unless event
+
+    improvement_limiter.consume!(
+      event,
+      unit_type: 'tokens',
+      units: total_tokens(usage),
+      metadata: { 'model' => account.ai_agent_model }
+    )
+  end
+
+  def total_tokens(usage)
+    payload = usage.to_h.with_indifferent_access
+    return payload[:total_tokens].to_i if payload.key?(:total_tokens)
+
+    payload[:prompt_tokens].to_i + payload[:completion_tokens].to_i
+  end
+
+  def improvement_limiter
+    return if improvement_operation.blank?
+
+    @improvement_limiter ||= AiImprovements::Usage::Limiter.new(
+      account: account,
+      operation: improvement_operation,
+      ai_agent: ai_agent,
+      initiated_by: initiated_by
+    )
   end
 
   def normalize_tool_calls(tool_calls)

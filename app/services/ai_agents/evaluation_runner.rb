@@ -37,7 +37,8 @@ class AiAgents::EvaluationRunner
       messages: [{ role: 'user', content: result.customer_message }],
       mode: :test,
       prompt_override: run.prompt_snapshot,
-      config_override: run.config_snapshot
+      config_override: run.config_snapshot,
+      improvement_operation: 'evaluation'
     ).perform
   end
 
