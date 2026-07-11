@@ -11,7 +11,10 @@ import Button from 'dashboard/components-next/button/Button.vue';
 
 const props = defineProps({
   aiAgentId: { type: Number, required: true },
+  hasUnsavedInstructions: { type: Boolean, default: false },
 });
+
+const emit = defineEmits(['draftUpdated']);
 
 const { t } = useI18n();
 const store = useStore();
@@ -103,6 +106,8 @@ const replaceSuggestion = suggestion => {
 };
 
 const applySuggestion = async suggestion => {
+  if (props.hasUnsavedInstructions) return;
+
   const draft = reviewDrafts.value[suggestion.id];
   if (!draft?.suggested_instruction.trim() || !draft.target_section) return;
 
@@ -113,7 +118,11 @@ const applySuggestion = async suggestion => {
       target_section: draft.target_section,
     });
     replaceSuggestion(response.data);
-    await store.dispatch('aiAgent/refresh', props.aiAgentId);
+    const refreshedAgent = await store.dispatch(
+      'aiAgent/refresh',
+      props.aiAgentId
+    );
+    if (refreshedAgent) emit('draftUpdated');
     useAlert(t('AI_ASSISTANT.LEARNING.APPLIED'));
   } catch (error) {
     useAlert(
@@ -217,7 +226,10 @@ onBeforeUnmount(() => window.clearTimeout(pollTimer));
       v-else-if="!suggestions.length"
       class="border-y border-n-weak py-12 text-center"
     >
-      <span class="i-lucide-lightbulb mx-auto block size-6 text-n-slate-9" />
+      <span
+        aria-hidden="true"
+        class="i-lucide-lightbulb mx-auto block size-6 text-n-slate-9"
+      />
       <h3 class="mb-0 mt-3 text-sm font-semibold text-n-slate-12">
         {{ t('AI_ASSISTANT.LEARNING.EMPTY.TITLE') }}
       </h3>
@@ -244,6 +256,7 @@ onBeforeUnmount(() => window.clearTimeout(pollTimer));
               :class="statusAppearance(suggestion.status).classes"
             >
               <span
+                aria-hidden="true"
                 class="size-3.5 flex-shrink-0"
                 :class="statusAppearance(suggestion.status).icon"
               />
@@ -256,7 +269,10 @@ onBeforeUnmount(() => window.clearTimeout(pollTimer));
               rel="noopener noreferrer"
               class="inline-flex items-center gap-1.5 text-xs font-medium text-n-blue-11 hover:underline"
             >
-              <span class="i-lucide-external-link size-3.5" />
+              <span
+                aria-hidden="true"
+                class="i-lucide-external-link size-3.5"
+              />
               {{ t('AI_ASSISTANT.LEARNING.OPEN_CONVERSATION') }}
             </a>
           </div>
@@ -294,9 +310,11 @@ onBeforeUnmount(() => window.clearTimeout(pollTimer));
               {{ t('AI_ASSISTANT.LEARNING.PROPOSED_INSTRUCTION') }}
               <textarea
                 v-model="reviewDrafts[suggestion.id].suggested_instruction"
+                :name="`learning-instruction-${suggestion.id}`"
+                autocomplete="off"
                 maxlength="5000"
                 rows="4"
-                class="min-h-28 resize-y rounded-lg border border-n-weak bg-n-alpha-1 px-3 py-2 font-normal outline-none focus:border-n-brand"
+                class="min-h-28 resize-y rounded-lg border border-n-weak bg-n-alpha-1 px-3 py-2 font-normal outline-none focus-visible:border-n-brand focus-visible:ring-2 focus-visible:ring-n-brand/20"
               />
             </label>
             <label
@@ -305,7 +323,8 @@ onBeforeUnmount(() => window.clearTimeout(pollTimer));
               {{ t('AI_ASSISTANT.LEARNING.TARGET_SECTION') }}
               <select
                 v-model="reviewDrafts[suggestion.id].target_section"
-                class="h-10 rounded-lg border border-n-weak bg-n-alpha-1 px-3 font-normal outline-none focus:border-n-brand"
+                :name="`learning-section-${suggestion.id}`"
+                class="h-10 rounded-lg border border-n-weak bg-n-alpha-1 px-3 font-normal outline-none focus-visible:border-n-brand focus-visible:ring-2 focus-visible:ring-n-brand/20"
               >
                 <option
                   v-for="option in sectionOptions"
@@ -343,6 +362,7 @@ onBeforeUnmount(() => window.clearTimeout(pollTimer));
               :label="t('AI_ASSISTANT.LEARNING.APPLY_TO_DRAFT')"
               :is-loading="applyingId === suggestion.id"
               :disabled="
+                hasUnsavedInstructions ||
                 !reviewDrafts[suggestion.id]?.suggested_instruction.trim() ||
                 !reviewDrafts[suggestion.id]?.target_section
               "
@@ -382,6 +402,7 @@ onBeforeUnmount(() => window.clearTimeout(pollTimer));
                 :class="statusAppearance(suggestion.status).classes"
               >
                 <span
+                  aria-hidden="true"
                   class="size-3.5 flex-shrink-0"
                   :class="statusAppearance(suggestion.status).icon"
                 />
@@ -394,7 +415,10 @@ onBeforeUnmount(() => window.clearTimeout(pollTimer));
                 rel="noopener noreferrer"
                 class="inline-flex items-center gap-1.5 text-xs text-n-blue-11 hover:underline"
               >
-                <span class="i-lucide-external-link size-3.5" />
+                <span
+                  aria-hidden="true"
+                  class="i-lucide-external-link size-3.5"
+                />
                 {{ t('AI_ASSISTANT.LEARNING.OPEN_CONVERSATION') }}
               </a>
             </div>

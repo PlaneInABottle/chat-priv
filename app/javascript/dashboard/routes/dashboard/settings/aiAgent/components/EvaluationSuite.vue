@@ -9,6 +9,7 @@ import Button from 'dashboard/components-next/button/Button.vue';
 
 const props = defineProps({
   aiAgentId: { type: Number, required: true },
+  hasUnsavedInstructions: { type: Boolean, default: false },
 });
 
 const { t } = useI18n();
@@ -192,6 +193,8 @@ const deleteCase = async evaluationCase => {
 };
 
 const startRun = async () => {
+  if (props.hasUnsavedInstructions) return;
+
   isStartingRun.value = true;
   try {
     const response = await api.value.createRun();
@@ -304,7 +307,9 @@ onBeforeUnmount(() => window.clearTimeout(pollTimer));
           icon="i-lucide-play"
           :label="t('AI_ASSISTANT.EVALUATIONS.RUN.ACTION')"
           :is-loading="isStartingRun"
-          :disabled="!evaluationCases.length || isRunActive"
+          :disabled="
+            !evaluationCases.length || isRunActive || hasUnsavedInstructions
+          "
           @click="startRun"
         />
       </div>
@@ -315,14 +320,21 @@ onBeforeUnmount(() => window.clearTimeout(pollTimer));
       class="flex flex-col gap-2 border-b border-n-weak pb-5 text-sm sm:flex-row sm:items-center sm:justify-between"
     >
       <div class="flex min-w-0 items-start gap-2" :class="runSummary.classes">
-        <span class="mt-0.5 size-4 flex-shrink-0" :class="runSummary.icon" />
+        <span
+          aria-hidden="true"
+          class="mt-0.5 size-4 flex-shrink-0"
+          :class="runSummary.icon"
+        />
         <span>{{ runSummary.label }}</span>
       </div>
       <p
         v-if="!latestRun.current_draft"
         class="m-0 flex items-center gap-1.5 text-xs text-n-amber-11"
       >
-        <span class="i-lucide-history size-3.5 flex-shrink-0" />
+        <span
+          aria-hidden="true"
+          class="i-lucide-history size-3.5 flex-shrink-0"
+        />
         {{ t('AI_ASSISTANT.EVALUATIONS.RUN.OLDER_DRAFT') }}
       </p>
     </div>
@@ -338,8 +350,10 @@ onBeforeUnmount(() => window.clearTimeout(pollTimer));
         {{ t('AI_ASSISTANT.EVALUATIONS.FORM.NAME') }}
         <input
           v-model="form.name"
+          name="evaluation-name"
+          autocomplete="off"
           maxlength="100"
-          class="h-10 rounded-lg border border-n-weak bg-n-alpha-1 px-3 font-normal outline-none focus:border-n-brand"
+          class="h-10 rounded-lg border border-n-weak bg-n-alpha-1 px-3 font-normal outline-none focus-visible:border-n-brand focus-visible:ring-2 focus-visible:ring-n-brand/20"
           :placeholder="t('AI_ASSISTANT.EVALUATIONS.FORM.NAME_PLACEHOLDER')"
         />
       </label>
@@ -350,13 +364,18 @@ onBeforeUnmount(() => window.clearTimeout(pollTimer));
           {{ t('AI_ASSISTANT.EVALUATIONS.FORM.MESSAGE') }}
           <textarea
             v-model="form.customer_message"
+            name="evaluation-customer-message"
+            autocomplete="off"
             maxlength="5000"
             rows="4"
-            class="min-h-28 resize-y rounded-lg border border-n-weak bg-n-alpha-1 px-3 py-2 font-normal outline-none focus:border-n-brand"
+            class="min-h-28 resize-y rounded-lg border border-n-weak bg-n-alpha-1 px-3 py-2 font-normal outline-none focus-visible:border-n-brand focus-visible:ring-2 focus-visible:ring-n-brand/20"
             :placeholder="
               t('AI_ASSISTANT.EVALUATIONS.FORM.MESSAGE_PLACEHOLDER')
             "
           />
+          <span class="font-normal text-n-slate-10">
+            {{ t('AI_ASSISTANT.EVALUATIONS.FORM.MESSAGE_HELP') }}
+          </span>
         </label>
         <label
           class="flex flex-col gap-1.5 text-sm font-medium text-n-slate-12"
@@ -364,9 +383,11 @@ onBeforeUnmount(() => window.clearTimeout(pollTimer));
           {{ t('AI_ASSISTANT.EVALUATIONS.FORM.CRITERIA') }}
           <textarea
             v-model="form.success_criteria"
+            name="evaluation-success-criteria"
+            autocomplete="off"
             maxlength="5000"
             rows="4"
-            class="min-h-28 resize-y rounded-lg border border-n-weak bg-n-alpha-1 px-3 py-2 font-normal outline-none focus:border-n-brand"
+            class="min-h-28 resize-y rounded-lg border border-n-weak bg-n-alpha-1 px-3 py-2 font-normal outline-none focus-visible:border-n-brand focus-visible:ring-2 focus-visible:ring-n-brand/20"
             :placeholder="
               t('AI_ASSISTANT.EVALUATIONS.FORM.CRITERIA_PLACEHOLDER')
             "
@@ -401,7 +422,10 @@ onBeforeUnmount(() => window.clearTimeout(pollTimer));
       v-else-if="!evaluationCases.length"
       class="border-y border-n-weak py-12 text-center"
     >
-      <span class="i-lucide-list-checks mx-auto block size-6 text-n-slate-9" />
+      <span
+        aria-hidden="true"
+        class="i-lucide-list-checks mx-auto block size-6 text-n-slate-9"
+      />
       <h3 class="mb-0 mt-3 text-sm font-semibold text-n-slate-12">
         {{ t('AI_ASSISTANT.EVALUATIONS.EMPTY.TITLE') }}
       </h3>
@@ -426,6 +450,7 @@ onBeforeUnmount(() => window.clearTimeout(pollTimer));
                 :class="row.appearance.classes"
               >
                 <span
+                  aria-hidden="true"
                   class="size-3.5 flex-shrink-0"
                   :class="row.appearance.icon"
                 />

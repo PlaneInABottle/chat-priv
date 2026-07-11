@@ -9,12 +9,15 @@ import LearningSuggestions from './LearningSuggestions.vue';
 
 const props = defineProps({
   aiAgentId: { type: Number, required: true },
+  hasUnsavedInstructions: { type: Boolean, default: false },
   mode: {
     type: String,
     required: true,
     validator: value => ['evaluations', 'learnings'].includes(value),
   },
 });
+
+const emit = defineEmits(['draftUpdated']);
 
 const { t } = useI18n();
 const router = useRouter();
@@ -52,7 +55,26 @@ const handleTabChange = tab => {
         @tab-changed="handleTabChange"
       />
     </div>
-    <EvaluationSuite v-if="mode === 'evaluations'" :ai-agent-id="aiAgentId" />
-    <LearningSuggestions v-else :ai-agent-id="aiAgentId" />
+    <div
+      v-if="hasUnsavedInstructions"
+      class="flex items-start gap-2 rounded-lg border border-n-amber-5 bg-n-amber-2 p-3 text-sm text-n-amber-11"
+    >
+      <span
+        aria-hidden="true"
+        class="i-lucide-file-warning mt-0.5 size-4 flex-shrink-0"
+      />
+      <p class="m-0">{{ t('AI_ASSISTANT.IMPROVE.SAVE_DRAFT_FIRST') }}</p>
+    </div>
+    <EvaluationSuite
+      v-if="mode === 'evaluations'"
+      :ai-agent-id="aiAgentId"
+      :has-unsaved-instructions="hasUnsavedInstructions"
+    />
+    <LearningSuggestions
+      v-else
+      :ai-agent-id="aiAgentId"
+      :has-unsaved-instructions="hasUnsavedInstructions"
+      @draft-updated="emit('draftUpdated')"
+    />
   </div>
 </template>

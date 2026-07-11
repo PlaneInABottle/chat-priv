@@ -7,7 +7,11 @@ const meta = {
   permissions: ['administrator'],
   featureFlag: FEATURE_FLAGS.AI_AGENT,
 };
-const detailMeta = { ...meta, wideLayout: true };
+const detailMeta = {
+  ...meta,
+  wideLayout: true,
+  keepAliveKey: 'ai-agent-detail',
+};
 
 export default {
   routes: [

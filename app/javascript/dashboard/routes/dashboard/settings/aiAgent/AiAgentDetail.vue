@@ -523,6 +523,10 @@ const refreshAfterDraftTest = async () => {
   formState.value.instructions = draft;
 };
 
+const refreshAfterLearningApplied = () => {
+  formState.value.instructions = instructionDocumentForAgent(aiAgent.value);
+};
+
 const handlePause = async () => {
   const result = await store.dispatch('aiAgent/pause', agentId.value);
   if (result?.id) {
@@ -613,6 +617,7 @@ watch(agentId, async (newAgentId, oldAgentId) => {
           :class="releaseNotice.classes"
         >
           <span
+            aria-hidden="true"
             class="mt-0.5 size-4 flex-shrink-0"
             :class="releaseNotice.icon"
           />
@@ -882,6 +887,8 @@ watch(agentId, async (newAgentId, oldAgentId) => {
           v-if="activeTab === 'improve'"
           :ai-agent-id="agentId"
           :mode="improveMode"
+          :has-unsaved-instructions="isInstructionsDirty"
+          @draft-updated="refreshAfterLearningApplied"
         />
       </div>
     </template>
