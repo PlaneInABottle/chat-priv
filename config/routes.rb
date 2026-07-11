@@ -130,6 +130,9 @@ Rails.application.routes.draw do
                 post :publish
                 post :pause
               end
+              resources :releases, only: [:index, :show], controller: 'agent_releases' do
+                post :rollback, on: :member
+              end
             end
             resources :inbox_settings, only: [:index, :show, :create, :update]
             resources :recordings, only: [:index]
@@ -146,6 +149,9 @@ Rails.application.routes.draw do
             member do
               post :publish
               post :pause
+            end
+            resources :releases, only: [:index, :show], controller: 'ai_agent_releases' do
+              post :rollback, on: :member
             end
             resources :test_conversations, only: [:index, :create, :show, :destroy], controller: 'ai_agent_test_conversations' do
               collection do

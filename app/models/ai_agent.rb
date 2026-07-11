@@ -17,20 +17,25 @@
 #  updated_at                :datetime         not null
 #  account_id                :bigint           not null
 #  agent_bot_id              :bigint
+#  current_release_id        :bigint
 #
 # Indexes
 #
-#  index_ai_agents_on_account_id    (account_id)
-#  index_ai_agents_on_agent_bot_id  (agent_bot_id) UNIQUE
+#  index_ai_agents_on_account_id          (account_id)
+#  index_ai_agents_on_agent_bot_id        (agent_bot_id) UNIQUE
+#  index_ai_agents_on_current_release_id  (current_release_id)
 #
 # Foreign Keys
 #
 #  fk_rails_...  (account_id => accounts.id) ON DELETE => cascade
 #  fk_rails_...  (agent_bot_id => agent_bots.id) ON DELETE => nullify
+#  fk_rails_...  (current_release_id => ai_agent_releases.id) ON DELETE => nullify
 #
 class AiAgent < ApplicationRecord
   belongs_to :account
   belongs_to :agent_bot, optional: true
+  belongs_to :current_release, class_name: 'AiAgentRelease', optional: true
+  has_many :releases, class_name: 'AiAgentRelease', dependent: :destroy
   has_many :llm_calls, class_name: 'AiAgentLlmCall', dependent: :destroy
   has_many :tool_executions, class_name: 'AiAgentToolExecution', dependent: :destroy
   has_many :test_conversations, class_name: 'AiAgentTestConversation', dependent: :destroy
@@ -61,21 +66,33 @@ class AiAgent < ApplicationRecord
     AiAgents::Readiness.new(self).payload
   end
 
-  def publish!
+  def publish!(created_by: nil)
     with_lock do
       raise ActiveRecord::RecordInvalid, self unless readiness[:can_publish]
 
-      if published_release? && !draft_changes?
+      snapshot = AiAgents::ReleaseSnapshot.for(self)
+      fingerprint = AiAgents::ReleaseSnapshot.fingerprint(snapshot)
+      if current_release&.fingerprint == fingerprint
         update!(enabled: true)
       else
-        update!(
-          enabled: true,
-          published_at: Time.current,
-          published_prompt: prompt,
-          published_config: config || {},
-          published_revision: published_revision.to_i + 1
-        )
+        release = create_release!(snapshot: snapshot, fingerprint: fingerprint, source: 'publish', created_by: created_by)
+        activate_release!(release)
       end
+    end
+  end
+
+  def rollback_to!(release, created_by: nil)
+    raise ActiveRecord::RecordNotFound unless release&.ai_agent_id == id
+
+    with_lock do
+      restored = create_release!(
+        snapshot: release.snapshot,
+        fingerprint: release.fingerprint,
+        source: 'rollback',
+        created_by: created_by
+      )
+      activate_release!(restored, restore_draft: true)
+      restored
     end
   end
 
@@ -107,24 +124,67 @@ class AiAgent < ApplicationRecord
   end
 
   def published_release?
-    published_revision.to_i.positive?
+    current_release.present? || published_revision.to_i.positive?
   end
 
   def draft_changes?
     return false unless published_release?
 
-    release_digest(prompt, config) != release_digest(live_prompt, live_config)
+    draft_fingerprint != current_release&.fingerprint
   end
 
   def live_prompt
-    published_release? ? published_prompt.to_s : prompt.to_s
+    return current_release.prompt if current_release
+    return published_prompt.to_s if published_revision.to_i.positive?
+
+    prompt.to_s
   end
 
   def live_config
-    published_release? ? published_config.to_h : config.to_h
+    return current_release.config if current_release
+    return published_config.to_h if published_revision.to_i.positive?
+
+    config.to_h
   end
 
   private
+
+  def create_release!(snapshot:, fingerprint:, source:, created_by:)
+    releases.create!(
+      account: account,
+      created_by: created_by,
+      revision: next_release_revision,
+      source: source,
+      fingerprint: fingerprint,
+      snapshot: snapshot
+    )
+  end
+
+  def activate_release!(release, restore_draft: false)
+    attributes = {
+      enabled: true,
+      published_at: Time.current,
+      published_prompt: release.prompt,
+      published_config: release.config,
+      published_revision: release.revision,
+      current_release: release
+    }
+    attributes.merge!(restored_draft_attributes(release)) if restore_draft
+    update!(attributes)
+  end
+
+  def restored_draft_attributes(release)
+    {
+      prompt: release.prompt,
+      config: release.config,
+      last_tested_at: Time.current,
+      last_tested_prompt_digest: release.fingerprint
+    }
+  end
+
+  def next_release_revision
+    [releases.maximum(:revision).to_i, published_revision.to_i].max + 1
+  end
 
   def release_digest(prompt_value, config_value)
     payload = {

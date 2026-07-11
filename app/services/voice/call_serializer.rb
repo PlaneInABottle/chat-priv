@@ -18,7 +18,7 @@ class Voice::CallSerializer
   attr_reader :call
 
   def identity_payload
-    base_identity_payload.merge(voice_identity_payload)
+    base_identity_payload.merge(voice_identity_payload).merge(release_identity_payload)
   end
 
   def base_identity_payload
@@ -33,6 +33,13 @@ class Voice::CallSerializer
       contact_id: call.contact_id,
       message_id: call.message_id,
       livekit_room_name: call.livekit_room_name
+    }
+  end
+
+  def release_identity_payload
+    {
+      voice_agent_release_id: call.voice_agent_release_id,
+      voice_agent_revision: call.voice_agent_release&.revision
     }
   end
 

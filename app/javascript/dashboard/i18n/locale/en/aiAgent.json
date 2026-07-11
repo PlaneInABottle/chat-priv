@@ -158,6 +158,27 @@
       "PENDING": "Version {version} is still responding to customers. Your saved draft is not live until you test and publish the update.",
       "PAUSED": "Version {version} is paused. Resume it as-is or publish a tested draft update."
     },
+    "RELEASE_HISTORY": {
+      "TITLE": "Version history",
+      "OPEN": "Version history",
+      "VERSION": "Version {version}",
+      "LIVE": "Live",
+      "CREATED_BY": "{date} by {name}",
+      "SOURCE": {
+        "PUBLISHED": "Published",
+        "RESTORED": "Restored",
+        "IMPORTED": "Imported from the previous version",
+        "UNKNOWN": "Saved version"
+      },
+      "LOADING": "Loading versions...",
+      "EMPTY": "No published versions yet.",
+      "RESTORE": "Restore",
+      "CONFIRM_RESTORE": "Restore version",
+      "RESTORE_WARNING": "Restore version {version} as a new live version?",
+      "RESTORED": "Version restored",
+      "LOAD_ERROR": "Version history could not be loaded.",
+      "RESTORE_ERROR": "Version could not be restored."
+    },
     "EVALUATIONS": {
       "TITLE": "Evaluation scenarios",
       "DESCRIPTION": "Save representative customer questions and describe what a good answer must do. Runs use the saved draft and never contact customers.",
@@ -658,12 +679,13 @@
       "SAVE_SUCCESS": "Voice agent saved.",
       "SAVE_ERROR": "Failed to save voice agent.",
       "PUBLISH": "Publish assistant",
+      "PUBLISH_UPDATE": "Publish update",
       "PAUSE": "Pause assistant",
       "PUBLISH_SUCCESS": "Voice assistant published.",
       "PUBLISH_ERROR": "Complete the setup checklist before publishing.",
       "PAUSE_SUCCESS": "Voice assistant paused.",
       "PAUSE_ERROR": "Failed to pause voice assistant.",
-      "LIVE_EDIT_NOTICE": "This assistant is answering calls. Saved changes apply to subsequent calls without taking it offline.",
+      "LIVE_EDIT_NOTICE": "The published version keeps answering calls while you edit and test the next version.",
       "UNSAVED_CHANGES": "You have unsaved voice agent changes. Discard them?",
       "IKAS_READY": "Ikas is connected and the storefront catalog is synced.",
       "IKAS_CATALOG_NOT_SYNCED": "Ikas is connected, but the storefront catalog is not synced yet.",

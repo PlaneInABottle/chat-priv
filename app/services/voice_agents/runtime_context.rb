@@ -9,7 +9,7 @@ class VoiceAgents::RuntimeContext
     {
       call: call_payload,
       voice_agent: voice_agent_payload,
-      instructions: VoiceAgents::PromptComposer.new(voice_agent: voice_agent).effective_system_prompt,
+      instructions: VoiceAgents::PromptComposer.new(voice_agent: voice_agent, snapshot: runtime_snapshot).effective_system_prompt,
       tools: tool_payloads,
       runtime: runtime_payload
     }
@@ -20,6 +20,10 @@ class VoiceAgents::RuntimeContext
   attr_reader :call
 
   def call_payload
+    base_call_payload.merge(release_call_payload)
+  end
+
+  def base_call_payload
     {
       id: call.id,
       account_id: call.account_id,
@@ -32,17 +36,27 @@ class VoiceAgents::RuntimeContext
     }
   end
 
+  def release_call_payload
+    {
+      voice_agent_release_id: resolved_release&.id,
+      voice_agent_revision: resolved_release&.revision,
+      draft_fingerprint: call.test_call? ? voice_agent.draft_fingerprint : nil
+    }
+  end
+
   def voice_agent_payload
     {
       id: voice_agent.id,
       name: voice_agent.name,
       enabled: voice_agent.enabled,
-      greeting: voice_agent.greeting,
-      architecture: voice_agent.architecture,
-      provider: voice_agent.provider,
-      model: voice_agent.model,
-      voice: voice_agent.voice,
-      language: voice_agent.language
+      greeting: runtime_value(:greeting),
+      architecture: runtime_value(:architecture),
+      provider: runtime_value(:provider),
+      model: runtime_value(:model),
+      voice: runtime_value(:voice),
+      language: runtime_value(:language),
+      release_id: resolved_release&.id,
+      revision: resolved_release&.revision
     }
   end
 
@@ -63,17 +77,17 @@ class VoiceAgents::RuntimeContext
 
   def runtime_payload
     {
-      architecture: voice_agent.architecture,
-      provider: voice_agent.provider,
-      model: voice_agent.model,
-      voice: voice_agent.voice,
-      language: voice_agent.language,
-      config: voice_agent.config
+      architecture: runtime_value(:architecture),
+      provider: runtime_value(:provider),
+      model: runtime_value(:model),
+      voice: runtime_value(:voice),
+      language: runtime_value(:language),
+      config: runtime_value(:config)
     }
   end
 
   def enabled_tool_keys
-    @enabled_tool_keys ||= VoiceAgents::Config.new(voice_agent.tools_config).enabled_tool_keys
+    @enabled_tool_keys ||= VoiceAgents::Config.new(runtime_value(:tools_config)).enabled_tool_keys
   end
 
   def voice_agent
@@ -90,5 +104,22 @@ class VoiceAgents::RuntimeContext
       inbox: call.inbox,
       id: call.meta&.fetch('voice_inbox_setting_id', nil)
     )
+  end
+
+  def runtime_snapshot
+    @runtime_snapshot ||= resolved_release&.snapshot&.deep_stringify_keys || VoiceAgents::ReleaseSnapshot.for(voice_agent)
+  end
+
+  def runtime_value(key)
+    runtime_snapshot[key.to_s]
+  end
+
+  def resolved_release
+    return if call.test_call?
+    return @resolved_release if defined?(@resolved_release)
+
+    @resolved_release = call.voice_agent_release || voice_agent.current_release
+    call.update!(voice_agent_release: @resolved_release) if @resolved_release && call.voice_agent_release_id != @resolved_release.id
+    @resolved_release
   end
 end

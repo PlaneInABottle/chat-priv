@@ -217,6 +217,7 @@ const mountComponent = options => {
         Avatar: { template: '<div />' },
         Icon: { template: '<i />' },
         TestConversationLayout: TestConversationLayoutStub,
+        AssistantReleaseHistoryDialog: { template: '<div />' },
         WootInput: { template: '<input />' },
       },
       mocks: {

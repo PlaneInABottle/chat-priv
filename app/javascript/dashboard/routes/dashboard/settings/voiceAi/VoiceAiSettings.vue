@@ -24,6 +24,7 @@ import Button from 'dashboard/components-next/button/Button.vue';
 import Input from 'dashboard/components-next/input/Input.vue';
 import Switch from 'dashboard/components-next/switch/Switch.vue';
 import TabBar from 'dashboard/components-next/tabbar/TabBar.vue';
+import AssistantReleaseHistoryDialog from '../aiAgent/components/AssistantReleaseHistoryDialog.vue';
 
 const TERMINAL_CALL_STATUSES = [
   'completed',
@@ -93,6 +94,7 @@ const currentCall = ref(null);
 const isLoading = ref(false);
 const isLoadingRecordings = ref(false);
 const isSavingAgent = ref(false);
+const releaseHistoryRef = ref(null);
 const isCreatingCall = ref(false);
 const isEnding = ref(false);
 const isRefreshing = ref(false);
@@ -209,6 +211,15 @@ const lifecycleStatus = computed(
   () => selectedVoiceAgent.value?.lifecycle_status || 'draft'
 );
 const isActiveAgent = computed(() => lifecycleStatus.value === 'active');
+const hasPublishedVoiceRelease = computed(
+  () => (selectedVoiceAgent.value?.published_revision || 0) > 0
+);
+const hasVoiceDraftChanges = computed(() =>
+  Boolean(selectedVoiceAgent.value?.draft_changes)
+);
+const showVoicePublishAction = computed(
+  () => !isActiveAgent.value || hasVoiceDraftChanges.value
+);
 const currentCallStatus = computed(() => currentCall.value?.status || '');
 const isCurrentCallTerminal = computed(() =>
   TERMINAL_CALL_STATUSES.includes(currentCallStatus.value)
@@ -694,10 +705,17 @@ const pauseVoiceAgent = async () => {
   }
 };
 
+const openReleaseHistory = () => releaseHistoryRef.value?.open();
+
 const refreshSelectedVoiceAgent = async () => {
   if (!selectedVoiceAgentId.value) return;
   const response = await VoiceAPI.getAgent(selectedVoiceAgentId.value);
   replaceVoiceAgent(response.data);
+};
+
+const handleReleaseRestored = async () => {
+  await refreshSelectedVoiceAgent();
+  syncAgentForm(selectedVoiceAgent.value);
 };
 
 const createNewVoiceAgent = () => {
@@ -1058,6 +1076,14 @@ onBeforeUnmount(() => {
               </div>
               <div v-if="editingVoiceAgentId" class="flex flex-wrap gap-2">
                 <Button
+                  v-if="hasPublishedVoiceRelease"
+                  icon="i-lucide-history"
+                  variant="outline"
+                  color="slate"
+                  :label="t('AI_ASSISTANT.RELEASE_HISTORY.OPEN')"
+                  @click="openReleaseHistory"
+                />
+                <Button
                   v-if="isActiveAgent"
                   icon="i-lucide-pause"
                   variant="outline"
@@ -1066,9 +1092,13 @@ onBeforeUnmount(() => {
                   @click="pauseVoiceAgent"
                 />
                 <Button
-                  v-else
+                  v-if="showVoicePublishAction"
                   icon="i-lucide-rocket"
-                  :label="t('VOICE_AI.AGENTS.PUBLISH')"
+                  :label="
+                    isActiveAgent
+                      ? t('VOICE_AI.AGENTS.PUBLISH_UPDATE')
+                      : t('VOICE_AI.AGENTS.PUBLISH')
+                  "
                   :disabled="
                     !selectedVoiceAgent?.readiness?.can_publish ||
                     hasUnsavedAgentChanges
@@ -2020,4 +2050,12 @@ onBeforeUnmount(() => {
       </div>
     </template>
   </SettingsLayout>
+  <AssistantReleaseHistoryDialog
+    v-if="selectedVoiceAgent?.id"
+    ref="releaseHistoryRef"
+    assistant-type="voice"
+    :assistant-id="selectedVoiceAgent.id"
+    :current-release-id="selectedVoiceAgent.current_release?.id"
+    @restored="handleReleaseRestored"
+  />
 </template>

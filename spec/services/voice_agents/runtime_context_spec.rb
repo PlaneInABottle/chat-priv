@@ -68,5 +68,38 @@ RSpec.describe VoiceAgents::RuntimeContext do
 
       expect { described_class.new(call: call).payload }.to raise_error(ActiveRecord::RecordNotFound, 'Voice agent not configured')
     end
+
+    it 'pins production calls to the published release while sandbox calls use the draft' do
+      setting = create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: voice_agent)
+      release = create(:voice_agent_release, voice_agent: voice_agent)
+      voice_agent.update!(current_release: release, prompt: 'Unpublished voice draft')
+      production_call = create(
+        :call,
+        account: account,
+        inbox: inbox,
+        provider: :livekit,
+        provider_call_id: 'room-release',
+        meta: { 'voice_inbox_setting_id' => setting.id }
+      )
+      test_call = create(
+        :call,
+        account: account,
+        inbox: inbox,
+        conversation: nil,
+        contact: nil,
+        provider: :livekit,
+        provider_call_id: 'room-draft',
+        meta: { 'voice_inbox_setting_id' => setting.id, 'test_call' => true }
+      )
+
+      production_payload = described_class.new(call: production_call).payload
+      test_payload = described_class.new(call: test_call).payload
+
+      expect(production_payload[:instructions]).to include(release.value(:prompt))
+      expect(production_payload[:instructions]).not_to include('Unpublished voice draft')
+      expect(production_call.reload.voice_agent_release).to eq(release)
+      expect(test_payload[:instructions]).to include('Unpublished voice draft')
+      expect(test_payload.dig(:call, :voice_agent_release_id)).to be_nil
+    end
   end
 end

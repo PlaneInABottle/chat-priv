@@ -5,7 +5,7 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
   before_action :set_ai_agent, only: [:show, :update, :destroy, :publish, :pause]
 
   def index
-    @ai_agents = Current.account.ai_agents.includes(agent_bot: :inboxes).order(:created_at)
+    @ai_agents = Current.account.ai_agents.includes(:current_release, agent_bot: :inboxes).order(:created_at)
   end
 
   def show
@@ -48,7 +48,7 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
   def publish
     return render_readiness_error unless @ai_agent.readiness[:can_publish]
 
-    @ai_agent.publish!
+    @ai_agent.publish!(created_by: Current.user)
     load_available_inboxes
     render :show
   end
@@ -62,7 +62,7 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
   private
 
   def set_ai_agent
-    @ai_agent = Current.account.ai_agents.includes(agent_bot: :inboxes).find(params[:id])
+    @ai_agent = Current.account.ai_agents.includes(:current_release, agent_bot: :inboxes).find(params[:id])
   end
 
   def ai_agent_params

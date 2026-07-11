@@ -5,7 +5,7 @@ class Api::V1::Accounts::Voice::AgentsController < Api::V1::Accounts::BaseContro
   before_action :set_voice_agent, only: [:show, :update, :destroy, :publish, :pause]
 
   def index
-    voice_agents = Current.account.voice_agents.order(:created_at)
+    voice_agents = Current.account.voice_agents.includes(:current_release).order(:created_at)
     render json: { payload: voice_agents.map { |agent| VoiceAgents::Serializer.new(agent).payload } }
   end
 
@@ -26,7 +26,10 @@ class Api::V1::Accounts::Voice::AgentsController < Api::V1::Accounts::BaseContro
   def update
     ActiveRecord::Base.transaction do
       @voice_agent.assign_attributes(voice_agent_params)
-      @voice_agent.last_tested_at = nil
+      unless @voice_agent.last_tested_draft_fingerprint == @voice_agent.draft_fingerprint
+        @voice_agent.last_tested_at = nil
+        @voice_agent.last_tested_draft_fingerprint = nil
+      end
       @voice_agent.save!
       sync_inbox_assignments!(@voice_agent) if inbox_settings_provided?
     end
@@ -41,7 +44,7 @@ class Api::V1::Accounts::Voice::AgentsController < Api::V1::Accounts::BaseContro
   def publish
     return render_readiness_error unless @voice_agent.readiness[:can_publish]
 
-    @voice_agent.publish!
+    @voice_agent.publish!(created_by: Current.user)
     render json: VoiceAgents::Serializer.new(@voice_agent).payload
   end
 
@@ -53,7 +56,7 @@ class Api::V1::Accounts::Voice::AgentsController < Api::V1::Accounts::BaseContro
   private
 
   def set_voice_agent
-    @voice_agent = Current.account.voice_agents.find(params[:id])
+    @voice_agent = Current.account.voice_agents.includes(:current_release).find(params[:id])
   end
 
   def voice_agent_params

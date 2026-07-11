@@ -19,6 +19,7 @@ import InstructionWorkspace from './components/InstructionWorkspace.vue';
 import ImproveWorkspace from './components/ImproveWorkspace.vue';
 import AssistantStatusBadge from './components/AssistantStatusBadge.vue';
 import ReadinessChecklist from './components/ReadinessChecklist.vue';
+import AssistantReleaseHistoryDialog from './components/AssistantReleaseHistoryDialog.vue';
 import {
   hasInstructionContent,
   instructionContentLength,
@@ -73,6 +74,7 @@ const accountWebsite = computed(
 );
 
 const isSaving = ref(false);
+const releaseHistoryRef = ref(null);
 const inboxError = ref('');
 const activeTab = computed(() => {
   if (route.name === 'ai_agent_test') return 'test';
@@ -563,6 +565,13 @@ const handlePublish = async () => {
   }
 };
 
+const openReleaseHistory = () => releaseHistoryRef.value?.open();
+
+const handleReleaseRestored = async () => {
+  await store.dispatch('aiAgent/refresh', agentId.value);
+  syncFormState();
+};
+
 onMounted(async () => {
   await loadAgentDetail(agentId.value);
 });
@@ -589,6 +598,15 @@ watch(agentId, async (newAgentId, oldAgentId) => {
           <AssistantStatusBadge
             :status="lifecycleStatus"
             class="flex-shrink-0"
+          />
+          <Button
+            v-if="hasPublishedRelease"
+            icon="i-lucide-history"
+            variant="outline"
+            color="slate"
+            class="flex-shrink-0"
+            :label="t('AI_ASSISTANT.RELEASE_HISTORY.OPEN')"
+            @click="openReleaseHistory"
           />
           <Button
             v-if="isActive"
@@ -905,4 +923,12 @@ watch(agentId, async (newAgentId, oldAgentId) => {
       </div>
     </template>
   </SettingsLayout>
+  <AssistantReleaseHistoryDialog
+    v-if="aiAgent?.id"
+    ref="releaseHistoryRef"
+    assistant-type="text"
+    :assistant-id="aiAgent.id"
+    :current-release-id="aiAgent.current_release?.id"
+    @restored="handleReleaseRestored"
+  />
 </template>

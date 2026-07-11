@@ -71,6 +71,7 @@ class Voice::TestCallBuilder
       'livekit_room_name' => room_name,
       'voice_inbox_setting_id' => setting.id,
       'voice_agent_id' => setting.voice_agent_id,
+      'voice_agent_draft_fingerprint' => setting.voice_agent.draft_fingerprint,
       'test_call' => true,
       'test_call_source' => 'voice_ai_settings',
       'test_call_initiated_by_user_id' => initiated_by&.id,
