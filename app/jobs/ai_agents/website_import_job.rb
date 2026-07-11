@@ -42,16 +42,13 @@ class AiAgents::WebsiteImportJob < ApplicationJob
   end
 
   def apply_initial_import(website_import)
-    return unless website_import.mode_initial?
-    return unless website_import.ai_agent.draft_fingerprint == website_import.base_draft_fingerprint
-
-    website_import.update!(stage: :applying)
     AiAgents::WebsiteImportApplier.new(
       website_import: website_import,
       section_keys: website_import.proposed_sections.keys,
-      expected_draft_fingerprint: website_import.base_draft_fingerprint
+      expected_draft_fingerprint: website_import.base_draft_fingerprint,
+      required_mode: :initial
     ).perform
-  rescue AiAgents::WebsiteImportApplier::Conflict
+  rescue AiAgents::WebsiteImportApplier::Conflict, AiAgents::WebsiteImportApplier::InvalidSelection
     nil
   end
 

@@ -63,6 +63,19 @@ RSpec.describe AiAgents::WebsiteImportJob do
     )
   end
 
+  it 'keeps the proposal ready when onboarding changed the import to preview mode' do
+    website_import.update!(mode: :preview)
+
+    described_class.perform_now(website_import.id)
+
+    expect(ai_agent.reload.config.dig('instructions', 'sections', 'business_context')).not_to eq('Example sells custom screens.')
+    expect(website_import.reload).to have_attributes(
+      mode: 'preview',
+      status: 'ready',
+      proposed_sections: { 'business_context' => 'Example sells custom screens.' }
+    )
+  end
+
   it 'records a bounded failure and preserves the fallback draft' do
     fallback_prompt = ai_agent.prompt
     allow(AiAgents::WebsiteCrawler).to receive(:new).and_raise(SafeFetch::FetchError, 'timeout')

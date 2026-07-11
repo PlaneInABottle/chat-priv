@@ -285,6 +285,7 @@
         "COMPLETE": "Analysis complete"
       },
       "REVIEW_HELP": "Select only the suggestions you want. Existing language, tone, human handoff, examples, and additional instructions are not changed.",
+      "SOURCES": "Sources reviewed",
       "CURRENT": "Current draft",
       "SUGGESTED": "Website suggestion",
       "EMPTY": "No instruction in this section",
@@ -296,7 +297,16 @@
       "ERROR": {
         "LOAD": "Previous website analysis could not be loaded.",
         "START": "The website could not be analyzed. Check the address and try again.",
-        "APPLY": "The suggestions could not be applied. Refresh the draft and try again."
+        "APPLY": "The suggestions could not be applied. Refresh the draft and try again.",
+        "INVALID_WEBSITE": "Enter a public company website, such as https://example.com.",
+        "RATE_LIMITED": "Website analysis was requested recently. Wait a moment and try again.",
+        "TIMED_OUT": "Website analysis took too long. Try again or add the business details manually.",
+        "TOO_LARGE": "A page on this website is too large to analyze. Try a more specific website address.",
+        "UNREACHABLE": "We could not reach this website. Check the address or try again later.",
+        "GENERATION_FAILED": "We read the website but could not prepare suggestions. Try again later.",
+        "ANALYSIS_FAILED": "Website analysis did not finish. Try again or add the business details manually.",
+        "DRAFT_CHANGED": "The saved instructions changed after this analysis started. Run the website analysis again to compare against the latest draft.",
+        "INVALID_SELECTION": "Select at least one available suggestion."
       }
     },
     "INSTRUCTIONS": {

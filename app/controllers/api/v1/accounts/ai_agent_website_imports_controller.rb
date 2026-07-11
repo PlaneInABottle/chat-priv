@@ -19,7 +19,9 @@ class Api::V1::Accounts::AiAgentWebsiteImportsController < Api::V1::Accounts::Ba
     ).perform
     render :show, status: :accepted
   rescue AiAgents::WebsiteCrawler::InvalidWebsite => e
-    render json: { error: e.message }, status: :unprocessable_entity
+    render json: { error: e.message, code: 'invalid_website' }, status: :unprocessable_entity
+  rescue AiAgents::WebsiteImportCreator::RateLimited => e
+    render json: { code: 'website_import_rate_limited', retry_after: e.retry_after }, status: :too_many_requests
   end
 
   def apply
@@ -32,7 +34,7 @@ class Api::V1::Accounts::AiAgentWebsiteImportsController < Api::V1::Accounts::Ba
   rescue AiAgents::WebsiteImportApplier::Conflict => e
     render json: { error: e.message, code: 'draft_changed' }, status: :conflict
   rescue AiAgents::WebsiteImportApplier::InvalidSelection => e
-    render json: { error: e.message }, status: :unprocessable_entity
+    render json: { error: e.message, code: 'invalid_selection' }, status: :unprocessable_entity
   end
 
   private

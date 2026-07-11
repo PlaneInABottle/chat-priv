@@ -62,4 +62,17 @@ RSpec.describe AiAgents::OnboardingCreator do
       expect(second.ai_agent).to eq(first.ai_agent)
     end.not_to change(AiAgent, :count)
   end
+
+  it 'creates the starter instructions in Turkish for a Turkish account' do
+    result = described_class.new(
+      account: account,
+      user: user,
+      account_attributes: account_attributes.merge(locale: 'tr', website: ''),
+      assistant_attributes: assistant_attributes
+    ).perform
+
+    expect(result.ai_agent.name).to eq("#{account.name} Asistanı")
+    expect(result.ai_agent.config.dig('instructions', 'sections', 'identity')).to include('Yalnızca doğrulanmış')
+    expect(result.ai_agent.config.dig('instructions', 'sections', 'handoff')).to include('bir insana aktar')
+  end
 end

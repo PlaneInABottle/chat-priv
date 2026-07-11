@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useAlert } from 'dashboard/composables';
 
 import Button from 'dashboard/components-next/button/Button.vue';
 import Editor from 'dashboard/components-next/Editor/Editor.vue';
@@ -169,6 +170,15 @@ const updateSection = value => {
     },
   });
 };
+
+const openWebsiteImport = () => {
+  if (props.isDirty) {
+    useAlert(t('AI_ASSISTANT.WEBSITE_IMPORT.SAVE_FIRST'));
+    return;
+  }
+
+  websiteImportDialog.value.open();
+};
 </script>
 
 <template>
@@ -183,15 +193,11 @@ const updateSection = value => {
         </p>
       </div>
       <Button
-        v-tooltip="
-          isDirty ? t('AI_ASSISTANT.WEBSITE_IMPORT.SAVE_FIRST') : undefined
-        "
         icon="i-lucide-globe-2"
         variant="outline"
         color="slate"
         :label="t('AI_ASSISTANT.WEBSITE_IMPORT.OPEN')"
-        :disabled="isDirty"
-        @click="websiteImportDialog.open()"
+        @click="openWebsiteImport"
       />
     </div>
     <div
@@ -399,7 +405,6 @@ const updateSection = value => {
     <WebsiteImportDialog
       ref="websiteImportDialog"
       :ai-agent-id="aiAgentId"
-      :current-document="modelValue"
       :default-website="defaultWebsite"
       @applied="emit('websiteImportApplied')"
     />

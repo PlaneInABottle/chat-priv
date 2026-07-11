@@ -131,6 +131,7 @@ const createVuexStore = ({
   const store = createStore({
     state: {
       aiAgentRecord: recordsById[1],
+      account: { id: 1, custom_attributes: { website: 'https://example.com' } },
       inboxes: [],
       labels,
       usage,
@@ -139,6 +140,9 @@ const createVuexStore = ({
       'aiAgent/getAiAgent': state => state.aiAgentRecord,
       'aiAgent/getUsage': state => state.usage,
       'aiAgent/getUIFlags': () => ({ isFetching: false }),
+      'accounts/getAccount': state => () => state.account,
+      'accounts/isFeatureEnabledonAccount': () => () => false,
+      'globalConfig/isOnChatwootCloud': () => false,
       'inboxes/getInboxes': state => state.inboxes,
       'labels/getLabels': state => state.labels,
       'aiAgentTestConversations/getTestConversations': () => [],
