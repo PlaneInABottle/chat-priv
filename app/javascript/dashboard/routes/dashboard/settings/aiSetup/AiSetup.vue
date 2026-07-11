@@ -3,10 +3,11 @@ import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 
+import AiAgentAPI from 'dashboard/api/aiAgent';
 import VoiceAPI from 'dashboard/api/voice';
 import { useAlert } from 'dashboard/composables';
 import { useAccount } from 'dashboard/composables/useAccount';
-import { useMapGetter, useStore } from 'dashboard/composables/store';
+import { useMapGetter } from 'dashboard/composables/store';
 import { FEATURE_FLAGS } from 'dashboard/featureFlags';
 import Button from 'dashboard/components-next/button/Button.vue';
 import Icon from 'dashboard/components-next/icon/Icon.vue';
@@ -20,14 +21,13 @@ import {
 
 const { t } = useI18n();
 const router = useRouter();
-const store = useStore();
-const { accountId, currentAccount } = useAccount();
+const { accountId } = useAccount();
 
-const textAgents = useMapGetter('aiAgent/getAiAgents');
 const isFeatureEnabled = useMapGetter('accounts/isFeatureEnabledonAccount');
+const textAgents = ref([]);
 const voiceAgents = ref([]);
 const isLoading = ref(true);
-const hasLoaded = ref(false);
+let loadRequestId = 0;
 
 const hasTextAi = computed(() =>
   isFeatureEnabled.value(accountId.value, FEATURE_FLAGS.AI_AGENT)
@@ -144,33 +144,64 @@ const openVoiceSetup = () => {
 const openTrack = key => (key === 'TEXT' ? openTextSetup() : openVoiceSetup());
 
 const loadSetupProgress = async () => {
-  if (hasLoaded.value || !currentAccount.value?.id) return;
-  if (!hasTextAi.value && !hasVoiceAi.value) {
-    hasLoaded.value = true;
+  const requestedAccountId = accountId.value;
+  loadRequestId += 1;
+  const requestId = loadRequestId;
+
+  textAgents.value = [];
+  voiceAgents.value = [];
+  if (!requestedAccountId) {
     isLoading.value = false;
     return;
   }
 
-  hasLoaded.value = true;
+  isLoading.value = true;
+  if (!hasTextAi.value && !hasVoiceAi.value) {
+    isLoading.value = false;
+    return;
+  }
+
   try {
     const requests = [];
-    if (hasTextAi.value) requests.push(store.dispatch('aiAgent/get'));
+    if (hasTextAi.value) {
+      requests.push(
+        AiAgentAPI.get().then(response => {
+          if (
+            requestId === loadRequestId &&
+            accountId.value === requestedAccountId
+          ) {
+            textAgents.value = Array.isArray(response.data)
+              ? response.data
+              : [];
+          }
+        })
+      );
+    }
     if (hasVoiceAi.value) {
       requests.push(
         VoiceAPI.getAgents().then(response => {
-          voiceAgents.value = response.data?.payload || [];
+          if (
+            requestId === loadRequestId &&
+            accountId.value === requestedAccountId
+          ) {
+            voiceAgents.value = response.data?.payload || [];
+          }
         })
       );
     }
     await Promise.all(requests);
   } catch {
-    useAlert(t('AI_SETUP.LOAD_ERROR'));
+    if (requestId === loadRequestId) {
+      useAlert(t('AI_SETUP.LOAD_ERROR'));
+    }
   } finally {
-    isLoading.value = false;
+    if (requestId === loadRequestId) {
+      isLoading.value = false;
+    }
   }
 };
 
-watch([currentAccount, hasTextAi, hasVoiceAi], loadSetupProgress, {
+watch([accountId, hasTextAi, hasVoiceAi], loadSetupProgress, {
   immediate: true,
 });
 </script>
@@ -196,7 +227,11 @@ watch([currentAccount, hasTextAi, hasVoiceAi], loadSetupProgress, {
               <span
                 class="flex size-9 flex-shrink-0 items-center justify-center rounded-lg bg-n-alpha-2"
               >
-                <Icon :icon="track.icon" class="size-4 text-n-slate-12" />
+                <Icon
+                  :icon="track.icon"
+                  class="size-4 text-n-slate-12"
+                  aria-hidden="true"
+                />
               </span>
               <h2 class="m-0 text-xl font-semibold text-n-slate-12">
                 {{ track.title }}
@@ -235,7 +270,7 @@ watch([currentAccount, hasTextAi, hasVoiceAi], loadSetupProgress, {
             :aria-valuemax="track.progress.steps.length"
           >
             <div
-              class="h-full rounded-full bg-n-brand transition-all"
+              class="h-full rounded-full bg-n-brand transition-[width]"
               :style="{
                 width: `${
                   (track.progress.completedCount /
@@ -258,6 +293,7 @@ watch([currentAccount, hasTextAi, hasVoiceAi], loadSetupProgress, {
                 "
                 class="size-4 flex-shrink-0"
                 :class="step.complete ? 'text-n-teal-10' : 'text-n-slate-8'"
+                aria-hidden="true"
               />
               <span
                 class="text-sm"
