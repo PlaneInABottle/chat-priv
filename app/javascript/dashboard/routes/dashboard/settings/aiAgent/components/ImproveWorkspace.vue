@@ -1,10 +1,11 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 
 import TabBar from 'dashboard/components-next/tabbar/TabBar.vue';
 import EvaluationSuite from './EvaluationSuite.vue';
+import ImprovementCreditsSummary from './ImprovementCreditsSummary.vue';
 import LearningSuggestions from './LearningSuggestions.vue';
 
 const props = defineProps({
@@ -18,6 +19,8 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['draftUpdated']);
+const creditsSummaryRef = ref(null);
+const improvementUsage = ref(null);
 
 const { t } = useI18n();
 const router = useRouter();
@@ -44,6 +47,14 @@ const handleTabChange = tab => {
     params: { id: props.aiAgentId },
   });
 };
+
+const refreshCredits = () => creditsSummaryRef.value?.refresh();
+const creditsExhausted = computed(
+  () => improvementUsage.value?.status === 'exhausted'
+);
+const handleImprovementUsageLoaded = usage => {
+  improvementUsage.value = usage;
+};
 </script>
 
 <template>
@@ -65,10 +76,16 @@ const handleTabChange = tab => {
       />
       <p class="m-0">{{ t('AI_ASSISTANT.IMPROVE.SAVE_DRAFT_FIRST') }}</p>
     </div>
+    <ImprovementCreditsSummary
+      ref="creditsSummaryRef"
+      @loaded="handleImprovementUsageLoaded"
+    />
     <EvaluationSuite
       v-if="mode === 'evaluations'"
       :ai-agent-id="aiAgentId"
       :has-unsaved-instructions="hasUnsavedInstructions"
+      :credits-exhausted="creditsExhausted"
+      @usage-changed="refreshCredits"
     />
     <LearningSuggestions
       v-else

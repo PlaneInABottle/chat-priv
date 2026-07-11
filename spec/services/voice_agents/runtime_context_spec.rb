@@ -89,7 +89,12 @@ RSpec.describe VoiceAgents::RuntimeContext do
         contact: nil,
         provider: :livekit,
         provider_call_id: 'room-draft',
-        meta: { 'voice_inbox_setting_id' => setting.id, 'test_call' => true }
+        started_at: Time.zone.parse('2026-07-11 12:00:00 UTC'),
+        meta: {
+          'voice_inbox_setting_id' => setting.id,
+          'test_call' => true,
+          'ai_improvement_max_duration_seconds' => 20
+        }
       )
 
       production_payload = described_class.new(call: production_call).payload
@@ -100,6 +105,7 @@ RSpec.describe VoiceAgents::RuntimeContext do
       expect(production_call.reload.voice_agent_release).to eq(release)
       expect(test_payload[:instructions]).to include('Unpublished voice draft')
       expect(test_payload.dig(:call, :voice_agent_release_id)).to be_nil
+      expect(test_payload.dig(:call, :test_duration_limit_seconds)).to eq(20)
     end
   end
 end

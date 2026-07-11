@@ -18,6 +18,19 @@ RSpec.describe Voice::TestCallBuilder do
       )
     end
 
+    def expect_improvement_reservation(call, voice_agent, user)
+      usage_event = call.account.ai_improvement_usage_events.find(call.meta['ai_improvement_usage_event_id'])
+      expect(usage_event).to have_attributes(
+        operation: 'voice_test',
+        unit_type: 'audio_seconds',
+        status: 'reserved',
+        credits: 90,
+        voice_agent_id: voice_agent.id,
+        call_id: call.id,
+        initiated_by_id: user.id
+      )
+    end
+
     it 'creates a LiveKit voice call in an API inbox', :aggregate_failures do
       voice_agent.update!(enabled: false)
       call = described_class.perform!(
@@ -44,11 +57,15 @@ RSpec.describe Voice::TestCallBuilder do
       expect(call.conversation).to be_nil
       expect(call.message).to be_nil
       expect(call.meta.dig('voice_agent_dispatch', 'status')).to eq('dispatched')
+      expect(call.meta['ai_improvement_max_duration_seconds']).to eq(900)
+      expect_improvement_reservation(call, voice_agent, user)
+      expect(Voice::TestCallImprovementBudgetJob).to have_been_enqueued.with(call)
       payload = Voice::CallSerializer.new(call).payload
       expect(payload).to include(
         test_call: true,
         test_call_source: 'voice_ai_settings',
-        test_call_initiated_by_user_id: user.id
+        test_call_initiated_by_user_id: user.id,
+        test_duration_limit_seconds: 900
       )
       expect(payload).not_to have_key(:conversation_id)
       expect(payload).not_to have_key(:contact_id)
@@ -95,6 +112,47 @@ RSpec.describe Voice::TestCallBuilder do
       expect do
         described_class.perform!(account: account, inbox: inbox, voice_agent: voice_agent)
       end.to raise_error(Voice::Usage::Admission::Error, 'Voice AI is disabled for this account.')
+    end
+
+    it 'rejects test calls when improvement credits are exhausted' do
+      account.ai_improvement_settings = { monthly_credit_limit: 1 }
+      account.save!
+      limiter = AiImprovements::Usage::Limiter.new(account: account, operation: 'voice_test')
+      limiter.consume!(limiter.reserve_or_raise!, unit_type: 'audio_seconds', units: 1)
+
+      expect do
+        described_class.perform!(account: account, inbox: inbox, voice_agent: voice_agent)
+      end.to raise_error(AiImprovements::Usage::Exhausted)
+      expect(Voice::Livekit::AgentDispatchService).not_to have_received(:perform)
+    end
+
+    it 'limits the test duration to currently available improvement credits' do
+      account.ai_improvement_settings = { monthly_credit_limit: 3 }
+      account.save!
+      limiter = AiImprovements::Usage::Limiter.new(account: account, operation: 'text_test')
+      limiter.consume!(limiter.reserve_or_raise!, unit_type: 'tokens', units: 1)
+
+      call = described_class.perform!(account: account, inbox: inbox, voice_agent: voice_agent)
+      usage_event = account.ai_improvement_usage_events.find(call.meta['ai_improvement_usage_event_id'])
+
+      expect(usage_event).to have_attributes(status: 'reserved', credits: 2)
+      expect(call.meta['ai_improvement_max_duration_seconds']).to eq(20)
+    end
+
+    it 'releases the improvement reservation when dispatch fails' do
+      allow(Voice::Livekit::AgentDispatchService).to receive(:perform).and_raise('dispatch failed')
+      allow(Voice::CallFinalizer).to receive(:perform!)
+
+      expect do
+        described_class.perform!(account: account, inbox: inbox, voice_agent: voice_agent)
+      end.to raise_error('dispatch failed')
+
+      expect(account.ai_improvement_usage_events.last).to be_released
+      expect(Voice::CallFinalizer).to have_received(:perform!).with(
+        call: account.calls.last,
+        status: 'failed',
+        end_reason: 'test_call_start_failed'
+      )
     end
   end
 end

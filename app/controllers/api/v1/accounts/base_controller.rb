@@ -24,4 +24,22 @@ class Api::V1::Accounts::BaseController < Api::BaseController
 
     render json: { error: 'Voice AI is disabled for this account.' }, status: :forbidden
   end
+
+  def ensure_ai_improvement_credits!(operation:, ai_agent: nil, voice_agent: nil)
+    AiImprovements::Usage::Limiter.new(
+      account: Current.account,
+      operation: operation,
+      ai_agent: ai_agent,
+      voice_agent: voice_agent,
+      initiated_by: Current.user
+    ).ensure_available!
+  end
+
+  def render_ai_improvement_credits_exhausted(error)
+    render json: {
+      error: error.message,
+      code: 'ai_improvement_credits_exhausted',
+      usage: error.summary
+    }, status: :payment_required
+  end
 end

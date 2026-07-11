@@ -35,6 +35,7 @@ const { formatMessage } = useMessageFormatter();
 const mobileView = ref('edit');
 const selectedSection = ref('profile');
 const websiteImportDialog = ref(null);
+const draftTestPanel = ref(null);
 
 const profileOptions = computed(() => ({
   language: [
@@ -179,6 +180,8 @@ const openWebsiteImport = () => {
 
   websiteImportDialog.value.open();
 };
+
+const refreshImprovementUsage = () => draftTestPanel.value?.refreshCredits?.();
 </script>
 
 <template>
@@ -239,14 +242,14 @@ const openWebsiteImport = () => {
         :selected-key="selectedSection"
         :class="
           mobileView === 'test'
-            ? 'hidden min-[1360px]:flex min-[1360px]:h-[calc(100dvh-22rem)] min-[1360px]:min-h-[26rem] min-[1360px]:max-h-[48rem]'
-            : 'hidden md:flex md:h-[calc(100dvh-22rem)] md:min-h-[26rem] md:max-h-[48rem]'
+            ? 'hidden min-[1360px]:flex min-[1360px]:h-[calc(100dvh-25rem)] min-[1360px]:min-h-[22rem] min-[1360px]:max-h-[48rem]'
+            : 'hidden md:flex md:h-[calc(100dvh-25rem)] md:min-h-[22rem] md:max-h-[48rem]'
         "
         @select="selectedSection = $event"
       />
 
       <section
-        class="min-h-[32rem] min-w-0 flex-col md:h-[calc(100dvh-22rem)] md:min-h-[26rem] md:max-h-[48rem] md:overflow-hidden"
+        class="min-h-[32rem] min-w-0 flex-col md:h-[calc(100dvh-25rem)] md:min-h-[22rem] md:max-h-[48rem] md:overflow-hidden"
         :class="mobileView === 'test' ? 'hidden min-[1360px]:flex' : 'flex'"
       >
         <label class="mb-4 flex flex-col gap-1 text-sm font-medium md:hidden">
@@ -388,6 +391,7 @@ const openWebsiteImport = () => {
       </section>
 
       <DraftTestPanel
+        ref="draftTestPanel"
         class="min-[1360px]:sticky min-[1360px]:top-4"
         :class="
           mobileView === 'edit'
@@ -407,6 +411,7 @@ const openWebsiteImport = () => {
       :ai-agent-id="aiAgentId"
       :default-website="defaultWebsite"
       @applied="emit('websiteImportApplied')"
+      @usage-changed="refreshImprovementUsage"
     />
   </div>
 </template>

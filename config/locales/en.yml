@@ -99,6 +99,8 @@ en:
         monthly_limit_exhausted: 'Voice AI monthly minute limit is exhausted.'
         concurrent_limit_reached: 'Voice AI concurrent call limit is reached.'
         rejected: 'Voice AI call cannot be started.'
+    ai_improvement_usage:
+      exhausted: 'AI improvement credits are exhausted for this month. Contact your service administrator.'
     assignment_policy:
       not_found: Assignment policy not found
     attachments:
@@ -623,6 +625,7 @@ en:
     label:
       account:
         ai_agent_settings: "Text AI Settings"
+        ai_improvement_settings: "AI Improvement Credits"
         voice_ai_settings: "Voice AI Settings"
         voice_agent_runtime_settings: "Voice Agent Runtime Settings"
   portals:
@@ -697,6 +700,16 @@ en:
       reuse_window_hint: "Hours. New AI conversations from the same contact inside this window count once."
       data_retention: "Sensitive Activity Retention"
       data_retention_hint: "Model diagnostics, tool activity, test conversations, evaluation run results, and reviewed learning snapshots."
+    account_ai_improvement_settings:
+      title: "AI Improvement Credits"
+      monthly_limit: "Monthly Credit Limit"
+      credits: "Credits"
+      limit_hint: "Shared by draft tests, evaluations, website analysis, learning analysis, knowledge indexing, and Voice test calls. 0 = unlimited."
+      used: "Used Credits"
+      reserved: "In Progress"
+      remaining: "Remaining Credits"
+      resets_at: "Resets At"
+      unlimited: "Unlimited"
     account_voice_ai_settings:
       title: "Voice AI Settings"
       account_access: "Account access"

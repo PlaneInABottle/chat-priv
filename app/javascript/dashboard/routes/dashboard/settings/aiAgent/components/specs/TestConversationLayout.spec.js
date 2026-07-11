@@ -119,4 +119,24 @@ describe('TestConversationLayout.vue', () => {
 
     expect(useAlert).toHaveBeenCalledWith('Failed to send message');
   });
+
+  it('keeps history available but blocks new messages when credits are exhausted', async () => {
+    const { wrapper, dispatch } = mountComponent({ isDisabled: false });
+    wrapper
+      .findComponent({ name: 'ImprovementCreditsSummary' })
+      .vm.$emit('loaded', { status: 'exhausted' });
+    await wrapper.vm.$nextTick();
+
+    await wrapper.vm.sendMessage('Hello');
+    wrapper.vm.selectConversation(1);
+
+    expect(dispatch).not.toHaveBeenCalledWith(
+      'aiAgentTestConversations/sendMessage',
+      expect.anything()
+    );
+    expect(dispatch).toHaveBeenCalledWith('aiAgentTestConversations/show', {
+      aiAgentId: 42,
+      id: 1,
+    });
+  });
 });

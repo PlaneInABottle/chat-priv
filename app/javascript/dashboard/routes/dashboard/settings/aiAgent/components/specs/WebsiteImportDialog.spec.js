@@ -68,6 +68,12 @@ const mountComponent = () =>
         },
         Icon: true,
         Spinner: true,
+        ImprovementCreditsSummary: {
+          name: 'ImprovementCreditsSummary',
+          template: '<div />',
+          emits: ['loaded'],
+          methods: { refresh() {} },
+        },
       },
     },
   });
@@ -128,5 +134,23 @@ describe('WebsiteImportDialog', () => {
       'AI_ASSISTANT.WEBSITE_IMPORT.ERROR.UNREACHABLE'
     );
     expect(wrapper.text()).not.toContain('Connection refused');
+  });
+
+  it('blocks new analysis when improvement credits are exhausted', async () => {
+    mockApi.get.mockResolvedValue({ data: [] });
+    const wrapper = mountComponent();
+    await wrapper.vm.open();
+    wrapper
+      .findComponent({ name: 'ImprovementCreditsSummary' })
+      .vm.$emit('loaded', { status: 'exhausted' });
+    await wrapper.vm.$nextTick();
+
+    wrapper.vm.websiteUrl = 'https://example.com/';
+    await wrapper.vm.startImport();
+
+    expect(mockApi.create).not.toHaveBeenCalled();
+    expect(
+      wrapper.find('button[type="submit"]').attributes('disabled')
+    ).toBeDefined();
   });
 });

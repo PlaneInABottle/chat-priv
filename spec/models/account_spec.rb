@@ -538,6 +538,32 @@ RSpec.describe Account do
     end
   end
 
+  describe 'ai_improvement_settings' do
+    let(:account) { create(:account) }
+
+    it 'defaults to a finite monthly allowance' do
+      expect(account.ai_improvement_settings).to eq(monthly_credit_limit: 1_000)
+    end
+
+    it 'round-trips an explicit limit and preserves zero as unlimited' do
+      account.ai_improvement_settings = { monthly_credit_limit: '250' }
+      account.save!
+      expect(account.reload.ai_improvement_monthly_credit_limit).to eq(250)
+
+      account.ai_improvement_settings = { monthly_credit_limit: '0' }
+      account.save!
+      expect(account.reload.ai_improvement_monthly_credit_limit).to eq(0)
+    end
+
+    it 'falls back to the finite default for blank, malformed, or negative input' do
+      ['', 'not-a-number', '-10'].each do |value|
+        account.ai_improvement_settings = { monthly_credit_limit: value }
+        account.save!
+        expect(account.reload.ai_improvement_monthly_credit_limit).to eq(1_000)
+      end
+    end
+  end
+
   describe 'voice_ai_settings' do
     let(:account) { create(:account) }
 

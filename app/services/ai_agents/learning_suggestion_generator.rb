@@ -18,8 +18,9 @@ class AiAgents::LearningSuggestionGenerator
 
   class InvalidResponse < StandardError; end
 
-  def initialize(ai_agent:, adapter: nil)
+  def initialize(ai_agent:, adapter: nil, initiated_by: nil)
     @ai_agent = ai_agent
+    @initiated_by = initiated_by
     @adapter = adapter || default_adapter
   end
 
@@ -35,12 +36,14 @@ class AiAgents::LearningSuggestionGenerator
 
   private
 
-  attr_reader :ai_agent, :adapter
+  attr_reader :ai_agent, :adapter, :initiated_by
 
   def default_adapter
     AiAgents::LlmAdapters::OpenAiCompatibleAdapter.new(
       ai_agent: ai_agent,
       account: ai_agent.account,
+      improvement_operation: 'learning',
+      initiated_by: initiated_by,
       llm_options: { system_prompt: SYSTEM_PROMPT }
     )
   end

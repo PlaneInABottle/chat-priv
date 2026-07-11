@@ -13,6 +13,7 @@ class AiAgents::LearningSuggestionCreator
     existing = ai_agent.learning_suggestions.find_by(source_message: message)
     return existing if existing
 
+    improvement_limiter.ensure_available!
     suggestion = ai_agent.learning_suggestions.create!(suggestion_attributes)
     AiAgents::LearningSuggestionJob.perform_later(suggestion)
     suggestion
@@ -69,5 +70,14 @@ class AiAgents::LearningSuggestionCreator
       customer_message: customer_message.content_for_llm.to_s.strip.truncate(10_000),
       human_answer: human_answer.truncate(10_000)
     }
+  end
+
+  def improvement_limiter
+    @improvement_limiter ||= AiImprovements::Usage::Limiter.new(
+      account: account,
+      operation: 'learning',
+      ai_agent: ai_agent,
+      initiated_by: submitted_by
+    )
   end
 end

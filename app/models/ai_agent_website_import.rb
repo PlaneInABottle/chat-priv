@@ -62,6 +62,7 @@ class AiAgentWebsiteImport < ApplicationRecord
   def customer_error_code
     return if error_code.blank?
     return 'timed_out' if error_code == 'stale_import'
+    return 'ai_improvement_credits_exhausted' if error_code == 'AiImprovements::Usage::Exhausted'
     return 'website_too_large' if error_code == 'SafeFetch::FileTooLargeError'
     return 'website_unreachable' if error_code.start_with?('SafeFetch::')
     return 'generation_failed' if error_code.start_with?('AiAgents::WebsiteInstructionGenerator::')

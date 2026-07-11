@@ -379,6 +379,52 @@ def participant_wait_timeout() -> float:
     return float(os.getenv("VOICE_AGENT_WAIT_FOR_PARTICIPANT_TIMEOUT_SECONDS", "120"))
 
 
+def improvement_budget_duration_seconds(runtime_context: dict[str, Any]) -> float | None:
+    call_context = runtime_context.get("call")
+    if not isinstance(call_context, dict):
+        return None
+
+    try:
+        duration = float(call_context.get("test_duration_limit_seconds"))
+    except (TypeError, ValueError):
+        return None
+
+    return duration if duration > 0 else None
+
+
+async def enforce_improvement_budget(
+    runtime_context: dict[str, Any],
+    end_call: Any,
+) -> None:
+    duration = improvement_budget_duration_seconds(runtime_context)
+    if duration is None:
+        return
+
+    await asyncio.sleep(duration)
+    await end_call("ai_improvement_credit_limit")
+
+
+async def start_improvement_budget(
+    runtime_context: dict[str, Any],
+    chatwoot: ChatwootClient,
+    provider_call_id: str,
+    participant_identity: str,
+    end_call: Any,
+) -> asyncio.Task[Any] | None:
+    if improvement_budget_duration_seconds(runtime_context) is None:
+        return None
+
+    await chatwoot.record_event(
+        provider_call_id,
+        "test_call_customer_joined",
+        {"participant_identity": participant_identity},
+    )
+    return _fire_and_forget(
+        "improvement_budget",
+        enforce_improvement_budget(runtime_context, end_call),
+    )
+
+
 def is_customer_participant(participant: rtc.RemoteParticipant) -> bool:
     identity = participant.identity or ""
     if identity.startswith("agent-"):
@@ -544,7 +590,7 @@ def _transcript_segment_id(item: ChatMessage, text: str) -> str | None:
     return hashlib.sha256(f"{item.role}:{text}".encode("utf-8")).hexdigest()[:16]
 
 
-def _fire_and_forget(name: str, coro: Any) -> None:
+def _fire_and_forget(name: str, coro: Any) -> asyncio.Task[Any]:
     async def _run() -> None:
         try:
             await coro
@@ -554,6 +600,7 @@ def _fire_and_forget(name: str, coro: Any) -> None:
     task = asyncio.create_task(_run())
     _BACKGROUND_TASKS.add(task)
     task.add_done_callback(_BACKGROUND_TASKS.discard)
+    return task
 
 
 def bind_transcript_events(session: AgentSession, provider_call_id: str, chatwoot: ChatwootClient) -> None:
@@ -619,19 +666,23 @@ async def _entrypoint_inner(ctx: agents.JobContext, provider_call_id: str) -> No
         realtime_model_name = resolved_runtime["model"] if runtime.get("architecture") == "realtime" else None
         greeting = str(voice_agent.get("greeting") or "").strip() or None
         tools = build_chatwoot_tools(runtime_context, chatwoot, provider_call_id)
-        try:
-            participant = await wait_for_customer_participant(ctx)
-        except asyncio.TimeoutError:
-            await chatwoot.end_call(provider_call_id, "participant_timeout")
-            return
         ended = False
+        budget_task: asyncio.Task[Any] | None = None
 
         async def end_call_once(reason: str) -> None:
-            nonlocal ended
+            nonlocal ended, budget_task
             if ended:
                 return
             ended = True
+            if reason != "ai_improvement_credit_limit" and budget_task:
+                budget_task.cancel()
             await chatwoot.end_call(provider_call_id, reason)
+
+        try:
+            participant = await wait_for_customer_participant(ctx)
+        except asyncio.TimeoutError:
+            await end_call_once("participant_timeout")
+            return
 
         @ctx.room.on("participant_disconnected")
         def on_participant_disconnected(
@@ -642,6 +693,14 @@ async def _entrypoint_inner(ctx: agents.JobContext, provider_call_id: str) -> No
 
             reason = end_reason_for_disconnect(disconnected_participant.disconnect_reason)
             _fire_and_forget("participant_disconnected_end_call", end_call_once(reason))
+
+        budget_task = await start_improvement_budget(
+            runtime_context,
+            chatwoot,
+            provider_call_id,
+            participant.identity,
+            end_call_once,
+        )
 
         session = build_session(instructions=instructions, runtime=runtime)
         bind_transcript_events(session, provider_call_id, chatwoot)

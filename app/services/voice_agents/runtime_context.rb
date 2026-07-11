@@ -31,6 +31,7 @@ class VoiceAgents::RuntimeContext
       provider_call_id: call.provider_call_id,
       livekit_room_name: call.livekit_room_name,
       test_call: call.test_call?,
+      test_duration_limit_seconds: test_duration_limit_seconds,
       voice_number_id: call.meta&.fetch('voice_number_id', nil),
       voice_provider_connection_id: call.meta&.fetch('voice_provider_connection_id', nil)
     }
@@ -42,6 +43,13 @@ class VoiceAgents::RuntimeContext
       voice_agent_revision: resolved_release&.revision,
       draft_fingerprint: call.test_call? ? voice_agent.draft_fingerprint : nil
     }
+  end
+
+  def test_duration_limit_seconds
+    duration_limit = call.meta.to_h['ai_improvement_max_duration_seconds'].to_i
+    return unless call.test_call? && duration_limit.positive?
+
+    duration_limit
   end
 
   def voice_agent_payload

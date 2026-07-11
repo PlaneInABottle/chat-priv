@@ -1,0 +1,23 @@
+<% usage = AiImprovements::Usage::Summary.new(account: field.resource).payload %>
+<dl class="super-admin-field-summary">
+  <div>
+    <dt><%= t('super_admin.account_ai_improvement_settings.monthly_limit') %></dt>
+    <dd><%= usage[:unlimited] ? t('super_admin.account_ai_improvement_settings.unlimited') : usage[:limit_credits] %></dd>
+  </div>
+  <div>
+    <dt><%= t('super_admin.account_ai_improvement_settings.used') %></dt>
+    <dd><%= usage[:used_credits] %></dd>
+  </div>
+  <div>
+    <dt><%= t('super_admin.account_ai_improvement_settings.reserved') %></dt>
+    <dd><%= usage[:reserved_credits] %></dd>
+  </div>
+  <div>
+    <dt><%= t('super_admin.account_ai_improvement_settings.remaining') %></dt>
+    <dd><%= usage[:unlimited] ? t('super_admin.account_ai_improvement_settings.unlimited') : usage[:remaining_credits] %></dd>
+  </div>
+  <div>
+    <dt><%= t('super_admin.account_ai_improvement_settings.resets_at') %></dt>
+    <dd><%= l(Time.zone.parse(usage[:reset_at]), format: :long) %></dd>
+  </div>
+</dl>

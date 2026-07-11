@@ -10,7 +10,9 @@ import Button from 'dashboard/components-next/button/Button.vue';
 const props = defineProps({
   aiAgentId: { type: Number, required: true },
   hasUnsavedInstructions: { type: Boolean, default: false },
+  creditsExhausted: { type: Boolean, default: false },
 });
+const emit = defineEmits(['usageChanged']);
 
 const { t } = useI18n();
 const evaluationCases = ref([]);
@@ -112,6 +114,9 @@ refreshRun = async () => {
       response.data,
       ...evaluationRuns.value.filter(run => run.id !== response.data.id),
     ];
+    if (['completed', 'failed'].includes(response.data.status)) {
+      emit('usageChanged');
+    }
     schedulePoll();
   } catch (error) {
     useAlert(
@@ -193,7 +198,7 @@ const deleteCase = async evaluationCase => {
 };
 
 const startRun = async () => {
-  if (props.hasUnsavedInstructions) return;
+  if (props.hasUnsavedInstructions || props.creditsExhausted) return;
 
   isStartingRun.value = true;
   try {
@@ -201,6 +206,7 @@ const startRun = async () => {
     evaluationRuns.value = [response.data, ...evaluationRuns.value];
     schedulePoll();
   } catch (error) {
+    emit('usageChanged');
     useAlert(
       parseAPIErrorResponse(error) || t('AI_ASSISTANT.EVALUATIONS.ERROR.RUN')
     );
@@ -308,7 +314,10 @@ onBeforeUnmount(() => window.clearTimeout(pollTimer));
           :label="t('AI_ASSISTANT.EVALUATIONS.RUN.ACTION')"
           :is-loading="isStartingRun"
           :disabled="
-            !evaluationCases.length || isRunActive || hasUnsavedInstructions
+            !evaluationCases.length ||
+            isRunActive ||
+            hasUnsavedInstructions ||
+            creditsExhausted
           "
           @click="startRun"
         />

@@ -6,7 +6,10 @@ class AiAgents::LearningSuggestionJob < ApplicationJob
   def perform(suggestion)
     return unless claim(suggestion)
 
-    result = AiAgents::LearningSuggestionGenerator.new(ai_agent: suggestion.ai_agent).call(
+    result = AiAgents::LearningSuggestionGenerator.new(
+      ai_agent: suggestion.ai_agent,
+      initiated_by: suggestion.submitted_by
+    ).call(
       customer_message: suggestion.customer_message,
       human_answer: suggestion.human_answer
     )

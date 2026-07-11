@@ -405,6 +405,33 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_18_000000) do
     t.index ["current_release_id"], name: "index_ai_agents_on_current_release_id"
   end
 
+  create_table "ai_improvement_usage_events", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "ai_agent_id"
+    t.bigint "voice_agent_id"
+    t.bigint "call_id"
+    t.bigint "initiated_by_id"
+    t.string "operation", null: false
+    t.string "unit_type", null: false
+    t.bigint "units", default: 0, null: false
+    t.integer "credits", default: 1, null: false
+    t.integer "status", default: 0, null: false
+    t.datetime "period_start_at", null: false
+    t.datetime "period_end_at", null: false
+    t.string "idempotency_key", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "operation", "created_at"], name: "idx_ai_improvement_usage_on_account_operation"
+    t.index ["account_id", "period_start_at", "idempotency_key"], name: "idx_ai_improvement_usage_on_idempotency", unique: true
+    t.index ["account_id", "period_start_at", "status"], name: "idx_ai_improvement_usage_on_account_period_status"
+    t.index ["account_id"], name: "index_ai_improvement_usage_events_on_account_id"
+    t.index ["ai_agent_id"], name: "index_ai_improvement_usage_events_on_ai_agent_id"
+    t.index ["call_id"], name: "index_ai_improvement_usage_events_on_call_id"
+    t.index ["initiated_by_id"], name: "index_ai_improvement_usage_events_on_initiated_by_id"
+    t.index ["voice_agent_id"], name: "index_ai_improvement_usage_events_on_voice_agent_id"
+  end
+
   create_table "applied_slas", force: :cascade do |t|
     t.bigint "account_id", null: false
     t.bigint "sla_policy_id", null: false
@@ -1949,6 +1976,11 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_18_000000) do
   add_foreign_key "ai_agents", "accounts", on_delete: :cascade
   add_foreign_key "ai_agents", "agent_bots", on_delete: :nullify
   add_foreign_key "ai_agents", "ai_agent_releases", column: "current_release_id", on_delete: :nullify
+  add_foreign_key "ai_improvement_usage_events", "accounts", on_delete: :cascade
+  add_foreign_key "ai_improvement_usage_events", "ai_agents", on_delete: :nullify
+  add_foreign_key "ai_improvement_usage_events", "calls", on_delete: :nullify
+  add_foreign_key "ai_improvement_usage_events", "users", column: "initiated_by_id", on_delete: :nullify
+  add_foreign_key "ai_improvement_usage_events", "voice_agents", on_delete: :nullify
   add_foreign_key "call_transcript_segments", "accounts"
   add_foreign_key "call_transcript_segments", "calls"
   add_foreign_key "call_transcript_segments", "conversations"

@@ -38,10 +38,13 @@ class Api::V1::Accounts::AiAgentTestConversationsController < Api::V1::Accounts:
     return render json: { error: 'Message limit reached (200 messages max)' }, status: :unprocessable_entity if @test_conversation.at_message_limit?
     return render json: { error: 'Draft instructions are too long' }, status: :unprocessable_entity if effective_test_prompt.length > 50_000
 
+    ensure_ai_improvement_credits!(operation: 'text_test', ai_agent: @ai_agent)
     @test_conversation.append_message(role: 'user', content: content)
     @test_conversation.update!(title: content.truncate(50)) if @test_conversation.title == 'New Test Conversation'
 
     generate_and_render_ai_response
+  rescue AiImprovements::Usage::Exhausted => e
+    render_ai_improvement_credits_exhausted(e)
   end
 
   private
@@ -60,21 +63,24 @@ class Api::V1::Accounts::AiAgentTestConversationsController < Api::V1::Accounts:
       messages: @test_conversation.messages,
       mode: :test,
       conversation: @test_conversation,
-      prompt_override: effective_test_prompt
+      prompt_override: effective_test_prompt,
+      initiated_by: Current.user
     ).perform
 
-    if result[:assistant_message]
-      append_assistant_message(result[:assistant_message])
-      @ai_agent.mark_test_succeeded!(prompt: effective_test_prompt)
-      render json: {
-        message: @test_conversation.messages.last,
-        messages: @test_conversation.messages,
-        title: @test_conversation.title,
-        tested_draft: draft_instructions_provided?
-      }
-    else
-      render json: { error: 'Failed to generate response' }, status: :unprocessable_entity
-    end
+    return render json: { error: 'Failed to generate response' }, status: :unprocessable_entity unless result[:assistant_message]
+
+    append_assistant_message(result[:assistant_message])
+    @ai_agent.mark_test_succeeded!(prompt: effective_test_prompt)
+    render json: test_response_payload
+  end
+
+  def test_response_payload
+    {
+      message: @test_conversation.messages.last,
+      messages: @test_conversation.messages,
+      title: @test_conversation.title,
+      tested_draft: draft_instructions_provided?
+    }
   end
 
   def append_assistant_message(message)

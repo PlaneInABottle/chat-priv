@@ -595,45 +595,49 @@ watch(agentId, async (newAgentId, oldAgentId) => {
         feature-name="ai_agent"
       >
         <template #actions>
-          <AssistantStatusBadge
-            :status="lifecycleStatus"
-            class="flex-shrink-0"
-          />
-          <Button
-            v-if="hasPublishedRelease"
-            icon="i-lucide-history"
-            variant="outline"
-            color="slate"
-            class="flex-shrink-0"
-            :label="t('AI_ASSISTANT.RELEASE_HISTORY.OPEN')"
-            @click="openReleaseHistory"
-          />
-          <Button
-            v-if="isActive"
-            icon="i-lucide-pause"
-            variant="outline"
-            color="amber"
-            class="flex-shrink-0"
-            :label="t('AI_ASSISTANT.ACTIONS.PAUSE')"
-            @click="handlePause"
-          />
-          <Button
-            v-if="showPublishAction"
-            icon="i-lucide-rocket"
-            class="flex-shrink-0"
-            :label="publishActionLabel"
-            :disabled="!aiAgent?.readiness?.can_publish || isFormDirty"
-            @click="handlePublish"
-          />
-          <Button
-            v-tooltip="t('AI_AGENT.BACK')"
-            icon="i-lucide-arrow-left"
-            variant="outline"
-            color="slate"
-            class="flex-shrink-0"
-            :aria-label="t('AI_AGENT.BACK')"
-            @click="goBack"
-          />
+          <div
+            class="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:gap-3"
+          >
+            <AssistantStatusBadge
+              :status="lifecycleStatus"
+              class="flex-shrink-0"
+            />
+            <Button
+              v-if="hasPublishedRelease"
+              icon="i-lucide-history"
+              variant="outline"
+              color="slate"
+              class="flex-shrink-0"
+              :label="t('AI_ASSISTANT.RELEASE_HISTORY.OPEN')"
+              @click="openReleaseHistory"
+            />
+            <Button
+              v-if="isActive"
+              icon="i-lucide-pause"
+              variant="outline"
+              color="amber"
+              class="flex-shrink-0"
+              :label="t('AI_ASSISTANT.ACTIONS.PAUSE')"
+              @click="handlePause"
+            />
+            <Button
+              v-if="showPublishAction"
+              icon="i-lucide-rocket"
+              class="flex-shrink-0"
+              :label="publishActionLabel"
+              :disabled="!aiAgent?.readiness?.can_publish || isFormDirty"
+              @click="handlePublish"
+            />
+            <Button
+              v-tooltip="t('AI_AGENT.BACK')"
+              icon="i-lucide-arrow-left"
+              variant="outline"
+              color="slate"
+              class="flex-shrink-0"
+              :aria-label="t('AI_AGENT.BACK')"
+              @click="goBack"
+            />
+          </div>
         </template>
       </BaseSettingsHeader>
     </template>

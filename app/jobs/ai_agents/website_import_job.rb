@@ -9,10 +9,7 @@ class AiAgents::WebsiteImportJob < ApplicationJob
 
     crawl_result = AiAgents::WebsiteCrawler.new(website_import.website_url).perform
     website_import.update!(source_urls: crawl_result.source_urls, stage: :generating)
-    generated = AiAgents::WebsiteInstructionGenerator.new(ai_agent: website_import.ai_agent).call(
-      pages: crawl_result.pages,
-      onboarding_answers: onboarding_answers(website_import.ai_agent)
-    )
+    generated = generate_instructions(website_import, crawl_result)
     website_import.update!(
       status: :ready,
       stage: :complete,
@@ -25,6 +22,16 @@ class AiAgents::WebsiteImportJob < ApplicationJob
   end
 
   private
+
+  def generate_instructions(website_import, crawl_result)
+    AiAgents::WebsiteInstructionGenerator.new(
+      ai_agent: website_import.ai_agent,
+      initiated_by: website_import.requested_by
+    ).call(
+      pages: crawl_result.pages,
+      onboarding_answers: onboarding_answers(website_import.ai_agent)
+    )
+  end
 
   def start_import(website_import)
     website_import.with_lock do

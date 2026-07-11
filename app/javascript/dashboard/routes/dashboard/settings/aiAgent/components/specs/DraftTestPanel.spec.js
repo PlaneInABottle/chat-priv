@@ -81,4 +81,24 @@ describe('DraftTestPanel', () => {
       expect.objectContaining({ draftInstructions: instructions })
     );
   });
+
+  it('keeps saved test conversations accessible when credits are exhausted', async () => {
+    const { wrapper, dispatch } = mountComponent(true);
+    wrapper
+      .findComponent({ name: 'ImprovementCreditsSummary' })
+      .vm.$emit('loaded', { status: 'exhausted' });
+    await wrapper.vm.$nextTick();
+
+    await wrapper.vm.sendMessage('Hello');
+    wrapper.vm.selectConversation(7);
+
+    expect(dispatch).not.toHaveBeenCalledWith(
+      'aiAgentTestConversations/sendMessage',
+      expect.anything()
+    );
+    expect(dispatch).toHaveBeenCalledWith('aiAgentTestConversations/show', {
+      aiAgentId: 42,
+      id: 7,
+    });
+  });
 });
