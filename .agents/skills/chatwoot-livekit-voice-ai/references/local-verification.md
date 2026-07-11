@@ -88,9 +88,27 @@ set -a; source .env.local; set +a; eval "$(rbenv init -)"; POSTGRES_HOST=localho
 
 Use `uv lock --check --directory services/voice_agent` after dependency changes.
 
+## Deterministic Audio Scenario
+
+Prefer `dev/voice_ai/run_scenario.py` for repeatable end-to-end voice assertions. It creates a real isolated Chatwoot test call, joins the LiveKit room as the caller, publishes a mono 16-bit PCM WAV exactly once, records the agent audio, polls persisted transcript/tool state, and ends the call in cleanup.
+
+```bash
+export CHATWOOT_TEST_EMAIL='admin@example.com'
+export CHATWOOT_TEST_PASSWORD='local-password'
+
+uv run --project services/voice_agent python3 dev/voice_ai/run_scenario.py \
+  --account-id <account_id> \
+  --inbox-id <api_inbox_id> \
+  --voice-agent-id <voice_agent_id> \
+  --wav /tmp/customer-question.wav \
+  --expect-caller-text '<expected words>'
+```
+
+Use `--expect-tool <tool_name>` for tool scenarios; each occurrence requires exactly one executed event, so duplicate terminal tool calls fail the scenario. Successful JSON output must include a completed call, caller and post-caller AI transcripts, a non-zero `agent_audio_seconds`, and the saved response WAV path. The harness waits for the post-session-start `ai_status=active` signal before publishing audio. It is intentionally single-call; run separate processes for bounded concurrency checks.
+
 ## Browser Test Call
 
-For automated speech proof, run `agent-browser` in headed mode with a valid WAV file and fake-media flags. Chromium's headless shell returns `NotSupportedError` from `getUserMedia` even when fake-device flags are present. Include several seconds of silence after the spoken fixture so provider turn detection closes the turn.
+Use the browser path for settings UI and media-permission validation. Chromium's fake audio capture loops its WAV fixture, so do not use it for exact tool-call counts or other deterministic voice assertions. Chromium's headless shell returns `NotSupportedError` from `getUserMedia` even when fake-device flags are present. Include several seconds of silence after the spoken fixture so provider turn detection closes the turn.
 
 ```bash
 agent-browser --session voice-media --headed \
