@@ -59,6 +59,16 @@ class AiAgentWebsiteImport < ApplicationRecord
     pending? || running?
   end
 
+  def customer_error_code
+    return if error_code.blank?
+    return 'timed_out' if error_code == 'stale_import'
+    return 'website_too_large' if error_code == 'SafeFetch::FileTooLargeError'
+    return 'website_unreachable' if error_code.start_with?('SafeFetch::')
+    return 'generation_failed' if error_code.start_with?('AiAgents::WebsiteInstructionGenerator::')
+
+    'analysis_failed'
+  end
+
   private
 
   def ai_agent_belongs_to_account

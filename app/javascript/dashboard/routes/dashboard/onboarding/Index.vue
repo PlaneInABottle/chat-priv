@@ -85,6 +85,9 @@ const draftIsReady = computed(() =>
   ['applied', 'ready', 'failed', 'fallback'].includes(importStatus.value)
 );
 const assistantId = computed(() => onboardingState.value?.ai_agent?.id);
+const canReviewDraft = computed(() =>
+  Boolean(assistantId.value && (draftIsReady.value || isImportRunning.value))
+);
 const hasWebsiteImport = computed(() =>
   Boolean(onboardingState.value?.website_import)
 );
@@ -149,6 +152,19 @@ const timezoneOptions = computed(() => {
   }
 });
 
+const aiPurposeOptions = computed(() =>
+  AI_PURPOSE_OPTIONS.map(value => ({
+    value,
+    label: t(`ONBOARDING_NEXT.AI_PURPOSE_OPTIONS.${value.toUpperCase()}`),
+  }))
+);
+
+const aiToneOptions = computed(() =>
+  AI_TONE_OPTIONS.map(value => ({
+    value,
+    label: t(`ONBOARDING_NEXT.AI_TONE_OPTIONS.${value.toUpperCase()}`),
+  }))
+);
 onMounted(() => {
   useTrack(ONBOARDING_EVENTS.ACCOUNT_DETAILS_VISITED);
   if (
@@ -353,8 +369,10 @@ const reviewAssistant = async () => {
                 @blur="isEditingWebsite = false"
               />
               <NextButton
+                v-tooltip="t('ONBOARDING_NEXT.EDIT_WEBSITE')"
                 type="button"
                 icon="i-lucide-pencil"
+                :aria-label="t('ONBOARDING_NEXT.EDIT_WEBSITE')"
                 slate
                 xs
                 ghost
@@ -433,14 +451,14 @@ const reviewAssistant = async () => {
         >
           <OnboardingFormSelect
             v-model="aiPurpose"
-            :options="AI_PURPOSE_OPTIONS"
+            :options="aiPurposeOptions"
           />
         </OnboardingFormRow>
         <OnboardingFormRow
           :title="t('ONBOARDING_NEXT.FIELDS.AI_TONE')"
           icon="i-lucide-message-circle"
         >
-          <OnboardingFormSelect v-model="aiTone" :options="AI_TONE_OPTIONS" />
+          <OnboardingFormSelect v-model="aiTone" :options="aiToneOptions" />
         </OnboardingFormRow>
         <div class="flex items-start gap-3 border-t border-n-weak px-3 py-3">
           <Icon
@@ -476,7 +494,12 @@ const reviewAssistant = async () => {
         </div>
       </div>
 
-      <div v-if="hasWebsiteImport" class="border-y border-n-weak py-2">
+      <div
+        v-if="hasWebsiteImport"
+        role="status"
+        aria-live="polite"
+        class="border-y border-n-weak py-2"
+      >
         <div
           v-for="stage in ['crawling', 'generating', 'applying']"
           :key="stage"
@@ -530,10 +553,14 @@ const reviewAssistant = async () => {
         </p>
       </div>
 
-      <div v-if="draftIsReady" class="mt-6 flex justify-end">
+      <div v-if="canReviewDraft" class="mt-6 flex justify-end">
         <NextButton
           icon="i-lucide-arrow-right"
-          :label="t('ONBOARDING_NEXT.BUILDING.REVIEW')"
+          :label="
+            isImportRunning
+              ? t('ONBOARDING_NEXT.BUILDING.REVIEW_STARTER')
+              : t('ONBOARDING_NEXT.BUILDING.REVIEW')
+          "
           :is-loading="isCompleting"
           @click="reviewAssistant"
         />

@@ -11,7 +11,6 @@ import Spinner from 'dashboard/components-next/spinner/Spinner.vue';
 
 const props = defineProps({
   aiAgentId: { type: Number, required: true },
-  currentDocument: { type: Object, required: true },
   defaultWebsite: { type: String, default: '' },
 });
 
@@ -34,9 +33,50 @@ const isReady = computed(() => websiteImport.value?.status === 'ready');
 const changedSections = computed(
   () => websiteImport.value?.changed_sections || []
 );
-const canApply = computed(
-  () => isReady.value && selectedSections.value.length > 0
+const currentDocument = computed(
+  () => websiteImport.value?.current_document || { sections: {} }
 );
+const hasDraftConflict = computed(() => websiteImport.value?.draft_changed);
+const canApply = computed(
+  () =>
+    isReady.value &&
+    !hasDraftConflict.value &&
+    selectedSections.value.length > 0
+);
+
+const errorKeys = {
+  invalid_website: 'INVALID_WEBSITE',
+  website_import_rate_limited: 'RATE_LIMITED',
+  timed_out: 'TIMED_OUT',
+  website_too_large: 'TOO_LARGE',
+  website_unreachable: 'UNREACHABLE',
+  generation_failed: 'GENERATION_FAILED',
+  analysis_failed: 'ANALYSIS_FAILED',
+  draft_changed: 'DRAFT_CHANGED',
+  invalid_selection: 'INVALID_SELECTION',
+};
+
+const localizedError = (code, fallback) => {
+  const key = errorKeys[code];
+  return key ? t(`AI_ASSISTANT.WEBSITE_IMPORT.ERROR.${key}`) : t(fallback);
+};
+
+const failureMessage = computed(() =>
+  localizedError(
+    websiteImport.value?.error_code,
+    'AI_ASSISTANT.WEBSITE_IMPORT.ERROR.START'
+  )
+);
+
+const sourceLabel = sourceUrl => {
+  try {
+    const parsedUrl = new URL(sourceUrl);
+    const path = parsedUrl.pathname.replace(/\/$/, '');
+    return `${parsedUrl.hostname}${path}`;
+  } catch {
+    return sourceUrl;
+  }
+};
 
 const sectionLabel = key =>
   t(`AI_ASSISTANT.INSTRUCTIONS.SECTIONS.${key.toUpperCase()}.TITLE`);
@@ -78,8 +118,10 @@ const startImport = async () => {
     }
   } catch (error) {
     useAlert(
-      error.response?.data?.error ||
-        t('AI_ASSISTANT.WEBSITE_IMPORT.ERROR.START')
+      localizedError(
+        error.response?.data?.code,
+        'AI_ASSISTANT.WEBSITE_IMPORT.ERROR.START'
+      )
     );
   } finally {
     isStarting.value = false;
@@ -99,15 +141,17 @@ const applyImport = async () => {
   try {
     await api.value.applyImport(websiteImport.value.id, {
       section_keys: selectedSections.value,
-      expected_draft_fingerprint: websiteImport.value.current_draft_fingerprint,
+      expected_draft_fingerprint: websiteImport.value.base_draft_fingerprint,
     });
     emit('applied');
     dialog.value.close();
     useAlert(t('AI_ASSISTANT.WEBSITE_IMPORT.APPLIED'));
   } catch (error) {
     useAlert(
-      error.response?.data?.error ||
-        t('AI_ASSISTANT.WEBSITE_IMPORT.ERROR.APPLY')
+      localizedError(
+        error.response?.data?.code,
+        'AI_ASSISTANT.WEBSITE_IMPORT.ERROR.APPLY'
+      )
     );
   } finally {
     isApplying.value = false;
@@ -160,11 +204,10 @@ defineExpose({ open });
     :description="t('AI_ASSISTANT.WEBSITE_IMPORT.DESCRIPTION')"
     :show-confirm-button="false"
     :show-cancel-button="false"
-    overflow-y-auto
     @close="handleClose"
   >
     <div
-      class="flex max-h-[70dvh] min-h-72 flex-col gap-5 overflow-y-auto pr-1"
+      class="flex max-h-[60dvh] min-h-72 flex-col gap-5 overflow-y-auto overscroll-contain pr-1"
     >
       <form
         v-if="!websiteImport"
@@ -176,9 +219,12 @@ defineExpose({ open });
           <input
             v-model="websiteUrl"
             type="url"
+            name="website_url"
+            autocomplete="url"
+            spellcheck="false"
             required
             :placeholder="t('AI_ASSISTANT.WEBSITE_IMPORT.URL_PLACEHOLDER')"
-            class="mt-1 h-10 w-full rounded-lg border border-n-weak bg-n-alpha-1 px-3 font-normal"
+            class="mt-1 h-10 w-full rounded-lg border border-n-weak bg-n-alpha-1 px-3 font-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-n-brand"
           />
         </label>
         <Button
@@ -193,6 +239,8 @@ defineExpose({ open });
 
       <div
         v-else-if="isRunning"
+        role="status"
+        aria-live="polite"
         class="flex flex-1 flex-col items-center justify-center gap-3 py-12 text-center"
       >
         <Spinner :size="24" class="text-n-blue-10" />
@@ -210,14 +258,16 @@ defineExpose({ open });
 
       <div
         v-else-if="websiteImport?.status === 'failed'"
+        role="alert"
         class="flex flex-1 flex-col items-center justify-center gap-3 py-12 text-center"
       >
-        <Icon icon="i-lucide-circle-alert" class="size-6 text-n-ruby-11" />
+        <Icon
+          aria-hidden="true"
+          icon="i-lucide-circle-alert"
+          class="size-6 text-n-ruby-11"
+        />
         <p class="m-0 max-w-md text-sm text-n-slate-11">
-          {{
-            websiteImport.error_message ||
-            t('AI_ASSISTANT.WEBSITE_IMPORT.ERROR.START')
-          }}
+          {{ failureMessage }}
         </p>
         <Button
           variant="outline"
@@ -231,10 +281,52 @@ defineExpose({ open });
         <div
           class="flex items-start gap-3 rounded-lg border border-n-blue-5 bg-n-blue-2 p-3"
         >
-          <Icon icon="i-lucide-info" class="mt-0.5 size-4 text-n-blue-11" />
+          <Icon
+            aria-hidden="true"
+            icon="i-lucide-info"
+            class="mt-0.5 size-4 text-n-blue-11"
+          />
           <p class="m-0 text-sm text-n-blue-12">
             {{ t('AI_ASSISTANT.WEBSITE_IMPORT.REVIEW_HELP') }}
           </p>
+        </div>
+
+        <div
+          v-if="hasDraftConflict"
+          role="alert"
+          class="flex items-start gap-3 rounded-lg border border-n-amber-5 bg-n-amber-2 p-3"
+        >
+          <Icon
+            aria-hidden="true"
+            icon="i-lucide-triangle-alert"
+            class="mt-0.5 size-4 text-n-amber-11"
+          />
+          <p class="m-0 text-sm text-n-amber-12">
+            {{ t('AI_ASSISTANT.WEBSITE_IMPORT.ERROR.DRAFT_CHANGED') }}
+          </p>
+        </div>
+
+        <div v-if="websiteImport.source_urls?.length" class="min-w-0">
+          <p class="mb-2 text-xs font-semibold uppercase text-n-slate-10">
+            {{ t('AI_ASSISTANT.WEBSITE_IMPORT.SOURCES') }}
+          </p>
+          <ul class="m-0 flex list-none flex-wrap gap-2 p-0">
+            <li v-for="sourceUrl in websiteImport.source_urls" :key="sourceUrl">
+              <a
+                :href="sourceUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex max-w-full items-center gap-1 break-all text-sm text-n-blue-11 underline hover:text-n-blue-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-n-brand"
+              >
+                <Icon
+                  aria-hidden="true"
+                  icon="i-lucide-external-link"
+                  class="size-3.5 flex-shrink-0"
+                />
+                {{ sourceLabel(sourceUrl) }}
+              </a>
+            </li>
+          </ul>
         </div>
 
         <p

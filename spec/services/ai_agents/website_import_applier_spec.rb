@@ -65,4 +65,32 @@ RSpec.describe AiAgents::WebsiteImportApplier do
       ).perform
     end.to raise_error(described_class::Conflict)
   end
+
+  it 'does not accept a new client fingerprint for a stale proposal' do
+    website_import
+    ai_agent.update!(prompt: "#{ai_agent.prompt}\nChanged")
+
+    expect do
+      described_class.new(
+        website_import: website_import,
+        section_keys: ['business_context'],
+        expected_draft_fingerprint: ai_agent.draft_fingerprint
+      ).perform
+    end.to raise_error(described_class::Conflict)
+  end
+
+  it 'rejects an application when the import mode changes' do
+    website_import.update!(mode: :preview)
+
+    expect do
+      described_class.new(
+        website_import: website_import,
+        section_keys: ['business_context'],
+        expected_draft_fingerprint: ai_agent.draft_fingerprint,
+        required_mode: :initial
+      ).perform
+    end.to raise_error(described_class::Conflict)
+
+    expect(website_import.reload).to have_attributes(status: 'ready', stage: 'complete')
+  end
 end

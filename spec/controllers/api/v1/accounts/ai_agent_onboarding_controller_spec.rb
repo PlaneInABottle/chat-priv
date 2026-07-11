@@ -43,6 +43,16 @@ RSpec.describe 'AI agent onboarding API', type: :request do
     expect(response.parsed_body['status']).to eq('fallback')
   end
 
+  it 'returns a structured rate limit when a failed onboarding import is retried immediately' do
+    post base_url, params: params, headers: headers, as: :json
+    account.ai_agent_website_imports.last.update!(status: :failed, stage: :complete)
+
+    post base_url, params: params, headers: headers, as: :json
+
+    expect(response).to have_http_status(:too_many_requests)
+    expect(response.parsed_body).to include('code' => 'website_import_rate_limited')
+  end
+
   it 'completes onboarding and returns the draft assistant' do
     post base_url, params: params.deep_merge(account: { website: '' }), headers: headers, as: :json
     ai_agent_id = response.parsed_body.dig('ai_agent', 'id')
@@ -52,6 +62,17 @@ RSpec.describe 'AI agent onboarding API', type: :request do
     expect(response).to have_http_status(:success)
     expect(response.parsed_body['ai_agent_id']).to eq(ai_agent_id)
     expect(account.reload.onboarding_step).to be_nil
+  end
+
+  it 'keeps an unfinished initial website import as an optional preview' do
+    post base_url, params: params, headers: headers, as: :json
+    website_import = account.ai_agent_website_imports.last
+
+    post "#{base_url}/complete", headers: headers, as: :json
+
+    expect(response).to have_http_status(:success)
+    expect(account.reload.onboarding_step).to be_nil
+    expect(website_import.reload).to have_attributes(mode: 'preview', status: 'pending')
   end
 
   it 'rejects non-administrators' do

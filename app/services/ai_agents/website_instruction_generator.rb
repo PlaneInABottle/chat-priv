@@ -15,6 +15,7 @@ class AiAgents::WebsiteInstructionGenerator
     Do not use customer reviews, testimonials, ratings, or review-derived claims as factual evidence.
     Do not claim the assistant can perform an action or use a tool unless the supplied assistant purpose explicitly requires general guidance.
     Write direct instructions to the assistant, not marketing copy and not a report about the website.
+    Write every generated section in the supplied target_instruction_language.
     Produce useful content for as many supported sections as possible.
     Every section value must be a JSON string, not an array or nested object.
     Return only one JSON object with this exact top-level shape:
@@ -29,12 +30,20 @@ class AiAgents::WebsiteInstructionGenerator
   end
 
   def call(pages:, onboarding_answers:)
+    started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    request_messages = [{ role: 'user', content: generation_payload(pages, onboarding_answers) }]
+    response = {}
     response = adapter.perform(
-      messages: [{ role: 'user', content: generation_payload(pages, onboarding_answers) }],
+      messages: request_messages,
       tools: [],
       tool_choice: 'none'
     )
-    Result.new(sections: parse_sections(response[:assistant_text]))
+    result = Result.new(sections: parse_sections(response[:assistant_text]))
+    log_call(:succeeded, diagnostic_messages(pages, onboarding_answers), response, started_at: started_at)
+    result
+  rescue StandardError => e
+    log_call(:failed, diagnostic_messages(pages, onboarding_answers), response, error: e, started_at: started_at)
+    raise
   end
 
   private
@@ -56,8 +65,46 @@ class AiAgents::WebsiteInstructionGenerator
 
   def generation_payload(pages, onboarding_answers)
     JSON.generate(
+      target_instruction_language: target_instruction_language,
       onboarding_answers: onboarding_answers,
       website_pages: pages.map { |page| page.slice(:url, :title, :text) }
+    )
+  end
+
+  def diagnostic_messages(pages, onboarding_answers)
+    content = {
+      target_instruction_language: target_instruction_language,
+      onboarding_answers: onboarding_answers,
+      website_pages: pages.map { |page| page.slice(:url, :title).merge(characters: page[:text].to_s.length) }
+    }
+    [{ role: 'user', content: JSON.generate(content) }]
+  end
+
+  def target_instruction_language
+    language = ai_agent.config.to_h.dig('instructions', 'profile', 'language')
+    return 'Turkish' if language == 'tr'
+    return 'English' if language == 'en'
+
+    ai_agent.account.locale_english_name.capitalize
+  end
+
+  def log_call(status, request_messages, response, started_at:, error: nil)
+    duration_ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started_at) * 1000).round
+    AiAgents::LlmCallLogger.new(
+      ai_agent: ai_agent,
+      account: ai_agent.account,
+      conversation: nil,
+      trigger_message: nil,
+      mode: :website_import
+    ).call(
+      step: 'website_instruction_generation',
+      model: ai_agent.account.ai_agent_model,
+      request_messages: request_messages,
+      request_tools: [],
+      status: status,
+      response: response,
+      error: error,
+      duration_ms: duration_ms
     )
   end
 

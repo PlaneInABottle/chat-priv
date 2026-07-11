@@ -17,7 +17,9 @@ class Api::V1::Accounts::AiAgentOnboardingController < Api::V1::Accounts::BaseCo
     @website_import = result.website_import
     render :show, status: :accepted
   rescue AiAgents::WebsiteCrawler::InvalidWebsite => e
-    render json: { error: e.message }, status: :unprocessable_entity
+    render json: { error: e.message, code: 'invalid_website' }, status: :unprocessable_entity
+  rescue AiAgents::WebsiteImportCreator::RateLimited => e
+    render json: { code: 'website_import_rate_limited', retry_after: e.retry_after }, status: :too_many_requests
   rescue AiAgents::OnboardingCreator::ExistingAssistant => e
     render json: { error: e.message }, status: :conflict
   end
@@ -26,6 +28,7 @@ class Api::V1::Accounts::AiAgentOnboardingController < Api::V1::Accounts::BaseCo
     load_onboarding_state
     return render json: { error: 'No onboarding assistant was found.' }, status: :not_found unless @ai_agent
 
+    preserve_unfinished_import_for_review
     Current.account.custom_attributes.delete('onboarding_step')
     Current.account.save!
     render json: { ai_agent_id: @ai_agent.id }
@@ -43,6 +46,15 @@ class Api::V1::Accounts::AiAgentOnboardingController < Api::V1::Accounts::BaseCo
                        .order(:id)
                        .first
     @website_import = @ai_agent&.website_imports&.latest_first&.first
+  end
+
+  def preserve_unfinished_import_for_review
+    return unless @website_import&.mode_initial?
+
+    @website_import.with_lock do
+      @website_import.reload
+      @website_import.update!(mode: :preview) if @website_import.pending? || @website_import.running? || @website_import.ready?
+    end
   end
 
   def account_params

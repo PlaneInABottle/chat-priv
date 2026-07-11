@@ -2,6 +2,17 @@
 
 class AiAgents::WebsiteImportCreator
   STALE_AFTER = 5.minutes
+  COOLDOWN = 30.seconds
+  DAILY_LIMIT = 10
+
+  class RateLimited < StandardError
+    attr_reader :retry_after
+
+    def initialize(retry_after)
+      @retry_after = retry_after
+      super('Website analysis is temporarily unavailable. Please try again later.')
+    end
+  end
 
   def initialize(ai_agent:, website_url:, requested_by:, mode: :preview)
     @ai_agent = ai_agent
@@ -24,24 +35,35 @@ class AiAgents::WebsiteImportCreator
   attr_reader :ai_agent, :website_url, :requested_by, :mode
 
   def create_import(normalized_url)
-    ai_agent.with_lock do
-      active_import = ai_agent.website_imports.find_by(status: %i[pending running])
-      next [active_import, false] if active_import && !stale?(active_import)
-
-      expire_stale_import(active_import) if active_import
-
-      dismiss_ready_imports
-      website_import = ai_agent.website_imports.create!(
-        account: ai_agent.account,
-        requested_by: requested_by,
-        website_url: normalized_url,
-        mode: mode,
-        status: :pending,
-        stage: :queued,
-        base_draft_fingerprint: ai_agent.draft_fingerprint
-      )
-      [website_import, true]
+    ai_agent.account.with_lock do
+      ai_agent.with_lock { create_locked_import(normalized_url) }
     end
+  end
+
+  def create_locked_import(normalized_url)
+    active_import = ai_agent.website_imports.find_by(status: %i[pending running])
+    return [active_import, false] if active_import && !stale?(active_import)
+
+    expire_stale_import(active_import) if active_import
+
+    reusable_import = reusable_ready_import(normalized_url)
+    return [reusable_import, false] if reusable_import
+
+    enforce_rate_limit!
+    dismiss_ready_imports
+    [persist_import(normalized_url), true]
+  end
+
+  def persist_import(normalized_url)
+    ai_agent.website_imports.create!(
+      account: ai_agent.account,
+      requested_by: requested_by,
+      website_url: normalized_url,
+      mode: mode,
+      status: :pending,
+      stage: :queued,
+      base_draft_fingerprint: ai_agent.draft_fingerprint
+    )
   end
 
   def stale?(website_import)
@@ -56,6 +78,34 @@ class AiAgents::WebsiteImportCreator
       error_message: 'Website analysis did not finish. Start it again to retry.',
       completed_at: Time.current
     )
+  end
+
+  def reusable_ready_import(normalized_url)
+    ai_agent.website_imports.ready.find_by(
+      website_url: normalized_url,
+      mode: mode,
+      base_draft_fingerprint: ai_agent.draft_fingerprint
+    )
+  end
+
+  def enforce_rate_limit!
+    enforce_cooldown!
+    enforce_daily_limit!
+  end
+
+  def enforce_cooldown!
+    latest_import = ai_agent.account.ai_agent_website_imports.latest_first.first
+    return unless latest_import&.created_at && latest_import.created_at > COOLDOWN.ago
+
+    raise RateLimited, (latest_import.created_at + COOLDOWN - Time.current).ceil.clamp(1, COOLDOWN.to_i)
+  end
+
+  def enforce_daily_limit!
+    recent_imports = ai_agent.account.ai_agent_website_imports.where(created_at: 1.day.ago..)
+    return if recent_imports.count < DAILY_LIMIT
+
+    oldest_import = recent_imports.order(:created_at).first
+    raise RateLimited, (oldest_import.created_at + 1.day - Time.current).ceil.clamp(1, 1.day.to_i)
   end
 
   def dismiss_ready_imports

@@ -27,14 +27,53 @@ RSpec.describe 'AI agent website imports API', type: :request do
     expect(response.parsed_body).to include('mode' => 'preview', 'status' => 'pending')
   end
 
+  it 'returns a structured rate-limit response' do
+    create(:ai_agent_website_import, account: account, ai_agent: ai_agent, requested_by: admin, status: :failed, created_at: 5.seconds.ago)
+
+    post base_url, params: { website_url: 'another.example.com' }, headers: headers, as: :json
+
+    expect(response).to have_http_status(:too_many_requests)
+    expect(response.parsed_body).to include('code' => 'website_import_rate_limited')
+    expect(response.parsed_body['retry_after']).to be_between(1, 30)
+  end
+
+  it 'returns safe failure details and the current instruction document' do
+    website_import = create(
+      :ai_agent_website_import,
+      account: account,
+      ai_agent: ai_agent,
+      requested_by: admin,
+      status: :failed,
+      error_code: 'SafeFetch::FetchError',
+      error_message: 'Connection refused by 10.0.0.4'
+    )
+
+    get "#{base_url}/#{website_import.id}", headers: headers, as: :json
+
+    expect(response).to have_http_status(:success)
+    expect(response.parsed_body).to include('error_code' => 'website_unreachable')
+    expect(response.parsed_body).not_to have_key('error_message')
+    expect(response.parsed_body.dig('current_document', 'sections', 'business_context')).to eq('Current facts')
+  end
+
   it 'returns recent imports newest first so the editor can resume analysis' do
     older = create(:ai_agent_website_import, account: account, ai_agent: ai_agent, requested_by: admin, created_at: 1.hour.ago)
-    newer = create(:ai_agent_website_import, account: account, ai_agent: ai_agent, requested_by: admin, status: :ready)
+    newer = create(
+      :ai_agent_website_import,
+      account: account,
+      ai_agent: ai_agent,
+      requested_by: admin,
+      status: :ready,
+      proposed_sections: { 'rules' => 'New rules', 'identity' => 'New identity' }
+    )
 
     get base_url, headers: headers, as: :json
 
     expect(response).to have_http_status(:success)
     expect(response.parsed_body.pluck('id')).to eq([newer.id, older.id])
+    expect(response.parsed_body.first['changed_sections']).to eq(%w[identity rules])
+    expect(response.parsed_body.first).to have_key('current_document')
+    expect(response.parsed_body.second).not_to have_key('current_document')
   end
 
   it 'applies only selected sections to the saved draft' do

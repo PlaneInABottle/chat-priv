@@ -4,15 +4,17 @@ class AiAgents::WebsiteImportApplier
   class Conflict < StandardError; end
   class InvalidSelection < StandardError; end
 
-  def initialize(website_import:, section_keys:, expected_draft_fingerprint:)
+  def initialize(website_import:, section_keys:, expected_draft_fingerprint:, required_mode: nil)
     @website_import = website_import
     @section_keys = Array(section_keys).map(&:to_s).uniq
     @expected_draft_fingerprint = expected_draft_fingerprint.to_s
+    @required_mode = required_mode&.to_s
   end
 
   def perform
     website_import.with_lock do
       raise InvalidSelection, 'Website import is not ready to apply.' unless website_import.ready?
+      raise Conflict, 'Website import mode changed before it could be applied.' unless required_mode_matches?
 
       ai_agent.with_lock do
         raise Conflict, 'Assistant instructions changed after this preview was opened.' unless fingerprint_matches?
@@ -20,6 +22,7 @@ class AiAgents::WebsiteImportApplier
         selected_sections = selected_proposals
         raise InvalidSelection, 'Select at least one proposed section.' if selected_sections.empty?
 
+        website_import.update!(stage: :applying)
         update_agent(selected_sections)
         website_import.update!(
           status: :applied,
@@ -35,12 +38,18 @@ class AiAgents::WebsiteImportApplier
 
   private
 
-  attr_reader :website_import, :section_keys, :expected_draft_fingerprint
+  attr_reader :website_import, :section_keys, :expected_draft_fingerprint, :required_mode
 
   delegate :ai_agent, to: :website_import
 
   def fingerprint_matches?
-    expected_draft_fingerprint.present? && ai_agent.draft_fingerprint == expected_draft_fingerprint
+    expected_draft_fingerprint.present? &&
+      website_import.base_draft_fingerprint == expected_draft_fingerprint &&
+      ai_agent.draft_fingerprint == expected_draft_fingerprint
+  end
+
+  def required_mode_matches?
+    required_mode.blank? || website_import.mode == required_mode
   end
 
   def selected_proposals

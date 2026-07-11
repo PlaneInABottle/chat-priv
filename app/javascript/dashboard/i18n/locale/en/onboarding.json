@@ -6,6 +6,19 @@
     "COMPANY_DETAILS": "Company details",
     "ASSISTANT_DETAILS": "Your AI assistant",
     "ASSISTANT_DRAFT_HELP": "We will create a private draft you can review and test. It will not answer customers until you connect an inbox and publish it.",
+    "EDIT_WEBSITE": "Edit website",
+    "AI_PURPOSE_OPTIONS": {
+      "SUPPORT": "Answer customer questions",
+      "SALES": "Help customers choose and buy",
+      "SUPPORT_AND_SALES": "Support customers and drive sales",
+      "ORDERS": "Help with orders and delivery"
+    },
+    "AI_TONE_OPTIONS": {
+      "FRIENDLY": "Friendly",
+      "PROFESSIONAL": "Professional",
+      "WARM": "Warm",
+      "CONCISE": "Concise"
+    },
     "FIELDS": {
       "EMAIL": "Email",
       "YOUR_ROLE": "Your Role",
@@ -45,6 +58,7 @@
       "FALLBACK": "We could not read the website, but your starter draft is ready. You can add business details in the instruction editor.",
       "DRAFT_READY": "Starter draft ready",
       "DRAFT_READY_HELP": "Review the instructions, connect an inbox, and test the assistant before publishing.",
+      "REVIEW_STARTER": "Review starter draft now",
       "REVIEW": "Review assistant"
     }
   },

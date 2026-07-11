@@ -2,6 +2,12 @@ import { shallowMount } from '@vue/test-utils';
 
 import InstructionWorkspace from '../InstructionWorkspace.vue';
 
+const mockUseAlert = vi.hoisted(() => vi.fn());
+
+vi.mock('dashboard/composables', () => ({
+  useAlert: mockUseAlert,
+}));
+
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
     t: (key, params) => (params ? `${key}:${params.count}` : key),
@@ -138,7 +144,7 @@ describe('InstructionWorkspace', () => {
     });
   });
 
-  it('prevents website import while the instruction draft has unsaved changes', () => {
+  it('explains why website import cannot start with unsaved changes', async () => {
     const wrapper = mountComponent();
     const importButton = wrapper
       .findAllComponents({ name: 'Button' })
@@ -146,6 +152,10 @@ describe('InstructionWorkspace', () => {
         button.props('label')?.includes('AI_ASSISTANT.WEBSITE_IMPORT.OPEN')
       );
 
-    expect(importButton.vm.$attrs.disabled).toBe(true);
+    expect(importButton.vm.$attrs.disabled).toBeUndefined();
+    await importButton.vm.$emit('click');
+    expect(mockUseAlert).toHaveBeenCalledWith(
+      'AI_ASSISTANT.WEBSITE_IMPORT.SAVE_FIRST'
+    );
   });
 });
