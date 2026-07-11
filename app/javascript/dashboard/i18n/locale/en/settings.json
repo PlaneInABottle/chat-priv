@@ -296,6 +296,8 @@
   },
   "SIDEBAR": {
     "NO_ITEMS": "No items",
+    "OPEN_NAVIGATION": "Open navigation",
+    "CLOSE_NAVIGATION": "Close navigation",
     "CURRENTLY_VIEWING_ACCOUNT": "Currently viewing:",
     "SWITCH": "Switch",
     "INBOX_VIEW": "Inbox View",

@@ -25,6 +25,9 @@ describe('SettingsWrapper.vue', () => {
       global: { stubs: { RouterView: true } },
     });
 
+    expect(wrapper.classes()).toEqual(
+      expect.arrayContaining(['pb-24', 'md:pb-8'])
+    );
     expect(wrapper.vm.viewKey).toBe('ai-agent-detail:43');
 
     routeState.route.fullPath =

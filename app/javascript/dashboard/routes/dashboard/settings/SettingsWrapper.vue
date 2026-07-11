@@ -20,7 +20,7 @@ const viewKey = computed(() => {
 
 <template>
   <div
-    class="flex flex-col w-full h-full m-0 pb-8 pt-4 px-6 overflow-auto bg-n-surface-1"
+    class="flex flex-col w-full h-full m-0 pb-24 pt-4 px-6 overflow-auto bg-n-surface-1 md:pb-8"
   >
     <div
       class="flex items-start w-full mx-auto"
