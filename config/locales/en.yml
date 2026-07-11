@@ -647,6 +647,7 @@ en:
       voice: "Voice"
       language: "Language"
       default_from_worker_env: "Default from worker env"
+      openai_runtime_hint: "OpenAI Realtime 2.1 defaults to the Marin voice. Changing provider updates incompatible model and voice values."
     push_diagnostics:
       user_not_found: 'User not found.'
       no_subscriptions_to_test: 'Select at least one subscription to test.'

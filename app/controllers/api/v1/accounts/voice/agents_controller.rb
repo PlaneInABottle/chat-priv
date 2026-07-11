@@ -14,7 +14,7 @@ class Api::V1::Accounts::Voice::AgentsController < Api::V1::Accounts::BaseContro
   end
 
   def create
-    voice_agent = Current.account.voice_agents.new(voice_agent_params)
+    voice_agent = Current.account.voice_agents.new(VoiceAgents::RuntimeDefaults.attributes.merge(voice_agent_params))
     voice_agent.enabled = false
     ActiveRecord::Base.transaction do
       voice_agent.save!

@@ -13,6 +13,32 @@ RSpec.describe VoiceAgent do
       expect(voice_agent).not_to be_valid
       expect(voice_agent.errors[:tools_config]).to include('tools_config.enabled must be an array')
     end
+
+    it 'accepts the supported OpenAI realtime runtime' do
+      voice_agent = build(
+        :voice_agent,
+        architecture: 'realtime',
+        provider: 'openai',
+        model: 'gpt-realtime-2.1',
+        voice: 'marin'
+      )
+
+      expect(voice_agent).to be_valid
+    end
+
+    it 'rejects incompatible OpenAI realtime model and voice values' do
+      voice_agent = build(
+        :voice_agent,
+        architecture: 'realtime',
+        provider: 'openai',
+        model: 'gemini-3.1-flash-live-preview',
+        voice: 'Charon'
+      )
+
+      expect(voice_agent).not_to be_valid
+      expect(voice_agent.errors[:model]).to include('must be a supported OpenAI realtime model')
+      expect(voice_agent.errors[:voice]).to include('must be a supported OpenAI realtime voice')
+    end
   end
 
   describe 'lifecycle' do

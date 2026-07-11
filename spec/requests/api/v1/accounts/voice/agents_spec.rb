@@ -82,6 +82,27 @@ RSpec.describe 'Api::V1::Accounts::Voice::Agents', type: :request do
       expect(response.parsed_body.dig('tools_config', 'enabled')).to eq(['human_handoff'])
     end
 
+    it 'uses deployment-controlled OpenAI runtime defaults without accepting runtime params from account admins' do
+      with_modified_env VOICE_AGENT_DEFAULT_REALTIME_PROVIDER: 'openai' do
+        post "/api/v1/accounts/#{account.id}/voice/agents",
+             params: {
+               name: 'OpenAI default',
+               provider: 'gemini',
+               model: 'gemini-3.1-flash-live-preview',
+               voice: 'Charon'
+             },
+             headers: admin.create_new_auth_token,
+             as: :json
+      end
+
+      expect(response).to have_http_status(:created)
+      expect(VoiceAgent.find(response.parsed_body['id'])).to have_attributes(
+        provider: 'openai',
+        model: 'gpt-realtime-2.1',
+        voice: 'marin'
+      )
+    end
+
     it 'creates inbox assignments for the voice agent' do
       inbox = create(:channel_api, account: account).inbox
       team = create(:team, account: account)
