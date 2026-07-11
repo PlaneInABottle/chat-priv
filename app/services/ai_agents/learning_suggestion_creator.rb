@@ -38,7 +38,7 @@ class AiAgents::LearningSuggestionCreator
   end
 
   def ai_agent
-    @ai_agent ||= message.inbox.agent_bot&.ai_agent
+    @ai_agent ||= conversation.assignee_agent_bot&.ai_agent || message.inbox.agent_bot&.ai_agent
   end
 
   def customer_message

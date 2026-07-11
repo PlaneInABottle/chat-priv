@@ -76,6 +76,32 @@ RSpec.describe AiAgents::LearningSuggestionCreator do
     end.not_to have_enqueued_job(AiAgents::LearningSuggestionJob)
   end
 
+  it 'uses the assistant assigned to the conversation before the inbox assistant' do
+    assigned_ai_agent = create(:ai_agent, account: account)
+    conversation.update!(assignee_agent_bot: assigned_ai_agent.agent_bot)
+    create(
+      :message,
+      account: account,
+      inbox: inbox,
+      conversation: conversation,
+      message_type: :incoming,
+      content: 'Do you deliver internationally?'
+    )
+    human_reply = create(
+      :message,
+      account: account,
+      inbox: inbox,
+      conversation: conversation,
+      message_type: :outgoing,
+      sender: user,
+      content: 'International delivery depends on the destination country.'
+    )
+
+    suggestion = described_class.new(message: human_reply, submitted_by: user).perform
+
+    expect(suggestion.ai_agent).to eq(assigned_ai_agent)
+  end
+
   it 'rejects private notes' do
     create(
       :message,

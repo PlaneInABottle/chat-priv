@@ -60,5 +60,28 @@ RSpec.describe AiAgents::EvaluationRunner do
     expect(run.reload).to have_attributes(status: 'completed', passed_count: 0)
     expect(result.reload).to have_attributes(status: 'failed', passed: false)
     expect(result.reason).to include('provider unavailable')
+    expect(ai_agent.reload).not_to be_draft_tested
+  end
+
+  it 'does not mark the draft tested when the evaluation completes with a failed judgment' do
+    orchestrator = instance_double(
+      AiAgents::Orchestrator,
+      perform: {
+        assistant_message: { 'content' => 'It will arrive on Tuesday.' },
+        tool_events: []
+      }
+    )
+    judge = instance_double(AiAgents::EvaluationJudge)
+    allow(AiAgents::Orchestrator).to receive(:new).and_return(orchestrator)
+    allow(AiAgents::EvaluationJudge).to receive(:new).and_return(judge)
+    allow(judge).to receive(:call).and_return(
+      AiAgents::EvaluationJudge::Result.new(passed: false, reason: 'The response promised an exact date.')
+    )
+
+    described_class.new(run: run).perform
+
+    expect(run.reload).to have_attributes(status: 'completed', passed_count: 0)
+    expect(result.reload).to have_attributes(status: 'completed', passed: false)
+    expect(ai_agent.reload).not_to be_draft_tested
   end
 end
