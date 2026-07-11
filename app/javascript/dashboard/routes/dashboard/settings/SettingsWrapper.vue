@@ -1,4 +1,5 @@
 <script setup>
+import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 
 defineProps({
@@ -9,6 +10,12 @@ defineProps({
 });
 
 const route = useRoute();
+const viewKey = computed(() => {
+  if (!route.meta.keepAliveKey) return route.fullPath;
+
+  const resourceId = route.params.id ? `:${route.params.id}` : '';
+  return `${route.meta.keepAliveKey}${resourceId}`;
+});
 </script>
 
 <template>
@@ -21,9 +28,9 @@ const route = useRoute();
     >
       <router-view v-slot="{ Component }">
         <keep-alive v-if="keepAlive">
-          <component :is="Component" :key="route.fullPath" />
+          <component :is="Component" :key="viewKey" />
         </keep-alive>
-        <component :is="Component" v-else :key="route.fullPath" />
+        <component :is="Component" v-else :key="viewKey" />
       </router-view>
     </div>
   </div>

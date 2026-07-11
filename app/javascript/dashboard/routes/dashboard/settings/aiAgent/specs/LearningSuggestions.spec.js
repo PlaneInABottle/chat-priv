@@ -42,14 +42,14 @@ const readySuggestion = {
   source_available: true,
 };
 
-const mountComponent = () => {
+const mountComponent = (props = {}) => {
   const refresh = vi.fn().mockResolvedValue({});
   const store = createStore({
     getters: { getCurrentAccountId: () => 51 },
     actions: { 'aiAgent/refresh': refresh },
   });
   const wrapper = mount(LearningSuggestions, {
-    props: { aiAgentId: 45 },
+    props: { aiAgentId: 45, ...props },
     global: {
       plugins: [store],
       stubs: {
@@ -122,7 +122,25 @@ describe('LearningSuggestions.vue', () => {
       target_section: 'business_context',
     });
     expect(refresh).toHaveBeenCalledOnce();
+    expect(wrapper.emitted('draftUpdated')).toHaveLength(1);
     expect(wrapper.text()).toContain('Reviewed suggestions (1)');
+  });
+
+  it('does not overwrite unsaved instruction edits', async () => {
+    apiMocks.get.mockResolvedValue({ data: [readySuggestion] });
+    const { wrapper } = mountComponent({ hasUnsavedInstructions: true });
+    await flushPromises();
+
+    const applyButton = wrapper
+      .findAll('button')
+      .find(button =>
+        button.text().includes('AI_ASSISTANT.LEARNING.APPLY_TO_DRAFT')
+      );
+    expect(applyButton.attributes('disabled')).toBeDefined();
+
+    await wrapper.vm.applySuggestion(readySuggestion);
+
+    expect(apiMocks.applySuggestion).not.toHaveBeenCalled();
   });
 
   it('keeps not-recommended items in reviewed history', async () => {

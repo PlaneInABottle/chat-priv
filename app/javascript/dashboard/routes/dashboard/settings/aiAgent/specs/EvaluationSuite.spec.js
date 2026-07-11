@@ -61,9 +61,9 @@ const completedRun = {
   ],
 };
 
-const mountComponent = () =>
+const mountComponent = (props = {}) =>
   mount(EvaluationSuite, {
-    props: { aiAgentId: 43 },
+    props: { aiAgentId: 43, ...props },
     global: {
       stubs: {
         Button: {
@@ -124,9 +124,7 @@ describe('EvaluationSuite.vue', () => {
     const wrapper = mountComponent();
     await flushPromises();
 
-    expect(wrapper.text()).toContain(
-      'AI_ASSISTANT.EVALUATIONS.RESULT.CHANGED'
-    );
+    expect(wrapper.text()).toContain('AI_ASSISTANT.EVALUATIONS.RESULT.CHANGED');
     expect(wrapper.text()).not.toContain('Delivery depends on your location.');
   });
 
@@ -170,5 +168,22 @@ describe('EvaluationSuite.vue', () => {
     expect(wrapper.vm.latestRun.id).toBe(4);
     expect(wrapper.vm.isRunActive).toBe(true);
     wrapper.unmount();
+  });
+
+  it('does not run a saved draft while instruction edits are unsaved', async () => {
+    apiMocks.get.mockResolvedValue({ data: [evaluationCase] });
+    const wrapper = mountComponent({ hasUnsavedInstructions: true });
+    await flushPromises();
+
+    const runButton = wrapper
+      .findAll('button')
+      .find(button =>
+        button.text().includes('AI_ASSISTANT.EVALUATIONS.RUN.ACTION')
+      );
+    expect(runButton.attributes('disabled')).toBeDefined();
+
+    await wrapper.vm.startRun();
+
+    expect(apiMocks.createRun).not.toHaveBeenCalled();
   });
 });

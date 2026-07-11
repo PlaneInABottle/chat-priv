@@ -160,7 +160,7 @@
     },
     "EVALUATIONS": {
       "TITLE": "Evaluation scenarios",
-      "DESCRIPTION": "Save real customer questions and describe what a good answer must do. Runs use the current draft and never contact customers.",
+      "DESCRIPTION": "Save representative customer questions and describe what a good answer must do. Runs use the saved draft and never contact customers.",
       "ADD": "Add scenario",
       "EDIT": "Edit scenario",
       "DELETE": "Delete scenario",
@@ -180,6 +180,7 @@
         "NAME_PLACEHOLDER": "For example: Delivery time question",
         "MESSAGE": "Customer message",
         "MESSAGE_PLACEHOLDER": "Write the message exactly as a customer might send it...",
+        "MESSAGE_HELP": "Remove names, order numbers, addresses, and other personal details.",
         "CRITERIA": "What should a good answer do?",
         "CRITERIA_PLACEHOLDER": "For example: Explain that delivery depends on location and do not promise an exact date.",
         "CRITERIA_HELP": "Describe required facts, actions, or boundaries in plain language.",
@@ -213,7 +214,8 @@
     },
     "IMPROVE": {
       "EVALUATIONS": "Evaluations",
-      "LEARNINGS": "Learnings"
+      "LEARNINGS": "Learnings",
+      "SAVE_DRAFT_FIRST": "Save or discard instruction changes first. Evaluations and learnings use the saved draft."
     },
     "LEARNING": {
       "TITLE": "Learning suggestions",

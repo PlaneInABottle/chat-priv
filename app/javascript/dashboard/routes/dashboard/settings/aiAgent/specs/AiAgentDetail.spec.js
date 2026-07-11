@@ -199,8 +199,11 @@ const mountComponent = options => {
           props: ['modelValue', 'aiAgentId', 'isDirty', 'isDisabled'],
         },
         ImproveWorkspace: {
-          template: '<div class="improve-workspace">{{ mode }}</div>',
-          props: ['aiAgentId', 'mode'],
+          name: 'ImproveWorkspace',
+          template:
+            '<button class="improve-workspace" @click="$emit(\'draftUpdated\')">{{ mode }}</button>',
+          props: ['aiAgentId', 'mode', 'hasUnsavedInstructions'],
+          emits: ['draftUpdated'],
         },
         TabBar: {
           template:
@@ -444,6 +447,40 @@ describe('AiAgentDetail.vue', () => {
 
     expect(wrapper.vm.activeTab).toBe('improve');
     expect(wrapper.find('.improve-workspace').text()).toBe('learnings');
+  });
+
+  it('synchronizes the editor after a learning updates the saved draft', async () => {
+    setRouteName('ai_agent_learning_suggestions');
+    const { wrapper, store } = mountComponent();
+    await flushPromises();
+    wrapper.vm.formState.name = 'Unsaved connection name';
+
+    const updatedRecord = buildAiAgent({
+      config: {
+        instructions: {
+          version: 3,
+          profile: {
+            language: 'same_as_customer',
+            tone: 'natural',
+            formality: 'balanced',
+            response_length: 'balanced',
+          },
+          sections: {
+            additional: 'Use destination-specific delivery guidance.',
+          },
+        },
+      },
+    });
+    store.commit('SET_AI_AGENT_RECORD', updatedRecord);
+
+    await wrapper.find('.improve-workspace').trigger('click');
+
+    expect(wrapper.vm.formState.instructions.sections.additional).toBe(
+      'Use destination-specific delivery guidance.'
+    );
+    expect(wrapper.vm.isInstructionsDirty).toBe(false);
+    expect(wrapper.vm.formState.name).toBe('Unsaved connection name');
+    expect(wrapper.vm.isConnectionsDirty).toBe(true);
   });
 
   it('discards the current instruction draft without affecting connection edits', async () => {
