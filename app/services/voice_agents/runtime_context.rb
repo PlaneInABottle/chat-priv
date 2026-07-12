@@ -95,7 +95,15 @@ class VoiceAgents::RuntimeContext
   end
 
   def enabled_tool_keys
-    @enabled_tool_keys ||= VoiceAgents::Config.new(runtime_value(:tools_config)).enabled_tool_keys
+    @enabled_tool_keys ||= begin
+      keys = VoiceAgents::Config.new(runtime_value(:tools_config)).enabled_tool_keys
+      keys = [*keys, VoiceAgents::Config::KNOWLEDGE_SEARCH_TOOL] if runtime_knowledge_sources.present?
+      keys
+    end
+  end
+
+  def runtime_knowledge_sources
+    @runtime_knowledge_sources ||= Array(runtime_value(:knowledge_sources))
   end
 
   def voice_agent

@@ -87,7 +87,11 @@ class VoiceAgents::PromptComposer
   end
 
   def enabled_tool_keys
-    @enabled_tool_keys ||= VoiceAgents::Config.new(value(:tools_config)).enabled_tool_keys
+    @enabled_tool_keys ||= begin
+      keys = VoiceAgents::Config.new(value(:tools_config)).enabled_tool_keys
+      keys = [*keys, VoiceAgents::Config::KNOWLEDGE_SEARCH_TOOL] if Array(value(:knowledge_sources)).present?
+      keys
+    end
   end
 
   def value(key)

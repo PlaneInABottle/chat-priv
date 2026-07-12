@@ -23,8 +23,12 @@ class VoiceAgents::ToolRegistry
     available_definitions.map(&:key)
   end
 
+  def self.runtime_definitions
+    @runtime_definitions ||= [*available_definitions, AiAgents::ToolRegistry.knowledge_search_definition]
+  end
+
   def self.find(tool_key)
-    available_definitions.find { |definition| definition.key == tool_key.to_s }
+    runtime_definitions.find { |definition| definition.key == tool_key.to_s || definition.name == tool_key.to_s }
   end
 
   def self.end_customer_call_definition
