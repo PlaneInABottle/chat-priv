@@ -76,7 +76,7 @@ class Voice::CallMessageBuilder
     return if summary.blank?
     return { 'text' => AiAgents::PrivacyRedactor.redact_text(summary) } if summary.is_a?(String)
 
-    summary.slice('text', 'generated_at', 'source', 'model').tap do |payload|
+    summary.slice('text', 'generated_at').tap do |payload|
       payload['text'] = AiAgents::PrivacyRedactor.redact_text(payload['text']) if payload['text'].present?
     end
   end

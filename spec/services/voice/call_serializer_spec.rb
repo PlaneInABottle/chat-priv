@@ -26,9 +26,18 @@ RSpec.describe Voice::CallSerializer do
   end
 
   it 'returns conversation-safe transcript, tool summary, and recording metadata' do
+    release = create(:voice_agent_release, account: account, voice_agent: voice_agent, revision: 4)
+    call.update!(voice_agent_release_id: release.id)
     create_transcript_segment!
     create_tool_event!
-    call.update!(summary: { 'text' => 'Customer gave buyer@example.com and +905551112233', 'source' => 'ai_agent_llm' })
+    call.update!(
+      summary: {
+        'text' => 'Customer gave buyer@example.com and +905551112233',
+        'generated_at' => '2026-07-12T10:00:00Z',
+        'source' => 'ai_agent_llm',
+        'model' => 'hidden-model'
+      }
+    )
     recording = create_completed_recording!
     storage_config = instance_double(Voice::Recordings::StorageConfig)
     allow(Voice::Recordings::StorageConfig).to receive(:new).and_return(storage_config)
@@ -41,6 +50,8 @@ RSpec.describe Voice::CallSerializer do
       provider: 'livekit',
       voice_agent_id: voice_agent.id,
       voice_agent_name: voice_agent.name,
+      voice_agent_release_id: release.id,
+      voice_agent_revision: 4,
       ai_status: 'active'
     )
     expect(payload[:transcript_segments].first).to include(
@@ -62,9 +73,9 @@ RSpec.describe Voice::CallSerializer do
       url: 'https://recording.example/test.mp4'
     )
     expect(payload[:recording_url]).to eq('https://recording.example/test.mp4')
-    expect(payload[:summary]).to include(
+    expect(payload[:summary]).to eq(
       'text' => 'Customer gave [email redacted] and [phone redacted]',
-      'source' => 'ai_agent_llm'
+      'generated_at' => '2026-07-12T10:00:00Z'
     )
   end
 

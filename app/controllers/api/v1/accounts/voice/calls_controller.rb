@@ -5,8 +5,24 @@ class Api::V1::Accounts::Voice::CallsController < Api::V1::Accounts::BaseControl
   MAX_CLIENT_SESSION_ID_LENGTH = 64
 
   before_action :current_account
-  before_action :set_call
+  before_action :set_call, except: [:index]
   before_action :ensure_voice_ai_enabled, only: %i[token take_over]
+
+  def index
+    authorize Current.account, :show?
+    calls = Voice::Calls::Query.new(
+      account: Current.account,
+      params: filter_params,
+      inbox_ids: authorized_inbox_ids
+    ).results
+    voice_agents_by_id = Current.account.voice_agents.where(id: voice_agent_ids(calls)).index_by(&:id)
+    voice_agent_releases_by_id = VoiceAgentRelease.where(
+      account_id: Current.account.id,
+      id: calls.filter_map(&:voice_agent_release_id)
+    ).includes(:voice_agent).index_by(&:id)
+    evidence = Voice::Calls::ActivityEvidence.new(calls)
+    render json: calls.map { |call| serialize_activity(call, voice_agents_by_id, voice_agent_releases_by_id, evidence) }
+  end
 
   def show
     authorize @call.inbox, :show?
@@ -46,6 +62,27 @@ class Api::V1::Accounts::Voice::CallsController < Api::V1::Accounts::BaseControl
   end
 
   private
+
+  def filter_params
+    params.permit(:inbox_id, :status, :handoff_status, :voice_agent_id, :phone, :from, :to, :limit)
+  end
+
+  def authorized_inbox_ids
+    policy_scope(Current.account.inboxes).pluck(:id)
+  end
+
+  def voice_agent_ids(calls)
+    calls.filter_map { |call| call.meta&.fetch('voice_agent_id', nil) }.map(&:to_i).uniq
+  end
+
+  def serialize_activity(call, voice_agents_by_id, voice_agent_releases_by_id, evidence)
+    Voice::Calls::ActivitySerializer.new(
+      call,
+      voice_agents_by_id: voice_agents_by_id,
+      voice_agent_releases_by_id: voice_agent_releases_by_id,
+      evidence: evidence.for(call)
+    ).payload
+  end
 
   def set_call
     @call = Current.account.calls.find(params[:id])
