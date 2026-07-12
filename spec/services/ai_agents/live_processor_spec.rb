@@ -33,7 +33,13 @@ RSpec.describe AiAgents::LiveProcessor do
     expect(conversation.reload.additional_attributes['ai_handoff_completed']).to be(true)
     expect(conversation.status).to eq('open')
     expect(conversation.cached_label_list_array).to include(vip_label.title)
-    expect(conversation.messages.where(private: true).last.content).to eq('Escalate to billing')
+    expect(conversation.messages.where(private: true).last.content).to include(
+      'AI handoff brief',
+      "Reason\nNeed help",
+      "Latest customer message\nI need billing help",
+      "Context for the team\nEscalate to billing",
+      "Labels\nvip"
+    )
     expect(conversation.messages.where(private: false).last.content).to eq('I am transferring you to a human agent.')
   end
 

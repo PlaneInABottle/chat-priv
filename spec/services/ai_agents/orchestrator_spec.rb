@@ -128,7 +128,11 @@ RSpec.describe AiAgents::Orchestrator do
     expect(result[:terminal_action]).to eq('handoff')
     expect(result[:assistant_message]['content']).to eq('A human teammate will take over next.')
     expect(result[:assistant_message]['tool_result']['customer_message']).to eq('A human teammate will take over next.')
-    expect(result[:assistant_message]['tool_result']['private_note_preview']).to eq('Escalate')
+    expect(result[:assistant_message]['tool_result']['private_note_preview']).to include(
+      'AI handoff brief',
+      "Reason\nNeed help",
+      "Context for the team\nEscalate"
+    )
     expect(result[:assistant_message]['tool_result']['labels_to_apply']).to eq(['vip'])
     expect(result[:assistant_message]['tool_result']['labels_requested']).to eq(['vip'])
     expect(result[:assistant_message]['tool_result']['labels_ignored']).to eq([])

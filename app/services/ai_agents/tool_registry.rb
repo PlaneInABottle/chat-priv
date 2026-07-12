@@ -26,7 +26,11 @@ class AiAgents::ToolRegistry
       },
       internal_note: {
         type: 'string',
-        description: 'Private note for the human agent with the useful context needed to continue.'
+        description: [
+          'Private context for the human teammate. In 2-4 concise sentences, state the customer goal,',
+          'relevant facts already provided, actions attempted and their outcome, and the recommended next step.',
+          'Do not repeat the public transfer message.'
+        ].join(' ')
       },
       labels: {
         type: 'array',
