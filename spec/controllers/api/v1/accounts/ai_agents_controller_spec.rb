@@ -404,6 +404,22 @@ RSpec.describe 'Ai Agents API', type: :request do
         expect(ai_agent.reload.prompt).to eq('You are a helpful assistant.')
       end
 
+      it 'updates automatic learning without changing the published assistant revision' do
+        published_revision = ai_agent.published_revision
+
+        patch "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}",
+              headers: admin.create_new_auth_token,
+              params: { auto_learning_enabled: true },
+              as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(response.parsed_body['auto_learning_enabled']).to be(true)
+        expect(ai_agent.reload).to have_attributes(
+          auto_learning_enabled: true,
+          published_revision: published_revision
+        )
+      end
+
       it 'normalizes structured instructions and compiles the live prompt' do
         instructions = {
           version: 3,

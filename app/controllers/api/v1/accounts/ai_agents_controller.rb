@@ -74,7 +74,7 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
   end
 
   def ai_agent_params
-    params.permit(:name, :prompt, config: {})
+    params.permit(:name, :prompt, :auto_learning_enabled, config: {})
   end
 
   def inbox_ids_param

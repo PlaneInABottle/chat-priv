@@ -3,6 +3,7 @@
 # Table name: ai_agents
 #
 #  id                        :bigint           not null, primary key
+#  auto_learning_enabled     :boolean          default(FALSE), not null
 #  config                    :jsonb
 #  enabled                   :boolean          default(FALSE), not null
 #  last_tested_at            :datetime

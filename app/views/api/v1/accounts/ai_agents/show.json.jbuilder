@@ -20,6 +20,7 @@ json.account_id @ai_agent.account_id
 json.name @ai_agent.name
 json.prompt @ai_agent.prompt
 json.enabled @ai_agent.enabled
+json.auto_learning_enabled @ai_agent.auto_learning_enabled
 json.config config_payload
 json.tools_config tools_summary
 json.knowledge_source_ids @ai_agent.knowledge_sources.map(&:id).sort

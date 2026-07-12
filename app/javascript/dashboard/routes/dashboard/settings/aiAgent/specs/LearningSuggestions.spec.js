@@ -46,9 +46,10 @@ const readySuggestion = {
 
 const mountComponent = (props = {}) => {
   const refresh = vi.fn().mockResolvedValue({});
+  const update = vi.fn().mockResolvedValue({ auto_learning_enabled: true });
   const store = createStore({
     getters: { getCurrentAccountId: () => 51 },
-    actions: { 'aiAgent/refresh': refresh },
+    actions: { 'aiAgent/refresh': refresh, 'aiAgent/update': update },
   });
   const wrapper = mount(LearningSuggestions, {
     props: { aiAgentId: 45, ...props },
@@ -69,7 +70,7 @@ const mountComponent = (props = {}) => {
     },
   });
 
-  return { wrapper, refresh };
+  return { wrapper, refresh, update };
 };
 
 describe('LearningSuggestions.vue', () => {
@@ -99,6 +100,19 @@ describe('LearningSuggestions.vue', () => {
     expect(wrapper.find('a').attributes('href')).toContain(
       '/app/accounts/51/conversations/12?messageId=44'
     );
+  });
+
+  it('enables automatic review of resolved handoffs', async () => {
+    const { wrapper, update } = mountComponent();
+    await flushPromises();
+
+    await wrapper.find('[role="switch"]').trigger('click');
+    await flushPromises();
+
+    expect(update).toHaveBeenCalledWith(expect.anything(), {
+      id: 45,
+      data: { auto_learning_enabled: true },
+    });
   });
 
   it('applies the reviewed text to the selected draft section', async () => {

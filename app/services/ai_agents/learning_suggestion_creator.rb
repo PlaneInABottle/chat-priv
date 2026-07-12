@@ -3,9 +3,10 @@
 class AiAgents::LearningSuggestionCreator
   class InvalidCandidate < StandardError; end
 
-  def initialize(message:, submitted_by:)
+  def initialize(message:, submitted_by:, ai_agent: nil)
     @message = message
     @submitted_by = submitted_by
+    @explicit_ai_agent = ai_agent
   end
 
   def perform
@@ -23,13 +24,13 @@ class AiAgents::LearningSuggestionCreator
 
   private
 
-  attr_reader :message, :submitted_by
+  attr_reader :message, :submitted_by, :explicit_ai_agent
 
   delegate :conversation, :account, to: :message
 
   def validate_candidate!
     raise InvalidCandidate, 'AI assistants are not enabled for this account.' unless account.ai_agent_enabled?
-    raise InvalidCandidate, 'Connect an AI assistant to this inbox first.' unless ai_agent
+    raise InvalidCandidate, 'Connect an AI assistant to this inbox first.' unless ai_agent&.account_id == account.id
     raise InvalidCandidate, 'Only public human replies with text can be suggested.' unless human_text_reply?
     raise InvalidCandidate, 'No earlier customer question was found for this reply.' unless customer_message
   end
@@ -39,7 +40,7 @@ class AiAgents::LearningSuggestionCreator
   end
 
   def ai_agent
-    @ai_agent ||= conversation.assignee_agent_bot&.ai_agent || message.inbox.agent_bot&.ai_agent
+    @ai_agent ||= explicit_ai_agent || conversation.assignee_agent_bot&.ai_agent || message.inbox.agent_bot&.ai_agent
   end
 
   def customer_message
