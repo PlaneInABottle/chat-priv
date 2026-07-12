@@ -11,6 +11,10 @@ class Api::V1::Accounts::AiAgentEvaluationRunsController < Api::V1::Accounts::Ba
 
   def show; end
 
+  def quality
+    render json: AiAgents::QualitySummary.new(@ai_agent).call
+  end
+
   def create
     return render_empty_suite_error if reviewed_cases.none?
     return render_running_error if @ai_agent.evaluation_runs.pending.or(@ai_agent.evaluation_runs.running).exists?

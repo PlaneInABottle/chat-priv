@@ -179,5 +179,33 @@ RSpec.describe 'AI Agent Evaluations API', type: :request do
       expect(response.parsed_body['current_draft']).to be(false)
       expect(response.parsed_body['failed_count']).to eq(1)
     end
+
+    it 'returns quality evidence for the draft and published versions' do
+      release = create(:ai_agent_release, account: account, ai_agent: ai_agent)
+      ai_agent.update!(current_release: release, enabled: true)
+      create(
+        :ai_agent_evaluation_run,
+        :completed,
+        account: account,
+        ai_agent: ai_agent,
+        draft_fingerprint: release.fingerprint,
+        total_count: 2,
+        passed_count: 1
+      )
+
+      get "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/evaluation_runs/quality",
+          headers: administrator.create_new_auth_token,
+          as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body['draft']).to include('differs_from_live' => false)
+      expect(response.parsed_body['releases'].first).to include(
+        'id' => release.id,
+        'current' => true,
+        'live' => true,
+        'evaluation' => include('total_count' => 2, 'passed_count' => 1, 'pass_rate' => 50),
+        'activity' => include('conversations' => 0, 'handoffs' => 0)
+      )
+    end
   end
 end

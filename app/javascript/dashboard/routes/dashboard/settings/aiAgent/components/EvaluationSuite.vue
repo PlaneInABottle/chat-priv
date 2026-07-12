@@ -6,6 +6,7 @@ import { parseAPIErrorResponse } from 'dashboard/store/utils/api';
 
 import AiAgentEvaluationsAPI from 'dashboard/api/aiAgentEvaluations';
 import Button from 'dashboard/components-next/button/Button.vue';
+import EvaluationQuality from './EvaluationQuality.vue';
 
 const props = defineProps({
   aiAgentId: { type: Number, required: true },
@@ -17,6 +18,7 @@ const emit = defineEmits(['usageChanged']);
 const { t } = useI18n();
 const evaluationCases = ref([]);
 const evaluationRuns = ref([]);
+const quality = ref(null);
 const generation = ref(null);
 const isLoading = ref(false);
 const isSaving = ref(false);
@@ -104,11 +106,28 @@ function scheduleGenerationPoll() {
   }
 }
 
+const refreshQuality = async () => {
+  try {
+    const response = await api.value.getQuality();
+    quality.value = response.data;
+  } catch (error) {
+    useAlert(
+      parseAPIErrorResponse(error) ||
+        t('AI_ASSISTANT.EVALUATIONS.ERROR.QUALITY')
+    );
+  }
+};
+
 const loadEvaluations = async () => {
   isLoading.value = true;
   try {
     const [casesResponse, runsResponse, generationResponse] = await Promise.all(
-      [api.value.get(), api.value.getRuns(), api.value.getGeneration()]
+      [
+        api.value.get(),
+        api.value.getRuns(),
+        api.value.getGeneration(),
+        refreshQuality(),
+      ]
     );
     evaluationCases.value = casesResponse.data;
     evaluationRuns.value = runsResponse.data;
@@ -135,6 +154,7 @@ refreshRun = async () => {
       ...evaluationRuns.value.filter(run => run.id !== response.data.id),
     ];
     if (['completed', 'failed'].includes(response.data.status)) {
+      await refreshQuality();
       emit('usageChanged');
     }
     schedulePoll();
@@ -431,6 +451,8 @@ onBeforeUnmount(() => {
         />
       </div>
     </header>
+
+    <EvaluationQuality :quality="quality" />
 
     <div
       v-if="latestRun"
