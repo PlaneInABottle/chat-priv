@@ -89,4 +89,25 @@ RSpec.describe AiKnowledgeSources::WebsiteSyncJob do
       content: ''
     )
   end
+
+  it 'does not let a timed-out worker overwrite a newer sync for the same URL' do
+    allow(crawler).to receive(:perform) do
+      source.update!(sync_status: :syncing, last_sync_started_at: 1.minute.from_now)
+      crawl_result
+    end
+
+    described_class.perform_now(source.id)
+
+    expect(source.reload).to have_attributes(sync_status: 'syncing', content: '')
+  end
+
+  it 'reclaims a website sync whose worker stopped updating it' do
+    source.update!(sync_status: :syncing, last_sync_started_at: 20.minutes.ago)
+    allow(crawler).to receive(:perform).and_return(crawl_result)
+
+    described_class.perform_now(source.id)
+
+    expect(crawler).to have_received(:perform).once
+    expect(source.reload).to be_sync_ready
+  end
 end

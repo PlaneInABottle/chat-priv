@@ -107,12 +107,18 @@ class VoiceAgents::RuntimeContext
   end
 
   def voice_agent
-    @voice_agent ||= begin
-      agent = setting&.voice_agent || call.account.voice_agents.find_by(id: call.meta&.fetch('voice_agent_id', nil))
-      raise ActiveRecord::RecordNotFound, 'Voice agent not configured' unless agent
+    @voice_agent ||= validate_voice_agent!(resolved_voice_agent)
+  end
 
-      agent
-    end
+  def resolved_voice_agent
+    pinned_release&.voice_agent || setting&.voice_agent || call.account.voice_agents.find_by(id: call.meta&.fetch('voice_agent_id', nil))
+  end
+
+  def validate_voice_agent!(agent)
+    raise ActiveRecord::RecordNotFound, 'Voice agent not configured' unless agent
+    raise ActiveRecord::RecordNotFound, 'Voice assistant is paused' if production_draft_call?(agent)
+
+    agent
   end
 
   def setting
@@ -134,8 +140,18 @@ class VoiceAgents::RuntimeContext
     return if call.test_call?
     return @resolved_release if defined?(@resolved_release)
 
-    @resolved_release = call.voice_agent_release || voice_agent.current_release
+    @resolved_release = pinned_release || voice_agent.current_release
     call.update!(voice_agent_release: @resolved_release) if @resolved_release && call.voice_agent_release_id != @resolved_release.id
     @resolved_release
+  end
+
+  def pinned_release
+    return @pinned_release if defined?(@pinned_release)
+
+    @pinned_release = VoiceAgentRelease.find_by(id: call.voice_agent_release_id, account_id: call.account_id)
+  end
+
+  def production_draft_call?(agent)
+    !call.test_call? && pinned_release.blank? && !agent.enabled?
   end
 end

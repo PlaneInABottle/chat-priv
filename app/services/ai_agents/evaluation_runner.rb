@@ -1,15 +1,16 @@
 # frozen_string_literal: true
 
 class AiAgents::EvaluationRunner
+  CLAIM_TIMEOUT = 15.minutes
+
   def initialize(run:)
     @run = run
   end
 
   def perform
-    return unless run.pending?
+    return unless claim_run
 
-    run.update!(status: :running, started_at: Time.current, error_message: nil)
-    run.evaluation_results.order(:id).find_each { |result| evaluate(result) }
+    run.evaluation_results.pending.order(:id).find_each { |result| evaluate(result) }
     complete_run
   rescue StandardError => e
     fail_run(e)
@@ -20,6 +21,19 @@ class AiAgents::EvaluationRunner
   attr_reader :run
 
   delegate :ai_agent, to: :run
+
+  def claim_run
+    run.with_lock do
+      next false unless run.pending? || stale_running_run?
+
+      run.update!(status: :running, started_at: Time.current, completed_at: nil, error_message: nil)
+      true
+    end
+  end
+
+  def stale_running_run?
+    run.running? && run.started_at.present? && run.started_at < CLAIM_TIMEOUT.ago
+  end
 
   def evaluate(result)
     output = evaluation_output(result)

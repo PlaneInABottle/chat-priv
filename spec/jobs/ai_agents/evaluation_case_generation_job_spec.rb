@@ -45,4 +45,19 @@ RSpec.describe AiAgents::EvaluationCaseGenerationJob do
       error_message: 'Suggested scenarios could not be prepared. Please try again.'
     )
   end
+
+  it 'ignores a generation already claimed by another worker' do
+    generation.update!(status: :running, started_at: 1.minute.ago)
+    expect(generator).not_to receive(:call)
+    described_class.perform_now(generation)
+  end
+
+  it 'reclaims a stale running generation' do
+    generation.update!(status: :running, started_at: 20.minutes.ago)
+    allow(generator).to receive(:call).and_return([])
+    described_class.perform_now(generation)
+
+    expect(generator).to have_received(:call).once
+    expect(generation.reload).to be_completed
+  end
 end

@@ -65,7 +65,7 @@ const normalizeToolsConfig = toolsConfig => {
   const tools = toolsConfig || {};
   return {
     enabled: Array.from(
-      new Set(['human_handoff', ...(tools.enabled || [])])
+      new Set(['human_handoff', 'end_customer_call', ...(tools.enabled || [])])
     ).filter(Boolean),
     human_handoff: {
       allowed_labels: Array.from(
@@ -426,7 +426,8 @@ const voiceRemainingText = computed(() => {
 const isToolEnabled = toolKey =>
   agentForm.value.tools_config.enabled.includes(toolKey);
 
-const isMandatoryTool = toolKey => toolKey === 'human_handoff';
+const isMandatoryTool = toolKey =>
+  ['human_handoff', 'end_customer_call'].includes(toolKey);
 
 const capabilityLabel = toolKey => {
   if (toolKey === 'human_handoff') {
@@ -768,7 +769,6 @@ const activateVoiceAgent = async () => {
   try {
     const response = await VoiceAPI.activateAgent(selectedVoiceAgent.value.id);
     replaceVoiceAgent(response.data);
-    syncAgentForm(response.data);
     useAlert(t('VOICE_AI.AGENTS.ACTIVATE_SUCCESS'));
   } catch (error) {
     useAlert(
@@ -783,7 +783,6 @@ const pauseVoiceAgent = async () => {
   try {
     const response = await VoiceAPI.pauseAgent(selectedVoiceAgent.value.id);
     replaceVoiceAgent(response.data);
-    syncAgentForm(response.data);
     useAlert(t('VOICE_AI.AGENTS.PAUSE_SUCCESS'));
   } catch (error) {
     useAlert(error.response?.data?.error || t('VOICE_AI.AGENTS.PAUSE_ERROR'));

@@ -105,5 +105,18 @@ RSpec.describe VoiceAgent do
       expect { voice_agent.activate! }.to raise_error(ActiveRecord::RecordInvalid, /Publish the assistant before activation/)
       expect(voice_agent).not_to be_enabled
     end
+
+    it 'rechecks readiness after acquiring the publish lock' do
+      inbox = create(:channel_api, account: account).inbox
+      create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: voice_agent)
+      voice_agent.mark_test_succeeded!
+      allow(voice_agent).to receive(:with_lock).and_wrap_original do |original, *args, &block|
+        voice_agent.update!(prompt: 'Changed after the initial request check')
+        original.call(*args, &block)
+      end
+
+      expect { voice_agent.publish! }.to raise_error(ActiveRecord::RecordInvalid)
+      expect(voice_agent.reload.current_release).to be_nil
+    end
   end
 end

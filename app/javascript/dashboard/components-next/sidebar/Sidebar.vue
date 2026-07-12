@@ -697,6 +697,16 @@ const menuItems = computed(() => {
               },
             ]
           : []),
+        ...(hasAiAgent.value || hasVoiceAi.value
+          ? [
+              {
+                name: 'Settings Shared Knowledge',
+                label: t('SIDEBAR.SHARED_KNOWLEDGE'),
+                icon: 'i-lucide-library',
+                to: accountScopedRoute('ai_knowledge_sources'),
+              },
+            ]
+          : []),
         {
           name: 'Settings Macros',
           label: t('SIDEBAR.MACROS'),

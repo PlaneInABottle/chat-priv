@@ -86,7 +86,7 @@ defineExpose({
 
 <template>
   <aside
-    class="flex h-[32rem] flex-col overflow-hidden rounded-lg border border-n-weak bg-n-solid-1 md:h-[calc(100dvh-25rem)] md:min-h-[22rem] md:max-h-[48rem]"
+    class="flex h-[40rem] min-h-[32rem] flex-col overflow-hidden rounded-lg border border-n-weak bg-n-solid-1 md:h-[calc(100dvh-18rem)] md:max-h-[56rem]"
     :aria-label="t('AI_ASSISTANT.INSTRUCTIONS.DRAFT_TEST')"
   >
     <div class="flex flex-col gap-3 border-b border-n-weak p-4">

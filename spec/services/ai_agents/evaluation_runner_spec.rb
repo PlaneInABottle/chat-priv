@@ -93,4 +93,35 @@ RSpec.describe AiAgents::EvaluationRunner do
     expect(result.reload).to have_attributes(status: 'completed', passed: false)
     expect(ai_agent.reload).not_to be_draft_tested
   end
+
+  it 'does not execute a run already claimed by another worker' do
+    run.update!(status: :running, started_at: 1.minute.ago)
+
+    expect(AiAgents::Orchestrator).not_to receive(:new)
+
+    described_class.new(run: run).perform
+
+    expect(run.reload).to be_running
+  end
+
+  it 'resumes a stale run without repeating completed results' do
+    result.update!(status: :completed, passed: true, assistant_response: 'Already complete')
+    pending_case = create(:ai_agent_evaluation_case, account: account, ai_agent: ai_agent)
+    create(:ai_agent_evaluation_result, evaluation_run: run, evaluation_case: pending_case)
+    run.update!(status: :running, started_at: 20.minutes.ago, total_count: 2)
+    orchestrator = instance_double(
+      AiAgents::Orchestrator,
+      perform: { assistant_message: { 'content' => 'New answer' }, tool_events: [] }
+    )
+    judge = instance_double(AiAgents::EvaluationJudge)
+    allow(AiAgents::Orchestrator).to receive(:new).and_return(orchestrator)
+    allow(AiAgents::EvaluationJudge).to receive(:new).and_return(judge)
+    allow(judge).to receive(:call).and_return(AiAgents::EvaluationJudge::Result.new(passed: true, reason: 'Passed'))
+
+    described_class.new(run: run).perform
+
+    expect(AiAgents::Orchestrator).to have_received(:new).once
+    expect(result.reload.assistant_response).to eq('Already complete')
+    expect(run.reload).to have_attributes(status: 'completed', passed_count: 2)
+  end
 end

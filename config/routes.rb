@@ -177,6 +177,7 @@ Rails.application.routes.draw do
                       controller: 'ai_agent_website_imports' do
               member do
                 post :apply
+                post :dismiss
               end
             end
           end

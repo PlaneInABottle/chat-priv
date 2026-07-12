@@ -137,4 +137,19 @@ describe('AiAgentNew.vue', () => {
       params: { id: 42 },
     });
   });
+
+  it('preserves edited instructions when returning to the basics step', async () => {
+    const { wrapper } = mountComponent();
+    wrapper.vm.form.name = 'Support bot';
+    wrapper.vm.nextStep();
+    wrapper.vm.form.instructions = 'Keep my carefully edited instructions.';
+
+    wrapper.vm.previousStep();
+    wrapper.vm.form.name = 'Renamed support bot';
+    wrapper.vm.nextStep();
+
+    expect(wrapper.vm.form.instructions).toBe(
+      'Keep my carefully edited instructions.'
+    );
+  });
 });

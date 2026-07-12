@@ -31,4 +31,14 @@ RSpec.describe AiImprovements::Usage::Summary do
 
     expect(described_class.new(account: account, now: now).payload[:status]).to eq('ok')
   end
+
+  it 'releases expired reservations before reporting the available balance' do
+    stale_limiter = AiImprovements::Usage::Limiter.new(account: account, operation: 'evaluation', now: now - 2.hours)
+    stale_event = travel_to(now - 2.hours) { stale_limiter.reserve_or_raise!(credits: 10) }
+
+    payload = described_class.new(account: account, now: now).payload
+
+    expect(payload).to include(reserved_credits: 0, remaining_credits: 10, status: 'ok')
+    expect(stale_event.reload).to be_released
+  end
 end

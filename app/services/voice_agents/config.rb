@@ -33,7 +33,7 @@ class VoiceAgents::Config
 
   def enabled_tool_keys
     @enabled_tool_keys ||= begin
-      keys = [HUMAN_HANDOFF_TOOL, *Array(enabled_tools_value)].filter_map(&:presence).map(&:to_s).uniq
+      keys = [*DEFAULT_ENABLED_TOOL_KEYS, *Array(enabled_tools_value)].filter_map(&:presence).map(&:to_s).uniq
       keys & VoiceAgents::ToolRegistry.keys
     end
   end

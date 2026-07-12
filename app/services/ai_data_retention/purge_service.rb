@@ -48,7 +48,9 @@ class AiDataRetention::PurgeService
   end
 
   def retained_calls(cutoff)
-    account.calls.where(status: Call::TERMINAL_STATUSES)
+    account.calls.livekit
+           .where("voice_agent_release_id IS NOT NULL OR calls.meta ? 'voice_agent_id'")
+           .where(status: Call::TERMINAL_STATUSES)
            .where('COALESCE(started_at, calls.created_at) < ?', cutoff)
   end
 

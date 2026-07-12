@@ -183,12 +183,14 @@ const applySuggestion = async suggestion => {
       source_name: draft.source_name.trim(),
     });
     replaceSuggestion(response.data);
-    if (!props.hasUnsavedInstructions) {
-      const refreshedAgent = await store.dispatch(
-        'aiAgent/refresh',
-        props.aiAgentId
-      );
-      if (refreshedAgent) emit('draftUpdated');
+    const refreshedAgent = await store.dispatch(
+      'aiAgent/refresh',
+      props.aiAgentId
+    );
+    if (refreshedAgent) {
+      emit('draftUpdated', {
+        preserveInstructions: props.hasUnsavedInstructions,
+      });
     }
     useAlert(t('AI_ASSISTANT.LEARNING.APPLIED'));
   } catch (error) {

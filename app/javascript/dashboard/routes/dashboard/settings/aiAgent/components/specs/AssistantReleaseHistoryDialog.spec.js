@@ -90,9 +90,19 @@ describe('AssistantReleaseHistoryDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockTextApi.getReleases.mockResolvedValue({ data: releases });
-    mockTextApi.getRelease.mockResolvedValue({
-      data: { ...releases[1], snapshot: { prompt: 'Original instructions' } },
-    });
+    mockTextApi.getRelease.mockImplementation((assistantId, releaseId) =>
+      Promise.resolve({
+        data: {
+          ...(releaseId === 12 ? releases[0] : releases[1]),
+          snapshot: {
+            prompt:
+              releaseId === 12
+                ? 'Current instructions'
+                : 'Original instructions',
+          },
+        },
+      })
+    );
     mockTextApi.rollbackRelease.mockResolvedValue({ data: {} });
     mockVoiceApi.getAgentReleases.mockResolvedValue({ data: releases });
   });
@@ -109,10 +119,15 @@ describe('AssistantReleaseHistoryDialog', () => {
     );
     expect(wrapper.text()).not.toContain('migration');
 
-    await wrapper.get('button[type="button"]:nth-of-type(1)').trigger('click');
+    const originalVersionButton = wrapper
+      .findAll('button[type="button"]')
+      .find(button =>
+        button.text().includes('AI_ASSISTANT.RELEASE_HISTORY.VERSION:1')
+      );
+    await originalVersionButton.trigger('click');
     await flushPromises();
 
-    expect(mockTextApi.getRelease).toHaveBeenCalledWith(42, 12);
+    expect(mockTextApi.getRelease).toHaveBeenCalledWith(42, 11);
     expect(wrapper.text()).toContain('Original instructions');
   });
 
@@ -143,5 +158,16 @@ describe('AssistantReleaseHistoryDialog', () => {
 
     expect(mockVoiceApi.getAgentReleases).toHaveBeenCalledWith(42);
     expect(mockTextApi.getReleases).not.toHaveBeenCalled();
+  });
+
+  it('keeps version history usable when the live comparison cannot load', async () => {
+    mockTextApi.getRelease.mockRejectedValueOnce(new Error('Unavailable'));
+    const wrapper = mountComponent();
+
+    await wrapper.vm.open();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('AI_ASSISTANT.RELEASE_HISTORY.VERSION:1');
+    expect(mockUseAlert).not.toHaveBeenCalled();
   });
 });

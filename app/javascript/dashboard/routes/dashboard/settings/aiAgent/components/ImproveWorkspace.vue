@@ -93,7 +93,7 @@ const handleImprovementUsageLoaded = usage => {
       :ai-agent-id="aiAgentId"
       :has-unsaved-instructions="hasUnsavedInstructions"
       :auto-learning-enabled="autoLearningEnabled"
-      @draft-updated="emit('draftUpdated')"
+      @draft-updated="emit('draftUpdated', $event)"
     />
   </div>
 </template>

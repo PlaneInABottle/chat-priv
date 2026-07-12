@@ -63,7 +63,11 @@ class AiAgents::WebsiteImportApplier
 
   def update_agent(selected_sections)
     config = ai_agent.config.to_h.deep_stringify_keys
-    document = AiAgents::InstructionDocument.new(config['instructions']).normalized
+    document = if config['instructions'].present?
+                 AiAgents::InstructionDocument.new(config['instructions']).normalized
+               else
+                 AiAgents::InstructionDocument.from_legacy(ai_agent.prompt)
+               end
     document['sections'].merge!(selected_sections)
     config['instructions'] = document
     ai_agent.update!(config: config, prompt: AiAgents::InstructionDocument.new(document).compile)

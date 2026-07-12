@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 class AiAgents::WebsiteImportCreator
-  STALE_AFTER = 5.minutes
   COOLDOWN = 30.seconds
   DAILY_LIMIT = 10
 
@@ -67,7 +66,7 @@ class AiAgents::WebsiteImportCreator
   end
 
   def stale?(website_import)
-    website_import.updated_at < STALE_AFTER.ago
+    website_import.stale?
   end
 
   def expire_stale_import(website_import)

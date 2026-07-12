@@ -108,6 +108,7 @@ describe('TestConversationLayout.vue', () => {
       }
     );
     expect(useAlert).not.toHaveBeenCalled();
+    expect(wrapper.emitted('tested')).toHaveLength(1);
   });
 
   it('shows an alert when sending a message fails', async () => {

@@ -3,6 +3,14 @@
 class AiImprovements::Usage::Limiter
   RESERVATION_TTL = 1.hour
 
+  def self.release_stale_reservations!(account:, now: Time.current)
+    account.ai_improvement_usage_events.reserved.where('updated_at < ?', now - RESERVATION_TTL).find_each do |event|
+      next if event.call.present? && !event.call.terminal?
+
+      event.update!(status: :released)
+    end
+  end
+
   Result = Struct.new(:status, :event, :summary, keyword_init: true) do
     def allowed?
       %i[reserved consumed].include?(status)
@@ -145,14 +153,6 @@ class AiImprovements::Usage::Limiter
   end
 
   def release_stale_reservations!
-    account.ai_improvement_usage_events.reserved.where('updated_at < ?', now - RESERVATION_TTL).find_each do |event|
-      next if linked_call_active?(event)
-
-      event.update!(status: :released)
-    end
-  end
-
-  def linked_call_active?(event)
-    event.call.present? && !event.call.terminal?
+    self.class.release_stale_reservations!(account: account, now: now)
   end
 end

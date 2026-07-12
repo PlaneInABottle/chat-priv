@@ -74,10 +74,11 @@ RSpec.describe AiDataRetention::PurgeService do
       old_call = create(
         :call,
         account: account,
-        status: 'completed',
+        provider: :livekit, status: 'completed',
         started_at: 40.days.ago,
         transcript: 'Sensitive transcript',
         meta: {
+          'voice_agent_id' => 42,
           'summary' => { 'text' => 'Sensitive summary' },
           'from_number' => '+905551112233',
           'last_voice_agent_payload' => { 'transcript' => 'Sensitive turn' },
@@ -115,13 +116,22 @@ RSpec.describe AiDataRetention::PurgeService do
       result = described_class.new(account: account).perform(kind: 'voice')
 
       expect(result['voice']).to include(calls: 1, transcript_segments: 1, tool_events: 1, recordings: 1, recording_failures: 0)
-      expect(old_call.reload).to have_attributes(transcript: nil, meta: { 'handoff_status' => 'requested' })
+      expect(old_call.reload).to have_attributes(transcript: nil, meta: { 'voice_agent_id' => 42, 'handoff_status' => 'requested' })
       expect(message.reload.content_attributes['data']).to eq('status' => 'completed')
       expect(
         [CallTranscriptSegment.exists?(segment.id), VoiceToolEvent.exists?(tool_event.id), VoiceRecording.exists?(recording.id)]
       ).to all(be(false))
       expect(recent_call.reload.transcript).to eq('Recent transcript')
       expect(active_call.reload.transcript).to eq('Active transcript')
+    end
+
+    it 'does not purge old human call payloads' do
+      human_call = create(:call, account: account, status: 'completed', started_at: 40.days.ago, transcript: 'Human call transcript')
+
+      result = described_class.new(account: account).perform(kind: 'voice')
+
+      expect(result['voice'][:calls]).to eq(0)
+      expect(human_call.reload.transcript).to eq('Human call transcript')
     end
   end
 end
