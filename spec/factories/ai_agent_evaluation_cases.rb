@@ -6,5 +6,6 @@ FactoryBot.define do
     customer_message { 'When will my order arrive?' }
     success_criteria { 'Do not promise an exact delivery date.' }
     position { 1 }
+    reviewed_at { Time.current }
   end
 end

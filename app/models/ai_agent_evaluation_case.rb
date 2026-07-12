@@ -6,6 +6,7 @@
 #  customer_message :text             not null
 #  name             :string           not null
 #  position         :integer          default(0), not null
+#  reviewed_at      :datetime
 #  success_criteria :text             not null
 #  created_at       :datetime         not null
 #  updated_at       :datetime         not null
@@ -24,6 +25,8 @@
 #  fk_rails_...  (ai_agent_id => ai_agents.id) ON DELETE => cascade
 #
 class AiAgentEvaluationCase < ApplicationRecord
+  MAX_PER_ASSISTANT = 20
+
   belongs_to :account
   belongs_to :ai_agent
   has_many :evaluation_results,
@@ -36,6 +39,8 @@ class AiAgentEvaluationCase < ApplicationRecord
   validates :success_criteria, presence: true, length: { maximum: 5_000 }
   validates :position, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
   validate :ai_agent_belongs_to_account
+
+  scope :reviewed, -> { where.not(reviewed_at: nil) }
 
   private
 

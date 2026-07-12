@@ -17,6 +17,14 @@ class AiAgentEvaluationsAPI extends ApiClient {
     return axios.delete(`${this.url}/${id}`);
   }
 
+  generateCases() {
+    return axios.post(`${this.url}/generate`);
+  }
+
+  getGeneration() {
+    return axios.get(`${this.url}/generation`);
+  }
+
   getRuns() {
     return axios.get(this.runsUrl);
   }

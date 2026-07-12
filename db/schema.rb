@@ -180,9 +180,28 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_18_000000) do
     t.integer "position", default: 0, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.datetime "reviewed_at"
     t.index ["account_id"], name: "index_ai_agent_evaluation_cases_on_account_id"
     t.index ["ai_agent_id", "position"], name: "index_ai_agent_evaluation_cases_on_ai_agent_id_and_position"
     t.index ["ai_agent_id"], name: "index_ai_agent_evaluation_cases_on_ai_agent_id"
+  end
+
+  create_table "ai_agent_evaluation_generations", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "ai_agent_id", null: false
+    t.bigint "initiated_by_id"
+    t.integer "status", default: 0, null: false
+    t.integer "requested_count", null: false
+    t.integer "created_count", default: 0, null: false
+    t.text "error_message"
+    t.datetime "started_at"
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ai_agent_evaluation_generations_on_account_id"
+    t.index ["ai_agent_id"], name: "index_ai_agent_evaluation_generations_on_ai_agent_id"
+    t.index ["ai_agent_id"], name: "index_ai_evaluation_generations_on_active_agent", unique: true, where: "(status = ANY (ARRAY[0, 1]))"
+    t.index ["initiated_by_id"], name: "index_ai_agent_evaluation_generations_on_initiated_by_id"
   end
 
   create_table "ai_agent_evaluation_results", force: :cascade do |t|
@@ -1987,6 +2006,9 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_18_000000) do
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "ai_agent_evaluation_cases", "accounts", on_delete: :cascade
   add_foreign_key "ai_agent_evaluation_cases", "ai_agents", on_delete: :cascade
+  add_foreign_key "ai_agent_evaluation_generations", "accounts", on_delete: :cascade
+  add_foreign_key "ai_agent_evaluation_generations", "ai_agents", on_delete: :cascade
+  add_foreign_key "ai_agent_evaluation_generations", "users", column: "initiated_by_id", on_delete: :nullify
   add_foreign_key "ai_agent_evaluation_results", "ai_agent_evaluation_cases", on_delete: :nullify
   add_foreign_key "ai_agent_evaluation_results", "ai_agent_evaluation_runs", on_delete: :cascade
   add_foreign_key "ai_agent_evaluation_runs", "accounts", on_delete: :cascade

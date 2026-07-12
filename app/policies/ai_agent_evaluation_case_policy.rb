@@ -7,6 +7,14 @@ class AiAgentEvaluationCasePolicy < ApplicationPolicy
     @account_user.administrator?
   end
 
+  def generate?
+    create?
+  end
+
+  def generation?
+    index?
+  end
+
   def update?
     @account_user.administrator?
   end

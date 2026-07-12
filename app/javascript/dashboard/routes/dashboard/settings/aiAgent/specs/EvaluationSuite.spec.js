@@ -6,6 +6,8 @@ const apiMocks = vi.hoisted(() => ({
   create: vi.fn(),
   updateCase: vi.fn(),
   deleteCase: vi.fn(),
+  generateCases: vi.fn(),
+  getGeneration: vi.fn(),
   getRuns: vi.fn(),
   getRun: vi.fn(),
   createRun: vi.fn(),
@@ -37,6 +39,7 @@ const evaluationCase = {
   name: 'Delivery question',
   customer_message: 'When will it arrive?',
   success_criteria: 'Do not promise an exact date.',
+  needs_review: false,
   position: 1,
   created_at: '2026-07-10T10:00:00Z',
   updated_at: '2026-07-10T10:00:00Z',
@@ -85,6 +88,7 @@ describe('EvaluationSuite.vue', () => {
     vi.clearAllMocks();
     apiMocks.get.mockResolvedValue({ data: [] });
     apiMocks.getRuns.mockResolvedValue({ data: [] });
+    apiMocks.getGeneration.mockResolvedValue({ data: {} });
   });
 
   it('shows saved scenarios with current draft evidence', async () => {
@@ -149,6 +153,58 @@ describe('EvaluationSuite.vue', () => {
     expect(wrapper.vm.evaluationCases).toEqual([evaluationCase]);
   });
 
+  it('starts suggested scenario generation without blocking the workspace', async () => {
+    apiMocks.generateCases.mockResolvedValue({
+      data: { id: 12, status: 'pending', requested_count: 5 },
+    });
+    const wrapper = mountComponent();
+    await flushPromises();
+
+    await wrapper.vm.generateCases();
+
+    expect(apiMocks.generateCases).toHaveBeenCalledOnce();
+    expect(wrapper.vm.generation).toMatchObject({ id: 12, status: 'pending' });
+    expect(wrapper.vm.evaluationCases).toEqual([]);
+    expect(wrapper.emitted('usageChanged')).toBeUndefined();
+    wrapper.unmount();
+  });
+
+  it('loads generated scenarios when background generation completes', async () => {
+    apiMocks.getGeneration.mockResolvedValueOnce({
+      data: { id: 12, status: 'running', requested_count: 5 },
+    });
+    const wrapper = mountComponent();
+    await flushPromises();
+    apiMocks.getGeneration.mockResolvedValue({
+      data: { id: 12, status: 'completed', created_count: 1 },
+    });
+    apiMocks.get.mockResolvedValue({
+      data: [{ ...evaluationCase, needs_review: true }],
+    });
+
+    await wrapper.vm.refreshGeneration();
+
+    expect(wrapper.vm.evaluationCases).toEqual([
+      { ...evaluationCase, needs_review: true },
+    ]);
+    expect(wrapper.emitted('usageChanged')).toHaveLength(1);
+    wrapper.unmount();
+  });
+
+  it('requires explicit approval before a suggested scenario can run', async () => {
+    const suggestedCase = { ...evaluationCase, needs_review: true };
+    apiMocks.get.mockResolvedValue({ data: [suggestedCase] });
+    apiMocks.updateCase.mockResolvedValue({ data: evaluationCase });
+    const wrapper = mountComponent();
+    await flushPromises();
+
+    expect(wrapper.vm.reviewedCases).toEqual([]);
+    await wrapper.vm.approveCase(suggestedCase);
+
+    expect(apiMocks.updateCase).toHaveBeenCalledWith(suggestedCase.id, {});
+    expect(wrapper.vm.reviewedCases).toEqual([evaluationCase]);
+  });
+
   it('starts one asynchronous run for the current suite', async () => {
     apiMocks.get.mockResolvedValue({ data: [evaluationCase] });
     apiMocks.createRun.mockResolvedValue({
@@ -199,7 +255,11 @@ describe('EvaluationSuite.vue', () => {
     const addButton = buttons.find(button =>
       button.text().includes('AI_ASSISTANT.EVALUATIONS.ADD')
     );
+    const suggestButton = buttons.find(button =>
+      button.text().includes('AI_ASSISTANT.EVALUATIONS.GENERATE.ACTION')
+    );
     expect(runButton.attributes('disabled')).toBeDefined();
+    expect(suggestButton.attributes('disabled')).toBeDefined();
     expect(addButton.attributes('disabled')).toBeUndefined();
 
     await wrapper.vm.startRun();

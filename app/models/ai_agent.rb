@@ -42,6 +42,7 @@ class AiAgent < ApplicationRecord
   has_many :test_conversations, class_name: 'AiAgentTestConversation', dependent: :destroy
   has_many :evaluation_cases, class_name: 'AiAgentEvaluationCase', dependent: :destroy
   has_many :evaluation_runs, class_name: 'AiAgentEvaluationRun', dependent: :destroy
+  has_many :evaluation_generations, class_name: 'AiAgentEvaluationGeneration', dependent: :destroy
   has_many :learning_suggestions, class_name: 'AiAgentLearningSuggestion', dependent: :destroy
   has_many :website_imports, class_name: 'AiAgentWebsiteImport', dependent: :destroy
   has_many :usage_events, class_name: 'AiAgentUsageEvent', dependent: :destroy

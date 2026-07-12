@@ -17,13 +17,16 @@ const emit = defineEmits(['usageChanged']);
 const { t } = useI18n();
 const evaluationCases = ref([]);
 const evaluationRuns = ref([]);
+const generation = ref(null);
 const isLoading = ref(false);
 const isSaving = ref(false);
 const isStartingRun = ref(false);
+const approvingCaseId = ref(null);
 const showForm = ref(false);
 const editingCaseId = ref(null);
 const confirmDialog = ref(null);
 let pollTimer;
+let generationPollTimer;
 
 const emptyForm = () => ({
   name: '',
@@ -37,11 +40,17 @@ const latestRun = computed(() => evaluationRuns.value[0] || null);
 const isRunActive = computed(() =>
   ['pending', 'running'].includes(latestRun.value?.status)
 );
+const isGenerating = computed(() =>
+  ['pending', 'running'].includes(generation.value?.status)
+);
 const isFormValid = computed(
   () =>
     form.value.name.trim() &&
     form.value.customer_message.trim() &&
     form.value.success_criteria.trim()
+);
+const reviewedCases = computed(() =>
+  evaluationCases.value.filter(evaluationCase => !evaluationCase.needs_review)
 );
 
 const runSummary = computed(() => {
@@ -79,6 +88,7 @@ const runSummary = computed(() => {
 });
 
 let refreshRun;
+let refreshGeneration;
 
 function schedulePoll() {
   window.clearTimeout(pollTimer);
@@ -87,16 +97,26 @@ function schedulePoll() {
   }
 }
 
+function scheduleGenerationPoll() {
+  window.clearTimeout(generationPollTimer);
+  if (isGenerating.value) {
+    generationPollTimer = window.setTimeout(refreshGeneration, 1500);
+  }
+}
+
 const loadEvaluations = async () => {
   isLoading.value = true;
   try {
-    const [casesResponse, runsResponse] = await Promise.all([
-      api.value.get(),
-      api.value.getRuns(),
-    ]);
+    const [casesResponse, runsResponse, generationResponse] = await Promise.all(
+      [api.value.get(), api.value.getRuns(), api.value.getGeneration()]
+    );
     evaluationCases.value = casesResponse.data;
     evaluationRuns.value = runsResponse.data;
+    generation.value = generationResponse.data?.id
+      ? generationResponse.data
+      : null;
     schedulePoll();
+    scheduleGenerationPoll();
   } catch (error) {
     useAlert(
       parseAPIErrorResponse(error) || t('AI_ASSISTANT.EVALUATIONS.ERROR.LOAD')
@@ -123,6 +143,39 @@ refreshRun = async () => {
       parseAPIErrorResponse(error) ||
         t('AI_ASSISTANT.EVALUATIONS.ERROR.REFRESH')
     );
+    schedulePoll();
+  }
+};
+
+refreshGeneration = async () => {
+  if (!generation.value) return;
+
+  try {
+    const response = await api.value.getGeneration();
+    generation.value = response.data?.id ? response.data : null;
+    if (generation.value?.status === 'completed') {
+      const casesResponse = await api.value.get();
+      evaluationCases.value = casesResponse.data;
+      useAlert(
+        t('AI_ASSISTANT.EVALUATIONS.GENERATE.SUCCESS', {
+          count: generation.value.created_count,
+        })
+      );
+      emit('usageChanged');
+    } else if (generation.value?.status === 'failed') {
+      useAlert(
+        generation.value.error_message ||
+          t('AI_ASSISTANT.EVALUATIONS.ERROR.GENERATE')
+      );
+      emit('usageChanged');
+    }
+    scheduleGenerationPoll();
+  } catch (error) {
+    useAlert(
+      parseAPIErrorResponse(error) ||
+        t('AI_ASSISTANT.EVALUATIONS.ERROR.GENERATE')
+    );
+    scheduleGenerationPoll();
   }
 };
 
@@ -193,6 +246,48 @@ const deleteCase = async evaluationCase => {
   } catch (error) {
     useAlert(
       parseAPIErrorResponse(error) || t('AI_ASSISTANT.EVALUATIONS.ERROR.DELETE')
+    );
+  }
+};
+
+const approveCase = async evaluationCase => {
+  approvingCaseId.value = evaluationCase.id;
+  try {
+    const response = await api.value.updateCase(evaluationCase.id, {});
+    const index = evaluationCases.value.findIndex(
+      item => item.id === evaluationCase.id
+    );
+    if (index >= 0) evaluationCases.value.splice(index, 1, response.data);
+    useAlert(t('AI_ASSISTANT.EVALUATIONS.REVIEW.APPROVED'));
+  } catch (error) {
+    useAlert(
+      parseAPIErrorResponse(error) || t('AI_ASSISTANT.EVALUATIONS.ERROR.REVIEW')
+    );
+  } finally {
+    approvingCaseId.value = null;
+  }
+};
+
+const generateCases = async () => {
+  if (
+    props.hasUnsavedInstructions ||
+    props.creditsExhausted ||
+    isGenerating.value ||
+    evaluationCases.value.length >= 20
+  ) {
+    return;
+  }
+
+  try {
+    const response = await api.value.generateCases();
+    generation.value = response.data;
+    scheduleGenerationPoll();
+    useAlert(t('AI_ASSISTANT.EVALUATIONS.GENERATE.STARTED'));
+  } catch (error) {
+    emit('usageChanged');
+    useAlert(
+      parseAPIErrorResponse(error) ||
+        t('AI_ASSISTANT.EVALUATIONS.ERROR.GENERATE')
     );
   }
 };
@@ -278,7 +373,10 @@ const scenarioRows = computed(() =>
 );
 
 onMounted(loadEvaluations);
-onBeforeUnmount(() => window.clearTimeout(pollTimer));
+onBeforeUnmount(() => {
+  window.clearTimeout(pollTimer);
+  window.clearTimeout(generationPollTimer);
+});
 </script>
 
 <template>
@@ -303,6 +401,16 @@ onBeforeUnmount(() => window.clearTimeout(pollTimer));
       <div class="flex flex-shrink-0 flex-wrap items-center gap-2">
         <Button
           v-if="evaluationCases.length < 20"
+          icon="i-lucide-sparkles"
+          variant="outline"
+          color="slate"
+          :label="t('AI_ASSISTANT.EVALUATIONS.GENERATE.ACTION')"
+          :is-loading="isGenerating"
+          :disabled="hasUnsavedInstructions || creditsExhausted || isGenerating"
+          @click="generateCases"
+        />
+        <Button
+          v-if="evaluationCases.length < 20"
           icon="i-lucide-plus"
           variant="outline"
           color="slate"
@@ -314,7 +422,7 @@ onBeforeUnmount(() => window.clearTimeout(pollTimer));
           :label="t('AI_ASSISTANT.EVALUATIONS.RUN.ACTION')"
           :is-loading="isStartingRun"
           :disabled="
-            !evaluationCases.length ||
+            !reviewedCases.length ||
             isRunActive ||
             hasUnsavedInstructions ||
             creditsExhausted
@@ -455,6 +563,16 @@ onBeforeUnmount(() => window.clearTimeout(pollTimer));
                 {{ row.evaluationCase.name }}
               </h3>
               <span
+                v-if="row.evaluationCase.needs_review"
+                class="inline-flex items-center gap-1 text-xs font-medium text-n-amber-11"
+              >
+                <span
+                  aria-hidden="true"
+                  class="i-lucide-sparkles size-3.5 flex-shrink-0"
+                />
+                {{ t('AI_ASSISTANT.EVALUATIONS.REVIEW.NEEDED') }}
+              </span>
+              <span
                 class="inline-flex items-center gap-1 text-xs font-medium"
                 :class="row.appearance.classes"
               >
@@ -477,6 +595,17 @@ onBeforeUnmount(() => window.clearTimeout(pollTimer));
             </p>
           </div>
           <div class="flex flex-shrink-0 items-center gap-1">
+            <Button
+              v-if="row.evaluationCase.needs_review"
+              v-tooltip="t('AI_ASSISTANT.EVALUATIONS.REVIEW.APPROVE')"
+              icon="i-lucide-check"
+              size="sm"
+              variant="ghost"
+              color="slate"
+              :aria-label="t('AI_ASSISTANT.EVALUATIONS.REVIEW.APPROVE')"
+              :is-loading="approvingCaseId === row.evaluationCase.id"
+              @click="approveCase(row.evaluationCase)"
+            />
             <Button
               v-tooltip="t('AI_ASSISTANT.EVALUATIONS.EDIT')"
               icon="i-lucide-pencil"
