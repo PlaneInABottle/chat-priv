@@ -43,6 +43,11 @@ class VoiceAgent < ApplicationRecord
   belongs_to :current_release, class_name: 'VoiceAgentRelease', optional: true
   has_many :releases, class_name: 'VoiceAgentRelease', dependent: :destroy
   has_many :voice_inbox_settings, dependent: :nullify
+  has_many :knowledge_source_assignments,
+           as: :assistant,
+           class_name: 'AiKnowledgeSourceAssignment',
+           dependent: :destroy
+  has_many :knowledge_sources, through: :knowledge_source_assignments, source: :ai_knowledge_source
 
   scope :enabled, -> { where(enabled: true) }
 
@@ -103,7 +108,7 @@ class VoiceAgent < ApplicationRecord
         fingerprint: release.fingerprint,
         snapshot: release.snapshot
       )
-      assign_attributes(restored.snapshot.slice(*VoiceAgents::ReleaseSnapshot::ATTRIBUTES))
+      restore_release_draft(restored)
       self.enabled = true
       self.published_at = Time.current
       self.current_release = restored
@@ -145,6 +150,11 @@ class VoiceAgent < ApplicationRecord
   end
 
   private
+
+  def restore_release_draft(release)
+    assign_attributes(release.snapshot.slice(*VoiceAgents::ReleaseSnapshot::ATTRIBUTES))
+    AiKnowledgeSources::ReleaseAssignmentRestore.new(assistant: self, snapshot: release.snapshot).perform
+  end
 
   def next_release_revision
     releases.maximum(:revision).to_i + 1

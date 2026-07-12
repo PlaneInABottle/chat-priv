@@ -58,6 +58,7 @@ class Api::V1::Accounts::AiAgentTestConversationsController < Api::V1::Accounts:
   end
 
   def generate_and_render_ai_response
+    tested_fingerprint = @ai_agent.draft_fingerprint(prompt: effective_test_prompt)
     result = AiAgents::Orchestrator.new(
       ai_agent: @ai_agent,
       messages: @test_conversation.messages,
@@ -70,7 +71,7 @@ class Api::V1::Accounts::AiAgentTestConversationsController < Api::V1::Accounts:
     return render json: { error: 'Failed to generate response' }, status: :unprocessable_entity unless result[:assistant_message]
 
     append_assistant_message(result[:assistant_message])
-    @ai_agent.mark_test_succeeded!(prompt: effective_test_prompt)
+    @ai_agent.mark_test_succeeded!(tested_fingerprint: tested_fingerprint)
     render json: test_response_payload
   end
 

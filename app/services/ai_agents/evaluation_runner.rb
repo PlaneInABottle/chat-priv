@@ -87,7 +87,7 @@ class AiAgents::EvaluationRunner
     )
     return unless run.total_count.positive? && completed_count == run.total_count && passed_count == run.total_count
 
-    ai_agent.mark_test_succeeded!(prompt: run.prompt_snapshot, config: run.config_snapshot)
+    ai_agent.mark_test_succeeded!(tested_fingerprint: run.draft_fingerprint)
   end
 
   def fail_run(error)

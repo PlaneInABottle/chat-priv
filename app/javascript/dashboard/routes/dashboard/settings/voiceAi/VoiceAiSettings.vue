@@ -23,9 +23,10 @@ import BaseSettingsHeader from '../components/BaseSettingsHeader.vue';
 import Button from 'dashboard/components-next/button/Button.vue';
 import Input from 'dashboard/components-next/input/Input.vue';
 import Switch from 'dashboard/components-next/switch/Switch.vue';
-import TabBar from 'dashboard/components-next/tabbar/TabBar.vue';
 import AssistantReleaseHistoryDialog from '../aiAgent/components/AssistantReleaseHistoryDialog.vue';
 import ImprovementCreditsSummary from '../aiAgent/components/ImprovementCreditsSummary.vue';
+import KnowledgeSourceSelector from '../aiAgent/components/KnowledgeSourceSelector.vue';
+import ResponsiveTabNavigation from '../components/ResponsiveTabNavigation.vue';
 
 const TERMINAL_CALL_STATUSES = [
   'completed',
@@ -44,6 +45,7 @@ const DEFAULT_AGENT = {
   greeting: 'Merhaba, size nasil yardimci olabilirim?',
   prompt:
     'Yalnizca dogal Istanbul Turkcesiyle konus. Kisa, net ve sakin musteri destek cevaplari ver.',
+  knowledge_source_ids: [],
   tools_config: {
     enabled: ['human_handoff', 'end_customer_call'],
     human_handoff: { allowed_labels: [] },
@@ -75,6 +77,11 @@ const normalizeToolsConfig = toolsConfig => {
     end_customer_call: {},
   };
 };
+
+const normalizeKnowledgeSourceIds = sourceIds =>
+  Array.from(new Set(sourceIds || []))
+    .map(Number)
+    .sort((first, second) => first - second);
 
 const store = useStore();
 const { t } = useI18n();
@@ -141,6 +148,9 @@ const tabs = computed(() => [
   { label: t('VOICE_AI.TABS.RECORDINGS'), value: 'recordings' },
   { label: t('VOICE_AI.TABS.USAGE'), value: 'usage' },
 ]);
+
+const openKnowledgeLibrary = () =>
+  router.push({ name: 'ai_knowledge_sources' });
 const activeTabIndex = computed(() =>
   tabs.value.findIndex(tab => tab.value === activeTab.value)
 );
@@ -535,6 +545,9 @@ const editableAgentPayload = () => ({
   name: agentForm.value.name || '',
   greeting: agentForm.value.greeting || '',
   prompt: agentForm.value.prompt || '',
+  knowledge_source_ids: normalizeKnowledgeSourceIds(
+    agentForm.value.knowledge_source_ids
+  ),
   tools_config: normalizeToolsConfigForAvailableTools(
     agentForm.value.tools_config
   ),
@@ -600,6 +613,9 @@ const syncAgentForm = agent => {
   agentForm.value = {
     ...clone(DEFAULT_AGENT),
     ...agent,
+    knowledge_source_ids: normalizeKnowledgeSourceIds(
+      agent?.knowledge_source_ids
+    ),
     tools_config: normalizeToolsConfigForAvailableTools(agent?.tools_config),
     inbox_settings: agent?.inbox_settings || [],
   };
@@ -681,6 +697,9 @@ const saveVoiceAgent = async () => {
       name: agentForm.value.name,
       greeting: agentForm.value.greeting,
       prompt: agentForm.value.prompt,
+      knowledge_source_ids: normalizeKnowledgeSourceIds(
+        agentForm.value.knowledge_source_ids
+      ),
       tools_config: normalizeToolsConfigForAvailableTools(
         agentForm.value.tools_config
       ),
@@ -1001,14 +1020,25 @@ onBeforeUnmount(() => {
         :title="t('VOICE_AI.HEADER')"
         :description="t('VOICE_AI.DESCRIPTION')"
         feature-name="voice_ai"
-      />
+      >
+        <template #actions>
+          <Button
+            icon="i-lucide-library"
+            variant="outline"
+            color="slate"
+            :label="t('AI_KNOWLEDGE.ACTIONS.MANAGE')"
+            @click="openKnowledgeLibrary"
+          />
+        </template>
+      </BaseSettingsHeader>
     </template>
 
     <template #body>
       <div class="flex flex-col gap-6">
-        <TabBar
+        <ResponsiveTabNavigation
           :tabs="tabs"
-          :initial-active-tab="activeTabIndex"
+          :active-tab-index="activeTabIndex"
+          :aria-label="t('VOICE_AI.TABS.LABEL')"
           @tab-changed="changeTab"
         />
 
@@ -1271,6 +1301,11 @@ onBeforeUnmount(() => {
                 }}
               </span>
             </label>
+
+            <KnowledgeSourceSelector
+              v-model="agentForm.knowledge_source_ids"
+              :disabled="!voiceAccessEnabled"
+            />
 
             <div>
               <h3 class="mb-2 text-sm font-medium text-n-slate-12">

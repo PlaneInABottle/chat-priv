@@ -34,6 +34,8 @@ const navigateToNew = () => {
 
 const navigateToUsage = () => router.push({ name: 'ai_agent_usage' });
 
+const navigateToKnowledge = () => router.push({ name: 'ai_knowledge_sources' });
+
 const openDeleteDialog = agent => {
   agentToDelete.value = agent;
   deleteDialogRef.value?.open();
@@ -64,11 +66,20 @@ const confirmDelete = async () => {
         feature-name="ai_agent"
       >
         <template #actions>
-          <Button
-            icon="i-lucide-circle-plus"
-            :label="t('AI_AGENTS.ADD')"
-            @click="navigateToNew"
-          />
+          <div class="flex flex-wrap justify-end gap-2">
+            <Button
+              icon="i-lucide-library"
+              variant="outline"
+              color="slate"
+              :label="t('AI_KNOWLEDGE.ACTIONS.MANAGE')"
+              @click="navigateToKnowledge"
+            />
+            <Button
+              icon="i-lucide-circle-plus"
+              :label="t('AI_AGENTS.ADD')"
+              @click="navigateToNew"
+            />
+          </div>
         </template>
       </BaseSettingsHeader>
     </template>

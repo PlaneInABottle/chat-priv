@@ -22,6 +22,7 @@ json.prompt @ai_agent.prompt
 json.enabled @ai_agent.enabled
 json.config config_payload
 json.tools_config tools_summary
+json.knowledge_source_ids @ai_agent.knowledge_sources.map(&:id).sort
 json.available_tools available_tools do |tool|
   json.key tool.key
   json.name tool.name

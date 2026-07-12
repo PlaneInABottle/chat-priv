@@ -5,7 +5,7 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
   before_action :set_ai_agent, only: [:show, :update, :destroy, :publish, :pause]
 
   def index
-    @ai_agents = Current.account.ai_agents.includes(:current_release, agent_bot: :inboxes).order(:created_at)
+    @ai_agents = Current.account.ai_agents.includes(:current_release, :knowledge_sources, agent_bot: :inboxes).order(:created_at)
   end
 
   def show
@@ -17,8 +17,12 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
     @ai_agent.enabled = false
     @ai_agent.inbox_ids = inbox_ids_param if params.key?(:inbox_ids)
 
-    if @ai_agent.save
-      sync_inbox_bindings if params.key?(:inbox_ids)
+    if @ai_agent.valid?
+      ActiveRecord::Base.transaction do
+        @ai_agent.save!
+        sync_inbox_bindings if params.key?(:inbox_ids)
+        sync_knowledge_sources if params.key?(:knowledge_source_ids)
+      end
       load_available_inboxes
       render :show
     else
@@ -30,9 +34,13 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
     @ai_agent.assign_attributes(merged_ai_agent_params)
     @ai_agent.inbox_ids = inbox_ids_param if params.key?(:inbox_ids)
 
-    if @ai_agent.save
-      @ai_agent.agent_bot&.update!(name: @ai_agent.name)
-      sync_inbox_bindings if params.key?(:inbox_ids)
+    if @ai_agent.valid?
+      ActiveRecord::Base.transaction do
+        @ai_agent.save!
+        @ai_agent.agent_bot&.update!(name: @ai_agent.name)
+        sync_inbox_bindings if params.key?(:inbox_ids)
+        sync_knowledge_sources if params.key?(:knowledge_source_ids)
+      end
       load_available_inboxes
       render :show
     else
@@ -62,7 +70,7 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
   private
 
   def set_ai_agent
-    @ai_agent = Current.account.ai_agents.includes(:current_release, agent_bot: :inboxes).find(params[:id])
+    @ai_agent = Current.account.ai_agents.includes(:current_release, :knowledge_sources, agent_bot: :inboxes).find(params[:id])
   end
 
   def ai_agent_params
@@ -71,6 +79,10 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
 
   def inbox_ids_param
     Array(params[:inbox_ids]).map(&:to_i).select(&:positive?)
+  end
+
+  def knowledge_source_ids_param
+    Array(params[:knowledge_source_ids]).map(&:to_i).select(&:positive?)
   end
 
   def merged_ai_agent_params
@@ -122,6 +134,13 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
     bot.update!(name: @ai_agent.name)
     @ai_agent.reload
     true
+  end
+
+  def sync_knowledge_sources
+    AiKnowledgeSources::AssignmentSync.new(
+      assistant: @ai_agent,
+      source_ids: knowledge_source_ids_param
+    ).perform
   end
 
   def load_available_inboxes

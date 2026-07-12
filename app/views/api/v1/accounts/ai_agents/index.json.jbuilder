@@ -4,6 +4,7 @@ json.array! @ai_agents do |ai_agent|
   json.prompt ai_agent.prompt
   json.enabled ai_agent.enabled
   json.enabled_tool_keys AiAgents::Config.new(ai_agent.config).enabled_tool_keys
+  json.knowledge_source_ids ai_agent.knowledge_sources.map(&:id).sort
   json.created_at ai_agent.created_at
   json.updated_at ai_agent.updated_at
   json.lifecycle_status ai_agent.lifecycle_status

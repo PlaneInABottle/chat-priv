@@ -173,6 +173,7 @@ Rails.application.routes.draw do
           resource :ai_agent_onboarding, only: [:show, :create], controller: 'ai_agent_onboarding' do
             post :complete
           end
+          resources :ai_knowledge_sources, only: [:index, :show, :create, :update, :destroy]
           resources :agent_bots, only: [:index, :create, :show, :update, :destroy] do
             delete :avatar, on: :member
             post :reset_access_token, on: :member
