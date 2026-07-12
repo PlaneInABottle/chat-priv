@@ -26,16 +26,19 @@ const atSelectionLimit = computed(
   () => selectedIds.value.size >= MAX_SELECTED_SOURCES
 );
 
-const isSourceDisabled = sourceId =>
+const isSourceDisabled = source =>
   props.disabled ||
-  (atSelectionLimit.value && !selectedIds.value.has(sourceId));
+  ((source.available === false || atSelectionLimit.value) &&
+    !selectedIds.value.has(source.id));
 
-const toggleSource = sourceId => {
+const toggleSource = source => {
   if (props.disabled) return;
 
+  const sourceId = source.id;
   const nextIds = new Set(selectedIds.value);
   if (nextIds.has(sourceId)) nextIds.delete(sourceId);
-  else if (!atSelectionLimit.value) nextIds.add(sourceId);
+  else if (!atSelectionLimit.value && source.available !== false)
+    nextIds.add(sourceId);
   emit('update:modelValue', Array.from(nextIds));
 };
 
@@ -122,23 +125,25 @@ onMounted(loadSources);
         :key="source.id"
         class="flex min-w-0 cursor-pointer items-start gap-3 rounded-lg border border-n-weak bg-n-alpha-1 p-4 hover:bg-n-alpha-2"
         :class="{
-          'cursor-not-allowed opacity-60': isSourceDisabled(source.id),
+          'cursor-not-allowed opacity-60': isSourceDisabled(source),
         }"
       >
         <input
           type="checkbox"
           class="mt-0.5 size-4 rounded border-n-slate-6 text-n-brand focus:ring-n-brand"
           :checked="selectedIds.has(source.id)"
-          :disabled="isSourceDisabled(source.id)"
+          :disabled="isSourceDisabled(source)"
           :data-testid="`knowledge-source-${source.id}`"
-          @change="toggleSource(source.id)"
+          @change="toggleSource(source)"
         />
         <span class="min-w-0 flex-1">
           <span class="block truncate text-sm font-medium text-n-slate-12">
             {{ source.name }}
           </span>
           <span class="mt-1 block truncate text-xs text-n-slate-10">
-            {{ source.content_preview || source.content }}
+            {{
+              source.content_preview || t('AI_KNOWLEDGE.STATUS.WAITING_CONTENT')
+            }}
           </span>
           <span class="mt-2 block text-xs text-n-slate-9">
             {{

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_07_12_110000) do
+ActiveRecord::Schema[7.1].define(version: 2026_07_12_120000) do
   # These extensions should be enabled to support this database
   enable_extension "pg_stat_statements"
   enable_extension "pg_trgm"
@@ -428,11 +428,19 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_12_110000) do
     t.text "content", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "website_url"
+    t.integer "sync_status", default: 0, null: false
+    t.jsonb "source_urls", default: [], null: false
+    t.datetime "last_sync_started_at"
+    t.datetime "last_synced_at"
+    t.text "sync_error"
     t.index ["account_id", "name"], name: "index_ai_knowledge_sources_on_account_id_and_name"
+    t.index ["account_id", "source_type"], name: "index_ai_knowledge_sources_on_account_id_and_source_type"
     t.index ["account_id"], name: "index_ai_knowledge_sources_on_account_id"
-    t.check_constraint "char_length(content) >= 1 AND char_length(content) <= 100000", name: "ai_knowledge_sources_content_length_check"
     t.check_constraint "char_length(name::text) >= 1 AND char_length(name::text) <= 120", name: "ai_knowledge_sources_name_length_check"
-    t.check_constraint "source_type::text = 'manual'::text", name: "ai_knowledge_sources_type_check"
+    t.check_constraint "source_type::text <> 'website'::text OR website_url IS NOT NULL", name: "ai_knowledge_sources_website_url_check"
+    t.check_constraint "source_type::text = 'manual'::text AND char_length(content) >= 1 AND char_length(content) <= 100000 OR source_type::text = 'website'::text AND char_length(content) >= 0 AND char_length(content) <= 100000", name: "ai_knowledge_sources_content_length_check"
+    t.check_constraint "source_type::text = ANY (ARRAY['manual'::character varying, 'website'::character varying]::text[])", name: "ai_knowledge_sources_type_check"
   end
 
   create_table "applied_slas", force: :cascade do |t|

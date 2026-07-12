@@ -1,0 +1,92 @@
+require 'rails_helper'
+
+RSpec.describe AiKnowledgeSources::WebsiteSyncJob do
+  let(:source) { create(:ai_knowledge_source, :website) }
+  let(:crawler) { instance_double(AiAgents::WebsiteCrawler) }
+  let(:pages) do
+    [
+      {
+        url: 'https://example.com/',
+        title: 'Example policies',
+        text: 'Returns are accepted within 14 days.'
+      }
+    ]
+  end
+  let(:crawl_result) do
+    AiAgents::WebsiteCrawler::Result.new(
+      pages: pages,
+      source_urls: ['https://example.com/']
+    )
+  end
+
+  before do
+    allow(AiAgents::WebsiteCrawler).to receive(:new).with(source.website_url).and_return(crawler)
+  end
+
+  it 'stores readable website content and freshness metadata' do
+    allow(crawler).to receive(:perform).and_return(crawl_result)
+
+    described_class.perform_now(source.id)
+
+    expect(source.reload).to have_attributes(
+      sync_status: 'ready',
+      source_urls: ['https://example.com/'],
+      sync_error: nil
+    )
+    expect(source.content).to include('# Example policies', 'Source: https://example.com/', 'Returns are accepted within 14 days.')
+    expect(source.last_synced_at).to be_present
+  end
+
+  it 'updates freshness without changing updated_at when website content is unchanged' do
+    compiled_content = "# Example policies\nSource: https://example.com/\nReturns are accepted within 14 days."
+    source.update!(content: compiled_content, source_urls: ['https://example.com/'], sync_status: :pending, last_synced_at: 2.days.ago)
+    assistant = create(:ai_agent, account: source.account)
+    AiKnowledgeSources::AssignmentSync.new(assistant: assistant, source_ids: [source.id]).perform
+    original_fingerprint = assistant.draft_fingerprint
+    original_updated_at = source.updated_at
+    allow(crawler).to receive(:perform).and_return(crawl_result)
+
+    described_class.perform_now(source.id)
+
+    expect(source.reload.updated_at).to eq(original_updated_at)
+    expect(source).to have_attributes(sync_status: 'ready', content: compiled_content)
+    expect(source.last_synced_at).to be > 1.day.ago
+    expect(assistant.reload.draft_fingerprint).to eq(original_fingerprint)
+  end
+
+  it 'preserves last-known-good content when a resync fails' do
+    source.update!(content: 'Previously verified policy', sync_status: :pending, last_synced_at: 1.day.ago)
+    allow(crawler).to receive(:perform).and_raise(SafeFetch::FetchError, 'website unavailable')
+
+    described_class.perform_now(source.id)
+
+    expect(source.reload).to have_attributes(
+      sync_status: 'failed',
+      content: 'Previously verified policy',
+      sync_error: 'website unavailable'
+    )
+  end
+
+  it 'ignores stale jobs after the source leaves pending state' do
+    source.update!(sync_status: :ready, content: 'Verified policy')
+
+    expect(crawler).not_to receive(:perform)
+
+    described_class.perform_now(source.id)
+  end
+
+  it 'does not let an old crawl overwrite a newly queued website URL' do
+    allow(crawler).to receive(:perform) do
+      source.reload.update!(website_url: 'https://example.com/new-policies', sync_status: :pending)
+      crawl_result
+    end
+
+    described_class.perform_now(source.id)
+
+    expect(source.reload).to have_attributes(
+      website_url: 'https://example.com/new-policies',
+      sync_status: 'pending',
+      content: ''
+    )
+  end
+end

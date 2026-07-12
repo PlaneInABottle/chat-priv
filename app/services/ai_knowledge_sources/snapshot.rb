@@ -2,7 +2,7 @@
 
 class AiKnowledgeSources::Snapshot
   def self.for(assistant)
-    assistant.knowledge_sources.order(:id).map do |source|
+    assistant.knowledge_sources.where.not(content: '').order(:id).map do |source|
       {
         'id' => source.id,
         'name' => source.name,

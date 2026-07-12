@@ -532,6 +532,8 @@
       "MANAGE": "Shared knowledge",
       "EDIT": "Edit source",
       "DELETE": "Delete source",
+      "SYNC": "Sync now",
+      "ADD_AND_SYNC": "Add and sync",
       "SAVE": "Save source",
       "CANCEL": "Cancel"
     },
@@ -548,6 +550,7 @@
       "SOURCE": "Source",
       "ASSISTANTS": "Assistants",
       "UPDATED": "Updated",
+      "FRESHNESS": "Freshness",
       "ACTIONS": "Actions"
     },
     "CHARACTERS": "{count} characters",
@@ -555,11 +558,30 @@
     "EDITOR": {
       "CREATE_TITLE": "Add knowledge source",
       "EDIT_TITLE": "Edit knowledge source",
+      "TYPE": "Source type",
+      "MANUAL": "Write content",
+      "WEBSITE": "Sync a website",
+      "MANUAL_DESCRIPTION": "Best for policies, answers, and facts your team maintains directly.",
+      "WEBSITE_DESCRIPTION": "We read the website and keep the last successful content available if a later sync fails.",
       "NAME": "Source name",
       "NAME_PLACEHOLDER": "e.g., Returns policy",
+      "WEBSITE_URL": "Website URL",
+      "WEBSITE_URL_PLACEHOLDER": "https://example.com/policies",
       "CONTENT": "Verified content",
       "CONTENT_PLACEHOLDER": "Add the facts and answers assistants may rely on...",
-      "CHARACTER_LIMIT": "{count} of {limit} characters"
+      "CHARACTER_LIMIT": "{count} of {limit} characters",
+      "SYNCED_CONTENT": "Synced content preview",
+      "SYNCED_CONTENT_DESCRIPTION": "This content is read-only. Change the website and sync again to update it."
+    },
+    "STATUS": {
+      "PENDING": "Waiting to sync",
+      "SYNCING": "Syncing website",
+      "FAILED": "Sync failed",
+      "NOT_SYNCED": "Not synced yet",
+      "WAITING_CONTENT": "Content will be available after the first successful sync.",
+      "SYNCED_DATE": "Synced {date}",
+      "UPDATED_DATE": "Updated {date}",
+      "LAST_SYNCED_DATE": "Last success {date}"
     },
     "DELETE": {
       "TITLE": "Delete knowledge source?",
@@ -567,11 +589,13 @@
     },
     "SUCCESS": {
       "SAVED": "Knowledge source saved",
+      "SYNC_QUEUED": "Website sync started",
       "DELETED": "Knowledge source deleted"
     },
     "ERROR": {
       "LOAD": "Failed to load shared knowledge.",
       "SAVE": "Failed to save the knowledge source.",
+      "SYNC": "Failed to start the website sync.",
       "DELETE": "Failed to delete the knowledge source."
     }
   },
