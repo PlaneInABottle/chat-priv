@@ -72,7 +72,6 @@ const { currentAccount } = useAccount();
 const agentId = computed(() => Number(route.params.id));
 
 const aiAgent = useMapGetter('aiAgent/getAiAgent');
-const uiFlags = useMapGetter('aiAgent/getUIFlags');
 const inboxes = useMapGetter('inboxes/getInboxes');
 const labels = useMapGetter('labels/getLabels');
 const accountWebsite = computed(
@@ -80,6 +79,7 @@ const accountWebsite = computed(
 );
 
 const isSaving = ref(false);
+const isDetailLoading = ref(true);
 const releaseHistoryRef = ref(null);
 const inboxError = ref('');
 const activeTab = computed(() => {
@@ -203,6 +203,9 @@ const hasPublishedRelease = computed(
   () => (aiAgent.value?.published_revision || 0) > 0
 );
 const hasDraftChanges = computed(() => Boolean(aiAgent.value?.draft_changes));
+const showSetupNotice = computed(
+  () => Boolean(aiAgent.value) && !aiAgent.value?.readiness?.can_publish
+);
 
 const showPublishAction = computed(
   () => !isActive.value || hasDraftChanges.value
@@ -374,13 +377,19 @@ const updateHandoffLabels = value => {
 async function loadAgentDetail(aiAgentId) {
   if (!aiAgentId) return;
 
-  await store.dispatch('labels/get');
-  await store.dispatch('aiAgent/show', aiAgentId);
-  store.dispatch('aiAgentTestConversations/reset');
-  await store.dispatch('aiAgentTestConversations/get', {
-    aiAgentId,
-  });
-  syncFormState();
+  isDetailLoading.value = true;
+  try {
+    await Promise.all([
+      store.dispatch('labels/get'),
+      store.dispatch('aiAgent/show', aiAgentId),
+    ]);
+    syncFormState();
+    isDetailLoading.value = false;
+    store.dispatch('aiAgentTestConversations/reset');
+    await store.dispatch('aiAgentTestConversations/get', { aiAgentId });
+  } finally {
+    isDetailLoading.value = false;
+  }
 }
 
 const toggleInbox = inboxId => {
@@ -640,7 +649,7 @@ watch(agentId, async (newAgentId, oldAgentId) => {
 </script>
 
 <template>
-  <SettingsLayout :is-loading="uiFlags.isFetching">
+  <SettingsLayout :is-loading="isDetailLoading">
     <template #header>
       <BaseSettingsHeader
         :title="aiAgent?.name || t('AI_AGENT.HEADER')"
@@ -709,6 +718,10 @@ watch(agentId, async (newAgentId, oldAgentId) => {
           />
           <p class="m-0">{{ releaseNotice.message }}</p>
         </div>
+        <ReadinessChecklist
+          v-if="showSetupNotice"
+          :readiness="aiAgent?.readiness"
+        />
         <div
           class="z-20 flex flex-col gap-3 border-b border-n-weak bg-n-surface-1 py-3 sm:sticky sm:top-0 sm:flex-row sm:items-center sm:justify-between"
         >
@@ -751,17 +764,11 @@ watch(agentId, async (newAgentId, oldAgentId) => {
           @tested="refreshAfterDraftTest"
           @website-import-applied="refreshAfterWebsiteImport"
         />
-        <div
-          v-if="activeTab === 'knowledge'"
-          class="grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_280px]"
-        >
+        <div v-if="activeTab === 'knowledge'">
           <KnowledgeSourceSelector v-model="formState.knowledge_source_ids" />
-          <ReadinessChecklist :readiness="aiAgent?.readiness" />
         </div>
         <template v-if="activeTab === 'connections'">
-          <div
-            class="grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,640px)_280px]"
-          >
+          <div class="max-w-4xl">
             <div class="flex min-w-0 flex-col gap-8">
               <!-- Name Input -->
               <div>
@@ -959,13 +966,9 @@ watch(agentId, async (newAgentId, oldAgentId) => {
                 </div>
               </div>
             </div>
-            <ReadinessChecklist :readiness="aiAgent?.readiness" />
           </div>
         </template>
-        <div
-          v-if="activeTab === 'test'"
-          class="grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_280px]"
-        >
+        <div v-if="activeTab === 'test'">
           <!-- Test Conversations -->
           <div>
             <h3 class="mb-2 text-sm font-medium text-n-slate-12">
@@ -980,7 +983,6 @@ watch(agentId, async (newAgentId, oldAgentId) => {
               @tested="refreshAfterDraftTest"
             />
           </div>
-          <ReadinessChecklist :readiness="aiAgent?.readiness" />
         </div>
         <ImproveWorkspace
           v-if="activeTab === 'improve'"

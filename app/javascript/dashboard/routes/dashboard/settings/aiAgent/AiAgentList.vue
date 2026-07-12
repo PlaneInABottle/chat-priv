@@ -16,16 +16,20 @@ const { t } = useI18n();
 const router = useRouter();
 
 const agents = useMapGetter('aiAgent/getAiAgents');
-const uiFlags = useMapGetter('aiAgent/getUIFlags');
 
 const deleteDialogRef = ref(null);
 const agentToDelete = ref(null);
 const isDeleting = ref(false);
+const isInitialLoading = ref(agents.value.length === 0);
 
 const hasAgents = computed(() => agents.value.length > 0);
 
-onMounted(() => {
-  store.dispatch('aiAgent/get');
+onMounted(async () => {
+  try {
+    await store.dispatch('aiAgent/get');
+  } finally {
+    isInitialLoading.value = false;
+  }
 });
 
 const navigateToNew = () => {
@@ -58,7 +62,7 @@ const confirmDelete = async () => {
 </script>
 
 <template>
-  <SettingsLayout :is-loading="uiFlags.isFetching">
+  <SettingsLayout :is-loading="isInitialLoading">
     <template #header>
       <BaseSettingsHeader
         :title="t('AI_AGENTS.HEADER')"

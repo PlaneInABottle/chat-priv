@@ -155,10 +155,9 @@ RSpec.describe AiAgent do
     let(:account) { create(:account) }
     let(:ai_agent) { create(:ai_agent, account: account) }
 
-    it 'moves a tested draft through active and paused states' do
+    it 'moves a configured draft through active and paused states without requiring a test' do
       inbox = create(:inbox, account: account)
       AgentBotInbox.create!(agent_bot: ai_agent.agent_bot, inbox: inbox, account: account)
-      ai_agent.mark_test_succeeded!
 
       expect(ai_agent.reload.lifecycle_status).to eq('draft')
       expect(ai_agent.readiness[:can_publish]).to be(true)
@@ -189,10 +188,9 @@ RSpec.describe AiAgent do
       expect(ai_agent.prompt_tested?).to be(false)
     end
 
-    it 'keeps the published release live while a tested update is prepared', :aggregate_failures do
+    it 'keeps the published release live while an untested update is prepared', :aggregate_failures do
       inbox = create(:inbox, account: account)
       AgentBotInbox.create!(agent_bot: ai_agent.agent_bot, inbox: inbox, account: account)
-      ai_agent.mark_test_succeeded!
       ai_agent.publish!
 
       published_prompt = ai_agent.live_prompt
@@ -204,7 +202,6 @@ RSpec.describe AiAgent do
       expect(ai_agent.draft_changes?).to be(true)
       expect(ai_agent.draft_tested?).to be(false)
 
-      ai_agent.mark_test_succeeded!
       ai_agent.publish!
 
       expect(ai_agent).to have_attributes(published_prompt: 'A new draft', published_revision: 2)
@@ -215,7 +212,6 @@ RSpec.describe AiAgent do
     it 'resumes an unchanged published release without incrementing its revision' do
       inbox = create(:inbox, account: account)
       AgentBotInbox.create!(agent_bot: ai_agent.agent_bot, inbox: inbox, account: account)
-      ai_agent.mark_test_succeeded!
       ai_agent.publish!
       ai_agent.pause!
 
@@ -235,12 +231,10 @@ RSpec.describe AiAgent do
     it 'keeps immutable releases and rolls back by creating a new revision' do
       inbox = create(:inbox, account: account)
       AgentBotInbox.create!(agent_bot: ai_agent.agent_bot, inbox: inbox, account: account)
-      ai_agent.mark_test_succeeded!
       ai_agent.publish!
       first_release = ai_agent.current_release
 
       ai_agent.update!(prompt: 'Second release')
-      ai_agent.mark_test_succeeded!
       ai_agent.publish!
       restored = ai_agent.rollback_to!(first_release)
 

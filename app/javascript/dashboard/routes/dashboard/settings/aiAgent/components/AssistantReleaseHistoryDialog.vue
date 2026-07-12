@@ -82,7 +82,62 @@ const releasePrompt = computed(() => {
 
 const snapshotValue = (snapshot, key) => snapshot?.[key]?.toString() || '';
 const knowledgeNames = snapshot =>
-  (snapshot?.knowledge_sources || []).map(source => source.name).join(', ');
+  (snapshot?.knowledge_sources || []).map(source => source.name).join('\n');
+
+const inlineDiff = (value, comparison) => {
+  let prefixLength = 0;
+  const maxPrefix = Math.min(value.length, comparison.length);
+  while (
+    prefixLength < maxPrefix &&
+    value[prefixLength] === comparison[prefixLength]
+  ) {
+    prefixLength += 1;
+  }
+
+  let suffixLength = 0;
+  const maxSuffix = Math.min(
+    value.length - prefixLength,
+    comparison.length - prefixLength
+  );
+  while (
+    suffixLength < maxSuffix &&
+    value[value.length - suffixLength - 1] ===
+      comparison[comparison.length - suffixLength - 1]
+  ) {
+    suffixLength += 1;
+  }
+
+  return [
+    { text: value.slice(0, prefixLength), changed: false },
+    {
+      text: value.slice(prefixLength, value.length - suffixLength),
+      changed: true,
+    },
+    {
+      text: suffixLength ? value.slice(value.length - suffixLength) : '',
+      changed: false,
+    },
+  ].filter(segment => segment.text);
+};
+
+const diffSegments = (value, comparison) => {
+  if (!value) return [];
+
+  const lines = value.split('\n');
+  const comparisonLines = comparison.split('\n');
+  const unchangedLines = new Set(comparisonLines);
+
+  return lines.flatMap((line, index) => {
+    const segments = unchangedLines.has(line)
+      ? [{ text: line, changed: false }]
+      : inlineDiff(line, comparisonLines[index] || '');
+    if (index < lines.length - 1) {
+      segments.push({ text: '\n', changed: false });
+    }
+    return segments;
+  });
+};
+
 const comparisonRows = computed(() => {
   if (!selectedRelease.value || !activeRelease.value) return [];
 
@@ -124,7 +179,13 @@ const comparisonRows = computed(() => {
 
   return fields
     .filter(([, viewedValue, liveValue]) => viewedValue !== liveValue)
-    .map(([key, viewedValue, liveValue]) => ({ key, viewedValue, liveValue }));
+    .map(([key, viewedValue, liveValue]) => ({
+      key,
+      viewedValue,
+      liveValue,
+      viewedSegments: diffSegments(viewedValue, liveValue),
+      liveSegments: diffSegments(liveValue, viewedValue),
+    }));
 });
 
 const open = async () => {
@@ -270,17 +331,29 @@ defineExpose({ open });
               {{ t(`AI_ASSISTANT.RELEASE_HISTORY.FIELDS.${row.key}`) }}
             </h5>
             <div class="mt-2 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
-              <div class="min-w-0 border-l-2 border-n-amber-7 pl-3">
+              <div class="min-w-0 border-l-2 border-n-ruby-7 pl-3">
                 <p class="m-0 text-xs font-medium text-n-slate-10">
                   {{ t('AI_ASSISTANT.RELEASE_HISTORY.VIEWED') }}
                 </p>
                 <p
                   class="mb-0 mt-1 whitespace-pre-wrap break-words text-xs leading-5 text-n-slate-12"
                 >
-                  {{
-                    row.viewedValue ||
-                    t('AI_ASSISTANT.RELEASE_HISTORY.EMPTY_VALUE')
-                  }}
+                  <template v-if="row.viewedSegments.length">
+                    <span
+                      v-for="(segment, index) in row.viewedSegments"
+                      :key="`${row.key}-viewed-${index}`"
+                      :data-diff-changed="segment.changed || undefined"
+                      :class="
+                        segment.changed
+                          ? 'rounded-sm bg-n-ruby-3 px-0.5 text-n-ruby-11 line-through decoration-n-ruby-8'
+                          : ''
+                      "
+                      >{{ segment.text }}</span
+                    >
+                  </template>
+                  <template v-else>
+                    {{ t('AI_ASSISTANT.RELEASE_HISTORY.EMPTY_VALUE') }}
+                  </template>
                 </p>
               </div>
               <div class="min-w-0 border-l-2 border-n-teal-7 pl-3">
@@ -290,10 +363,22 @@ defineExpose({ open });
                 <p
                   class="mb-0 mt-1 whitespace-pre-wrap break-words text-xs leading-5 text-n-slate-12"
                 >
-                  {{
-                    row.liveValue ||
-                    t('AI_ASSISTANT.RELEASE_HISTORY.EMPTY_VALUE')
-                  }}
+                  <template v-if="row.liveSegments.length">
+                    <span
+                      v-for="(segment, index) in row.liveSegments"
+                      :key="`${row.key}-live-${index}`"
+                      :data-diff-changed="segment.changed || undefined"
+                      :class="
+                        segment.changed
+                          ? 'rounded-sm bg-n-teal-3 px-0.5 text-n-teal-11'
+                          : ''
+                      "
+                      >{{ segment.text }}</span
+                    >
+                  </template>
+                  <template v-else>
+                    {{ t('AI_ASSISTANT.RELEASE_HISTORY.EMPTY_VALUE') }}
+                  </template>
                 </p>
               </div>
             </div>

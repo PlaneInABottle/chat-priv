@@ -13,9 +13,10 @@ const props = defineProps({
   draftInstructions: { type: Object, required: true },
   isDraft: { type: Boolean, default: false },
   isDisabled: { type: Boolean, default: false },
+  isFocused: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['tested']);
+const emit = defineEmits(['tested', 'toggleFocus']);
 
 const store = useStore();
 const { t } = useI18n();
@@ -86,7 +87,10 @@ defineExpose({
 
 <template>
   <aside
-    class="flex h-[40rem] min-h-[32rem] flex-col overflow-hidden rounded-lg border border-n-weak bg-n-solid-1 md:h-[calc(100dvh-18rem)] md:max-h-[56rem]"
+    class="flex h-[44rem] min-h-[36rem] flex-col overflow-hidden rounded-lg border border-n-weak bg-n-solid-1 md:h-[calc(100dvh-15rem)] md:max-h-[64rem]"
+    :class="{
+      'min-[1360px]:h-[calc(100dvh-12rem)] min-[1360px]:max-h-none': isFocused,
+    }"
     :aria-label="t('AI_ASSISTANT.INSTRUCTIONS.DRAFT_TEST')"
   >
     <div class="flex flex-col gap-3 border-b border-n-weak p-4">
@@ -107,16 +111,36 @@ defineExpose({
             {{ t('AI_ASSISTANT.INSTRUCTIONS.DRAFT_TEST_HELP') }}
           </p>
         </div>
-        <Button
-          icon="i-lucide-message-square-plus"
-          size="sm"
-          variant="outline"
-          color="slate"
-          :aria-label="t('AI_AGENT.TEST_CONVERSATIONS.NEW')"
-          :is-loading="uiFlags.isCreating"
-          :disabled="isDisabled"
-          @click="createConversation"
-        />
+        <div class="flex items-center gap-1">
+          <Button
+            v-tooltip="
+              isFocused
+                ? t('AI_ASSISTANT.INSTRUCTIONS.SHOW_EDITOR')
+                : t('AI_ASSISTANT.INSTRUCTIONS.FOCUS_TEST')
+            "
+            class="hidden min-[1360px]:inline-flex"
+            :icon="isFocused ? 'i-lucide-panel-right-open' : 'i-lucide-expand'"
+            size="sm"
+            variant="ghost"
+            color="slate"
+            :aria-label="
+              isFocused
+                ? t('AI_ASSISTANT.INSTRUCTIONS.SHOW_EDITOR')
+                : t('AI_ASSISTANT.INSTRUCTIONS.FOCUS_TEST')
+            "
+            @click="emit('toggleFocus')"
+          />
+          <Button
+            icon="i-lucide-message-square-plus"
+            size="sm"
+            variant="outline"
+            color="slate"
+            :aria-label="t('AI_AGENT.TEST_CONVERSATIONS.NEW')"
+            :is-loading="uiFlags.isCreating"
+            :disabled="isDisabled"
+            @click="createConversation"
+          />
+        </div>
       </div>
 
       <label class="flex flex-col gap-1 text-xs font-medium text-n-slate-11">

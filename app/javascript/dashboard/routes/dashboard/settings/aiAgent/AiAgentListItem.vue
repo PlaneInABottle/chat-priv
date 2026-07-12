@@ -28,7 +28,7 @@ const formattedDate = computed(() => {
 
 const goToDetail = () => {
   router.push({
-    name: 'ai_agent_detail',
+    name: 'ai_agent_instructions',
     params: { id: props.agent.id },
   });
 };

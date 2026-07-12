@@ -424,10 +424,40 @@ describe('AiAgentDetail.vue', () => {
     await flushPromises();
 
     expect(wrapper.vm.releaseNotice.message).toBe(
-      'Version 3 is still responding to customers. Your saved draft is not live until you test and publish the update.'
+      'Version 3 is still responding to customers. Your saved draft is not live until you publish the update.'
     );
     expect(wrapper.vm.showPublishAction).toBe(true);
     expect(wrapper.vm.publishActionLabel).toBe('Publish');
+  });
+
+  it('hides setup guidance after all required publishing fields are complete', async () => {
+    const { wrapper } = mountComponent();
+
+    await flushPromises();
+
+    expect(wrapper.vm.showSetupNotice).toBe(false);
+    expect(wrapper.find('#readiness-title').exists()).toBe(false);
+  });
+
+  it('shows only incomplete required setup fields', async () => {
+    const { wrapper } = mountComponent({
+      aiAgentRecord: buildAiAgent({
+        readiness: {
+          can_publish: false,
+          checks: [
+            { key: 'instructions', complete: true },
+            { key: 'inbox', complete: false },
+          ],
+        },
+      }),
+    });
+
+    await flushPromises();
+
+    expect(wrapper.vm.showSetupNotice).toBe(true);
+    expect(wrapper.find('#readiness-title').exists()).toBe(true);
+    expect(wrapper.text()).toContain('Inbox connected');
+    expect(wrapper.text()).not.toContain('Instructions added');
   });
 
   it('offers to resume an unchanged paused version without presenting it as an update', async () => {
@@ -443,7 +473,7 @@ describe('AiAgentDetail.vue', () => {
     await flushPromises();
 
     expect(wrapper.vm.releaseNotice.message).toBe(
-      'Version 2 is paused. Resume it as-is or publish a tested draft update.'
+      'Version 2 is paused. Resume it as-is or publish the saved draft.'
     );
     expect(wrapper.vm.publishActionLabel).toBe('Resume assistant');
   });

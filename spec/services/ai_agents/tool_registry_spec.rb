@@ -9,4 +9,11 @@ RSpec.describe AiAgents::ToolRegistry do
       terminal: false
     )
   end
+
+  it 'requires handoff messages and teammate context to use the customer language' do
+    properties = described_class::HUMAN_HANDOFF_INPUT_SCHEMA[:properties]
+
+    expect(properties.dig(:customer_message, :description)).to include('same language as the latest customer message')
+    expect(properties.dig(:internal_note, :description)).to include('customer conversation language')
+  end
 end

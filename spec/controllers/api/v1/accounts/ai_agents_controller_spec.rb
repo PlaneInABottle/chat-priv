@@ -643,10 +643,9 @@ RSpec.describe 'Ai Agents API', type: :request do
   describe 'assistant lifecycle actions' do
     let!(:ai_agent) { create(:ai_agent, account: account) }
 
-    it 'publishes a ready draft and pauses it explicitly' do
+    it 'publishes a configured draft without a test and pauses it explicitly' do
       inbox = create(:inbox, account: account)
       AgentBotInbox.create!(agent_bot: ai_agent.agent_bot, inbox: inbox, account: account)
-      ai_agent.mark_test_succeeded!
 
       post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/publish",
            headers: admin.create_new_auth_token,
@@ -661,7 +660,7 @@ RSpec.describe 'Ai Agents API', type: :request do
 
       expect(response).to have_http_status(:ok)
       expect(response.parsed_body).to include('lifecycle_status' => 'paused', 'enabled' => false)
-      expect(response.parsed_body['last_tested_at']).to be_present
+      expect(response.parsed_body['last_tested_at']).to be_nil
     end
 
     it 'rejects publication before the readiness checklist is complete' do
@@ -676,7 +675,6 @@ RSpec.describe 'Ai Agents API', type: :request do
     it 'saves active edits as a draft without changing the published release' do
       inbox = create(:inbox, account: account)
       AgentBotInbox.create!(agent_bot: ai_agent.agent_bot, inbox: inbox, account: account)
-      ai_agent.mark_test_succeeded!
       ai_agent.publish!
       published_prompt = ai_agent.live_prompt
 
@@ -690,7 +688,6 @@ RSpec.describe 'Ai Agents API', type: :request do
       expect(ai_agent.live_prompt).to eq(published_prompt)
       expect(response.parsed_body).to include('draft_changes' => true, 'published_revision' => 1)
 
-      ai_agent.mark_test_succeeded!
       post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/publish",
            headers: admin.create_new_auth_token,
            as: :json

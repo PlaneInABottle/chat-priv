@@ -129,6 +129,10 @@ describe('AssistantReleaseHistoryDialog', () => {
 
     expect(mockTextApi.getRelease).toHaveBeenCalledWith(42, 11);
     expect(wrapper.text()).toContain('Original instructions');
+    const changedSegments = wrapper.findAll('[data-diff-changed="true"]');
+    expect(changedSegments.map(segment => segment.text())).toEqual(
+      expect.arrayContaining(['Original', 'Current'])
+    );
   });
 
   it('confirms rollback and reports that the assistant was restored', async () => {

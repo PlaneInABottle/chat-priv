@@ -67,7 +67,7 @@ describe('AiAgentListItem.vue', () => {
     await editButton.trigger('click');
 
     expect(pushMock).toHaveBeenCalledWith({
-      name: 'ai_agent_detail',
+      name: 'ai_agent_instructions',
       params: { id: 42 },
     });
   });

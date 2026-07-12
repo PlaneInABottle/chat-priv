@@ -39,11 +39,11 @@
       "HUMAN_HANDOFF": {
         "LABEL": "Human support fallback",
         "HELP": "The assistant can always send a conversation to your team when a person is needed.",
-        "ALLOWED_LABELS_LABEL": "Allowed labels",
+        "ALLOWED_LABELS_LABEL": "Handoff labels (optional)",
         "ALLOWED_LABELS_PLACEHOLDER": "Select labels",
         "ALLOWED_LABELS_SEARCH_PLACEHOLDER": "Search labels",
         "ALLOWED_LABELS_EMPTY": "No matching labels found",
-        "ALLOWED_LABELS_HELP": "Only existing account labels can be selected. The AI can apply only this subset during handoff."
+        "ALLOWED_LABELS_HELP": "These routing labels may be added to the conversation during handoff. They appear in the conversation sidebar, not in the private note."
       },
       "IKAS_LOOKUP_ORDER": {
         "LABEL": "Order updates",
@@ -102,8 +102,8 @@
       "HANDOFF_TITLE": "Human handoff preview",
       "HANDOFF_PREVIEW": "This conversation would be handed off to a human agent.",
       "INTERNAL_NOTE": "Internal note:",
-      "LABELS_TO_APPLY": "Labels to apply:",
-      "LABELS_IGNORED": "Labels ignored:",
+      "LABELS_TO_APPLY": "Conversation labels:",
+      "LABELS_IGNORED": "Unavailable labels:",
       "SOURCES_USED": "Sources used",
       "SAVE_BEFORE_TESTING": "Save your changes before testing this AI assistant.",
       "ENABLE_BEFORE_TESTING": "Publish this AI assistant before testing.",
@@ -139,11 +139,10 @@
       "BACK": "Back to assistants"
     },
     "READINESS": {
-      "TITLE": "Ready to publish?",
-      "DESCRIPTION": "Complete these steps before this assistant can respond to customers.",
+      "TITLE": "Finish setup",
+      "DESCRIPTION": "Complete the remaining required items before publishing.",
       "INSTRUCTIONS": "Instructions added",
-      "INBOX": "Inbox connected",
-      "TEST": "Test conversation completed"
+      "INBOX": "Inbox connected"
     },
     "ACTIONS": {
       "PUBLISH": "Publish assistant",
@@ -158,8 +157,8 @@
     },
     "RELEASE": {
       "LIVE": "Version {version} is responding to customers. You can edit and test a draft without interrupting it.",
-      "PENDING": "Version {version} is still responding to customers. Your saved draft is not live until you test and publish the update.",
-      "PAUSED": "Version {version} is paused. Resume it as-is or publish a tested draft update."
+      "PENDING": "Version {version} is still responding to customers. Your saved draft is not live until you publish the update.",
+      "PAUSED": "Version {version} is paused. Resume it as-is or publish the saved draft."
     },
     "RELEASE_HISTORY": {
       "TITLE": "Version history",
@@ -408,9 +407,11 @@
     },
     "INSTRUCTIONS": {
       "TITLE": "Instructions",
-      "DESCRIPTION": "Shape how this assistant speaks, decides, and handles customer requests. Save and test a draft, then publish it when you are ready.",
+      "DESCRIPTION": "Shape how this assistant speaks, decides, and handles customer requests. Save changes, test whenever useful, and publish when you are ready.",
       "DRAFT_TEST": "Test this draft",
       "DRAFT_TEST_HELP": "Messages here use the instructions on this screen, including unsaved changes.",
+      "FOCUS_TEST": "Expand test conversation",
+      "SHOW_EDITOR": "Show instruction editor",
       "UNSAVED_DRAFT": "Unsaved draft",
       "TEST_CONVERSATION": "Test conversation",
       "SELECT_TEST": "Select a conversation",
