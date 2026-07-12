@@ -9,6 +9,7 @@ const apiMocks = vi.hoisted(() => ({
   generateCases: vi.fn(),
   getGeneration: vi.fn(),
   getRuns: vi.fn(),
+  getQuality: vi.fn(),
   getRun: vi.fn(),
   createRun: vi.fn(),
 }));
@@ -88,6 +89,9 @@ describe('EvaluationSuite.vue', () => {
     vi.clearAllMocks();
     apiMocks.get.mockResolvedValue({ data: [] });
     apiMocks.getRuns.mockResolvedValue({ data: [] });
+    apiMocks.getQuality.mockResolvedValue({
+      data: { draft: { differs_from_live: false }, releases: [] },
+    });
     apiMocks.getGeneration.mockResolvedValue({ data: {} });
   });
 
@@ -102,6 +106,17 @@ describe('EvaluationSuite.vue', () => {
     expect(wrapper.text()).toContain('Delivery depends on your location.');
     expect(wrapper.text()).toContain('The response avoids an exact promise.');
     expect(wrapper.text()).toContain('AI_ASSISTANT.EVALUATIONS.RESULT.PASSED');
+  });
+
+  it('keeps scenarios available when version quality cannot load', async () => {
+    apiMocks.get.mockResolvedValue({ data: [evaluationCase] });
+    apiMocks.getQuality.mockRejectedValue(new Error('Unavailable'));
+
+    const wrapper = mountComponent();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Delivery question');
+    expect(wrapper.vm.quality).toBeNull();
   });
 
   it('keeps evidence visible while marking results from an older draft', async () => {

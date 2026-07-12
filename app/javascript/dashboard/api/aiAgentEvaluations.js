@@ -29,6 +29,10 @@ class AiAgentEvaluationsAPI extends ApiClient {
     return axios.get(this.runsUrl);
   }
 
+  getQuality() {
+    return axios.get(`${this.runsUrl}/quality`);
+  }
+
   getRun(id) {
     return axios.get(`${this.runsUrl}/${id}`);
   }

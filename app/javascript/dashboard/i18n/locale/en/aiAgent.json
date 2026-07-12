@@ -202,6 +202,25 @@
         "APPROVE": "Approve scenario",
         "APPROVED": "Evaluation scenario approved"
       },
+      "QUALITY": {
+        "TITLE": "Quality by version",
+        "DESCRIPTION": "Evaluation scores use the latest completed run for that version. Live activity shows customer conversations handled by each published version.",
+        "DRAFT": "Current draft",
+        "VERSION": "Version {version}",
+        "LIVE": "Live",
+        "CURRENT": "Current version",
+        "NOT_PUBLISHED": "Not published",
+        "VERSION_HEADER": "Version",
+        "EVALUATION_HEADER": "Evaluation",
+        "CONVERSATIONS": "Conversations",
+        "AI_REPLIES": "AI replies",
+        "HANDOFFS": "Human handoffs",
+        "NOT_EVALUATED": "Not evaluated",
+        "NOT_LIVE": "Not live",
+        "NO_ACTIVITY": "No live activity",
+        "EVALUATION_SCORE": "{passed} of {total} passed ({rate}%)",
+        "HANDOFF_VALUE": "{count} ({rate}%)"
+      },
       "RUN": {
         "ACTION": "Run reviewed",
         "RUNNING": "Evaluating the current draft...",
@@ -240,6 +259,7 @@
       },
       "ERROR": {
         "LOAD": "Evaluation scenarios could not be loaded.",
+        "QUALITY": "Version quality could not be loaded.",
         "REFRESH": "The evaluation run could not be refreshed.",
         "SAVE": "The evaluation scenario could not be saved.",
         "DELETE": "The evaluation scenario could not be deleted.",

@@ -7,6 +7,10 @@ class AiAgentEvaluationRunPolicy < ApplicationPolicy
     @account_user.administrator?
   end
 
+  def quality?
+    index?
+  end
+
   def create?
     @account_user.administrator?
   end

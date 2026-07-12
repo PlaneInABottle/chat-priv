@@ -158,7 +158,11 @@ Rails.application.routes.draw do
             end
             resources :evaluation_runs,
                       only: [:index, :create, :show],
-                      controller: 'ai_agent_evaluation_runs'
+                      controller: 'ai_agent_evaluation_runs' do
+              collection do
+                get :quality
+              end
+            end
             resources :learning_suggestions,
                       only: [:index],
                       controller: 'ai_agent_learning_suggestions' do
