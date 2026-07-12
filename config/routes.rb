@@ -150,7 +150,12 @@ Rails.application.routes.draw do
             end
             resources :evaluation_cases,
                       only: [:index, :create, :update, :destroy],
-                      controller: 'ai_agent_evaluation_cases'
+                      controller: 'ai_agent_evaluation_cases' do
+              collection do
+                post :generate
+                get :generation
+              end
+            end
             resources :evaluation_runs,
                       only: [:index, :create, :show],
                       controller: 'ai_agent_evaluation_runs'

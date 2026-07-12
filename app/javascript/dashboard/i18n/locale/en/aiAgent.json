@@ -192,8 +192,18 @@
       "SAVED": "Evaluation scenario saved",
       "DELETED": "Evaluation scenario deleted",
       "CRITERIA_LABEL": "Good answer: ",
+      "GENERATE": {
+        "ACTION": "Suggest scenarios",
+        "STARTED": "Preparing suggested scenarios in the background",
+        "SUCCESS": "Added {count} suggested scenarios. Review them before running."
+      },
+      "REVIEW": {
+        "NEEDED": "Review needed",
+        "APPROVE": "Approve scenario",
+        "APPROVED": "Evaluation scenario approved"
+      },
       "RUN": {
-        "ACTION": "Run all",
+        "ACTION": "Run reviewed",
         "RUNNING": "Evaluating the current draft...",
         "FAILED": "The evaluation run could not complete.",
         "SUMMARY": "{passed} of {total} scenarios passed",
@@ -233,6 +243,8 @@
         "REFRESH": "The evaluation run could not be refreshed.",
         "SAVE": "The evaluation scenario could not be saved.",
         "DELETE": "The evaluation scenario could not be deleted.",
+        "GENERATE": "Evaluation scenarios could not be suggested.",
+        "REVIEW": "The evaluation scenario could not be approved.",
         "RUN": "The evaluation run could not be started."
       }
     },

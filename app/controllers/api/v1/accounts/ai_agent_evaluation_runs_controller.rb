@@ -12,7 +12,7 @@ class Api::V1::Accounts::AiAgentEvaluationRunsController < Api::V1::Accounts::Ba
   def show; end
 
   def create
-    return render_empty_suite_error if @ai_agent.evaluation_cases.none?
+    return render_empty_suite_error if reviewed_cases.none?
     return render_running_error if @ai_agent.evaluation_runs.pending.or(@ai_agent.evaluation_runs.running).exists?
 
     ensure_ai_improvement_credits!(operation: 'evaluation', ai_agent: @ai_agent)
@@ -37,7 +37,7 @@ class Api::V1::Accounts::AiAgentEvaluationRunsController < Api::V1::Accounts::Ba
 
   def create_evaluation_run
     AiAgentEvaluationRun.transaction do
-      cases = @ai_agent.evaluation_cases.order(:position, :created_at).to_a
+      cases = reviewed_cases.order(:position, :created_at).to_a
       @evaluation_run = @ai_agent.evaluation_runs.create!(
         account: Current.account,
         status: :pending,
@@ -65,8 +65,12 @@ class Api::V1::Accounts::AiAgentEvaluationRunsController < Api::V1::Accounts::Ba
     @ai_agent.config.to_h.deep_stringify_keys.except('instructions')
   end
 
+  def reviewed_cases
+    @reviewed_cases ||= @ai_agent.evaluation_cases.reviewed
+  end
+
   def render_empty_suite_error
-    render json: { error: 'Add at least one evaluation scenario before running the suite.' }, status: :unprocessable_entity
+    render json: { error: 'Review at least one evaluation scenario before running the suite.' }, status: :unprocessable_entity
   end
 
   def render_running_error

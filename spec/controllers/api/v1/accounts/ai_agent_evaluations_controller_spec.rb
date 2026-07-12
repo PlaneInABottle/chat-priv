@@ -61,6 +61,44 @@ RSpec.describe 'AI Agent Evaluations API', type: :request do
       expect(response).to have_http_status(:unprocessable_entity)
       expect(response.parsed_body['error']).to include('up to 20')
     end
+
+    it 'starts scenario generation in the background' do
+      expect do
+        post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/evaluation_cases/generate",
+             headers: administrator.create_new_auth_token,
+             as: :json
+      end.to have_enqueued_job(AiAgents::EvaluationCaseGenerationJob)
+
+      expect(response).to have_http_status(:accepted)
+      expect(response.parsed_body).to include(
+        'status' => 'pending',
+        'requested_count' => 5,
+        'created_count' => 0
+      )
+      expect(ai_agent.evaluation_generations.last.initiated_by).to eq(administrator)
+
+      get "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/evaluation_cases/generation",
+          headers: administrator.create_new_auth_token,
+          as: :json
+      expect(response.parsed_body['id']).to eq(ai_agent.evaluation_generations.last.id)
+    end
+
+    it 'marks a suggested scenario as reviewed when an administrator approves it' do
+      suggested_case = create(
+        :ai_agent_evaluation_case,
+        account: account,
+        ai_agent: ai_agent,
+        reviewed_at: nil
+      )
+
+      patch "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/evaluation_cases/#{suggested_case.id}",
+            headers: administrator.create_new_auth_token,
+            as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body['needs_review']).to be(false)
+      expect(suggested_case.reload.reviewed_at).to be_present
+    end
   end
 
   describe 'evaluation runs' do
@@ -71,6 +109,12 @@ RSpec.describe 'AI Agent Evaluations API', type: :request do
     it 'snapshots the current draft and enqueues a run' do
       source = create(:ai_knowledge_source, account: account, name: 'Returns')
       AiKnowledgeSourceAssignment.create!(assistant: ai_agent, ai_knowledge_source: source)
+      unreviewed_case = create(
+        :ai_agent_evaluation_case,
+        account: account,
+        ai_agent: ai_agent,
+        reviewed_at: nil
+      )
 
       expect do
         post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/evaluation_runs",
@@ -90,6 +134,7 @@ RSpec.describe 'AI Agent Evaluations API', type: :request do
         'customer_message' => evaluation_case.customer_message,
         'success_criteria' => evaluation_case.success_criteria
       )
+      expect(response.parsed_body['results'].pluck('evaluation_case_id')).not_to include(unreviewed_case.id)
       expect(AiAgentEvaluationRun.last).to have_attributes(
         prompt_snapshot: 'Current draft',
         draft_fingerprint: ai_agent.draft_fingerprint
