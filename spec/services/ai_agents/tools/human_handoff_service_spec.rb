@@ -32,13 +32,7 @@ RSpec.describe AiAgents::Tools::HumanHandoffService do
 
     expect(result[:terminal_action]).to eq('handoff')
     expect(result[:conversation_status]).to eq('open')
-    expect(result[:private_note_preview]).to include(
-      'AI handoff brief',
-      "Reason\nBilling issue",
-      "Latest customer message\nIncoming Message",
-      "Context for the team\nCustomer needs finance review",
-      "Labels\nvip"
-    )
+    expect(result[:private_note_preview]).to eq('Customer needs finance review')
     expect(result[:customer_message]).to eq('I am transferring you to a human agent.')
     expect(result[:labels_requested]).to eq(%w[vip ignored])
     expect(result[:labels_to_apply]).to eq(['vip'])
@@ -122,12 +116,7 @@ RSpec.describe AiAgents::Tools::HumanHandoffService do
     expect(customer_message.content).to eq('I am transferring you to a billing specialist.')
     expect(private_note.private).to be(true)
     expect(private_note.sender).to eq(ai_agent.agent_bot)
-    expect(private_note.content).to include(
-      'AI handoff brief',
-      "Reason\nBilling issue",
-      "Context for the team\nCustomer needs finance review",
-      "Labels\nvip"
-    )
+    expect(private_note.content).to eq('Customer needs finance review')
     expect(conversation.additional_attributes['ai_handoff_completed']).to eq(true)
     expect(conversation.additional_attributes['ai_handoff_by_ai_agent_id']).to eq(ai_agent.id)
     expect(conversation.additional_attributes['ai_handoff_message_id']).to eq(trigger_message.id)

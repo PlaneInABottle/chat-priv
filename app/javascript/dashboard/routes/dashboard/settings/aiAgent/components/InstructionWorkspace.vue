@@ -33,6 +33,7 @@ const emit = defineEmits([
 const { t } = useI18n();
 const { formatMessage } = useMessageFormatter();
 const mobileView = ref('edit');
+const isTestFocused = ref(false);
 const selectedSection = ref('profile');
 const websiteImportDialog = ref(null);
 const draftTestPanel = ref(null);
@@ -235,22 +236,30 @@ const refreshImprovementUsage = () => draftTestPanel.value?.refreshCredits?.();
     </div>
 
     <div
-      class="grid min-w-0 grid-cols-1 items-start gap-6 md:grid-cols-[12rem_minmax(0,1fr)] min-[1360px]:grid-cols-[12rem_minmax(30rem,1fr)_minmax(24rem,28rem)]"
+      class="grid min-w-0 grid-cols-1 items-start gap-6 md:grid-cols-[12rem_minmax(0,1fr)]"
+      :class="
+        isTestFocused
+          ? 'min-[1360px]:grid-cols-1'
+          : 'min-[1360px]:grid-cols-[12rem_minmax(30rem,1fr)_minmax(28rem,34rem)]'
+      "
     >
       <InstructionSectionNavigator
         :items="sectionItems"
         :selected-key="selectedSection"
-        :class="
-          mobileView === 'test'
-            ? 'hidden min-[1360px]:flex min-[1360px]:h-[calc(100dvh-18rem)] min-[1360px]:min-h-[32rem] min-[1360px]:max-h-[56rem]'
-            : 'hidden md:flex md:h-[calc(100dvh-18rem)] md:min-h-[32rem] md:max-h-[56rem]'
-        "
+        class="md:h-[calc(100dvh-15rem)] md:min-h-[36rem] md:max-h-[64rem]"
+        :class="[
+          mobileView === 'test' ? 'hidden min-[1360px]:flex' : 'hidden md:flex',
+          isTestFocused ? 'min-[1360px]:hidden' : '',
+        ]"
         @select="selectedSection = $event"
       />
 
       <section
-        class="min-h-[40rem] min-w-0 flex-col md:h-[calc(100dvh-18rem)] md:min-h-[32rem] md:max-h-[56rem] md:overflow-hidden"
-        :class="mobileView === 'test' ? 'hidden min-[1360px]:flex' : 'flex'"
+        class="min-h-[44rem] min-w-0 flex-col md:h-[calc(100dvh-15rem)] md:min-h-[36rem] md:max-h-[64rem] md:overflow-hidden"
+        :class="[
+          mobileView === 'test' ? 'hidden min-[1360px]:flex' : 'flex',
+          isTestFocused ? 'min-[1360px]:hidden' : '',
+        ]"
       >
         <label class="mb-4 flex flex-col gap-1 text-sm font-medium md:hidden">
           {{ t('AI_ASSISTANT.INSTRUCTIONS.SECTION_SELECTOR') }}
@@ -402,7 +411,9 @@ const refreshImprovementUsage = () => draftTestPanel.value?.refreshCredits?.();
         :draft-instructions="modelValue"
         :is-draft="isDirty"
         :is-disabled="isDisabled || isOverLimit"
+        :is-focused="isTestFocused"
         @tested="emit('tested')"
+        @toggle-focus="isTestFocused = !isTestFocused"
       />
     </div>
 

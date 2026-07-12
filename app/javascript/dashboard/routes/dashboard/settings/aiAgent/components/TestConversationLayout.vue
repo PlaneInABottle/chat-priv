@@ -105,7 +105,7 @@ const handleBack = () => {
       @loaded="handleImprovementUsageLoaded"
     />
     <div
-      class="flex h-[40rem] min-h-[32rem] flex-col overflow-hidden rounded-lg border border-n-weak md:h-[calc(100dvh-20rem)] md:max-h-[56rem] md:flex-row dark:border-n-weak"
+      class="flex h-[44rem] min-h-[36rem] flex-col overflow-hidden rounded-lg border border-n-weak md:h-[calc(100dvh-15rem)] md:max-h-[64rem] md:flex-row dark:border-n-weak"
     >
       <div
         class="w-full border-b border-n-slate-6 md:w-72 md:border-b-0 md:border-r"

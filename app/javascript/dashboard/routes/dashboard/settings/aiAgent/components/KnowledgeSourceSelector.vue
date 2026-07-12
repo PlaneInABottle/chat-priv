@@ -203,15 +203,17 @@ onMounted(loadSources);
       <label class="relative block">
         <span
           aria-hidden="true"
-          class="i-lucide-search absolute left-3 top-3 size-4 text-n-slate-9"
-        />
+          class="pointer-events-none absolute inset-y-0 left-0 flex w-10 items-center justify-center text-n-slate-9"
+        >
+          <span class="i-lucide-search size-4" />
+        </span>
         <input
           v-model="searchQuery"
           type="search"
           autocomplete="off"
           :aria-label="t('AI_KNOWLEDGE.SELECTOR.SEARCH')"
           :placeholder="t('AI_KNOWLEDGE.SELECTOR.SEARCH')"
-          class="h-10 w-full rounded-lg border border-n-weak bg-n-alpha-1 pl-9 pr-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-n-brand"
+          class="h-10 w-full rounded-lg border border-n-weak bg-n-alpha-1 pl-10 pr-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-n-brand"
         />
       </label>
       <p class="m-0 text-xs text-n-slate-10">

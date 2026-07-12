@@ -1,37 +1,45 @@
 <script setup>
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import Icon from 'dashboard/components-next/icon/Icon.vue';
 
-defineProps({
+const props = defineProps({
   readiness: { type: Object, default: () => ({ checks: [] }) },
 });
 
 const { t } = useI18n();
+const incompleteChecks = computed(() =>
+  (props.readiness?.checks || []).filter(check => !check.complete)
+);
 </script>
 
 <template>
   <section
-    class="rounded-lg border border-n-weak p-4"
+    class="flex flex-col gap-3 border-y border-n-weak py-4 sm:flex-row sm:items-start sm:justify-between"
     aria-labelledby="readiness-title"
   >
-    <h3 id="readiness-title" class="m-0 text-sm font-semibold text-n-slate-12">
-      {{ t('AI_ASSISTANT.READINESS.TITLE') }}
-    </h3>
-    <p class="mb-0 mt-1 text-sm text-n-slate-11">
-      {{ t('AI_ASSISTANT.READINESS.DESCRIPTION') }}
-    </p>
-    <ul class="m-0 mt-4 flex list-none flex-col gap-3 p-0">
+    <div class="max-w-xl">
+      <h3
+        id="readiness-title"
+        class="m-0 text-sm font-semibold text-n-slate-12"
+      >
+        {{ t('AI_ASSISTANT.READINESS.TITLE') }}
+      </h3>
+      <p class="mb-0 mt-1 text-sm text-n-slate-11">
+        {{ t('AI_ASSISTANT.READINESS.DESCRIPTION') }}
+      </p>
+    </div>
+    <ul class="m-0 flex list-none flex-col gap-2 p-0 sm:min-w-64">
       <li
-        v-for="check in readiness.checks"
+        v-for="check in incompleteChecks"
         :key="check.key"
-        class="flex items-start gap-2 text-sm"
+        class="flex items-start gap-2 text-sm text-n-slate-12"
       >
         <Icon
-          :icon="check.complete ? 'i-lucide-circle-check' : 'i-lucide-circle'"
-          class="mt-0.5 size-4 flex-shrink-0"
-          :class="check.complete ? 'text-n-teal-10' : 'text-n-slate-9'"
+          icon="i-lucide-circle-alert"
+          class="mt-0.5 size-4 flex-shrink-0 text-n-amber-10"
         />
-        <span :class="check.complete ? 'text-n-slate-11' : 'text-n-slate-12'">
+        <span>
           {{ t(`AI_ASSISTANT.READINESS.${check.key.toUpperCase()}`) }}
         </span>
       </li>

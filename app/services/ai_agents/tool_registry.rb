@@ -16,20 +16,18 @@ class AiAgents::ToolRegistry
   HUMAN_HANDOFF_INPUT_SCHEMA = {
     type: 'object',
     properties: {
-      reason: {
-        type: 'string',
-        description: 'Short internal reason for why automated assistance should stop.'
-      },
+      reason: { type: 'string', description: 'Short internal reason for why automated assistance should stop. Use the customer conversation language.' },
       customer_message: {
         type: 'string',
-        description: 'Public message sent to the customer before automation stops. Write it naturally as brand support copy and keep operational details in internal_note.'
+        description: 'Public message sent before automation stops, written naturally in the same language as the latest customer message. ' \
+                     'Keep operational details in internal_note.'
       },
       internal_note: {
         type: 'string',
         description: [
-          'Private context for the human teammate. In 2-4 concise sentences, state the customer goal,',
+          'Private context for the human teammate, in the customer conversation language. In 1-3 concise sentences, state the customer goal,',
           'relevant facts already provided, actions attempted and their outcome, and the recommended next step.',
-          'Do not repeat the public transfer message.'
+          'Do not repeat the public transfer message or the latest customer message.'
         ].join(' ')
       },
       labels: {

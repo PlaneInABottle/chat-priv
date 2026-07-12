@@ -4,7 +4,6 @@ module AiAgents
   module Tools
     class HumanHandoffService
       REASON_LIMIT = 300
-      MESSAGE_LIMIT = 1_000
       CONTEXT_LIMIT = 1_500
 
       def initialize(ai_agent:, account:, mode:, settings:, conversation: nil, trigger_message: nil)
@@ -19,7 +18,7 @@ module AiAgents
       def call(args:)
         requested_labels = normalize_labels(args['labels'])
         labels_to_apply = filter_labels(requested_labels)
-        private_note = handoff_brief(args: args, labels: labels_to_apply)
+        private_note = handoff_brief(args: args)
 
         result = {
           status: 'ok',
@@ -99,23 +98,9 @@ module AiAgents
         Messages::MessageBuilder.new(nil, conversation.reload, params).perform
       end
 
-      def handoff_brief(args:, labels:)
-        sections = [
-          'AI handoff brief',
-          brief_section('Reason', args['reason'], REASON_LIMIT),
-          brief_section('Latest customer message', trigger_message&.content, MESSAGE_LIMIT),
-          brief_section('Context for the team', args['internal_note'], CONTEXT_LIMIT),
-          brief_section('Labels', labels.join(', '), MESSAGE_LIMIT)
-        ].compact
-
-        sections.join("\n\n")
-      end
-
-      def brief_section(title, value, limit)
-        content = value.to_s.strip.truncate(limit)
-        return if content.blank?
-
-        "#{title}\n#{content}"
+      def handoff_brief(args:)
+        args['internal_note'].presence&.to_s&.strip&.truncate(CONTEXT_LIMIT) ||
+          args['reason'].to_s.strip.truncate(REASON_LIMIT)
       end
 
       def mark_handoff_completed!(result:)

@@ -144,6 +144,17 @@ describe('InstructionWorkspace', () => {
     });
   });
 
+  it('expands the test conversation without replacing the editor workflow', async () => {
+    const wrapper = mountComponent();
+    const testPanel = wrapper.findComponent({ name: 'DraftTestPanel' });
+
+    expect(wrapper.vm.isTestFocused).toBe(false);
+    await testPanel.vm.$emit('toggleFocus');
+
+    expect(wrapper.vm.isTestFocused).toBe(true);
+    expect(testPanel.props('isFocused')).toBe(true);
+  });
+
   it('explains why website import cannot start with unsaved changes', async () => {
     const wrapper = mountComponent();
     const importButton = wrapper
