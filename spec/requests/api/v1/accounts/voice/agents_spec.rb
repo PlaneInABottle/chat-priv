@@ -320,5 +320,35 @@ RSpec.describe 'Api::V1::Accounts::Voice::Agents', type: :request do
       expect(response).to have_http_status(:ok)
       expect(voice_agent.reload).to have_attributes(name: 'Live edit', enabled: true, last_tested_at: nil)
     end
+
+    it 'publishes without starting traffic and activates the release separately' do
+      inbox = create(:channel_api, account: account).inbox
+      create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: voice_agent)
+      voice_agent.mark_test_succeeded!
+
+      post "/api/v1/accounts/#{account.id}/voice/agents/#{voice_agent.id}/publish",
+           params: { activate: false },
+           headers: admin.create_new_auth_token,
+           as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body).to include('lifecycle_status' => 'paused', 'enabled' => false, 'published_revision' => 1)
+
+      post "/api/v1/accounts/#{account.id}/voice/agents/#{voice_agent.id}/activate",
+           headers: admin.create_new_auth_token,
+           as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body).to include('lifecycle_status' => 'active', 'enabled' => true, 'published_revision' => 1)
+    end
+
+    it 'rejects activation before the first release is published' do
+      post "/api/v1/accounts/#{account.id}/voice/agents/#{voice_agent.id}/activate",
+           headers: admin.create_new_auth_token,
+           as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.parsed_body['error']).to eq('Publish the assistant before activation.')
+    end
   end
 end

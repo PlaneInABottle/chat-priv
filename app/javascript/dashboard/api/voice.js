@@ -38,8 +38,12 @@ class VoiceAPI extends ApiClient {
     return axios.delete(`${this.url}/agents/${id}`);
   }
 
-  publishAgent(id) {
-    return axios.post(`${this.url}/agents/${id}/publish`);
+  publishAgent(id, data = {}) {
+    return axios.post(`${this.url}/agents/${id}/publish`, data);
+  }
+
+  activateAgent(id) {
+    return axios.post(`${this.url}/agents/${id}/activate`);
   }
 
   pauseAgent(id) {

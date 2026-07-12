@@ -26,6 +26,6 @@ RSpec.describe 'Voice agent releases API', type: :request do
 
     expect(response).to have_http_status(:created)
     expect(response.parsed_body).to include('revision' => 2, 'source' => 'rollback')
-    expect(voice_agent.reload.current_release_id).to eq(response.parsed_body['id'])
+    expect(voice_agent.reload).to have_attributes(current_release_id: response.parsed_body['id'], enabled: true)
   end
 end
