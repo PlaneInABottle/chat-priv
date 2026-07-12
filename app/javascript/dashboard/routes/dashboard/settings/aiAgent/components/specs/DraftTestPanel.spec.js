@@ -101,4 +101,14 @@ describe('DraftTestPanel', () => {
       id: 7,
     });
   });
+
+  it('hides the dead mobile back action in the embedded draft chat', () => {
+    const { wrapper } = mountComponent(true);
+
+    expect(
+      wrapper
+        .findComponent({ name: 'TestConversationChatPanel' })
+        .props('showBackButton')
+    ).toBe(false);
+  });
 });

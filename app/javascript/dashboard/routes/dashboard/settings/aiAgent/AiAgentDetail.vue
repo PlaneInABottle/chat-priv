@@ -706,7 +706,7 @@ watch(agentId, async (newAgentId, oldAgentId) => {
           <p class="m-0">{{ releaseNotice.message }}</p>
         </div>
         <div
-          class="sticky top-0 z-20 flex flex-col gap-3 border-b border-n-weak bg-n-surface-1 py-3 sm:flex-row sm:items-center sm:justify-between"
+          class="z-20 flex flex-col gap-3 border-b border-n-weak bg-n-surface-1 py-3 sm:sticky sm:top-0 sm:flex-row sm:items-center sm:justify-between"
         >
           <ResponsiveTabNavigation
             :tabs="tabs"

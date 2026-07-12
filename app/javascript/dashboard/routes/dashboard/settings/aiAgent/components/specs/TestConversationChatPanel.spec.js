@@ -24,7 +24,7 @@ const mountComponent = (props = {}) => {
   });
 };
 
-const findSendButton = wrapper => wrapper.findAll('button')[1];
+const findSendButton = wrapper => wrapper.findComponent(Button);
 
 describe('TestConversationChatPanel.vue', () => {
   it('renders the send button as a non-submit button and emits trimmed send content on click', async () => {
@@ -77,6 +77,29 @@ describe('TestConversationChatPanel.vue', () => {
     const wrapper = mountComponent();
 
     expect(wrapper.findComponent(Button).props('size')).toBe('sm');
+  });
+
+  it('labels chat controls and can hide the mobile back action', async () => {
+    const wrapper = mountComponent();
+
+    expect(findSendButton(wrapper).attributes('aria-label')).toBe(
+      'AI_AGENT.TEST_CONVERSATIONS.SEND'
+    );
+    expect(wrapper.get('input').attributes()).toMatchObject({
+      name: 'test-message',
+      autocomplete: 'off',
+    });
+    expect(
+      wrapper
+        .get('[data-testid="test-conversation-back"]')
+        .attributes('aria-label')
+    ).toBe('AI_AGENT.BACK');
+
+    await wrapper.setProps({ showBackButton: false });
+
+    expect(
+      wrapper.find('[data-testid="test-conversation-back"]').exists()
+    ).toBe(false);
   });
 
   it('renders human handoff preview metadata inside assistant messages', () => {

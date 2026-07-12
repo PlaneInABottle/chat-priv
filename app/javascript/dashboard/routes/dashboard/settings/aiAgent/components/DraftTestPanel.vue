@@ -151,6 +151,7 @@ defineExpose({
         :conversation="activeConversation"
         :ui-flags="uiFlags"
         :is-disabled="isDisabled || creditsExhausted"
+        :show-back-button="false"
         @send="sendMessage"
       />
     </div>
