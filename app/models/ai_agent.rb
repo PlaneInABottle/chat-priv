@@ -44,6 +44,8 @@ class AiAgent < ApplicationRecord
   has_many :learning_suggestions, class_name: 'AiAgentLearningSuggestion', dependent: :destroy
   has_many :website_imports, class_name: 'AiAgentWebsiteImport', dependent: :destroy
   has_many :usage_events, class_name: 'AiAgentUsageEvent', dependent: :destroy
+  has_many :knowledge_source_assignments, as: :assistant, class_name: 'AiKnowledgeSourceAssignment', dependent: :destroy
+  has_many :knowledge_sources, through: :knowledge_source_assignments, source: :ai_knowledge_source
 
   validates :name, presence: true
   validates :prompt, length: { maximum: 50_000 }
@@ -91,6 +93,7 @@ class AiAgent < ApplicationRecord
         source: 'rollback',
         created_by: created_by
       )
+      AiKnowledgeSources::ReleaseAssignmentRestore.new(assistant: self, snapshot: release.snapshot).perform
       activate_release!(restored, restore_draft: true)
       restored
     end
@@ -100,12 +103,12 @@ class AiAgent < ApplicationRecord
     update!(enabled: false)
   end
 
-  def mark_test_succeeded!(prompt: self.prompt, config: self.config)
+  def mark_test_succeeded!(prompt: self.prompt, config: self.config, tested_fingerprint: nil)
     # Test telemetry must remain writable for agents carrying legacy config.
     # rubocop:disable Rails/SkipsModelValidations
     update_columns(
       last_tested_at: Time.current,
-      last_tested_prompt_digest: release_digest(prompt, config),
+      last_tested_prompt_digest: tested_fingerprint || draft_fingerprint(prompt: prompt, config: config),
       updated_at: Time.current
     )
     # rubocop:enable Rails/SkipsModelValidations
@@ -119,7 +122,7 @@ class AiAgent < ApplicationRecord
     last_tested_at.present? && last_tested_prompt_digest == release_digest(prompt, config)
   end
 
-  def draft_fingerprint
+  def draft_fingerprint(prompt: self.prompt, config: self.config)
     release_digest(prompt, config)
   end
 
@@ -189,7 +192,8 @@ class AiAgent < ApplicationRecord
   def release_digest(prompt_value, config_value)
     payload = {
       'prompt' => prompt_value.to_s,
-      'config' => runtime_config(config_value)
+      'config' => runtime_config(config_value),
+      'knowledge_sources' => AiKnowledgeSources::Snapshot.for(self)
     }
     Digest::SHA256.hexdigest(JSON.generate(canonicalize(payload)))
   end

@@ -5,7 +5,7 @@ class Api::V1::Accounts::Voice::AgentsController < Api::V1::Accounts::BaseContro
   before_action :set_voice_agent, only: [:show, :update, :destroy, :publish, :pause]
 
   def index
-    voice_agents = Current.account.voice_agents.includes(:current_release).order(:created_at)
+    voice_agents = Current.account.voice_agents.includes(:current_release, :knowledge_sources).order(:created_at)
     render json: { payload: voice_agents.map { |agent| VoiceAgents::Serializer.new(agent).payload } }
   end
 
@@ -19,6 +19,7 @@ class Api::V1::Accounts::Voice::AgentsController < Api::V1::Accounts::BaseContro
     ActiveRecord::Base.transaction do
       voice_agent.save!
       sync_inbox_assignments!(voice_agent) if inbox_settings_provided?
+      sync_knowledge_sources!(voice_agent) if knowledge_source_ids_provided?
     end
     render json: VoiceAgents::Serializer.new(voice_agent).payload, status: :created
   end
@@ -32,6 +33,7 @@ class Api::V1::Accounts::Voice::AgentsController < Api::V1::Accounts::BaseContro
       end
       @voice_agent.save!
       sync_inbox_assignments!(@voice_agent) if inbox_settings_provided?
+      sync_knowledge_sources!(@voice_agent) if knowledge_source_ids_provided?
     end
     render json: VoiceAgents::Serializer.new(@voice_agent).payload
   end
@@ -56,11 +58,11 @@ class Api::V1::Accounts::Voice::AgentsController < Api::V1::Accounts::BaseContro
   private
 
   def set_voice_agent
-    @voice_agent = Current.account.voice_agents.includes(:current_release).find(params[:id])
+    @voice_agent = Current.account.voice_agents.includes(:current_release, :knowledge_sources).find(params[:id])
   end
 
   def voice_agent_params
-    permitted = voice_agent_request_params.except('inbox_settings')
+    permitted = voice_agent_request_params.except('inbox_settings', 'knowledge_source_ids')
     normalize_voice_agent_params(permitted.to_h.deep_stringify_keys)
   end
 
@@ -69,6 +71,7 @@ class Api::V1::Accounts::Voice::AgentsController < Api::V1::Accounts::BaseContro
       :name,
       :greeting,
       :prompt,
+      knowledge_source_ids: [],
       tools_config: {},
       inbox_settings: [
         :id,
@@ -100,12 +103,23 @@ class Api::V1::Accounts::Voice::AgentsController < Api::V1::Accounts::BaseContro
     voice_agent_request_params.key?('inbox_settings')
   end
 
+  def knowledge_source_ids_provided?
+    voice_agent_request_params.key?('knowledge_source_ids')
+  end
+
   def sync_inbox_assignments!(voice_agent)
     kept_setting_ids = inbox_settings_params.map do |assignment|
       sync_inbox_assignment!(voice_agent, assignment)
     end
 
     voice_agent.voice_inbox_settings.where.not(id: kept_setting_ids).destroy_all
+  end
+
+  def sync_knowledge_sources!(voice_agent)
+    AiKnowledgeSources::AssignmentSync.new(
+      assistant: voice_agent,
+      source_ids: voice_agent_request_params['knowledge_source_ids']
+    ).perform
   end
 
   def inbox_settings_params

@@ -14,12 +14,13 @@ import TagMultiSelectComboBox from 'dashboard/components-next/combobox/TagMultiS
 import Avatar from 'dashboard/components-next/avatar/Avatar.vue';
 import Input from 'dashboard/components-next/input/Input.vue';
 import TestConversationLayout from './components/TestConversationLayout.vue';
-import TabBar from 'dashboard/components-next/tabbar/TabBar.vue';
 import InstructionWorkspace from './components/InstructionWorkspace.vue';
 import ImproveWorkspace from './components/ImproveWorkspace.vue';
 import AssistantStatusBadge from './components/AssistantStatusBadge.vue';
 import ReadinessChecklist from './components/ReadinessChecklist.vue';
 import AssistantReleaseHistoryDialog from './components/AssistantReleaseHistoryDialog.vue';
+import KnowledgeSourceSelector from './components/KnowledgeSourceSelector.vue';
+import ResponsiveTabNavigation from '../components/ResponsiveTabNavigation.vue';
 import {
   hasInstructionContent,
   instructionContentLength,
@@ -57,6 +58,11 @@ const normalizeToolsState = toolsConfig => {
   };
 };
 
+const normalizeKnowledgeSourceIds = sourceIds =>
+  Array.from(new Set(sourceIds || []))
+    .map(Number)
+    .sort((first, second) => first - second);
+
 const store = useStore();
 const { t } = useI18n();
 const route = useRoute();
@@ -78,6 +84,7 @@ const releaseHistoryRef = ref(null);
 const inboxError = ref('');
 const activeTab = computed(() => {
   if (route.name === 'ai_agent_test') return 'test';
+  if (route.name === 'ai_agent_knowledge') return 'knowledge';
   if (
     ['ai_agent_evaluations', 'ai_agent_learning_suggestions'].includes(
       route.name
@@ -96,6 +103,7 @@ const improveMode = computed(() =>
 const formState = ref({
   name: '',
   instructions: normalizeInstructionDocument(),
+  knowledge_source_ids: [],
   inbox_ids: [],
   tools: defaultToolsState(),
 });
@@ -108,6 +116,16 @@ const isInstructionsDirty = computed(() => {
     ) !== JSON.stringify(persisted)
   );
 });
+
+const isKnowledgeDirty = computed(
+  () =>
+    JSON.stringify(
+      normalizeKnowledgeSourceIds(formState.value.knowledge_source_ids)
+    ) !==
+    JSON.stringify(
+      normalizeKnowledgeSourceIds(aiAgent.value?.knowledge_source_ids)
+    )
+);
 
 const isConnectionsDirty = computed(() => {
   const record = aiAgent.value;
@@ -129,11 +147,15 @@ const isConnectionsDirty = computed(() => {
 });
 
 const isFormDirty = computed(
-  () => isInstructionsDirty.value || isConnectionsDirty.value
+  () =>
+    isInstructionsDirty.value ||
+    isKnowledgeDirty.value ||
+    isConnectionsDirty.value
 );
 
 const tabs = computed(() => [
   { label: t('AI_AGENT.TABS.INSTRUCTIONS'), value: 'instructions' },
+  { label: t('AI_AGENT.TABS.KNOWLEDGE'), value: 'knowledge' },
   { label: t('AI_AGENT.TABS.CONNECTIONS'), value: 'connections' },
   { label: t('AI_AGENT.TABS.TEST_HISTORY'), value: 'test' },
   { label: t('AI_AGENT.TABS.IMPROVE'), value: 'improve' },
@@ -235,6 +257,7 @@ const simulatorDisabledMessage = computed(() => {
 
 const isCurrentTabDirty = computed(() => {
   if (activeTab.value === 'instructions') return isInstructionsDirty.value;
+  if (activeTab.value === 'knowledge') return isKnowledgeDirty.value;
   if (activeTab.value === 'connections') return isConnectionsDirty.value;
 
   return false;
@@ -286,6 +309,9 @@ function syncFormState() {
     formState.value = {
       name: record.name || '',
       instructions: instructionDocumentForAgent(record),
+      knowledge_source_ids: normalizeKnowledgeSourceIds(
+        record.knowledge_source_ids
+      ),
       inbox_ids: record.agent_bot?.inbox_ids || [],
       tools: normalizeToolsState(record.tools_config),
     };
@@ -293,6 +319,7 @@ function syncFormState() {
     formState.value = {
       name: '',
       instructions: normalizeInstructionDocument(),
+      knowledge_source_ids: [],
       inbox_ids: [],
       tools: defaultToolsState(),
     };
@@ -390,6 +417,12 @@ const instructionSaveData = () => ({
   },
 });
 
+const knowledgeSaveData = () => ({
+  knowledge_source_ids: normalizeKnowledgeSourceIds(
+    formState.value.knowledge_source_ids
+  ),
+});
+
 const connectionSaveData = () => {
   const tools = normalizeToolsState(formState.value.tools);
   return {
@@ -410,27 +443,34 @@ const connectionSaveData = () => {
   };
 };
 
+const currentTabSaveData = () => {
+  if (activeTab.value === 'instructions') return instructionSaveData();
+  if (activeTab.value === 'knowledge') return knowledgeSaveData();
+
+  return connectionSaveData();
+};
+
 const handleSave = async () => {
   isSaving.value = true;
   inboxError.value = '';
   const instructionsDraft = formState.value.instructions;
+  const knowledgeDraft = formState.value.knowledge_source_ids;
   const connectionsDraft = {
     name: formState.value.name,
     inbox_ids: formState.value.inbox_ids,
     tools: formState.value.tools,
   };
   const preserveInstructionsDraft =
-    activeTab.value === 'connections' && isInstructionsDirty.value;
+    activeTab.value !== 'instructions' && isInstructionsDirty.value;
+  const preserveKnowledgeDraft =
+    activeTab.value !== 'knowledge' && isKnowledgeDirty.value;
   const preserveConnectionsDraft =
-    activeTab.value === 'instructions' && isConnectionsDirty.value;
+    activeTab.value !== 'connections' && isConnectionsDirty.value;
 
   try {
     const payload = {
       id: agentId.value,
-      data:
-        activeTab.value === 'instructions'
-          ? instructionSaveData()
-          : connectionSaveData(),
+      data: currentTabSaveData(),
     };
     const result = await store.dispatch('aiAgent/update', payload);
     if (result?.id) {
@@ -438,6 +478,9 @@ const handleSave = async () => {
       syncFormState();
       if (preserveInstructionsDraft) {
         formState.value.instructions = instructionsDraft;
+      }
+      if (preserveKnowledgeDraft) {
+        formState.value.knowledge_source_ids = knowledgeDraft;
       }
       if (preserveConnectionsDraft) {
         formState.value = { ...formState.value, ...connectionsDraft };
@@ -463,6 +506,11 @@ const discardCurrentChanges = () => {
     formState.value.instructions = instructionDocumentForAgent(aiAgent.value);
     return;
   }
+  if (activeTab.value === 'knowledge') {
+    formState.value.knowledge_source_ids =
+      aiAgent.value?.knowledge_source_ids || [];
+    return;
+  }
 
   formState.value = {
     ...formState.value,
@@ -480,6 +528,7 @@ const goBack = () => {
 onBeforeRouteLeave(to => {
   const detailRoutes = [
     'ai_agent_instructions',
+    'ai_agent_knowledge',
     'ai_agent_detail',
     'ai_agent_test',
     'ai_agent_evaluations',
@@ -502,6 +551,7 @@ onBeforeRouteLeave(to => {
 const handleTabChange = tab => {
   const routeNames = {
     instructions: 'ai_agent_instructions',
+    knowledge: 'ai_agent_knowledge',
     connections: 'ai_agent_detail',
     test: 'ai_agent_test',
     improve: 'ai_agent_evaluations',
@@ -658,13 +708,16 @@ watch(agentId, async (newAgentId, oldAgentId) => {
         <div
           class="sticky top-0 z-20 flex flex-col gap-3 border-b border-n-weak bg-n-surface-1 py-3 sm:flex-row sm:items-center sm:justify-between"
         >
-          <TabBar
+          <ResponsiveTabNavigation
             :tabs="tabs"
-            :initial-active-tab="activeTabIndex"
+            :active-tab-index="activeTabIndex"
+            :aria-label="t('AI_AGENT.TABS.LABEL')"
             @tab-changed="handleTabChange"
           />
           <div
-            v-if="['instructions', 'connections'].includes(activeTab)"
+            v-if="
+              ['instructions', 'knowledge', 'connections'].includes(activeTab)
+            "
             class="flex justify-end gap-2"
           >
             <Button
@@ -694,6 +747,13 @@ watch(agentId, async (newAgentId, oldAgentId) => {
           @tested="refreshAfterDraftTest"
           @website-import-applied="refreshAfterWebsiteImport"
         />
+        <div
+          v-if="activeTab === 'knowledge'"
+          class="grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_280px]"
+        >
+          <KnowledgeSourceSelector v-model="formState.knowledge_source_ids" />
+          <ReadinessChecklist :readiness="aiAgent?.readiness" />
+        </div>
         <template v-if="activeTab === 'connections'">
           <div
             class="grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,640px)_280px]"

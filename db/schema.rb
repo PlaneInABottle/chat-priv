@@ -432,6 +432,34 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_18_000000) do
     t.index ["voice_agent_id"], name: "index_ai_improvement_usage_events_on_voice_agent_id"
   end
 
+  create_table "ai_knowledge_source_assignments", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "ai_knowledge_source_id", null: false
+    t.string "assistant_type", null: false
+    t.bigint "assistant_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "assistant_type", "assistant_id"], name: "index_ai_knowledge_assignments_on_account_and_assistant"
+    t.index ["account_id"], name: "index_ai_knowledge_source_assignments_on_account_id"
+    t.index ["ai_knowledge_source_id"], name: "idx_on_ai_knowledge_source_id_1c19131e3a"
+    t.index ["assistant_type", "assistant_id", "ai_knowledge_source_id"], name: "index_ai_knowledge_assignments_on_assistant_and_source", unique: true
+    t.check_constraint "assistant_type::text = ANY (ARRAY['AiAgent'::character varying, 'VoiceAgent'::character varying]::text[])", name: "ai_knowledge_assignments_assistant_type_check"
+  end
+
+  create_table "ai_knowledge_sources", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.string "name", null: false
+    t.string "source_type", default: "manual", null: false
+    t.text "content", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "name"], name: "index_ai_knowledge_sources_on_account_id_and_name"
+    t.index ["account_id"], name: "index_ai_knowledge_sources_on_account_id"
+    t.check_constraint "char_length(content) >= 1 AND char_length(content) <= 100000", name: "ai_knowledge_sources_content_length_check"
+    t.check_constraint "char_length(name::text) >= 1 AND char_length(name::text) <= 120", name: "ai_knowledge_sources_name_length_check"
+    t.check_constraint "source_type::text = 'manual'::text", name: "ai_knowledge_sources_type_check"
+  end
+
   create_table "applied_slas", force: :cascade do |t|
     t.bigint "account_id", null: false
     t.bigint "sla_policy_id", null: false
@@ -1981,6 +2009,9 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_18_000000) do
   add_foreign_key "ai_improvement_usage_events", "calls", on_delete: :nullify
   add_foreign_key "ai_improvement_usage_events", "users", column: "initiated_by_id", on_delete: :nullify
   add_foreign_key "ai_improvement_usage_events", "voice_agents", on_delete: :nullify
+  add_foreign_key "ai_knowledge_source_assignments", "accounts", on_delete: :cascade
+  add_foreign_key "ai_knowledge_source_assignments", "ai_knowledge_sources", on_delete: :cascade
+  add_foreign_key "ai_knowledge_sources", "accounts", on_delete: :cascade
   add_foreign_key "call_transcript_segments", "accounts"
   add_foreign_key "call_transcript_segments", "calls"
   add_foreign_key "call_transcript_segments", "conversations"

@@ -18,6 +18,7 @@ class VoiceAgents::Serializer
     base_attributes.merge(
       tools_config: normalized_tools_config,
       enabled_tool_keys: tool_config.enabled_tool_keys & visible_tool_keys,
+      knowledge_source_ids: voice_agent.knowledge_sources.map(&:id).sort,
       available_tools: available_tools,
       inbox_settings: inbox_settings,
       ikas_integration: ikas_integration

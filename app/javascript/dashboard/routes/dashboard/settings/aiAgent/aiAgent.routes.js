@@ -69,6 +69,12 @@ export default {
           meta: detailMeta,
         },
         {
+          path: ':id/knowledge',
+          name: 'ai_agent_knowledge',
+          component: () => import('./AiAgentDetail.vue'),
+          meta: detailMeta,
+        },
+        {
           path: ':id/test',
           name: 'ai_agent_test',
           component: () => import('./AiAgentDetail.vue'),
@@ -85,6 +91,18 @@ export default {
           name: 'ai_agent_learning_suggestions',
           component: () => import('./AiAgentDetail.vue'),
           meta: detailMeta,
+        },
+      ],
+    },
+    {
+      path: frontendURL('accounts/:accountId/settings/ai-knowledge'),
+      component: SettingsWrapper,
+      children: [
+        {
+          path: '',
+          name: 'ai_knowledge_sources',
+          component: () => import('./AiKnowledgeSources.vue'),
+          meta: { permissions: ['administrator'] },
         },
       ],
     },

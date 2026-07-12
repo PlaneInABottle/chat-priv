@@ -84,6 +84,8 @@ class Account < ApplicationRecord
   has_many :agent_bots, dependent: :destroy_async
   has_many :ai_agents, dependent: :destroy
   has_many :voice_agents, dependent: :destroy
+  has_many :ai_knowledge_sources, dependent: :destroy
+  has_many :ai_knowledge_source_assignments, dependent: :destroy
   has_many :ai_agent_llm_calls, dependent: :destroy
   has_many :ai_agent_tool_executions, dependent: :destroy
   has_many :ai_agent_usage_events, dependent: :destroy
