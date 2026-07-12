@@ -32,7 +32,13 @@ RSpec.describe AiAgents::Tools::HumanHandoffService do
 
     expect(result[:terminal_action]).to eq('handoff')
     expect(result[:conversation_status]).to eq('open')
-    expect(result[:private_note_preview]).to eq('Customer needs finance review')
+    expect(result[:private_note_preview]).to include(
+      'AI handoff brief',
+      "Reason\nBilling issue",
+      "Latest customer message\nIncoming Message",
+      "Context for the team\nCustomer needs finance review",
+      "Labels\nvip"
+    )
     expect(result[:customer_message]).to eq('I am transferring you to a human agent.')
     expect(result[:labels_requested]).to eq(%w[vip ignored])
     expect(result[:labels_to_apply]).to eq(['vip'])
@@ -116,7 +122,12 @@ RSpec.describe AiAgents::Tools::HumanHandoffService do
     expect(customer_message.content).to eq('I am transferring you to a billing specialist.')
     expect(private_note.private).to be(true)
     expect(private_note.sender).to eq(ai_agent.agent_bot)
-    expect(private_note.content).to eq('Customer needs finance review')
+    expect(private_note.content).to include(
+      'AI handoff brief',
+      "Reason\nBilling issue",
+      "Context for the team\nCustomer needs finance review",
+      "Labels\nvip"
+    )
     expect(conversation.additional_attributes['ai_handoff_completed']).to eq(true)
     expect(conversation.additional_attributes['ai_handoff_by_ai_agent_id']).to eq(ai_agent.id)
     expect(conversation.additional_attributes['ai_handoff_message_id']).to eq(trigger_message.id)
@@ -135,5 +146,18 @@ RSpec.describe AiAgents::Tools::HumanHandoffService do
     expect(result[:terminal_action]).to eq('handoff')
     expect(result).not_to have_key(:team_id)
     expect(result).not_to have_key(:assignee_id)
+  end
+
+  it 'bounds generated brief fields before saving the private note' do
+    result = service.call(args: {
+      'reason' => 'r' * 2_000,
+      'customer_message' => 'A human will continue helping you.',
+      'internal_note' => 'c' * 5_000,
+      'labels' => ['vip']
+    })
+
+    expect(result[:private_note_preview]).not_to include('r' * 301)
+    expect(result[:private_note_preview]).not_to include('c' * 1_501)
+    expect(result[:private_note_preview].length).to be < 3_000
   end
 end
