@@ -74,14 +74,14 @@ class VoiceAgent < ApplicationRecord
     VoiceAgents::Readiness.new(self).payload
   end
 
-  def publish!(created_by: nil)
+  def publish!(created_by: nil, activate: true)
     raise ActiveRecord::RecordInvalid, self unless readiness[:can_publish]
 
     with_lock do
       snapshot = VoiceAgents::ReleaseSnapshot.for(self)
       fingerprint = AssistantReleases::Snapshot.fingerprint(snapshot)
       if current_release&.fingerprint == fingerprint
-        update!(enabled: true)
+        update!(enabled: activate, published_at: published_at || Time.current)
       else
         release = releases.create!(
           account: account,
@@ -91,7 +91,7 @@ class VoiceAgent < ApplicationRecord
           fingerprint: fingerprint,
           snapshot: snapshot
         )
-        update!(enabled: true, published_at: Time.current, current_release: release)
+        update!(enabled: activate, published_at: Time.current, current_release: release)
       end
     end
   end
@@ -109,7 +109,6 @@ class VoiceAgent < ApplicationRecord
         snapshot: release.snapshot
       )
       restore_release_draft(restored)
-      self.enabled = true
       self.published_at = Time.current
       self.current_release = restored
       self.last_tested_at = Time.current
@@ -121,6 +120,15 @@ class VoiceAgent < ApplicationRecord
 
   def pause!
     update!(enabled: false)
+  end
+
+  def activate!
+    unless current_release
+      errors.add(:base, 'Publish the assistant before activation.')
+      raise ActiveRecord::RecordInvalid, self
+    end
+
+    update!(enabled: true, published_at: published_at || Time.current)
   end
 
   def mark_test_succeeded!(tested_fingerprint: draft_fingerprint)

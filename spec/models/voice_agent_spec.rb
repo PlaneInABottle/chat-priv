@@ -77,10 +77,33 @@ RSpec.describe VoiceAgent do
 
       voice_agent.mark_test_succeeded!
       voice_agent.publish!
+      voice_agent.pause!
       restored = voice_agent.rollback_to!(first_release)
 
-      expect(voice_agent.reload).to have_attributes(prompt: first_release.value(:prompt), current_release: restored)
+      expect(voice_agent.reload).to have_attributes(prompt: first_release.value(:prompt), current_release: restored, enabled: false)
       expect(restored).to have_attributes(source: 'rollback', revision: 3)
+    end
+
+    it 'can publish paused and activate the tested release independently of later draft edits' do
+      inbox = create(:channel_api, account: account).inbox
+      create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: voice_agent)
+      voice_agent.mark_test_succeeded!
+
+      voice_agent.publish!(activate: false)
+      published_prompt = voice_agent.current_release.value(:prompt)
+
+      expect(voice_agent).to have_attributes(enabled: false, lifecycle_status: 'paused')
+
+      voice_agent.update!(prompt: 'Untested next draft')
+      voice_agent.activate!
+
+      expect(voice_agent).to be_enabled
+      expect(voice_agent.live_value(:prompt)).to eq(published_prompt)
+    end
+
+    it 'does not activate an unpublished assistant' do
+      expect { voice_agent.activate! }.to raise_error(ActiveRecord::RecordInvalid, /Publish the assistant before activation/)
+      expect(voice_agent).not_to be_enabled
     end
   end
 end

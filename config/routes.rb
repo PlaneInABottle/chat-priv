@@ -129,6 +129,7 @@ Rails.application.routes.draw do
             resources :agents do
               member do
                 post :publish
+                post :activate
                 post :pause
               end
               resources :releases, only: [:index, :show], controller: 'agent_releases' do

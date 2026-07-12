@@ -2,7 +2,7 @@ class Api::V1::Accounts::Voice::AgentsController < Api::V1::Accounts::BaseContro
   before_action :current_account
   before_action :check_admin_authorization?
   before_action :ensure_voice_ai_enabled
-  before_action :set_voice_agent, only: [:show, :update, :destroy, :publish, :pause]
+  before_action :set_voice_agent, only: [:show, :update, :destroy, :publish, :activate, :pause]
 
   def index
     voice_agents = Current.account.voice_agents.includes(:current_release, :knowledge_sources).order(:created_at)
@@ -46,7 +46,14 @@ class Api::V1::Accounts::Voice::AgentsController < Api::V1::Accounts::BaseContro
   def publish
     return render_readiness_error unless @voice_agent.readiness[:can_publish]
 
-    @voice_agent.publish!(created_by: Current.user)
+    @voice_agent.publish!(created_by: Current.user, activate: publish_activation?)
+    render json: VoiceAgents::Serializer.new(@voice_agent).payload
+  end
+
+  def activate
+    return render json: { error: 'Publish the assistant before activation.' }, status: :unprocessable_content unless @voice_agent.current_release
+
+    @voice_agent.activate!
     render json: VoiceAgents::Serializer.new(@voice_agent).payload
   end
 
@@ -56,6 +63,12 @@ class Api::V1::Accounts::Voice::AgentsController < Api::V1::Accounts::BaseContro
   end
 
   private
+
+  def publish_activation?
+    return true unless params.key?(:activate)
+
+    ActiveModel::Type::Boolean.new.cast(params[:activate])
+  end
 
   def set_voice_agent
     @voice_agent = Current.account.voice_agents.includes(:current_release, :knowledge_sources).find(params[:id])

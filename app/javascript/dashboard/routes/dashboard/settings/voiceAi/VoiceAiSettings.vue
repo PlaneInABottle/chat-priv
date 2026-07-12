@@ -28,6 +28,7 @@ import ImprovementCreditsSummary from '../aiAgent/components/ImprovementCreditsS
 import KnowledgeSourceSelector from '../aiAgent/components/KnowledgeSourceSelector.vue';
 import ResponsiveTabNavigation from '../components/ResponsiveTabNavigation.vue';
 import VoiceCallActivity from './VoiceCallActivity.vue';
+import VoicePublishDialog from './VoicePublishDialog.vue';
 
 const TERMINAL_CALL_STATUSES = [
   'completed',
@@ -104,7 +105,10 @@ const currentCall = ref(null);
 const isLoading = ref(false);
 const isLoadingRecordings = ref(false);
 const isSavingAgent = ref(false);
+const isPublishingAgent = ref(false);
+const isActivatingAgent = ref(false);
 const releaseHistoryRef = ref(null);
+const publishDialogRef = ref(null);
 const improvementCreditsRef = ref(null);
 const isCreatingCall = ref(false);
 const isEnding = ref(false);
@@ -233,7 +237,7 @@ const hasVoiceDraftChanges = computed(() =>
   Boolean(selectedVoiceAgent.value?.draft_changes)
 );
 const showVoicePublishAction = computed(
-  () => !isActiveAgent.value || hasVoiceDraftChanges.value
+  () => !hasPublishedVoiceRelease.value || hasVoiceDraftChanges.value
 );
 const currentCallStatus = computed(() => currentCall.value?.status || '');
 const isCurrentCallTerminal = computed(() =>
@@ -735,15 +739,43 @@ const replaceVoiceAgent = saved => {
   selectedVoiceAgentId.value = saved.id;
 };
 
-const publishVoiceAgent = async () => {
+const openPublishDialog = () => publishDialogRef.value?.open();
+
+const publishVoiceAgent = async ({ activate }) => {
   if (!selectedVoiceAgent.value?.readiness?.can_publish) return;
+  isPublishingAgent.value = true;
   try {
-    const response = await VoiceAPI.publishAgent(selectedVoiceAgent.value.id);
+    const response = await VoiceAPI.publishAgent(selectedVoiceAgent.value.id, {
+      activate,
+    });
     replaceVoiceAgent(response.data);
     syncAgentForm(response.data);
-    useAlert(t('VOICE_AI.AGENTS.PUBLISH_SUCCESS'));
+    publishDialogRef.value?.close();
+    useAlert(
+      activate
+        ? t('VOICE_AI.AGENTS.PUBLISH_SUCCESS')
+        : t('VOICE_AI.AGENTS.PUBLISH_PAUSED_SUCCESS')
+    );
   } catch (error) {
     useAlert(error.response?.data?.error || t('VOICE_AI.AGENTS.PUBLISH_ERROR'));
+  } finally {
+    isPublishingAgent.value = false;
+  }
+};
+
+const activateVoiceAgent = async () => {
+  isActivatingAgent.value = true;
+  try {
+    const response = await VoiceAPI.activateAgent(selectedVoiceAgent.value.id);
+    replaceVoiceAgent(response.data);
+    syncAgentForm(response.data);
+    useAlert(t('VOICE_AI.AGENTS.ACTIVATE_SUCCESS'));
+  } catch (error) {
+    useAlert(
+      error.response?.data?.error || t('VOICE_AI.AGENTS.ACTIVATE_ERROR')
+    );
+  } finally {
+    isActivatingAgent.value = false;
   }
 };
 
@@ -1165,10 +1197,19 @@ onBeforeUnmount(() => {
                   @click="pauseVoiceAgent"
                 />
                 <Button
+                  v-else-if="hasPublishedVoiceRelease"
+                  icon="i-lucide-play"
+                  variant="outline"
+                  color="teal"
+                  :label="t('VOICE_AI.AGENTS.ACTIVATE')"
+                  :is-loading="isActivatingAgent"
+                  @click="activateVoiceAgent"
+                />
+                <Button
                   v-if="showVoicePublishAction"
                   icon="i-lucide-rocket"
                   :label="
-                    isActiveAgent
+                    hasPublishedVoiceRelease
                       ? t('VOICE_AI.AGENTS.PUBLISH_UPDATE')
                       : t('VOICE_AI.AGENTS.PUBLISH')
                   "
@@ -1176,7 +1217,7 @@ onBeforeUnmount(() => {
                     !selectedVoiceAgent?.readiness?.can_publish ||
                     hasUnsavedAgentChanges
                   "
-                  @click="publishVoiceAgent"
+                  @click="openPublishDialog"
                 />
               </div>
             </div>
@@ -2148,5 +2189,12 @@ onBeforeUnmount(() => {
     :assistant-id="selectedVoiceAgent.id"
     :current-release-id="selectedVoiceAgent.current_release?.id"
     @restored="handleReleaseRestored"
+  />
+  <VoicePublishDialog
+    v-if="selectedVoiceAgent?.id"
+    ref="publishDialogRef"
+    :voice-agent="selectedVoiceAgent"
+    :is-publishing="isPublishingAgent"
+    @confirm="publishVoiceAgent"
   />
 </template>
