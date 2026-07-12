@@ -138,7 +138,7 @@ Rails.application.routes.draw do
             resources :inbox_settings, only: [:index, :show, :create, :update]
             resources :recordings, only: [:index]
             resources :test_calls, only: [:create]
-            resources :calls, only: [:show] do
+            resources :calls, only: [:index, :show] do
               member do
                 post :token
                 post :take_over

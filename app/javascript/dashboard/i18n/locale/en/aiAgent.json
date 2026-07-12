@@ -753,6 +753,7 @@
       "LABEL": "Voice assistant view",
       "AGENTS": "Assistants",
       "TEST": "Test call",
+      "CALLS": "Call activity",
       "RECORDINGS": "Recordings",
       "USAGE": "Usage"
     },
@@ -849,6 +850,59 @@
       "JOINED": "Caller joined",
       "AGENT_ACTIVE": "AI active",
       "ENDED": "Ended"
+    },
+    "CALL_ACTIVITY": {
+      "TITLE": "Call activity",
+      "DESCRIPTION": "Review real customer calls, outcomes, handoffs, transcripts, and AI actions. Sandbox tests are excluded.",
+      "REFRESH": "Refresh",
+      "FILTERS": "Filters",
+      "APPLY": "Apply filters",
+      "LOADING": "Loading calls...",
+      "EMPTY": "No calls match these filters.",
+      "LOAD_ERROR": "Call activity could not be loaded.",
+      "ALL": "All",
+      "STATUS_LABEL": "Call status",
+      "HANDOFF_LABEL": "Handoff",
+      "ASSISTANT_LABEL": "Voice assistant",
+      "PHONE_LABEL": "Phone number",
+      "LIMIT_LABEL": "Limit",
+      "CONVERSATION": "Conversation #{id}",
+      "CALL": "Call {id}",
+      "OPEN_CONVERSATION": "Open conversation",
+      "NO_SUMMARY": "No call summary available.",
+      "METADATA_SEPARATOR": " / ",
+      "PHONE": "Caller",
+      "DURATION": "Duration",
+      "TRANSCRIPT": "Transcript turns",
+      "ACTIONS": "AI actions",
+      "HANDOFF_METRIC": "Handoff",
+      "RECORDING_METRIC": "Recording",
+      "ACTION_ERRORS": "({count} failed)",
+      "STATUS": {
+        "IN_PROGRESS": "In progress",
+        "COMPLETED": "Completed",
+        "NO_ANSWER": "No answer",
+        "FAILED": "Failed"
+      },
+      "HANDOFF": {
+        "REQUESTED": "Requested",
+        "ACCEPTED": "Accepted",
+        "NONE": "None"
+      },
+      "OUTCOME": {
+        "ACTIVE": "In progress",
+        "COMPLETED": "Completed",
+        "NO_ANSWER": "No answer",
+        "FAILED": "Failed",
+        "HUMAN_HANDOFF": "Human handoff"
+      },
+      "RECORDING": {
+        "DISABLED": "Not recorded",
+        "STARTING": "Starting",
+        "ACTIVE": "Recording",
+        "COMPLETED": "Available",
+        "FAILED": "Failed"
+      }
     },
     "RECORDINGS": {
       "TITLE": "Recordings",

@@ -80,6 +80,10 @@ class VoiceAPI extends ApiClient {
     return axios.get(`${this.url}/calls/${id}`);
   }
 
+  getCalls(params = {}) {
+    return axios.get(`${this.url}/calls`, { params });
+  }
+
   createToken(id, data) {
     return axios.post(`${this.url}/calls/${id}/token`, data);
   }

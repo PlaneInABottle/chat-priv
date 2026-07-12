@@ -27,6 +27,7 @@ import AssistantReleaseHistoryDialog from '../aiAgent/components/AssistantReleas
 import ImprovementCreditsSummary from '../aiAgent/components/ImprovementCreditsSummary.vue';
 import KnowledgeSourceSelector from '../aiAgent/components/KnowledgeSourceSelector.vue';
 import ResponsiveTabNavigation from '../components/ResponsiveTabNavigation.vue';
+import VoiceCallActivity from './VoiceCallActivity.vue';
 
 const TERMINAL_CALL_STATUSES = [
   'completed',
@@ -145,6 +146,7 @@ const teams = useMapGetter('teams/getTeams');
 const tabs = computed(() => [
   { label: t('VOICE_AI.TABS.AGENTS'), value: 'agents' },
   { label: t('VOICE_AI.TABS.TEST'), value: 'test' },
+  { label: t('VOICE_AI.TABS.CALLS'), value: 'calls' },
   { label: t('VOICE_AI.TABS.RECORDINGS'), value: 'recordings' },
   { label: t('VOICE_AI.TABS.USAGE'), value: 'usage' },
 ]);
@@ -1542,6 +1544,11 @@ onBeforeUnmount(() => {
             </div>
           </div>
         </section>
+
+        <VoiceCallActivity
+          v-if="activeTab === 'calls'"
+          :voice-agents="voiceAgents"
+        />
 
         <section
           v-if="activeTab === 'test'"
