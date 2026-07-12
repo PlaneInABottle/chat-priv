@@ -16,9 +16,19 @@ FactoryBot.define do
 
     trait :ready do
       status { :ready }
+      destination { 'instructions' }
       target_section { 'rules' }
       suggested_instruction { 'Do not promise an exact delivery date.' }
       reason { 'This is reusable delivery guidance.' }
+    end
+
+    trait :knowledge_ready do
+      status { :ready }
+      destination { 'knowledge' }
+      target_section { nil }
+      source_name { 'Returns policy' }
+      suggested_instruction { 'Returns are accepted within 14 days.' }
+      reason { 'This is a reusable business policy.' }
     end
   end
 end

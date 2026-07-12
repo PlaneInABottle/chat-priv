@@ -239,7 +239,7 @@
     "IMPROVE": {
       "EVALUATIONS": "Evaluations",
       "LEARNINGS": "Learnings",
-      "SAVE_DRAFT_FIRST": "Save or discard instruction changes first. Evaluations and learnings use the saved draft."
+      "SAVE_DRAFT_FIRST": "Save or discard instruction changes before running evaluations or applying instruction learnings. Reviewed facts can still be saved as shared knowledge."
     },
     "IMPROVEMENT_CREDITS": {
       "TITLE": "Improvement credits",
@@ -251,16 +251,22 @@
     },
     "LEARNING": {
       "TITLE": "Learning suggestions",
-      "DESCRIPTION": "Review reusable guidance proposed from human replies. Applying a suggestion changes only the saved draft.",
+      "DESCRIPTION": "Review reusable guidance proposed from human replies, then save it as behavior instructions or shared business knowledge.",
       "LOADING": "Loading learning suggestions...",
       "OPEN_CONVERSATION": "Open conversation",
       "CUSTOMER_MESSAGE": "Customer message",
       "HUMAN_ANSWER": "Human answer",
       "PROPOSED_INSTRUCTION": "Proposed instruction",
+      "PROPOSED_KNOWLEDGE": "Proposed knowledge",
+      "DESTINATION": "Save as",
+      "SOURCE_NAME": "Knowledge source name",
       "TARGET_SECTION": "Instruction section",
       "DISMISS": "Dismiss",
-      "APPLY_TO_DRAFT": "Apply to draft",
-      "APPLIED": "Instruction added to the assistant draft",
+      "APPLY_TO_DRAFT": "Apply to instructions",
+      "ADD_TO_KNOWLEDGE": "Add to shared knowledge",
+      "APPLIED": "Learning added to the assistant draft",
+      "ADDED_AS_KNOWLEDGE": "Added to shared knowledge: {name}",
+      "ADDED_AS_INSTRUCTION": "Added to assistant instructions",
       "DISMISSED": "Learning suggestion dismissed",
       "NO_OPEN": "No suggestions need review.",
       "HISTORY": "Reviewed suggestions ({count})",
@@ -283,6 +289,10 @@
         "RULES": "Rules and boundaries",
         "HANDOFF": "Human handoff",
         "ADDITIONAL": "Additional instructions"
+      },
+      "DESTINATIONS": {
+        "KNOWLEDGE": "Shared knowledge",
+        "INSTRUCTIONS": "Assistant instructions"
       },
       "CONFIRM_DISMISS": {
         "TITLE": "Dismiss this suggestion?",

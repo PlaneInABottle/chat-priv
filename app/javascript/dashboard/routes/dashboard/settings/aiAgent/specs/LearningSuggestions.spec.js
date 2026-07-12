@@ -32,7 +32,9 @@ vi.mock('dashboard/composables', () => ({
 const readySuggestion = {
   id: 8,
   status: 'ready',
+  destination: 'instructions',
   target_section: 'rules',
+  source_name: null,
   customer_message: 'Will it arrive Tuesday?',
   human_answer: 'Delivery timing depends on the destination.',
   suggested_instruction: 'Do not promise an exact delivery date.',
@@ -88,7 +90,12 @@ describe('LearningSuggestions.vue', () => {
     expect(wrapper.find('textarea').element.value).toBe(
       'Do not promise an exact delivery date.'
     );
-    expect(wrapper.find('select').element.value).toBe('rules');
+    expect(wrapper.find('[name="learning-destination-8"]').element.value).toBe(
+      'instructions'
+    );
+    expect(wrapper.find('[name="learning-section-8"]').element.value).toBe(
+      'rules'
+    );
     expect(wrapper.find('a').attributes('href')).toContain(
       '/app/accounts/51/conversations/12?messageId=44'
     );
@@ -107,7 +114,9 @@ describe('LearningSuggestions.vue', () => {
       .setValue(
         'Never promise a delivery date before checking the destination.'
       );
-    await wrapper.find('select').setValue('business_context');
+    await wrapper
+      .find('[name="learning-section-8"]')
+      .setValue('business_context');
     const applyButton = wrapper
       .findAll('button')
       .find(button =>
@@ -119,11 +128,74 @@ describe('LearningSuggestions.vue', () => {
     expect(apiMocks.applySuggestion).toHaveBeenCalledWith(8, {
       suggested_instruction:
         'Never promise a delivery date before checking the destination.',
+      destination: 'instructions',
       target_section: 'business_context',
+      source_name: '',
     });
     expect(refresh).toHaveBeenCalledOnce();
     expect(wrapper.emitted('draftUpdated')).toHaveLength(1);
     expect(wrapper.text()).toContain('Reviewed suggestions (1)');
+  });
+
+  it('applies reviewed facts without overwriting unsaved instructions', async () => {
+    const knowledgeSuggestion = {
+      ...readySuggestion,
+      destination: 'knowledge',
+      target_section: null,
+      source_name: 'Returns policy',
+      suggested_instruction: 'Returns are accepted within 14 days.',
+    };
+    apiMocks.get.mockResolvedValue({ data: [knowledgeSuggestion] });
+    apiMocks.applySuggestion.mockResolvedValue({
+      data: {
+        ...knowledgeSuggestion,
+        status: 'applied',
+        ai_knowledge_source_id: 19,
+      },
+    });
+    const { wrapper, refresh } = mountComponent({
+      hasUnsavedInstructions: true,
+    });
+    await flushPromises();
+
+    await wrapper
+      .find('[name="learning-source-name-8"]')
+      .setValue('Returns and exchanges');
+    const applyButton = wrapper
+      .findAll('button')
+      .find(button =>
+        button.text().includes('AI_ASSISTANT.LEARNING.ADD_TO_KNOWLEDGE')
+      );
+    await applyButton.trigger('click');
+    await flushPromises();
+
+    expect(apiMocks.applySuggestion).toHaveBeenCalledWith(8, {
+      suggested_instruction: 'Returns are accepted within 14 days.',
+      destination: 'knowledge',
+      target_section: null,
+      source_name: 'Returns and exchanges',
+    });
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it('selects a valid section when changing knowledge to instructions', async () => {
+    const knowledgeSuggestion = {
+      ...readySuggestion,
+      destination: 'knowledge',
+      target_section: null,
+      source_name: 'Delivery policy',
+    };
+    apiMocks.get.mockResolvedValue({ data: [knowledgeSuggestion] });
+    const { wrapper } = mountComponent();
+    await flushPromises();
+
+    await wrapper
+      .find('[name="learning-destination-8"]')
+      .setValue('instructions');
+
+    expect(wrapper.find('[name="learning-section-8"]').element.value).toBe(
+      'additional'
+    );
   });
 
   it('does not overwrite unsaved instruction edits', async () => {

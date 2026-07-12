@@ -3,11 +3,13 @@
 class AiAgents::LearningSuggestionApplier
   class InvalidSuggestion < StandardError; end
 
-  def initialize(suggestion:, reviewer:, instruction:, target_section:)
+  def initialize(suggestion:, reviewer:, review:)
     @suggestion = suggestion
     @reviewer = reviewer
-    @instruction = instruction.to_s.strip
-    @target_section = target_section.to_s
+    @instruction = review[:instruction].to_s.strip
+    @destination = (review[:destination].presence || suggestion.destination).to_s
+    @target_section = (review[:target_section].presence || suggestion.target_section).to_s
+    @source_name = (review[:source_name].presence || suggestion.source_name).to_s.strip
   end
 
   def perform
@@ -18,11 +20,14 @@ class AiAgents::LearningSuggestionApplier
       raise InvalidSuggestion, 'Only ready suggestions can be applied.' unless suggestion.ready?
 
       ai_agent.lock!
-      apply_to_draft!
+      apply_improvement!
       suggestion.update!(
         status: :applied,
         suggested_instruction: instruction,
-        target_section: target_section,
+        destination: destination,
+        target_section: destination == 'instructions' ? target_section : nil,
+        source_name: destination == 'knowledge' ? source_name : nil,
+        ai_knowledge_source: knowledge_source,
         reviewed_by: reviewer,
         reviewed_at: Time.current,
         applied_at: Time.current
@@ -34,15 +39,39 @@ class AiAgents::LearningSuggestionApplier
 
   private
 
-  attr_reader :suggestion, :reviewer, :instruction, :target_section
+  attr_reader :suggestion, :reviewer, :instruction, :destination, :target_section, :source_name, :knowledge_source
 
   delegate :ai_agent, to: :suggestion
 
   def validate_review!
     raise InvalidSuggestion, 'Instruction cannot be blank.' if instruction.blank?
+    raise InvalidSuggestion, 'Choose where to save this learning.' unless AiAgentLearningSuggestion::DESTINATIONS.include?(destination)
+    return validate_knowledge_review! if destination == 'knowledge'
     return if AiAgentLearningSuggestion::TARGET_SECTIONS.include?(target_section)
 
     raise InvalidSuggestion, 'Choose a valid instruction section.'
+  end
+
+  def validate_knowledge_review!
+    raise InvalidSuggestion, 'Knowledge source name cannot be blank.' if source_name.blank?
+    raise InvalidSuggestion, 'Knowledge source name is too long.' if source_name.length > 120
+  end
+
+  def apply_improvement!
+    destination == 'knowledge' ? apply_to_knowledge! : apply_to_draft!
+  end
+
+  def apply_to_knowledge!
+    @knowledge_source = suggestion.account.ai_knowledge_sources.create!(
+      name: source_name,
+      source_type: 'manual',
+      content: instruction
+    )
+    AiKnowledgeSourceAssignment.create!(
+      account: suggestion.account,
+      assistant: ai_agent,
+      ai_knowledge_source: knowledge_source
+    )
   end
 
   def apply_to_draft!

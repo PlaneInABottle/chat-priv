@@ -42,8 +42,11 @@ RSpec.describe AiAgents::LearningSuggestionApplier do
     described_class.new(
       suggestion: suggestion,
       reviewer: reviewer,
-      instruction: 'Do not promise an exact delivery date.',
-      target_section: 'rules'
+      review: {
+        instruction: 'Do not promise an exact delivery date.',
+        destination: 'instructions',
+        target_section: 'rules'
+      }
     ).perform
 
     ai_agent.reload
@@ -69,9 +72,43 @@ RSpec.describe AiAgents::LearningSuggestionApplier do
       described_class.new(
         suggestion: suggestion,
         reviewer: reviewer,
-        instruction: 'Do not promise an exact delivery date.',
-        target_section: 'rules'
+        review: {
+          instruction: 'Do not promise an exact delivery date.',
+          destination: 'instructions',
+          target_section: 'rules'
+        }
       ).perform
     end.to raise_error(described_class::InvalidSuggestion, /Only ready/)
+  end
+
+  it 'creates and selects reviewed shared knowledge without changing the live release' do
+    knowledge_suggestion = create(
+      :ai_agent_learning_suggestion,
+      :knowledge_ready,
+      account: account,
+      ai_agent: ai_agent
+    )
+
+    described_class.new(
+      suggestion: knowledge_suggestion,
+      reviewer: reviewer,
+      review: {
+        instruction: 'Returns are accepted within 14 days of delivery.',
+        destination: 'knowledge',
+        source_name: 'Returns policy'
+      }
+    ).perform
+
+    source = account.ai_knowledge_sources.find_by!(name: 'Returns policy')
+    expect(source).to have_attributes(source_type: 'manual', content: 'Returns are accepted within 14 days of delivery.')
+    expect(ai_agent.reload.knowledge_sources).to include(source)
+    expect(ai_agent.live_prompt).to eq('LIVE INSTRUCTIONS')
+    expect(ai_agent.current_release).to be_nil
+    expect(knowledge_suggestion.reload).to have_attributes(
+      status: 'applied',
+      destination: 'knowledge',
+      ai_knowledge_source: source,
+      reviewed_by: reviewer
+    )
   end
 end

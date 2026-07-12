@@ -43,6 +43,7 @@
 #
 class AiAgentLearningSuggestion < ApplicationRecord
   TARGET_SECTIONS = %w[business_context tasks rules handoff additional].freeze
+  DESTINATIONS = %w[instructions knowledge].freeze
 
   enum status: {
     pending: 0,
@@ -60,10 +61,13 @@ class AiAgentLearningSuggestion < ApplicationRecord
   belongs_to :source_message, class_name: 'Message', optional: true
   belongs_to :submitted_by, class_name: 'User', optional: true
   belongs_to :reviewed_by, class_name: 'User', optional: true
+  belongs_to :ai_knowledge_source, optional: true
 
   validates :status, :customer_message, :human_answer, presence: true
   validates :customer_message, :human_answer, length: { maximum: 10_000 }
   validates :suggested_instruction, length: { maximum: 5_000 }
+  validates :destination, inclusion: { in: DESTINATIONS }
+  validates :source_name, length: { maximum: 120 }, allow_nil: true
   validates :target_section, inclusion: { in: TARGET_SECTIONS }, allow_nil: true
   validate :review_content_present, if: -> { ready? || applied? }
   validate :records_belong_to_account
@@ -75,11 +79,12 @@ class AiAgentLearningSuggestion < ApplicationRecord
 
   def review_content_present
     errors.add(:suggested_instruction, "can't be blank") if suggested_instruction.blank?
-    errors.add(:target_section, "can't be blank") if target_section.blank?
+    errors.add(:target_section, "can't be blank") if destination == 'instructions' && target_section.blank?
+    errors.add(:source_name, "can't be blank") if destination == 'knowledge' && source_name.blank?
   end
 
   def records_belong_to_account
-    linked_records = [ai_agent, conversation, source_message].compact
+    linked_records = [ai_agent, conversation, source_message, ai_knowledge_source].compact
     return if account.blank? || linked_records.all? { |record| record.account_id == account_id }
 
     errors.add(:account, 'must own all linked records')
