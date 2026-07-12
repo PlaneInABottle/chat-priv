@@ -8,10 +8,12 @@ import { conversationUrl, frontendURL } from 'dashboard/helper/URLHelper';
 
 import AiAgentLearningSuggestionsAPI from 'dashboard/api/aiAgentLearningSuggestions';
 import Button from 'dashboard/components-next/button/Button.vue';
+import Switch from 'dashboard/components-next/switch/Switch.vue';
 
 const props = defineProps({
   aiAgentId: { type: Number, required: true },
   hasUnsavedInstructions: { type: Boolean, default: false },
+  autoLearningEnabled: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['draftUpdated']);
@@ -23,6 +25,7 @@ const reviewDrafts = ref({});
 const isLoading = ref(false);
 const applyingId = ref(null);
 const dismissingId = ref(null);
+const isUpdatingAutoLearning = ref(false);
 const confirmDialog = ref(null);
 let pollTimer;
 
@@ -143,6 +146,30 @@ const replaceSuggestion = suggestion => {
   if (index >= 0) suggestions.value.splice(index, 1, suggestion);
 };
 
+const updateAutoLearning = async enabled => {
+  if (isUpdatingAutoLearning.value) return;
+
+  isUpdatingAutoLearning.value = true;
+  try {
+    const response = await store.dispatch('aiAgent/update', {
+      id: props.aiAgentId,
+      data: { auto_learning_enabled: enabled },
+    });
+    if (response?.error) {
+      useAlert(response.error);
+      return;
+    }
+
+    useAlert(
+      enabled
+        ? t('AI_ASSISTANT.LEARNING.AUTO_CAPTURE.ENABLED')
+        : t('AI_ASSISTANT.LEARNING.AUTO_CAPTURE.DISABLED')
+    );
+  } finally {
+    isUpdatingAutoLearning.value = false;
+  }
+};
+
 const applySuggestion = async suggestion => {
   const draft = reviewDrafts.value[suggestion.id];
   if (!canApplySuggestion(suggestion)) return;
@@ -257,6 +284,24 @@ onBeforeUnmount(() => window.clearTimeout(pollTimer));
       <p class="mb-0 mt-1 max-w-2xl text-sm text-n-slate-11">
         {{ t('AI_ASSISTANT.LEARNING.DESCRIPTION') }}
       </p>
+      <div
+        class="mt-4 flex items-start justify-between gap-4 border-t border-n-weak pt-4"
+      >
+        <div class="min-w-0">
+          <h3 class="m-0 text-sm font-medium text-n-slate-12">
+            {{ t('AI_ASSISTANT.LEARNING.AUTO_CAPTURE.TITLE') }}
+          </h3>
+          <p class="mb-0 mt-1 max-w-2xl text-sm text-n-slate-10">
+            {{ t('AI_ASSISTANT.LEARNING.AUTO_CAPTURE.DESCRIPTION') }}
+          </p>
+        </div>
+        <Switch
+          :model-value="autoLearningEnabled"
+          :disabled="isUpdatingAutoLearning"
+          :aria-label="t('AI_ASSISTANT.LEARNING.AUTO_CAPTURE.TITLE')"
+          @update:model-value="updateAutoLearning"
+        />
+      </div>
     </header>
 
     <div v-if="isLoading" class="py-12 text-center text-sm text-n-slate-10">

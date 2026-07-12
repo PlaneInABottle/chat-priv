@@ -206,7 +206,12 @@ const mountComponent = options => {
           name: 'ImproveWorkspace',
           template:
             '<button class="improve-workspace" @click="$emit(\'draftUpdated\')">{{ mode }}</button>',
-          props: ['aiAgentId', 'mode', 'hasUnsavedInstructions'],
+          props: [
+            'aiAgentId',
+            'mode',
+            'hasUnsavedInstructions',
+            'autoLearningEnabled',
+          ],
           emits: ['draftUpdated'],
         },
         TabBar: {

@@ -982,6 +982,7 @@ watch(agentId, async (newAgentId, oldAgentId) => {
           :ai-agent-id="agentId"
           :mode="improveMode"
           :has-unsaved-instructions="isInstructionsDirty"
+          :auto-learning-enabled="Boolean(aiAgent?.auto_learning_enabled)"
           @draft-updated="refreshAfterLearningApplied"
         />
       </div>

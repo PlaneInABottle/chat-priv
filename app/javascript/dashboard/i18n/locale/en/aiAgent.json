@@ -267,6 +267,12 @@
       "APPLIED": "Learning added to the assistant draft",
       "ADDED_AS_KNOWLEDGE": "Added to shared knowledge: {name}",
       "ADDED_AS_INSTRUCTION": "Added to assistant instructions",
+      "AUTO_CAPTURE": {
+        "TITLE": "Review resolved handoffs",
+        "DESCRIPTION": "After an AI handoff is resolved, analyze the final public human reply for reusable guidance. Each analysis uses improvement credits, and nothing changes until you approve it.",
+        "ENABLED": "Resolved handoffs will now be reviewed for learnings",
+        "DISABLED": "Automatic handoff review disabled"
+      },
       "DISMISSED": "Learning suggestion dismissed",
       "NO_OPEN": "No suggestions need review.",
       "HISTORY": "Reviewed suggestions ({count})",

@@ -11,6 +11,7 @@ import LearningSuggestions from './LearningSuggestions.vue';
 const props = defineProps({
   aiAgentId: { type: Number, required: true },
   hasUnsavedInstructions: { type: Boolean, default: false },
+  autoLearningEnabled: { type: Boolean, default: false },
   mode: {
     type: String,
     required: true,
@@ -91,6 +92,7 @@ const handleImprovementUsageLoaded = usage => {
       v-else
       :ai-agent-id="aiAgentId"
       :has-unsaved-instructions="hasUnsavedInstructions"
+      :auto-learning-enabled="autoLearningEnabled"
       @draft-updated="emit('draftUpdated')"
     />
   </div>
