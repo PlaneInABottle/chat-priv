@@ -11,6 +11,9 @@ RSpec.describe AiAgents::EvaluationRunner do
       ai_agent: ai_agent,
       prompt_snapshot: ai_agent.prompt,
       config_snapshot: {},
+      knowledge_snapshot: [
+        { 'id' => 14, 'name' => 'Returns', 'content' => 'Returns are accepted within 14 days.' }
+      ],
       draft_fingerprint: ai_agent.draft_fingerprint
     )
   end
@@ -40,7 +43,13 @@ RSpec.describe AiAgents::EvaluationRunner do
     described_class.new(run: run).perform
 
     expect(AiAgents::Orchestrator).to have_received(:new).with(
-      hash_including(prompt_override: 'Draft prompt', config_override: {})
+      hash_including(
+        prompt_override: 'Draft prompt',
+        config_override: {},
+        knowledge_sources_override: [
+          { 'id' => 14, 'name' => 'Returns', 'content' => 'Returns are accepted within 14 days.' }
+        ]
+      )
     )
     expect(run.reload).to have_attributes(status: 'completed', passed_count: 1)
     expect(result.reload).to have_attributes(

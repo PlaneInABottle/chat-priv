@@ -11,6 +11,7 @@ class AiAgents::ToolExecutor
     @config = AiAgents::Config.new(context[:config] || ai_agent.config, allow_legacy_human_handoff_settings: true)
     @conversation = context[:conversation]
     @trigger_message = context[:trigger_message]
+    @knowledge_sources = Array(context[:knowledge_sources]).map { |source| source.to_h.deep_stringify_keys }
   end
 
   def execute(tool_call)
@@ -39,7 +40,7 @@ class AiAgents::ToolExecutor
 
   private
 
-  attr_reader :ai_agent, :account, :mode, :executed_tool_keys, :config, :conversation, :trigger_message
+  attr_reader :ai_agent, :account, :mode, :executed_tool_keys, :config, :conversation, :trigger_message, :knowledge_sources
 
   def tool_execution_logger
     @tool_execution_logger ||= AiAgents::ToolExecutionLogger.new(
@@ -53,28 +54,36 @@ class AiAgents::ToolExecutor
 
   def rejection_code_for(definition)
     return 'unknown_tool' unless definition
-    return 'tool_not_enabled' unless config.enabled_tool?(definition.key)
+    return 'tool_not_enabled' unless tool_enabled?(definition.key)
     return 'tool_not_allowed_in_mode' unless mode_supported?(definition)
     return 'duplicate_tool_execution' if duplicate_tool_execution?(definition)
 
     validate_integration_gate(definition)
   end
 
+  def tool_enabled?(tool_key)
+    return knowledge_sources.present? if tool_key == AiAgents::Config::KNOWLEDGE_SEARCH_TOOL
+
+    config.enabled_tool?(tool_key)
+  end
+
   def duplicate_tool_execution?(definition)
-    return false if definition.key == AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL
+    return false if definition.key.in?([AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL, AiAgents::Config::KNOWLEDGE_SEARCH_TOOL])
 
     executed_tool_keys.include?(definition.key)
   end
 
   def service_for(definition)
-    definition.service_class.constantize.new(
+    context = {
       ai_agent: ai_agent,
       account: account,
       mode: mode,
       settings: config.tool_settings(definition.key),
       conversation: conversation,
       trigger_message: trigger_message
-    )
+    }
+    context[:knowledge_sources] = knowledge_sources if definition.key == AiAgents::Config::KNOWLEDGE_SEARCH_TOOL
+    definition.service_class.constantize.new(**context)
   end
 
   def log_payload(tool_result, args, started_at, definition)

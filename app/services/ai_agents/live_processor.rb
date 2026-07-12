@@ -80,8 +80,13 @@ class AiAgents::LiveProcessor
       trigger_message: message,
       adapter: adapter,
       prompt_override: pinned_release&.prompt,
-      config_override: pinned_release&.config
+      config_override: pinned_release&.config,
+      knowledge_sources_override: pinned_knowledge_sources
     ).perform
+  end
+
+  def pinned_knowledge_sources
+    Array(pinned_release&.snapshot&.to_h&.fetch('knowledge_sources', []))
   end
 
   def recent_messages
@@ -132,12 +137,14 @@ class AiAgents::LiveProcessor
 
   def assistant_message_content_attributes(assistant_message)
     telemetry = assistant_message['turn_telemetry'] || assistant_message[:turn_telemetry]
-    return {} if telemetry.blank?
+    source_attributions = assistant_message['source_attributions'] || assistant_message[:source_attributions]
+    return {} if telemetry.blank? && source_attributions.blank?
 
     {
       ai_agent: {
-        turn_telemetry: telemetry
-      }
+        turn_telemetry: telemetry,
+        source_attributions: source_attributions
+      }.compact
     }
   end
 

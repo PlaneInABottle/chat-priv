@@ -35,7 +35,7 @@ class VoiceAgents::ToolExecutor
 
   def rejection_code_for(definition)
     return 'unknown_tool' unless definition
-    return 'tool_not_enabled' unless config.enabled_tool?(definition.key)
+    return 'tool_not_enabled' unless tool_enabled?(definition.key)
     return 'voice_agent_disabled' unless voice_agent.enabled? || call.test_call?
 
     validate_integration_gate(definition)
@@ -53,14 +53,16 @@ class VoiceAgents::ToolExecutor
   end
 
   def execute_integration_tool(definition)
-    definition.service_class.constantize.new(
+    context = {
       ai_agent: voice_agent,
       account: call.account,
       mode: call.test_call? ? :test : :live,
       settings: config.tool_settings(definition.key),
       conversation: call.conversation,
       trigger_message: nil
-    ).call(args: args)
+    }
+    context[:knowledge_sources] = runtime_knowledge_sources if definition.key == VoiceAgents::Config::KNOWLEDGE_SEARCH_TOOL
+    definition.service_class.constantize.new(**context).call(args: args)
   end
 
   def request_handoff
@@ -149,7 +151,32 @@ class VoiceAgents::ToolExecutor
   end
 
   def config
-    @config ||= VoiceAgents::Config.new(voice_agent.tools_config)
+    @config ||= VoiceAgents::Config.new(runtime_snapshot['tools_config'])
+  end
+
+  def tool_enabled?(key)
+    return runtime_knowledge_sources.present? if key == VoiceAgents::Config::KNOWLEDGE_SEARCH_TOOL
+
+    config.enabled_tool?(key)
+  end
+
+  def runtime_knowledge_sources
+    @runtime_knowledge_sources ||= Array(runtime_snapshot['knowledge_sources'])
+  end
+
+  def runtime_snapshot
+    @runtime_snapshot ||= begin
+      release = resolved_release
+      release&.snapshot&.deep_stringify_keys || VoiceAgents::ReleaseSnapshot.for(voice_agent)
+    end
+  end
+
+  def resolved_release
+    return if call.test_call?
+
+    release = call.voice_agent_release || voice_agent.current_release
+    call.update!(voice_agent_release: release) if release && call.voice_agent_release_id != release.id
+    release
   end
 
   def voice_setting

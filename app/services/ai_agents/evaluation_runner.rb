@@ -38,6 +38,7 @@ class AiAgents::EvaluationRunner
       mode: :test,
       prompt_override: run.prompt_snapshot,
       config_override: run.config_snapshot,
+      knowledge_sources_override: run.knowledge_snapshot,
       improvement_operation: 'evaluation'
     ).perform
   end

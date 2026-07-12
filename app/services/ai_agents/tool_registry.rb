@@ -100,8 +100,32 @@ class AiAgents::ToolRegistry
     additionalProperties: false
   }.freeze
 
+  KNOWLEDGE_SEARCH_DESCRIPTION = [
+    'Search the assistant selected verified knowledge sources before answering business facts, policies, services, or support questions.',
+    'Use a short query with the important customer terms and relevant synonyms.',
+    'Treat returned excerpts as the only verified evidence for the answer.'
+  ].join(' ').freeze
+
+  KNOWLEDGE_SEARCH_INPUT_SCHEMA = {
+    type: 'object',
+    properties: {
+      query: {
+        type: 'string',
+        maxLength: AiKnowledgeSources::Retriever::MAX_QUERY_LENGTH,
+        description: 'A concise search query using the important customer terms and useful synonyms.'
+      },
+      limit: { type: 'integer', minimum: 1, maximum: AiKnowledgeSources::Retriever::MAX_LIMIT, default: 3 }
+    },
+    required: ['query'],
+    additionalProperties: false
+  }.freeze
+
   def self.available_definitions
     @available_definitions ||= [human_handoff_definition, ikas_lookup_order_definition, ikas_catalog_search_definition]
+  end
+
+  def self.runtime_definitions
+    @runtime_definitions ||= [*available_definitions, knowledge_search_definition]
   end
 
   def self.keys
@@ -109,7 +133,7 @@ class AiAgents::ToolRegistry
   end
 
   def self.find(tool_key)
-    available_definitions.find { |definition| definition.key == tool_key.to_s }
+    runtime_definitions.find { |definition| definition.key == tool_key.to_s || definition.name == tool_key.to_s }
   end
 
   def self.human_handoff_definition
@@ -148,6 +172,19 @@ class AiAgents::ToolRegistry
       requires_integration_app_id: Integrations::Ikas::ConnectionStatus::IKAS_APP_ID,
       terminal: false,
       service_class: 'AiAgents::Tools::IkasCatalogSearchService'
+    )
+  end
+
+  def self.knowledge_search_definition
+    Definition.new(
+      key: AiAgents::Config::KNOWLEDGE_SEARCH_TOOL,
+      name: AiAgents::Config::KNOWLEDGE_SEARCH_TOOL,
+      description: KNOWLEDGE_SEARCH_DESCRIPTION,
+      input_schema: KNOWLEDGE_SEARCH_INPUT_SCHEMA,
+      mode_support: 'both',
+      requires_integration_app_id: nil,
+      terminal: false,
+      service_class: 'AiAgents::Tools::KnowledgeSearchService'
     )
   end
 end

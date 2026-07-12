@@ -109,5 +109,35 @@ RSpec.describe VoiceAgents::ToolExecutor do
         }
       )
     end
+
+    it 'searches the knowledge frozen in the call release instead of the current draft' do
+      source = create(
+        :ai_knowledge_source,
+        account: account,
+        name: 'Returns and exchanges',
+        content: 'Custom-sized products are reviewed for return within 14 days.'
+      )
+      AiKnowledgeSourceAssignment.create!(assistant: voice_agent, ai_knowledge_source: source)
+      release = create(:voice_agent_release, voice_agent: voice_agent)
+      voice_agent.update!(current_release: release)
+      source.update!(content: 'Unpublished draft now says 30 days.')
+
+      result = described_class.perform!(
+        call: call,
+        voice_agent: voice_agent,
+        tool_key: VoiceAgents::Config::KNOWLEDGE_SEARCH_TOOL,
+        args: { query: 'custom product return within 14 days' },
+        external_id: 'tool-knowledge'
+      )
+
+      expect(result[:status]).to eq('executed')
+      expect(result.dig(:result, :matches, 0, :excerpt)).to include('within 14 days')
+      expect(result.dig(:result, :matches, 0, :excerpt)).not_to include('30 days')
+      expect(call.reload.voice_agent_release).to eq(release)
+      expect(call.voice_tool_events.find_by!(external_id: 'tool-knowledge')).to have_attributes(
+        tool: VoiceAgents::Config::KNOWLEDGE_SEARCH_TOOL,
+        status: 'executed'
+      )
+    end
   end
 end

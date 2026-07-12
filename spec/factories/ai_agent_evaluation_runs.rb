@@ -5,6 +5,7 @@ FactoryBot.define do
     status { :pending }
     prompt_snapshot { ai_agent.prompt }
     config_snapshot { {} }
+    knowledge_snapshot { [] }
     draft_fingerprint { ai_agent.draft_fingerprint }
     total_count { 1 }
 

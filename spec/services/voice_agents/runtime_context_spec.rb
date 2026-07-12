@@ -107,5 +107,26 @@ RSpec.describe VoiceAgents::RuntimeContext do
       expect(test_payload.dig(:call, :voice_agent_release_id)).to be_nil
       expect(test_payload.dig(:call, :test_duration_limit_seconds)).to eq(20)
     end
+
+    it 'adds knowledge search automatically when the runtime snapshot has sources' do
+      setting = create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: voice_agent)
+      source = create(:ai_knowledge_source, account: account, name: 'Returns')
+      AiKnowledgeSourceAssignment.create!(assistant: voice_agent, ai_knowledge_source: source)
+      call = create(
+        :call,
+        account: account,
+        inbox: inbox,
+        conversation: nil,
+        contact: nil,
+        provider: :livekit,
+        provider_call_id: 'room-knowledge',
+        meta: { 'voice_inbox_setting_id' => setting.id, 'test_call' => true }
+      )
+
+      payload = described_class.new(call: call).payload
+
+      expect(payload[:tools].pluck(:name)).to include('search_knowledge')
+      expect(payload[:instructions]).to include('Shared knowledge rules:')
+    end
   end
 end

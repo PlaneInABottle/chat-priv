@@ -43,6 +43,7 @@ class Api::V1::Accounts::AiAgentEvaluationRunsController < Api::V1::Accounts::Ba
         status: :pending,
         prompt_snapshot: @ai_agent.prompt,
         config_snapshot: runtime_config_snapshot,
+        knowledge_snapshot: AiKnowledgeSources::Snapshot.for(@ai_agent),
         draft_fingerprint: @ai_agent.draft_fingerprint,
         total_count: cases.length
       )

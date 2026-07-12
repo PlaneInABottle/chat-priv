@@ -109,4 +109,31 @@ describe('TestConversationChatPanel.vue', () => {
     expect(wrapper.text()).toContain('vip');
     expect(wrapper.text()).toContain('ignored');
   });
+
+  it('renders compact source attributions below assistant answers', () => {
+    const wrapper = mountComponent({
+      conversation: {
+        ...conversation,
+        messages: [
+          {
+            id: 'answer-1',
+            role: 'assistant',
+            content:
+              'Custom products can be reviewed for return within 14 days.',
+            source_attributions: [
+              { source_id: 4, source_name: 'Returns and exchanges' },
+              { source_id: 7, source_name: 'Custom order policy' },
+            ],
+          },
+        ],
+        messages_count: 1,
+      },
+    });
+
+    expect(wrapper.text()).toContain(
+      'AI_AGENT.TEST_CONVERSATIONS.SOURCES_USED'
+    );
+    expect(wrapper.text()).toContain('Returns and exchanges');
+    expect(wrapper.text()).toContain('Custom order policy');
+  });
 });

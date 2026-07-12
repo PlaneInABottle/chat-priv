@@ -162,6 +162,26 @@ const handleKeyup = event => {
             <template v-else>
               {{ msg.content }}
             </template>
+            <div
+              v-if="msg.role === 'assistant' && msg.source_attributions?.length"
+              class="flex flex-wrap items-center gap-1.5 mt-2 pt-2 border-t border-n-weak"
+            >
+              <Icon
+                icon="i-lucide-book-open"
+                class="size-3.5 text-n-slate-10"
+              />
+              <span class="text-xs text-n-slate-10">
+                {{ t('AI_AGENT.TEST_CONVERSATIONS.SOURCES_USED') }}
+              </span>
+              <span
+                v-for="source in msg.source_attributions"
+                :key="`${source.source_id}-${source.source_name}`"
+                class="max-w-full px-1.5 py-0.5 text-xs truncate rounded bg-n-alpha-black2 text-n-slate-11"
+                :title="source.source_name"
+              >
+                {{ source.source_name }}
+              </span>
+            </div>
           </div>
         </div>
 

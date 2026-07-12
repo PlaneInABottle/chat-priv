@@ -69,6 +69,9 @@ RSpec.describe 'AI Agent Evaluations API', type: :request do
     end
 
     it 'snapshots the current draft and enqueues a run' do
+      source = create(:ai_knowledge_source, account: account, name: 'Returns')
+      AiKnowledgeSourceAssignment.create!(assistant: ai_agent, ai_knowledge_source: source)
+
       expect do
         post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/evaluation_runs",
              headers: administrator.create_new_auth_token,
@@ -90,6 +93,9 @@ RSpec.describe 'AI Agent Evaluations API', type: :request do
       expect(AiAgentEvaluationRun.last).to have_attributes(
         prompt_snapshot: 'Current draft',
         draft_fingerprint: ai_agent.draft_fingerprint
+      )
+      expect(AiAgentEvaluationRun.last.knowledge_snapshot).to contain_exactly(
+        include('id' => source.id, 'name' => 'Returns', 'content' => source.content)
       )
     end
 
