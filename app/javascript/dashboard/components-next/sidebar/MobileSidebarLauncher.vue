@@ -49,7 +49,7 @@ const sidebarActionLabel = computed(() => {
   <div
     v-if="!isConversationRoute"
     id="mobile-sidebar-launcher"
-    class="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] ltr:left-4 rtl:right-4 z-40 transition-transform duration-200 ease-out block md:hidden"
+    class="fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom))] ltr:left-3 rtl:right-3 z-40 transition-transform duration-200 ease-out block md:hidden"
     :class="[
       {
         'ltr:translate-x-48 rtl:-translate-x-48': isMobileSidebarOpen,
@@ -57,14 +57,14 @@ const sidebarActionLabel = computed(() => {
     ]"
   >
     <ButtonGroup
-      class="rounded-full bg-n-alpha-2 backdrop-blur-lg p-1 shadow hover:shadow-md"
+      class="rounded-full bg-n-alpha-2 backdrop-blur-lg p-0.5 shadow-sm hover:shadow"
     >
       <Button
         icon="i-lucide-menu"
         :aria-label="sidebarActionLabel"
         no-animation
         class="!rounded-full !bg-n-solid-3 dark:!bg-n-alpha-2 !text-n-slate-12 text-xl transition-colors duration-200 ease-out hover:brightness-110"
-        lg
+        size="md"
         @click="toggleSidebar"
       />
     </ButtonGroup>

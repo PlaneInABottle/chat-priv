@@ -1708,7 +1708,7 @@ onBeforeUnmount(() => {
               <p class="mb-0 mt-1 truncate text-sm text-n-slate-11">
                 {{
                   hasCall
-                    ? currentCall.livekit_room_name
+                    ? selectedVoiceAgent?.name
                     : t('VOICE_AI.SESSION.NOT_STARTED')
                 }}
               </p>
@@ -1725,9 +1725,17 @@ onBeforeUnmount(() => {
                 {{ t('VOICE_AI.SESSION.BROWSER_STATUS') }}
               </dt>
               <dd class="text-n-slate-12">{{ sessionStatusLabel }}</dd>
-              <dt class="text-n-slate-11">{{ t('VOICE_AI.SESSION.ROOM') }}</dt>
+              <dt class="text-n-slate-11">
+                {{ t('VOICE_AI.SESSION.ASSISTANT') }}
+              </dt>
               <dd class="truncate text-n-slate-12">
-                {{ currentCall?.livekit_room_name || '-' }}
+                {{ selectedVoiceAgent?.name || '-' }}
+              </dd>
+              <dt class="text-n-slate-11">
+                {{ t('VOICE_AI.SESSION.INBOX') }}
+              </dt>
+              <dd class="truncate text-n-slate-12">
+                {{ selectedTestInboxSetting?.inbox_name || '-' }}
               </dd>
             </dl>
 
@@ -1886,14 +1894,11 @@ onBeforeUnmount(() => {
                   </details>
                 </template>
                 <template v-else>
-                  <div class="mb-1 flex items-center justify-between gap-3">
+                  <div class="mb-1 flex items-center gap-3">
                     <span
                       class="text-sm font-medium text-n-slate-12 capitalize"
                     >
                       {{ item.role }}
-                    </span>
-                    <span class="text-xs text-n-slate-10">
-                      {{ item.source }}
                     </span>
                   </div>
                   <p class="mb-0 whitespace-pre-wrap text-sm text-n-slate-12">
