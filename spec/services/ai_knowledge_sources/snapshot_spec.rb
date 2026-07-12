@@ -29,6 +29,14 @@ RSpec.describe AiKnowledgeSources::Snapshot do
     expect(AiAgents::ReleaseSnapshot.fingerprint(AiAgents::ReleaseSnapshot.for(assistant))).not_to eq(release_fingerprint)
   end
 
+  it 'omits website sources until they have readable synced content' do
+    assistant = create(:ai_agent)
+    source = create(:ai_knowledge_source, :website, account: assistant.account)
+    AiKnowledgeSources::AssignmentSync.new(assistant: assistant, source_ids: [source.id]).perform
+
+    expect(described_class.for(assistant)).to eq([])
+  end
+
   it 'does not mark a newer source revision as tested' do
     assistant = create(:ai_agent, prompt: 'Answer from verified sources.')
     source = create(:ai_knowledge_source, account: assistant.account, content: 'Original policy')

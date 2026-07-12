@@ -22,22 +22,53 @@
 #  fk_rails_...  (account_id => accounts.id) ON DELETE => cascade
 #
 class AiKnowledgeSource < ApplicationRecord
-  SOURCE_TYPES = %w[manual].freeze
+  SOURCE_TYPES = %w[manual website].freeze
   MAX_CONTENT_LENGTH = 100_000
+
+  enum :sync_status, { not_applicable: 0, pending: 1, syncing: 2, ready: 3, failed: 4 }, prefix: :sync
 
   belongs_to :account
   has_many :assignments, class_name: 'AiKnowledgeSourceAssignment', dependent: :destroy
 
   validates :name, presence: true, length: { maximum: 120 }
   validates :source_type, presence: true, inclusion: { in: SOURCE_TYPES }
-  validates :content, presence: true, length: { maximum: MAX_CONTENT_LENGTH }
+  validates :content, presence: true, if: :manual?
+  validates :content, length: { maximum: MAX_CONTENT_LENGTH }, allow_blank: true
+  validates :website_url, presence: true, if: :website?
 
-  before_validation :normalize_text
+  before_validation :normalize_attributes
+
+  def manual?
+    source_type == 'manual'
+  end
+
+  def website?
+    source_type == 'website'
+  end
+
+  def available?
+    content.present?
+  end
 
   private
 
-  def normalize_text
+  def normalize_attributes
     self.name = name.to_s.strip
     self.content = content.to_s.strip
+    normalize_source_type_attributes
+  end
+
+  def normalize_source_type_attributes
+    if website?
+      self.website_url = AiAgents::WebsiteCrawler.normalize_url(website_url) if website_url.present?
+      self.sync_status = :pending if new_record? && sync_not_applicable?
+    else
+      self.website_url = nil
+      self.source_urls = []
+      self.sync_status = :not_applicable
+      self.sync_error = nil
+    end
+  rescue AiAgents::WebsiteCrawler::InvalidWebsite => e
+    errors.add(:website_url, e.message)
   end
 end
