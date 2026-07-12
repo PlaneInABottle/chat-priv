@@ -36,7 +36,9 @@ class AiAgents::LearningSuggestionJob < ApplicationJob
       if result.useful
         suggestion.update!(
           status: :ready,
+          destination: result.destination,
           target_section: result.target_section,
+          source_name: result.source_name,
           suggested_instruction: result.instruction,
           reason: result.reason
         )

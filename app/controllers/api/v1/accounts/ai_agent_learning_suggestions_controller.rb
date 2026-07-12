@@ -16,8 +16,12 @@ class Api::V1::Accounts::AiAgentLearningSuggestionsController < Api::V1::Account
     AiAgents::LearningSuggestionApplier.new(
       suggestion: @learning_suggestion,
       reviewer: Current.user,
-      instruction: review_params[:suggested_instruction],
-      target_section: review_params[:target_section]
+      review: {
+        instruction: review_params[:suggested_instruction],
+        destination: review_params[:destination],
+        target_section: review_params[:target_section],
+        source_name: review_params[:source_name]
+      }
     ).perform
     render :show
   rescue AiAgents::LearningSuggestionApplier::InvalidSuggestion => e
@@ -46,7 +50,7 @@ class Api::V1::Accounts::AiAgentLearningSuggestionsController < Api::V1::Account
   end
 
   def review_params
-    params.permit(:suggested_instruction, :target_section)
+    params.permit(:suggested_instruction, :destination, :target_section, :source_name)
   end
 
   def render_applied_error

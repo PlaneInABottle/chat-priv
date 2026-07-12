@@ -1,7 +1,10 @@
 json.id learning_suggestion.id
 json.ai_agent_id learning_suggestion.ai_agent_id
 json.status learning_suggestion.status
+json.destination learning_suggestion.destination
 json.target_section learning_suggestion.target_section
+json.source_name learning_suggestion.source_name
+json.ai_knowledge_source_id learning_suggestion.ai_knowledge_source_id
 json.customer_message learning_suggestion.customer_message
 json.human_answer learning_suggestion.human_answer
 json.suggested_instruction learning_suggestion.suggested_instruction

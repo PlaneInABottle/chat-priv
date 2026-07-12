@@ -52,6 +52,16 @@ const sectionOptions = computed(() => [
     label: t('AI_ASSISTANT.LEARNING.SECTIONS.ADDITIONAL'),
   },
 ]);
+const destinationOptions = computed(() => [
+  {
+    value: 'knowledge',
+    label: t('AI_ASSISTANT.LEARNING.DESTINATIONS.KNOWLEDGE'),
+  },
+  {
+    value: 'instructions',
+    label: t('AI_ASSISTANT.LEARNING.DESTINATIONS.INSTRUCTIONS'),
+  },
+]);
 const activeSuggestions = computed(() =>
   suggestions.value.filter(item => activeStatuses.includes(item.status))
 );
@@ -70,8 +80,36 @@ const syncReviewDraft = suggestion => {
 
   reviewDrafts.value[suggestion.id] = {
     suggested_instruction: suggestion.suggested_instruction,
+    destination: suggestion.destination || 'instructions',
     target_section: suggestion.target_section,
+    source_name: suggestion.source_name || '',
   };
+};
+
+const isKnowledgeDraft = suggestion =>
+  reviewDrafts.value[suggestion.id]?.destination === 'knowledge';
+
+const updateDestination = (suggestion, destination) => {
+  const draft = reviewDrafts.value[suggestion.id];
+  draft.destination = destination;
+  if (destination === 'instructions' && !draft.target_section) {
+    draft.target_section = 'additional';
+  }
+};
+
+const canApplySuggestion = suggestion => {
+  const draft = reviewDrafts.value[suggestion.id];
+  if (!draft?.suggested_instruction.trim()) {
+    return false;
+  }
+
+  if (props.hasUnsavedInstructions && draft.destination === 'instructions') {
+    return false;
+  }
+
+  return draft.destination === 'knowledge'
+    ? Boolean(draft.source_name.trim())
+    : Boolean(draft.target_section);
 };
 
 const schedulePoll = () => {
@@ -106,23 +144,25 @@ const replaceSuggestion = suggestion => {
 };
 
 const applySuggestion = async suggestion => {
-  if (props.hasUnsavedInstructions) return;
-
   const draft = reviewDrafts.value[suggestion.id];
-  if (!draft?.suggested_instruction.trim() || !draft.target_section) return;
+  if (!canApplySuggestion(suggestion)) return;
 
   applyingId.value = suggestion.id;
   try {
     const response = await api.value.applySuggestion(suggestion.id, {
       suggested_instruction: draft.suggested_instruction.trim(),
+      destination: draft.destination,
       target_section: draft.target_section,
+      source_name: draft.source_name.trim(),
     });
     replaceSuggestion(response.data);
-    const refreshedAgent = await store.dispatch(
-      'aiAgent/refresh',
-      props.aiAgentId
-    );
-    if (refreshedAgent) emit('draftUpdated');
+    if (!props.hasUnsavedInstructions) {
+      const refreshedAgent = await store.dispatch(
+        'aiAgent/refresh',
+        props.aiAgentId
+      );
+      if (refreshedAgent) emit('draftUpdated');
+    }
     useAlert(t('AI_ASSISTANT.LEARNING.APPLIED'));
   } catch (error) {
     useAlert(
@@ -307,7 +347,11 @@ onBeforeUnmount(() => window.clearTimeout(pollTimer));
             <label
               class="flex min-w-0 flex-col gap-1.5 text-sm font-medium text-n-slate-12"
             >
-              {{ t('AI_ASSISTANT.LEARNING.PROPOSED_INSTRUCTION') }}
+              {{
+                isKnowledgeDraft(suggestion)
+                  ? t('AI_ASSISTANT.LEARNING.PROPOSED_KNOWLEDGE')
+                  : t('AI_ASSISTANT.LEARNING.PROPOSED_INSTRUCTION')
+              }}
               <textarea
                 v-model="reviewDrafts[suggestion.id].suggested_instruction"
                 :name="`learning-instruction-${suggestion.id}`"
@@ -317,27 +361,61 @@ onBeforeUnmount(() => window.clearTimeout(pollTimer));
                 class="min-h-28 resize-y rounded-lg border border-n-weak bg-n-alpha-1 px-3 py-2 font-normal outline-none focus-visible:border-n-brand focus-visible:ring-2 focus-visible:ring-n-brand/20"
               />
             </label>
-            <label
-              class="flex min-w-0 flex-col gap-1.5 text-sm font-medium text-n-slate-12"
-            >
-              {{ t('AI_ASSISTANT.LEARNING.TARGET_SECTION') }}
-              <select
-                v-model="reviewDrafts[suggestion.id].target_section"
-                :name="`learning-section-${suggestion.id}`"
-                class="h-10 rounded-lg border border-n-weak bg-n-alpha-1 px-3 font-normal outline-none focus-visible:border-n-brand focus-visible:ring-2 focus-visible:ring-n-brand/20"
+            <div class="flex min-w-0 flex-col gap-3">
+              <label
+                class="flex min-w-0 flex-col gap-1.5 text-sm font-medium text-n-slate-12"
               >
-                <option
-                  v-for="option in sectionOptions"
-                  :key="option.value"
-                  :value="option.value"
+                {{ t('AI_ASSISTANT.LEARNING.DESTINATION') }}
+                <select
+                  :value="reviewDrafts[suggestion.id].destination"
+                  :name="`learning-destination-${suggestion.id}`"
+                  class="h-10 rounded-lg border border-n-weak bg-n-alpha-1 px-3 font-normal outline-none focus-visible:border-n-brand focus-visible:ring-2 focus-visible:ring-n-brand/20"
+                  @change="updateDestination(suggestion, $event.target.value)"
                 >
-                  {{ option.label }}
-                </option>
-              </select>
+                  <option
+                    v-for="option in destinationOptions"
+                    :key="option.value"
+                    :value="option.value"
+                  >
+                    {{ option.label }}
+                  </option>
+                </select>
+              </label>
+              <label
+                v-if="isKnowledgeDraft(suggestion)"
+                class="flex min-w-0 flex-col gap-1.5 text-sm font-medium text-n-slate-12"
+              >
+                {{ t('AI_ASSISTANT.LEARNING.SOURCE_NAME') }}
+                <input
+                  v-model="reviewDrafts[suggestion.id].source_name"
+                  :name="`learning-source-name-${suggestion.id}`"
+                  maxlength="120"
+                  class="h-10 rounded-lg border border-n-weak bg-n-alpha-1 px-3 font-normal outline-none focus-visible:border-n-brand focus-visible:ring-2 focus-visible:ring-n-brand/20"
+                />
+              </label>
+              <label
+                v-else
+                class="flex min-w-0 flex-col gap-1.5 text-sm font-medium text-n-slate-12"
+              >
+                {{ t('AI_ASSISTANT.LEARNING.TARGET_SECTION') }}
+                <select
+                  v-model="reviewDrafts[suggestion.id].target_section"
+                  :name="`learning-section-${suggestion.id}`"
+                  class="h-10 rounded-lg border border-n-weak bg-n-alpha-1 px-3 font-normal outline-none focus-visible:border-n-brand focus-visible:ring-2 focus-visible:ring-n-brand/20"
+                >
+                  <option
+                    v-for="option in sectionOptions"
+                    :key="option.value"
+                    :value="option.value"
+                  >
+                    {{ option.label }}
+                  </option>
+                </select>
+              </label>
               <span class="font-normal text-n-slate-10">
                 {{ suggestion.reason }}
               </span>
-            </label>
+            </div>
           </div>
 
           <p
@@ -358,14 +436,18 @@ onBeforeUnmount(() => window.clearTimeout(pollTimer));
             />
             <Button
               v-if="suggestion.status === 'ready'"
-              icon="i-lucide-file-plus-2"
-              :label="t('AI_ASSISTANT.LEARNING.APPLY_TO_DRAFT')"
-              :is-loading="applyingId === suggestion.id"
-              :disabled="
-                hasUnsavedInstructions ||
-                !reviewDrafts[suggestion.id]?.suggested_instruction.trim() ||
-                !reviewDrafts[suggestion.id]?.target_section
+              :icon="
+                isKnowledgeDraft(suggestion)
+                  ? 'i-lucide-library-big'
+                  : 'i-lucide-file-plus-2'
               "
+              :label="
+                isKnowledgeDraft(suggestion)
+                  ? t('AI_ASSISTANT.LEARNING.ADD_TO_KNOWLEDGE')
+                  : t('AI_ASSISTANT.LEARNING.APPLY_TO_DRAFT')
+              "
+              :is-loading="applyingId === suggestion.id"
+              :disabled="!canApplySuggestion(suggestion)"
               @click="applySuggestion(suggestion)"
             />
           </div>
@@ -424,6 +506,18 @@ onBeforeUnmount(() => window.clearTimeout(pollTimer));
             </div>
             <p class="m-0 break-words text-sm text-n-slate-12">
               {{ suggestion.suggested_instruction || suggestion.reason }}
+            </p>
+            <p
+              v-if="suggestion.status === 'applied'"
+              class="m-0 text-xs text-n-slate-9"
+            >
+              {{
+                suggestion.destination === 'knowledge'
+                  ? t('AI_ASSISTANT.LEARNING.ADDED_AS_KNOWLEDGE', {
+                      name: suggestion.source_name,
+                    })
+                  : t('AI_ASSISTANT.LEARNING.ADDED_AS_INSTRUCTION')
+              }}
             </p>
           </article>
         </div>
