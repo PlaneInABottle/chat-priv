@@ -29,9 +29,12 @@ const improvementUsage = ref(null);
 let pollTimer = null;
 
 const api = computed(() => new AiAgentWebsiteImportsAPI(props.aiAgentId));
-const isRunning = computed(() =>
-  ['pending', 'running'].includes(websiteImport.value?.status)
+const isRunning = computed(
+  () =>
+    ['pending', 'running'].includes(websiteImport.value?.status) &&
+    !websiteImport.value?.stale
 );
+const isStale = computed(() => Boolean(websiteImport.value?.stale));
 const isReady = computed(() => websiteImport.value?.status === 'ready');
 const changedSections = computed(
   () => websiteImport.value?.changed_sections || []
@@ -48,6 +51,12 @@ const canApply = computed(
     isReady.value &&
     !hasDraftConflict.value &&
     selectedSections.value.length > 0
+);
+const canRestart = computed(
+  () =>
+    isStale.value ||
+    (isReady.value &&
+      (hasDraftConflict.value || changedSections.value.length === 0))
 );
 
 const errorKeys = {
@@ -93,6 +102,20 @@ const stopPolling = () => {
   pollTimer = null;
 };
 
+const restartImport = async () => {
+  stopPolling();
+  if (isReady.value) {
+    try {
+      await api.value.dismiss(websiteImport.value.id);
+    } catch {
+      useAlert(t('AI_ASSISTANT.WEBSITE_IMPORT.ERROR.RESTART'));
+      return;
+    }
+  }
+  websiteImport.value = null;
+  selectedSections.value = [];
+};
+
 const handleImprovementUsageLoaded = usage => {
   improvementUsage.value = usage;
 };
@@ -106,7 +129,7 @@ const pollImport = async () => {
     if (data.status === 'ready') selectedSections.value = data.changed_sections;
 
     stopPolling();
-    if (['pending', 'running'].includes(data.status)) {
+    if (['pending', 'running'].includes(data.status) && !data.stale) {
       pollTimer = setTimeout(pollImport, 1500);
     } else {
       await refreshImprovementUsage();
@@ -197,7 +220,7 @@ const open = async () => {
     websiteUrl.value = latest.website_url;
     selectedSections.value =
       latest.status === 'ready' ? latest.changed_sections : [];
-    if (['pending', 'running'].includes(latest.status)) {
+    if (['pending', 'running'].includes(latest.status) && !latest.stale) {
       pollTimer = setTimeout(pollImport, 1000);
     }
   } catch {
@@ -280,7 +303,7 @@ defineExpose({ open });
       </div>
 
       <div
-        v-else-if="websiteImport?.status === 'failed'"
+        v-else-if="websiteImport?.status === 'failed' || isStale"
         role="alert"
         class="flex flex-1 flex-col items-center justify-center gap-3 py-12 text-center"
       >
@@ -290,13 +313,17 @@ defineExpose({ open });
           class="size-6 text-n-ruby-11"
         />
         <p class="m-0 max-w-md text-sm text-n-slate-11">
-          {{ failureMessage }}
+          {{
+            isStale
+              ? t('AI_ASSISTANT.WEBSITE_IMPORT.ERROR.TIMED_OUT')
+              : failureMessage
+          }}
         </p>
         <Button
           variant="outline"
           color="slate"
           :label="t('AI_ASSISTANT.WEBSITE_IMPORT.TRY_AGAIN')"
-          @click="websiteImport = null"
+          @click="restartImport"
         />
       </div>
 
@@ -407,6 +434,14 @@ defineExpose({ open });
           color="slate"
           :label="t('AI_ASSISTANT.WEBSITE_IMPORT.CANCEL')"
           @click="dialog.close()"
+        />
+        <Button
+          v-if="canRestart"
+          icon="i-lucide-rotate-ccw"
+          variant="outline"
+          color="slate"
+          :label="t('AI_ASSISTANT.WEBSITE_IMPORT.START_OVER')"
+          @click="restartImport"
         />
         <Button
           v-if="isReady"

@@ -242,14 +242,14 @@ const refreshImprovementUsage = () => draftTestPanel.value?.refreshCredits?.();
         :selected-key="selectedSection"
         :class="
           mobileView === 'test'
-            ? 'hidden min-[1360px]:flex min-[1360px]:h-[calc(100dvh-25rem)] min-[1360px]:min-h-[22rem] min-[1360px]:max-h-[48rem]'
-            : 'hidden md:flex md:h-[calc(100dvh-25rem)] md:min-h-[22rem] md:max-h-[48rem]'
+            ? 'hidden min-[1360px]:flex min-[1360px]:h-[calc(100dvh-18rem)] min-[1360px]:min-h-[32rem] min-[1360px]:max-h-[56rem]'
+            : 'hidden md:flex md:h-[calc(100dvh-18rem)] md:min-h-[32rem] md:max-h-[56rem]'
         "
         @select="selectedSection = $event"
       />
 
       <section
-        class="min-h-[32rem] min-w-0 flex-col md:h-[calc(100dvh-25rem)] md:min-h-[22rem] md:max-h-[48rem] md:overflow-hidden"
+        class="min-h-[40rem] min-w-0 flex-col md:h-[calc(100dvh-18rem)] md:min-h-[32rem] md:max-h-[56rem] md:overflow-hidden"
         :class="mobileView === 'test' ? 'hidden min-[1360px]:flex' : 'flex'"
       >
         <label class="mb-4 flex flex-col gap-1 text-sm font-medium md:hidden">

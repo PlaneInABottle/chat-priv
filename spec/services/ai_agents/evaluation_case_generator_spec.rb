@@ -73,7 +73,8 @@ RSpec.describe AiAgents::EvaluationCaseGenerator do
 
     scenarios = described_class.new(ai_agent: ai_agent, initiated_by: user, adapter: adapter).call(limit: 3)
 
-    expect(scenarios.pluck(:name)).to eq(['New scenario'])
+    expect(scenarios.pluck(:name)).to eq(['New scenario', 'Internal implementation detail'])
+    expect(scenarios.last[:success_criteria]).to eq('Answer from verified business information.')
   end
 
   it 'rejects generated scenarios with blank fields' do

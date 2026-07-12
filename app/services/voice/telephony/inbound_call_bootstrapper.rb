@@ -24,6 +24,7 @@ class Voice::Telephony::InboundCallBootstrapper
   def build_call!
     resolved_setting = voice_inbox_setting
     raise ActiveRecord::RecordNotFound, 'Voice number or voice inbox setting not configured' unless resolved_setting&.voice_agent_id
+    raise ActiveRecord::RecordNotFound, 'Voice assistant is paused' unless resolved_setting.voice_agent&.enabled?
 
     call = Voice::InboundCallBuilder.perform!(
       inbox: resolved_setting.inbox,

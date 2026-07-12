@@ -123,6 +123,15 @@ const createVuexStore = ({
 
       return payload;
     }),
+    pause: vi.fn(async ({ commit }) => {
+      const paused = {
+        ...recordsById[1],
+        enabled: false,
+        lifecycle_status: 'paused',
+      };
+      commit('SET_AI_AGENT_RECORD', paused);
+      return paused;
+    }),
     reset: vi.fn(),
     get: vi.fn().mockResolvedValue([]),
     getUsage: vi.fn().mockResolvedValue(usage),
@@ -158,6 +167,7 @@ const createVuexStore = ({
       'aiAgent/show': actionMocks.show,
       'aiAgent/refresh': actionMocks.refresh,
       'aiAgent/update': actionMocks.update,
+      'aiAgent/pause': actionMocks.pause,
       'aiAgent/getUsage': actionMocks.getUsage,
       'labels/get': vi.fn().mockResolvedValue([]),
       'aiAgentTestConversations/reset': actionMocks.reset,
@@ -491,6 +501,39 @@ describe('AiAgentDetail.vue', () => {
     expect(wrapper.vm.isInstructionsDirty).toBe(false);
     expect(wrapper.vm.formState.name).toBe('Unsaved connection name');
     expect(wrapper.vm.isConnectionsDirty).toBe(true);
+  });
+
+  it('refreshes learned knowledge without replacing unsaved instructions', async () => {
+    setRouteName('ai_agent_learning_suggestions');
+    const { wrapper, store } = mountComponent();
+    await flushPromises();
+    wrapper.vm.formState.instructions.sections.additional =
+      'Keep this unsaved instruction.';
+
+    const updatedRecord = buildAiAgent({ knowledge_source_ids: [77] });
+    store.commit('SET_AI_AGENT_RECORD', updatedRecord);
+    wrapper.vm.refreshAfterLearningApplied({ preserveInstructions: true });
+
+    expect(wrapper.vm.formState.instructions.sections.additional).toBe(
+      'Keep this unsaved instruction.'
+    );
+    expect(wrapper.vm.formState.knowledge_source_ids).toEqual([77]);
+  });
+
+  it('preserves unsaved edits when pausing the live assistant', async () => {
+    const { wrapper } = mountComponent();
+    await flushPromises();
+    wrapper.vm.formState.instructions.sections.additional =
+      'Unsaved pause-safe instruction.';
+    wrapper.vm.formState.name = 'Unsaved assistant name';
+
+    await wrapper.vm.handlePause();
+
+    expect(wrapper.vm.formState.instructions.sections.additional).toBe(
+      'Unsaved pause-safe instruction.'
+    );
+    expect(wrapper.vm.formState.name).toBe('Unsaved assistant name');
+    expect(wrapper.vm.lifecycleStatus).toBe('paused');
   });
 
   it('discards the current instruction draft without affecting connection edits', async () => {

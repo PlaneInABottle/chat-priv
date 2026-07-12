@@ -34,6 +34,8 @@ class AiAgentEvaluationCase < ApplicationRecord
            dependent: :nullify,
            inverse_of: :evaluation_case
 
+  before_validation :sanitize_customer_facing_text
+
   validates :name, presence: true, length: { maximum: 100 }
   validates :customer_message, presence: true, length: { maximum: 5_000 }
   validates :success_criteria, presence: true, length: { maximum: 5_000 }
@@ -43,6 +45,12 @@ class AiAgentEvaluationCase < ApplicationRecord
   scope :reviewed, -> { where.not(reviewed_at: nil) }
 
   private
+
+  def sanitize_customer_facing_text
+    self.name = AiAgents::EvaluationTextSanitizer.sanitize(name)
+    self.customer_message = AiAgents::EvaluationTextSanitizer.sanitize(customer_message)
+    self.success_criteria = AiAgents::EvaluationTextSanitizer.sanitize(success_criteria)
+  end
 
   def ai_agent_belongs_to_account
     return if ai_agent.blank? || account.blank? || ai_agent.account_id == account_id

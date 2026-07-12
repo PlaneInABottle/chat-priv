@@ -1,4 +1,9 @@
-current_document = AiAgents::InstructionDocument.new(website_import.ai_agent.config.to_h['instructions']).normalized
+instructions = website_import.ai_agent.config.to_h['instructions']
+current_document = if instructions.present?
+                     AiAgents::InstructionDocument.new(instructions).normalized
+                   else
+                     AiAgents::InstructionDocument.from_legacy(website_import.ai_agent.prompt)
+                   end
 proposals = website_import.proposed_sections.to_h.deep_stringify_keys
 changed_sections = AiAgentWebsiteImport::APPLYABLE_SECTIONS.filter do |key|
   proposals[key].present? && current_document.dig('sections', key).to_s.strip != proposals[key].to_s.strip
@@ -17,6 +22,7 @@ json.current_document current_document if local_assigns[:include_current_documen
 json.current_draft_fingerprint website_import.ai_agent.draft_fingerprint
 json.base_draft_fingerprint website_import.base_draft_fingerprint
 json.draft_changed website_import.ai_agent.draft_fingerprint != website_import.base_draft_fingerprint
+json.stale website_import.stale?
 json.error_code website_import.customer_error_code
 json.started_at website_import.started_at
 json.completed_at website_import.completed_at

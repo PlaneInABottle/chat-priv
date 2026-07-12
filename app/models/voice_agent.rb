@@ -75,9 +75,9 @@ class VoiceAgent < ApplicationRecord
   end
 
   def publish!(created_by: nil, activate: true)
-    raise ActiveRecord::RecordInvalid, self unless readiness[:can_publish]
-
     with_lock do
+      raise ActiveRecord::RecordInvalid, self unless readiness[:can_publish]
+
       snapshot = VoiceAgents::ReleaseSnapshot.for(self)
       fingerprint = AssistantReleases::Snapshot.fingerprint(snapshot)
       if current_release&.fingerprint == fingerprint

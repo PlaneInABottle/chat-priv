@@ -19,6 +19,7 @@ const uiFlags = useMapGetter('aiAgent/getUIFlags');
 const inboxes = useMapGetter('inboxes/getInboxes');
 
 const currentStep = ref(0);
+const hasBuiltInstructions = ref(false);
 const form = ref({
   name: '',
   goal: 'support',
@@ -79,6 +80,7 @@ const buildInstructions = () => {
     'If a customer asks for a person or the request needs human judgment, hand the conversation to a human.'
   );
   form.value.instructions = lines.join('\n\n');
+  hasBuiltInstructions.value = true;
 };
 
 const validateStep = () => {
@@ -97,7 +99,8 @@ const validateStep = () => {
 
 const nextStep = () => {
   if (!validateStep()) return;
-  if (currentStep.value === 0) buildInstructions();
+  if (currentStep.value === 0 && !hasBuiltInstructions.value)
+    buildInstructions();
   currentStep.value += 1;
 };
 

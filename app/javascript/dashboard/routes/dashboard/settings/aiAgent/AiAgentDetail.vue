@@ -580,8 +580,13 @@ const refreshAfterDraftTest = async () => {
   formState.value.instructions = draft;
 };
 
-const refreshAfterLearningApplied = () => {
-  formState.value.instructions = instructionDocumentForAgent(aiAgent.value);
+const refreshAfterLearningApplied = ({ preserveInstructions = false } = {}) => {
+  if (!preserveInstructions) {
+    formState.value.instructions = instructionDocumentForAgent(aiAgent.value);
+  }
+  formState.value.knowledge_source_ids = normalizeKnowledgeSourceIds(
+    aiAgent.value?.knowledge_source_ids
+  );
 };
 
 const refreshAfterWebsiteImport = async () => {
@@ -592,7 +597,6 @@ const refreshAfterWebsiteImport = async () => {
 const handlePause = async () => {
   const result = await store.dispatch('aiAgent/pause', agentId.value);
   if (result?.id) {
-    syncFormState();
     useAlert(t('AI_ASSISTANT.ACTIONS.PAUSED'));
   } else {
     useAlert(result?.error || t('AI_AGENT.SAVE.ERROR'));
@@ -973,6 +977,7 @@ watch(agentId, async (newAgentId, oldAgentId) => {
             <TestConversationLayout
               :ai-agent-id="agentId"
               :is-disabled="isSimulatorDisabled"
+              @tested="refreshAfterDraftTest"
             />
           </div>
           <ReadinessChecklist :readiness="aiAgent?.readiness" />

@@ -53,6 +53,20 @@ RSpec.describe AiAgents::WebsiteImportApplier do
     expect(website_import.reload).to have_attributes(status: 'applied', proposed_sections: {})
   end
 
+  it 'preserves a legacy prompt when structured instructions do not exist' do
+    legacy_prompt = 'Keep this existing customer guidance.'
+    ai_agent.update!(config: { 'tools' => { 'enabled' => ['human_handoff'] } }, prompt: legacy_prompt)
+    website_import.update!(base_draft_fingerprint: ai_agent.draft_fingerprint)
+
+    described_class.new(
+      website_import: website_import,
+      section_keys: ['business_context'],
+      expected_draft_fingerprint: ai_agent.draft_fingerprint
+    ).perform
+
+    expect(ai_agent.reload.prompt).to include(legacy_prompt, 'Generated context')
+  end
+
   it 'rejects an application after the assistant draft changes' do
     fingerprint = ai_agent.draft_fingerprint
     ai_agent.update!(prompt: "#{ai_agent.prompt}\nChanged")

@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 class AiAgents::LearningSuggestionJob < ApplicationJob
+  CLAIM_TIMEOUT = 15.minutes
+
   queue_as :low
 
   def perform(suggestion)
@@ -22,11 +24,15 @@ class AiAgents::LearningSuggestionJob < ApplicationJob
 
   def claim(suggestion)
     suggestion.with_lock do
-      next false unless suggestion.pending?
+      next false unless suggestion.pending? || stale_analysis?(suggestion)
 
       suggestion.update!(status: :analyzing, error_message: nil)
       true
     end
+  end
+
+  def stale_analysis?(suggestion)
+    suggestion.analyzing? && suggestion.updated_at < CLAIM_TIMEOUT.ago
   end
 
   def persist_result(suggestion, result)

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useAlert } from 'dashboard/composables';
 import { parseAPIErrorResponse } from 'dashboard/store/utils/api';
@@ -27,6 +27,8 @@ const approvingCaseId = ref(null);
 const showForm = ref(false);
 const editingCaseId = ref(null);
 const confirmDialog = ref(null);
+const formRef = ref(null);
+const nameInputRef = ref(null);
 let pollTimer;
 let generationPollTimer;
 
@@ -211,7 +213,7 @@ const openCreateForm = () => {
   showForm.value = true;
 };
 
-const openEditForm = evaluationCase => {
+const openEditForm = async evaluationCase => {
   form.value = {
     name: evaluationCase.name,
     customer_message: evaluationCase.customer_message,
@@ -219,6 +221,9 @@ const openEditForm = evaluationCase => {
   };
   editingCaseId.value = evaluationCase.id;
   showForm.value = true;
+  await nextTick();
+  formRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  nameInputRef.value?.focus({ preventScroll: true });
 };
 
 const saveCase = async () => {
@@ -480,14 +485,29 @@ onBeforeUnmount(() => {
 
     <form
       v-if="showForm"
+      ref="formRef"
+      data-testid="evaluation-scenario-form"
       class="grid grid-cols-1 gap-4 border-b border-n-weak pb-6"
       @submit.prevent="saveCase"
     >
+      <div>
+        <h3 class="m-0 text-base font-semibold text-n-slate-12">
+          {{
+            editingCaseId
+              ? t('AI_ASSISTANT.EVALUATIONS.FORM.EDIT_TITLE')
+              : t('AI_ASSISTANT.EVALUATIONS.FORM.ADD_TITLE')
+          }}
+        </h3>
+        <p v-if="editingCaseId" class="mb-0 mt-1 text-sm text-n-slate-10">
+          {{ form.name }}
+        </p>
+      </div>
       <label
         class="flex max-w-2xl flex-col gap-1.5 text-sm font-medium text-n-slate-12"
       >
         {{ t('AI_ASSISTANT.EVALUATIONS.FORM.NAME') }}
         <input
+          ref="nameInputRef"
           v-model="form.name"
           name="evaluation-name"
           autocomplete="off"

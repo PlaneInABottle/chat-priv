@@ -8,6 +8,7 @@ const mockApi = vi.hoisted(() => ({
   show: vi.fn(),
   create: vi.fn(),
   applyImport: vi.fn(),
+  dismiss: vi.fn(),
 }));
 
 vi.mock('vue-i18n', () => ({
@@ -27,6 +28,8 @@ vi.mock('dashboard/api/aiAgentWebsiteImports', () => ({
     create = mockApi.create;
 
     applyImport = mockApi.applyImport;
+
+    dismiss = mockApi.dismiss;
   },
 }));
 
@@ -83,6 +86,7 @@ describe('WebsiteImportDialog', () => {
     vi.clearAllMocks();
     mockApi.get.mockResolvedValue({ data: [readyImport] });
     mockApi.applyImport.mockResolvedValue({ data: {} });
+    mockApi.dismiss.mockResolvedValue({ data: {} });
   });
 
   it('compares suggestions with the saved server document and shows sources', async () => {
@@ -152,5 +156,19 @@ describe('WebsiteImportDialog', () => {
     expect(
       wrapper.find('button[type="submit"]').attributes('disabled')
     ).toBeDefined();
+  });
+
+  it('discards an unusable ready preview before starting over', async () => {
+    mockApi.get.mockResolvedValue({
+      data: [{ ...readyImport, changed_sections: [], proposed_sections: {} }],
+    });
+    const wrapper = mountComponent();
+    await wrapper.vm.open();
+    await flushPromises();
+
+    await wrapper.vm.restartImport();
+
+    expect(mockApi.dismiss).toHaveBeenCalledWith(7);
+    expect(wrapper.vm.websiteImport).toBeNull();
   });
 });

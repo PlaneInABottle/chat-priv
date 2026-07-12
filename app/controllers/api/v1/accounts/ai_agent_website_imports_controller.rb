@@ -2,7 +2,7 @@ class Api::V1::Accounts::AiAgentWebsiteImportsController < Api::V1::Accounts::Ba
   before_action :check_authorization
   before_action :ensure_ai_agent_enabled
   before_action :set_ai_agent
-  before_action :set_website_import, only: [:show, :apply]
+  before_action :set_website_import, only: [:show, :apply, :dismiss]
 
   def index
     @website_imports = @ai_agent.website_imports.latest_first.limit(10)
@@ -40,10 +40,28 @@ class Api::V1::Accounts::AiAgentWebsiteImportsController < Api::V1::Accounts::Ba
     render json: { error: e.message, code: 'invalid_selection' }, status: :unprocessable_entity
   end
 
+  def dismiss
+    dismissed = @website_import.with_lock do
+      next false unless @website_import.ready?
+
+      @website_import.update!(status: :dismissed, stage: :complete, proposed_sections: {}, completed_at: Time.current)
+      true
+    end
+    return render json: { code: 'invalid_selection' }, status: :unprocessable_entity unless dismissed
+
+    render :show
+  end
+
   private
 
   def check_authorization
-    policy_action = { 'index' => :index?, 'show' => :show?, 'create' => :create?, 'apply' => :update? }.fetch(action_name)
+    policy_action = {
+      'index' => :index?,
+      'show' => :show?,
+      'create' => :create?,
+      'apply' => :update?,
+      'dismiss' => :update?
+    }.fetch(action_name)
     authorize(AiAgent, policy_action)
   end
 

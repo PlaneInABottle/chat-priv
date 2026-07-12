@@ -180,7 +180,19 @@
       "RESTORE_WARNING": "Restore version {version} as a new live version?",
       "RESTORED": "Version restored",
       "LOAD_ERROR": "Version history could not be loaded.",
-      "RESTORE_ERROR": "Version could not be restored."
+      "RESTORE_ERROR": "Version could not be restored.",
+      "COMPARE_HELP": "Only fields that differ from the current live version are shown.",
+      "VIEWED": "Viewed version",
+      "CURRENT_LIVE": "Current live version",
+      "EMPTY_VALUE": "Not set",
+      "NO_DIFFERENCES": "This version has the same customer-facing settings as the live version.",
+      "FIELDS": {
+        "GREETING": "Greeting",
+        "INSTRUCTIONS": "Instructions",
+        "LANGUAGE": "Language",
+        "VOICE": "Voice",
+        "KNOWLEDGE": "Shared knowledge"
+      }
     },
     "EVALUATIONS": {
       "TITLE": "Evaluation scenarios",
@@ -229,6 +241,8 @@
         "OLDER_DRAFT": "These results belong to an older draft. Run the scenarios again before relying on them."
       },
       "FORM": {
+        "ADD_TITLE": "Add evaluation scenario",
+        "EDIT_TITLE": "Edit evaluation scenario",
         "NAME": "Scenario name",
         "NAME_PLACEHOLDER": "For example: Delivery time question",
         "MESSAGE": "Customer message",
@@ -356,6 +370,7 @@
       "URL_LABEL": "Company website",
       "URL_PLACEHOLDER": "https://example.com",
       "ANALYZE": "Analyze website",
+      "START_OVER": "Start another analysis",
       "PROGRESS_HELP": "You can close this window. The analysis continues in the background.",
       "STAGE": {
         "QUEUED": "Waiting to analyze the website…",
@@ -387,7 +402,8 @@
         "GENERATION_FAILED": "We read the website but could not prepare suggestions. Try again later.",
         "ANALYSIS_FAILED": "Website analysis did not finish. Try again or add the business details manually.",
         "DRAFT_CHANGED": "The saved instructions changed after this analysis started. Run the website analysis again to compare against the latest draft.",
-        "INVALID_SELECTION": "Select at least one available suggestion."
+        "INVALID_SELECTION": "Select at least one available suggestion.",
+        "RESTART": "This analysis could not be discarded. Please try again."
       }
     },
     "INSTRUCTIONS": {
@@ -588,7 +604,14 @@
     "SELECTOR": {
       "TITLE": "Shared knowledge",
       "DESCRIPTION": "Select the sources this assistant can use after its next publish.",
-      "COUNT": "{count} of {limit} selected"
+      "COUNT": "{count} of {limit} selected",
+      "CHOOSE": "Choose sources",
+      "NONE_SELECTED": "No shared knowledge selected for this assistant.",
+      "DIALOG_TITLE": "Choose shared knowledge",
+      "DIALOG_DESCRIPTION": "Search the library and select up to 20 sources for this assistant.",
+      "SEARCH": "Search knowledge sources",
+      "NO_MATCHES": "No knowledge sources match this search.",
+      "APPLY": "Apply selection"
     },
     "EMPTY": {
       "TITLE": "No knowledge sources yet",

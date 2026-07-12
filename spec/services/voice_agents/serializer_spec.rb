@@ -18,8 +18,8 @@ RSpec.describe VoiceAgents::Serializer do
         name: voice_agent.name,
         enabled: voice_agent.enabled
       )
-      expect(payload[:enabled_tool_keys]).to eq(['human_handoff'])
-      expect(payload.dig(:tools_config, 'enabled')).to eq(['human_handoff'])
+      expect(payload[:enabled_tool_keys]).to eq(%w[human_handoff end_customer_call])
+      expect(payload.dig(:tools_config, 'enabled')).to eq(%w[human_handoff end_customer_call])
       expect(payload[:available_tools].pluck(:key)).to contain_exactly('human_handoff', 'end_customer_call')
       expect(payload[:ikas_integration]).to include(
         feature_enabled: account.feature_enabled?('ikas_integration')

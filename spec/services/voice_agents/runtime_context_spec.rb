@@ -10,6 +10,7 @@ RSpec.describe VoiceAgents::RuntimeContext do
         :voice_agent,
         account: account,
         name: 'Phone voice',
+        enabled: true,
         prompt: 'Answer briefly.',
         tools_config: VoiceAgents::Config.new('enabled' => %w[human_handoff end_customer_call]).normalized_config
       )
@@ -127,6 +128,28 @@ RSpec.describe VoiceAgents::RuntimeContext do
 
       expect(payload[:tools].pluck(:name)).to include('search_knowledge')
       expect(payload[:instructions]).to include('Shared knowledge rules:')
+    end
+
+    it 'uses the agent that owns a pinned release after the inbox is reassigned' do
+      original_agent = voice_agent
+      original_release = create(:voice_agent_release, voice_agent: original_agent)
+      replacement_agent = create(:voice_agent, account: account, enabled: true, name: 'Replacement voice')
+      setting = create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: replacement_agent)
+      call = create(
+        :call,
+        account: account,
+        inbox: inbox,
+        provider: :livekit,
+        provider_call_id: 'room-pinned-agent',
+        voice_agent_release: original_release,
+        meta: { 'voice_inbox_setting_id' => setting.id }
+      )
+
+      payload = described_class.new(call: call).payload
+
+      expect(payload.dig(:voice_agent, :id)).to eq(original_agent.id)
+      expect(payload.dig(:voice_agent, :name)).to eq(original_agent.name)
+      expect(payload[:instructions]).to include(original_release.value(:prompt))
     end
   end
 end

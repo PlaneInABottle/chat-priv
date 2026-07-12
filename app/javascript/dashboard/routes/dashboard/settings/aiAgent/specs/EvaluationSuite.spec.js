@@ -168,6 +168,25 @@ describe('EvaluationSuite.vue', () => {
     expect(wrapper.vm.evaluationCases).toEqual([evaluationCase]);
   });
 
+  it('brings the scenario editor into view when editing from the list', async () => {
+    apiMocks.get.mockResolvedValue({ data: [evaluationCase] });
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    const wrapper = mountComponent();
+    await flushPromises();
+
+    await wrapper.vm.openEditForm(evaluationCase);
+
+    expect(wrapper.vm.editingCaseId).toBe(evaluationCase.id);
+    expect(
+      wrapper.get('[data-testid="evaluation-scenario-form"]').text()
+    ).toContain(evaluationCase.name);
+    expect(scrollIntoView).toHaveBeenCalledWith({
+      behavior: 'smooth',
+      block: 'start',
+    });
+  });
+
   it('starts suggested scenario generation without blocking the workspace', async () => {
     apiMocks.generateCases.mockResolvedValue({
       data: { id: 12, status: 'pending', requested_count: 5 },

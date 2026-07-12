@@ -108,7 +108,41 @@ export default {
     },
     {
       path: frontendURL('accounts/:accountId/settings/ai-agents'),
-      redirect: to => ({ name: 'ai_agents', params: to.params }),
+      component: SettingsWrapper,
+      children: [
+        {
+          path: '',
+          redirect: to => ({ name: 'ai_agents', params: to.params }),
+        },
+        {
+          path: 'new',
+          redirect: to => ({ name: 'ai_agent_new', params: to.params }),
+        },
+        {
+          path: ':id',
+          redirect: to => ({
+            name: 'ai_agent_instructions',
+            params: to.params,
+          }),
+        },
+        {
+          path: ':id/:section',
+          redirect: to => {
+            const routeNames = {
+              setup: 'ai_agent_detail',
+              connections: 'ai_agent_detail',
+              knowledge: 'ai_agent_knowledge',
+              test: 'ai_agent_test',
+              evaluations: 'ai_agent_evaluations',
+              learnings: 'ai_agent_learning_suggestions',
+            };
+            return {
+              name: routeNames[to.params.section] || 'ai_agent_instructions',
+              params: { accountId: to.params.accountId, id: to.params.id },
+            };
+          },
+        },
+      ],
     },
   ],
 };

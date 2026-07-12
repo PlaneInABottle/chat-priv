@@ -23,6 +23,7 @@ const { t } = useI18n();
 const dialogRef = ref(null);
 const releases = ref([]);
 const selectedRelease = ref(null);
+const activeRelease = ref(null);
 const pendingRollback = ref(null);
 const isLoading = ref(false);
 const isRestoring = ref(false);
@@ -79,14 +80,70 @@ const releasePrompt = computed(() => {
   return snapshot.prompt || snapshot.greeting || '';
 });
 
+const snapshotValue = (snapshot, key) => snapshot?.[key]?.toString() || '';
+const knowledgeNames = snapshot =>
+  (snapshot?.knowledge_sources || []).map(source => source.name).join(', ');
+const comparisonRows = computed(() => {
+  if (!selectedRelease.value || !activeRelease.value) return [];
+
+  const viewed = selectedRelease.value.snapshot || {};
+  const live = activeRelease.value.snapshot || {};
+  const fields =
+    props.assistantType === 'voice'
+      ? [
+          [
+            'GREETING',
+            snapshotValue(viewed, 'greeting'),
+            snapshotValue(live, 'greeting'),
+          ],
+          [
+            'INSTRUCTIONS',
+            snapshotValue(viewed, 'prompt'),
+            snapshotValue(live, 'prompt'),
+          ],
+          [
+            'LANGUAGE',
+            snapshotValue(viewed, 'language'),
+            snapshotValue(live, 'language'),
+          ],
+          [
+            'VOICE',
+            snapshotValue(viewed, 'voice'),
+            snapshotValue(live, 'voice'),
+          ],
+          ['KNOWLEDGE', knowledgeNames(viewed), knowledgeNames(live)],
+        ]
+      : [
+          [
+            'INSTRUCTIONS',
+            snapshotValue(viewed, 'prompt'),
+            snapshotValue(live, 'prompt'),
+          ],
+          ['KNOWLEDGE', knowledgeNames(viewed), knowledgeNames(live)],
+        ];
+
+  return fields
+    .filter(([, viewedValue, liveValue]) => viewedValue !== liveValue)
+    .map(([key, viewedValue, liveValue]) => ({ key, viewedValue, liveValue }));
+});
+
 const open = async () => {
   isLoading.value = true;
   selectedRelease.value = null;
+  activeRelease.value = null;
   pendingRollback.value = null;
   await dialogRef.value?.open();
   try {
     const response = await api.value.list();
     releases.value = response.data || [];
+    if (props.currentReleaseId) {
+      try {
+        const activeResponse = await api.value.show(props.currentReleaseId);
+        activeRelease.value = activeResponse.data;
+      } catch {
+        activeRelease.value = null;
+      }
+    }
   } catch {
     useAlert(t('AI_ASSISTANT.RELEASE_HISTORY.LOAD_ERROR'));
   } finally {
@@ -194,7 +251,7 @@ defineExpose({ open });
 
     <div
       v-if="selectedRelease"
-      class="mt-4 max-h-64 overflow-y-auto border-t border-n-weak pt-4"
+      class="mt-4 max-h-[26rem] overflow-y-auto border-t border-n-weak pt-4"
     >
       <h4 class="m-0 text-sm font-medium text-n-slate-12">
         {{
@@ -203,7 +260,51 @@ defineExpose({ open });
           })
         }}
       </h4>
+      <template v-if="selectedRelease.id !== currentReleaseId && activeRelease">
+        <p class="mb-0 mt-1 text-xs text-n-slate-10">
+          {{ t('AI_ASSISTANT.RELEASE_HISTORY.COMPARE_HELP') }}
+        </p>
+        <div v-if="comparisonRows.length" class="mt-3 flex flex-col gap-4">
+          <section v-for="row in comparisonRows" :key="row.key" class="min-w-0">
+            <h5 class="m-0 text-xs font-semibold uppercase text-n-slate-10">
+              {{ t(`AI_ASSISTANT.RELEASE_HISTORY.FIELDS.${row.key}`) }}
+            </h5>
+            <div class="mt-2 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+              <div class="min-w-0 border-l-2 border-n-amber-7 pl-3">
+                <p class="m-0 text-xs font-medium text-n-slate-10">
+                  {{ t('AI_ASSISTANT.RELEASE_HISTORY.VIEWED') }}
+                </p>
+                <p
+                  class="mb-0 mt-1 whitespace-pre-wrap break-words text-xs leading-5 text-n-slate-12"
+                >
+                  {{
+                    row.viewedValue ||
+                    t('AI_ASSISTANT.RELEASE_HISTORY.EMPTY_VALUE')
+                  }}
+                </p>
+              </div>
+              <div class="min-w-0 border-l-2 border-n-teal-7 pl-3">
+                <p class="m-0 text-xs font-medium text-n-slate-10">
+                  {{ t('AI_ASSISTANT.RELEASE_HISTORY.CURRENT_LIVE') }}
+                </p>
+                <p
+                  class="mb-0 mt-1 whitespace-pre-wrap break-words text-xs leading-5 text-n-slate-12"
+                >
+                  {{
+                    row.liveValue ||
+                    t('AI_ASSISTANT.RELEASE_HISTORY.EMPTY_VALUE')
+                  }}
+                </p>
+              </div>
+            </div>
+          </section>
+        </div>
+        <p v-else class="mb-0 mt-3 text-sm text-n-slate-10">
+          {{ t('AI_ASSISTANT.RELEASE_HISTORY.NO_DIFFERENCES') }}
+        </p>
+      </template>
       <div
+        v-else
         class="mb-0 mt-2 whitespace-pre-wrap break-words rounded-lg bg-n-alpha-2 p-3 text-xs leading-5 text-n-slate-11"
       >
         {{ releasePrompt }}

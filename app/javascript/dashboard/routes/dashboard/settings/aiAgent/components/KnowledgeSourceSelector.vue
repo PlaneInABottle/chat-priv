@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router';
 
 import AiKnowledgeSourcesAPI from 'dashboard/api/aiKnowledgeSources';
 import Button from 'dashboard/components-next/button/Button.vue';
+import Dialog from 'dashboard/components-next/dialog/Dialog.vue';
 import { useAlert } from 'dashboard/composables';
 
 const props = defineProps({
@@ -20,26 +21,55 @@ const { t } = useI18n();
 const router = useRouter();
 const sources = ref([]);
 const isLoading = ref(false);
+const pickerDialog = ref(null);
+const searchQuery = ref('');
+const draftIds = ref([]);
 
 const selectedIds = computed(() => new Set(props.modelValue.map(Number)));
-const atSelectionLimit = computed(
-  () => selectedIds.value.size >= MAX_SELECTED_SOURCES
+const selectedSources = computed(() =>
+  sources.value.filter(source => selectedIds.value.has(source.id))
 );
+const draftIdSet = computed(() => new Set(draftIds.value.map(Number)));
+const draftAtSelectionLimit = computed(
+  () => draftIdSet.value.size >= MAX_SELECTED_SOURCES
+);
+const filteredSources = computed(() => {
+  const query = searchQuery.value.trim().toLocaleLowerCase();
+  if (!query) return sources.value;
 
-const isSourceDisabled = source =>
-  props.disabled ||
-  ((source.available === false || atSelectionLimit.value) &&
-    !selectedIds.value.has(source.id));
+  return sources.value.filter(source =>
+    [source.name, source.content_preview].some(value =>
+      value?.toLocaleLowerCase().includes(query)
+    )
+  );
+});
 
-const toggleSource = source => {
-  if (props.disabled) return;
+const isDraftSourceDisabled = source =>
+  (source.available === false || draftAtSelectionLimit.value) &&
+  !draftIdSet.value.has(source.id);
 
-  const sourceId = source.id;
-  const nextIds = new Set(selectedIds.value);
+const toggleDraftSource = source => {
+  const sourceId = Number(source.id);
+  const nextIds = new Set(draftIdSet.value);
   if (nextIds.has(sourceId)) nextIds.delete(sourceId);
-  else if (!atSelectionLimit.value && source.available !== false)
+  else if (!draftAtSelectionLimit.value && source.available !== false)
     nextIds.add(sourceId);
-  emit('update:modelValue', Array.from(nextIds));
+  draftIds.value = Array.from(nextIds);
+};
+
+const openPicker = () => {
+  if (props.disabled) return;
+  draftIds.value = Array.from(selectedIds.value);
+  searchQuery.value = '';
+  pickerDialog.value?.open();
+};
+
+const applySelection = () => {
+  emit(
+    'update:modelValue',
+    [...draftIds.value].sort((a, b) => a - b)
+  );
+  pickerDialog.value?.close();
 };
 
 const loadSources = async () => {
@@ -78,13 +108,23 @@ onMounted(loadSources);
           }}
         </p>
       </div>
-      <Button
-        icon="i-lucide-library"
-        variant="outline"
-        color="slate"
-        :label="t('AI_KNOWLEDGE.ACTIONS.MANAGE')"
-        @click="openLibrary"
-      />
+      <div class="flex flex-wrap gap-2">
+        <Button
+          icon="i-lucide-list-plus"
+          variant="outline"
+          color="slate"
+          :label="t('AI_KNOWLEDGE.SELECTOR.CHOOSE')"
+          :disabled="disabled"
+          @click="openPicker"
+        />
+        <Button
+          icon="i-lucide-library"
+          variant="ghost"
+          color="slate"
+          :aria-label="t('AI_KNOWLEDGE.ACTIONS.MANAGE')"
+          @click="openLibrary"
+        />
+      </div>
     </div>
 
     <div
@@ -119,22 +159,22 @@ onMounted(loadSources);
       />
     </div>
 
-    <div v-else class="grid grid-cols-1 gap-3 lg:grid-cols-2">
-      <label
-        v-for="source in sources"
+    <div
+      v-else-if="!selectedSources.length"
+      class="border-y border-n-weak py-8 text-center text-sm text-n-slate-10"
+    >
+      {{ t('AI_KNOWLEDGE.SELECTOR.NONE_SELECTED') }}
+    </div>
+
+    <div v-else class="flex flex-col border-y border-n-weak">
+      <div
+        v-for="source in selectedSources"
         :key="source.id"
-        class="flex min-w-0 cursor-pointer items-start gap-3 rounded-lg border border-n-weak bg-n-alpha-1 p-4 hover:bg-n-alpha-2"
-        :class="{
-          'cursor-not-allowed opacity-60': isSourceDisabled(source),
-        }"
+        class="flex min-w-0 items-center gap-3 border-b border-n-weak py-3 last:border-b-0"
       >
-        <input
-          type="checkbox"
-          class="mt-0.5 size-4 rounded border-n-slate-6 text-n-brand focus:ring-n-brand"
-          :checked="selectedIds.has(source.id)"
-          :disabled="isSourceDisabled(source)"
-          :data-testid="`knowledge-source-${source.id}`"
-          @change="toggleSource(source)"
+        <span
+          aria-hidden="true"
+          class="i-lucide-file-text size-4 text-n-slate-9"
         />
         <span class="min-w-0 flex-1">
           <span class="block truncate text-sm font-medium text-n-slate-12">
@@ -145,15 +185,79 @@ onMounted(loadSources);
               source.content_preview || t('AI_KNOWLEDGE.STATUS.WAITING_CONTENT')
             }}
           </span>
-          <span class="mt-2 block text-xs text-n-slate-9">
-            {{
-              t('AI_KNOWLEDGE.CHARACTERS', {
-                count: source.character_count,
-              })
-            }}
-          </span>
         </span>
-      </label>
+      </div>
     </div>
   </section>
+
+  <Dialog
+    ref="pickerDialog"
+    width="2xl"
+    position="top"
+    :title="t('AI_KNOWLEDGE.SELECTOR.DIALOG_TITLE')"
+    :description="t('AI_KNOWLEDGE.SELECTOR.DIALOG_DESCRIPTION')"
+    :confirm-button-label="t('AI_KNOWLEDGE.SELECTOR.APPLY')"
+    @confirm="applySelection"
+  >
+    <div class="flex min-h-0 flex-col gap-3">
+      <label class="relative block">
+        <span
+          aria-hidden="true"
+          class="i-lucide-search absolute left-3 top-3 size-4 text-n-slate-9"
+        />
+        <input
+          v-model="searchQuery"
+          type="search"
+          autocomplete="off"
+          :aria-label="t('AI_KNOWLEDGE.SELECTOR.SEARCH')"
+          :placeholder="t('AI_KNOWLEDGE.SELECTOR.SEARCH')"
+          class="h-10 w-full rounded-lg border border-n-weak bg-n-alpha-1 pl-9 pr-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-n-brand"
+        />
+      </label>
+      <p class="m-0 text-xs text-n-slate-10">
+        {{
+          t('AI_KNOWLEDGE.SELECTOR.COUNT', {
+            count: draftIdSet.size,
+            limit: MAX_SELECTED_SOURCES,
+          })
+        }}
+      </p>
+      <div class="max-h-[50dvh] overflow-y-auto border-y border-n-weak">
+        <label
+          v-for="source in filteredSources"
+          :key="source.id"
+          class="flex cursor-pointer items-start gap-3 border-b border-n-weak py-3 last:border-b-0"
+          :class="{
+            'cursor-not-allowed opacity-60': isDraftSourceDisabled(source),
+          }"
+        >
+          <input
+            type="checkbox"
+            class="mt-0.5 size-4 rounded border-n-slate-6 text-n-brand focus:ring-n-brand"
+            :checked="draftIdSet.has(source.id)"
+            :disabled="isDraftSourceDisabled(source)"
+            :data-testid="`knowledge-source-${source.id}`"
+            @change="toggleDraftSource(source)"
+          />
+          <span class="min-w-0 flex-1">
+            <span class="block truncate text-sm font-medium text-n-slate-12">{{
+              source.name
+            }}</span>
+            <span class="mt-1 block truncate text-xs text-n-slate-10">
+              {{
+                source.content_preview ||
+                t('AI_KNOWLEDGE.STATUS.WAITING_CONTENT')
+              }}
+            </span>
+          </span>
+        </label>
+        <p
+          v-if="!filteredSources.length"
+          class="m-0 py-10 text-center text-sm text-n-slate-10"
+        >
+          {{ t('AI_KNOWLEDGE.SELECTOR.NO_MATCHES') }}
+        </p>
+      </div>
+    </div>
+  </Dialog>
 </template>

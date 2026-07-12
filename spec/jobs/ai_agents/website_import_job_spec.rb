@@ -85,4 +85,29 @@ RSpec.describe AiAgents::WebsiteImportJob do
     expect(ai_agent.reload.prompt).to eq(fallback_prompt)
     expect(website_import.reload).to have_attributes(status: 'failed', stage: 'complete', error_code: 'SafeFetch::FetchError')
   end
+
+  it 'does not rerun an import that was already claimed' do
+    website_import.update!(status: :ready, stage: :complete)
+
+    expect(AiAgents::WebsiteCrawler).not_to receive(:new)
+
+    described_class.perform_now(website_import.id)
+
+    expect(website_import.reload).to have_attributes(status: 'ready', stage: 'complete')
+  end
+
+  it 'does not apply results after the claimed import was expired' do
+    fallback_prompt = ai_agent.prompt
+    crawler = instance_double(AiAgents::WebsiteCrawler)
+    allow(AiAgents::WebsiteCrawler).to receive(:new).and_return(crawler)
+    allow(crawler).to receive(:perform) do
+      website_import.update!(status: :failed, stage: :complete, error_code: 'stale_import')
+      crawl_result
+    end
+
+    described_class.perform_now(website_import.id)
+
+    expect(website_import.reload).to have_attributes(status: 'failed', error_code: 'stale_import')
+    expect(ai_agent.reload.prompt).to eq(fallback_prompt)
+  end
 end

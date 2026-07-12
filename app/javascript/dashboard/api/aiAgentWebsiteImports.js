@@ -11,6 +11,10 @@ class AiAgentWebsiteImportsAPI extends ApiClient {
   applyImport(id, data) {
     return axios.post(`${this.url}/${id}/apply`, data);
   }
+
+  dismiss(id) {
+    return axios.post(`${this.url}/${id}/dismiss`);
+  }
 }
 
 export default AiAgentWebsiteImportsAPI;

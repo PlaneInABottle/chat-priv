@@ -35,6 +35,7 @@
 #  fk_rails_...  (requested_by_id => users.id) ON DELETE => nullify
 #
 class AiAgentWebsiteImport < ApplicationRecord
+  PROCESSING_TIMEOUT = 5.minutes
   MODES = { initial: 0, preview: 1 }.freeze
   STATUSES = { pending: 0, running: 1, ready: 2, applied: 3, failed: 4, dismissed: 5 }.freeze
   STAGES = { queued: 0, crawling: 1, generating: 2, applying: 3, complete: 4 }.freeze
@@ -57,6 +58,10 @@ class AiAgentWebsiteImport < ApplicationRecord
 
   def active?
     pending? || running?
+  end
+
+  def stale?
+    active? && updated_at < PROCESSING_TIMEOUT.ago
   end
 
   def customer_error_code

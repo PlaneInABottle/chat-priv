@@ -12,6 +12,8 @@ class AiImprovements::Usage::Summary
   end
 
   def payload
+    AiImprovements::Usage::Limiter.release_stale_reservations!(account: account, now: now)
+
     {
       period: 'monthly',
       period_start_at: period.start_at.iso8601,
