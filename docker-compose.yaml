@@ -1,3 +1,9 @@
+x-app-env-files: &app-env-files
+  - path: .env
+    required: true
+  - path: .env.local
+    required: false
+
 services:
   base: &base
     build:
@@ -36,7 +42,7 @@ services:
         condition: service_started
     ports:
       - 3000:3000
-    env_file: .env
+    env_file: *app-env-files
     environment:
       - VITE_DEV_SERVER_HOST=vite
       - NODE_ENV=development
@@ -47,6 +53,7 @@ services:
   sidekiq:
     <<: *base
     image: chatwoot-rails:development
+    env_file: *app-env-files
     volumes:
       - ./:/app:delegated
       - node_modules:/app/node_modules
@@ -88,6 +95,25 @@ services:
       - RAILS_ENV=development
     entrypoint: docker/entrypoints/vite.sh
     command: bin/vite dev
+
+  voice-agent:
+    build:
+      context: ./services/voice_agent
+      dockerfile: Dockerfile
+    image: kozmopath-voice-agent:development
+    env_file: *app-env-files
+    environment:
+      CHATWOOT_INTERNAL_API_URL: http://rails:3000
+      VOICE_AGENT_HEALTH_PORT: 9090
+      VOICE_AGENT_PROMETHEUS_PORT: 9091
+    depends_on:
+      rails:
+        condition: service_started
+    ports:
+      - "127.0.0.1:9090:9090"
+      - "127.0.0.1:9091:9091"
+    command: ["python", "agent.py", "dev"]
+    restart: unless-stopped
 
   postgres:
     image: pgvector/pgvector:pg16

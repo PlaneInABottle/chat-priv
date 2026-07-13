@@ -1,5 +1,3 @@
-version: '3'
-
 services:
   base: &base
     image: chatwoot/chatwoot:latest
@@ -33,6 +31,21 @@ services:
       - INSTALLATION_ENV=docker
     command: ['bundle', 'exec', 'sidekiq', '-C', 'config/sidekiq.yml']
     restart: always
+
+  voice-agent:
+    build:
+      context: ./services/voice_agent
+      dockerfile: Dockerfile
+    image: kozmopath-voice-agent:latest
+    env_file: .env
+    environment:
+      CHATWOOT_INTERNAL_API_URL: http://rails:3000
+      VOICE_AGENT_HEALTH_PORT: 9090
+      VOICE_AGENT_PROMETHEUS_PORT: 9091
+    depends_on:
+      - rails
+    restart: always
+    stop_grace_period: 20m
 
   postgres:
     image: pgvector/pgvector:pg16

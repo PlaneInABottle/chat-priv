@@ -47,6 +47,28 @@ Production command:
 uv run python agent.py start
 ```
 
+## Docker
+
+The voice worker runs as a separate container beside Rails and Sidekiq. The image installs the locked Python dependencies, runs as an unprivileged user, and starts in production mode by default.
+
+For the development stack, keep voice credentials in `.env.local` and start the service with:
+
+```bash
+docker compose up -d --build voice-agent
+docker compose ps voice-agent
+docker compose logs --tail=160 voice-agent
+```
+
+The development Compose service overrides `CHATWOOT_INTERNAL_API_URL` to `http://rails:3000` and publishes health and metrics only on localhost ports `9090` and `9091`.
+
+For the production stack, put the required voice variables in `.env` and run:
+
+```bash
+docker compose -f docker-compose.production.yaml up -d --build voice-agent
+```
+
+Production does not publish the worker health or metrics ports to the host. Other services can reach them only through the internal Compose network.
+
 The SDK health endpoint is `GET /` on `VOICE_AGENT_HEALTH_PORT`. It returns `200` only while the worker is connected and healthy. When `VOICE_AGENT_PROMETHEUS_PORT` is set, metrics are available at `GET /metrics` on that port.
 
 For a 25-call initial capacity target, use three workers capped at 10 jobs each and scale out before average active jobs exceed 60% of the fleet cap. Confirm the OpenAI project rate limit supports the target before running a provider-backed load test.

@@ -45,7 +45,7 @@
 
 ## Runtime
 
-Use PM2-managed processes:
+Use PM2-managed processes when Rails runs natively:
 
 ```bash
 pm2 list
@@ -65,6 +65,16 @@ Start the Chatwoot Sidekiq worker if missing:
 ```bash
 pm2 start zsh --name chatwoot-worker -- -lc 'set -a; source /Users/Y_ALTAY1/Documents/simWoot/chatwoot/.env.local; set +a; cd /Users/Y_ALTAY1/Documents/simWoot/chatwoot; eval "$(rbenv init -)"; bundle exec sidekiq -C config/sidekiq.yml'
 ```
+
+When the full application runs with Docker Compose, use the dedicated `voice-agent` service instead of starting a second PM2 worker:
+
+```bash
+docker compose up -d --build voice-agent
+docker compose ps voice-agent
+docker compose logs --tail=160 voice-agent
+```
+
+Development Compose loads `.env` and an optional `.env.local`, publishes health and metrics on localhost ports `9090` and `9091`, and routes internal callbacks to `http://rails:3000`. Production Compose loads `.env`, keeps those ports private, and runs the worker in production mode.
 
 The voice agent must log `registered worker` with `agent_name` matching `VOICE_AGENT_NAME`. The Sidekiq worker is required for live conversation-thread updates because Chatwoot broadcasts `message.created` and `message.updated` through queued `ActionCableBroadcastJob`s.
 
