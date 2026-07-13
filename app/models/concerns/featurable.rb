@@ -4,6 +4,10 @@ module Featurable
   DEFAULT_FEATURE_FLAG_COLUMN = 'feature_flags'.freeze
   FEATURE_FLAG_COLUMNS = [DEFAULT_FEATURE_FLAG_COLUMN, 'feature_flags_ext_1'].freeze
   MAX_FEATURES_PER_COLUMN = 63
+  PUBLIC_FEATURE_ALIASES = {
+    'chatwoot_v4' => 'kozmopath_v4',
+    'contact_chatwoot_support_team' => 'contact_support_team'
+  }.freeze
 
   QUERY_MODE = {
     flag_query_mode: :bit_operator,
@@ -104,6 +108,10 @@ module Featurable
 
   def enabled_features
     all_features.select { |_feature, enabled| enabled == true }
+  end
+
+  def public_enabled_features
+    enabled_features.transform_keys { |name| PUBLIC_FEATURE_ALIASES.fetch(name, name) }
   end
 
   def disabled_features

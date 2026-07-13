@@ -1,6 +1,7 @@
 class Voice::CallSerializer
-  def initialize(call)
+  def initialize(call, internal: false)
     @call = call
+    @internal = internal
   end
 
   def payload
@@ -17,23 +18,29 @@ class Voice::CallSerializer
 
   attr_reader :call
 
+  def internal?
+    @internal
+  end
+
   def identity_payload
     base_identity_payload.merge(voice_identity_payload).merge(release_identity_payload)
   end
 
   def base_identity_payload
-    {
+    payload = {
       id: call.id,
-      provider: call.provider,
-      provider_call_id: call.provider_call_id,
       direction: call.direction,
       account_id: call.account_id,
       inbox_id: call.inbox_id,
       conversation_id: call.conversation&.display_id,
       contact_id: call.contact_id,
-      message_id: call.message_id,
-      livekit_room_name: call.livekit_room_name
+      message_id: call.message_id
     }
+
+    return payload.merge(provider: call.provider, provider_call_id: call.provider_call_id,
+                         livekit_room_name: call.livekit_room_name) if internal? || !call.livekit?
+
+    payload.merge(provider: call.public_provider, call_reference: call.provider_call_id, room_name: call.livekit_room_name)
   end
 
   def release_identity_payload

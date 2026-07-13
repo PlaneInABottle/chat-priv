@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
 import { useCallSession } from 'dashboard/composables/useCallSession';
-import { useLivekitVoiceSession } from 'dashboard/composables/useLivekitVoiceSession';
+import { useVoiceSession } from 'dashboard/composables/useVoiceSession';
 import { setWhatsappCallMuted } from 'dashboard/composables/useWhatsappCallSession';
 import TwilioVoiceClient from 'dashboard/api/channel/voice/twilioVoiceClient';
 import VoiceAPI from 'dashboard/api/voice';
@@ -34,21 +34,22 @@ const {
   formattedCallDuration,
 } = useCallSession();
 
-// Mute routes by provider: LiveKit owns its local audio track, WhatsApp uses
-// its local mic track, and Twilio uses the Voice SDK connection.
+// Mute routes by provider: Kozmopath Voice owns its local audio track,
+// WhatsApp uses its local mic track, and Twilio uses the Voice SDK connection.
 const isMuted = ref(false);
-const isLivekitCall = call => call?.provider === VOICE_CALL_PROVIDERS.LIVEKIT;
+const isKozmopathVoiceCall = call =>
+  call?.provider === VOICE_CALL_PROVIDERS.KOZMOPATH_VOICE;
 
 const primaryIncomingCall = computed(() =>
   hasActiveCall.value ? null : incomingCalls.value[0] || null
 );
 
-const livekitSessionCall = computed(() => {
+const voiceSessionCall = computed(() => {
   let call = null;
-  if (activeCall.value?.provider === VOICE_CALL_PROVIDERS.LIVEKIT) {
+  if (activeCall.value?.provider === VOICE_CALL_PROVIDERS.KOZMOPATH_VOICE) {
     call = activeCall.value;
   } else if (
-    primaryIncomingCall.value?.provider === VOICE_CALL_PROVIDERS.LIVEKIT
+    primaryIncomingCall.value?.provider === VOICE_CALL_PROVIDERS.KOZMOPATH_VOICE
   ) {
     call = primaryIncomingCall.value;
   }
@@ -56,19 +57,19 @@ const livekitSessionCall = computed(() => {
   return { id: call.callId };
 });
 const {
-  remoteAudioRef: livekitRemoteAudioRef,
-  sessionError: livekitSessionError,
-  isJoining: isJoiningLivekit,
-  isMuted: isLivekitMuted,
-  isConnected: isLivekitConnected,
-  joinRoom: joinLivekitRoom,
-  disconnectRoom: disconnectLivekitRoom,
-  toggleMute: toggleLivekitMute,
-} = useLivekitVoiceSession({ call: livekitSessionCall });
+  remoteAudioRef: voiceRemoteAudioRef,
+  sessionError: voiceSessionError,
+  isJoining: isJoiningKozmopathVoice,
+  isMuted: isKozmopathVoiceMuted,
+  isConnected: isKozmopathVoiceConnected,
+  joinRoom: joinKozmopathVoiceRoom,
+  disconnectRoom: disconnectKozmopathVoiceRoom,
+  toggleMute: toggleKozmopathVoiceMute,
+} = useVoiceSession({ call: voiceSessionCall });
 const isCallAccepting = call =>
-  isLivekitCall(call) ? isJoiningLivekit.value : isJoining.value;
-const livekitJoinedCallSid = ref(null);
-const navigateToConversationAfterLivekitJoin = ref(null);
+  isKozmopathVoiceCall(call) ? isJoiningKozmopathVoice.value : isJoining.value;
+const voiceJoinedCallReference = ref(null);
+const navigateToConversationAfterKozmopathVoiceJoin = ref(null);
 
 const stackedIncomingCalls = computed(() =>
   hasActiveCall.value ? incomingCalls.value : incomingCalls.value.slice(1)
@@ -91,18 +92,20 @@ const stackedCardState = call =>
     ? VOICE_CALL_DIRECTION.OUTGOING
     : VOICE_CALL_DIRECTION.INCOMING;
 
-const isActiveLivekit = computed(() => isLivekitCall(activeCall.value));
+const isActiveKozmopathVoice = computed(() =>
+  isKozmopathVoiceCall(activeCall.value)
+);
 const isActiveWhatsapp = computed(
   () => activeCall.value?.provider === VOICE_CALL_PROVIDERS.WHATSAPP
 );
 const showMute = computed(() => Boolean(activeCall.value));
 const activeMuted = computed(() =>
-  isActiveLivekit.value ? isLivekitMuted.value : isMuted.value
+  isActiveKozmopathVoice.value ? isKozmopathVoiceMuted.value : isMuted.value
 );
 
 const toggleMute = () => {
-  if (isActiveLivekit.value) {
-    toggleLivekitMute();
+  if (isActiveKozmopathVoice.value) {
+    toggleKozmopathVoiceMute();
     return;
   }
   isMuted.value = !isMuted.value;
@@ -184,7 +187,7 @@ const goToConversation = call => {
   });
 };
 
-const endLivekitCall = async (call, reason) => {
+const endKozmopathVoiceCall = async (call, reason) => {
   if (!call) return;
 
   try {
@@ -192,8 +195,8 @@ const endLivekitCall = async (call, reason) => {
       await VoiceAPI.endCall(call.callId, { end_reason: reason });
     }
   } finally {
-    disconnectLivekitRoom();
-    livekitJoinedCallSid.value = null;
+    disconnectKozmopathVoiceRoom();
+    voiceJoinedCallReference.value = null;
     dismissCall(call.callSid);
   }
 };
@@ -202,8 +205,8 @@ const handleEndCall = async () => {
   const call = activeCall.value;
   if (!call) return;
 
-  if (isLivekitCall(call)) {
-    await endLivekitCall(call, 'agent_ended_from_popup');
+  if (isKozmopathVoiceCall(call)) {
+    await endKozmopathVoiceCall(call, 'agent_ended_from_popup');
     return;
   }
 
@@ -220,28 +223,29 @@ const handleEndCall = async () => {
 const handleRejectCall = async call => {
   if (!call) return;
 
-  if (isLivekitCall(call)) {
-    await endLivekitCall(call, 'agent_rejected_from_popup');
+  if (isKozmopathVoiceCall(call)) {
+    await endKozmopathVoiceCall(call, 'agent_rejected_from_popup');
     return;
   }
 
   await rejectIncomingCall(call.callSid);
 };
 
-const handleJoinLivekitCall = async call => {
+const handleJoinKozmopathVoiceCall = async call => {
   if (hasActiveCall.value && activeCall.value?.callSid !== call.callSid) {
     await handleEndCall();
   }
 
-  navigateToConversationAfterLivekitJoin.value = call.conversationId || null;
+  navigateToConversationAfterKozmopathVoiceJoin.value =
+    call.conversationId || null;
   callsStore.setCallActive(call.callSid);
 };
 
 const handleJoinCall = async call => {
-  if (!call || isJoining.value || isJoiningLivekit.value) return;
+  if (!call || isJoining.value || isJoiningKozmopathVoice.value) return;
 
-  if (isLivekitCall(call)) {
-    await handleJoinLivekitCall(call);
+  if (isKozmopathVoiceCall(call)) {
+    await handleJoinKozmopathVoiceCall(call);
     return;
   }
 
@@ -288,35 +292,39 @@ watch(
 watch(
   () => activeCall.value?.callSid,
   async (callSid, previousCallSid) => {
-    if (previousCallSid && previousCallSid === livekitJoinedCallSid.value) {
-      disconnectLivekitRoom();
-      livekitJoinedCallSid.value = null;
+    if (previousCallSid && previousCallSid === voiceJoinedCallReference.value) {
+      disconnectKozmopathVoiceRoom();
+      voiceJoinedCallReference.value = null;
     }
 
     const call = activeCall.value;
-    if (!callSid || !isLivekitCall(call)) return;
-    if (isLivekitConnected.value && livekitJoinedCallSid.value === callSid) {
+    if (!callSid || !isKozmopathVoiceCall(call)) return;
+    if (
+      isKozmopathVoiceConnected.value &&
+      voiceJoinedCallReference.value === callSid
+    ) {
       return;
     }
 
-    const joined = await joinLivekitRoom('agent');
+    const joined = await joinKozmopathVoiceRoom('agent');
     if (!joined) {
       callsStore.setCallInactive(callSid);
-      navigateToConversationAfterLivekitJoin.value = null;
+      navigateToConversationAfterKozmopathVoiceJoin.value = null;
       return;
     }
 
-    livekitJoinedCallSid.value = callSid;
+    voiceJoinedCallReference.value = callSid;
     if (
-      navigateToConversationAfterLivekitJoin.value &&
-      call.conversationId === navigateToConversationAfterLivekitJoin.value
+      navigateToConversationAfterKozmopathVoiceJoin.value &&
+      call.conversationId ===
+        navigateToConversationAfterKozmopathVoiceJoin.value
     ) {
       router.push({
         name: 'inbox_conversation',
         params: { conversation_id: call.conversationId },
       });
     }
-    navigateToConversationAfterLivekitJoin.value = null;
+    navigateToConversationAfterKozmopathVoiceJoin.value = null;
   },
   { immediate: true }
 );
@@ -357,7 +365,7 @@ watch(
 
 onBeforeUnmount(() => {
   stopRingtone();
-  disconnectLivekitRoom();
+  disconnectKozmopathVoiceRoom();
 });
 
 const widgetAriaLabel = computed(() => {
@@ -392,7 +400,7 @@ const onEscape = () => {
     class="fixed ltr:right-4 rtl:left-4 bottom-4 z-50 flex flex-col gap-3 max-w-[400px] w-[90vw] sm:w-[400px]"
     @keydown.escape="onEscape"
   >
-    <div ref="livekitRemoteAudioRef" class="hidden" />
+    <div ref="voiceRemoteAudioRef" class="hidden" />
 
     <!-- Stacked incoming calls (shown above the primary card) -->
     <CallCard
@@ -426,10 +434,10 @@ const onEscape = () => {
       @go-to-conversation="goToConversation(activeCall || primaryIncomingCall)"
     />
     <div
-      v-if="livekitSessionError"
+      v-if="voiceSessionError"
       class="mx-4 rounded-lg bg-n-ruby-3 px-3 py-2 text-sm text-n-ruby-11"
     >
-      {{ livekitSessionError }}
+      {{ voiceSessionError }}
     </div>
   </div>
 </template>

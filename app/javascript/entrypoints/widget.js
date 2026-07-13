@@ -10,6 +10,7 @@ import router from '../widget/router';
 import { directive as onClickaway } from 'vue3-click-away';
 import { domPurifyConfig } from '../shared/helpers/HTMLSanitizer';
 import { plugin, defaultConfig } from '@formkit/vue';
+import { replaceTranslatedBranding } from 'shared/composables/useBranding';
 
 import {
   startsWithPlus,
@@ -20,6 +21,7 @@ const i18n = createI18n({
   legacy: false, // https://github.com/intlify/vue-i18n/issues/1902
   locale: 'en',
   messages: i18nMessages,
+  postTranslation: replaceTranslatedBranding,
 });
 
 const app = createApp(App);
@@ -49,6 +51,6 @@ window.onload = () => {
   window.WOOT_WIDGET = app.mount('#app');
   window.actionCable = new ActionCableConnector(
     window.WOOT_WIDGET,
-    window.chatwootPubsubToken
+    window.kozmopathPubsubToken
   );
 };

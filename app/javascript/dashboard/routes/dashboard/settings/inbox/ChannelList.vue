@@ -14,7 +14,7 @@ const { accountId, currentAccount } = useAccount();
 const enabledFeatures = computed(() => currentAccount.value?.features || {});
 
 const hasTiktokConfigured = computed(() => {
-  return window.chatwootConfig?.tiktokAppId;
+  return window.kozmopathConfig?.tiktokAppId;
 });
 
 const channelList = computed(() => {

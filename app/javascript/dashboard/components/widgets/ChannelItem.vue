@@ -16,15 +16,15 @@ const props = defineProps({
 const emit = defineEmits(['channelItemClick']);
 
 const hasFbConfigured = computed(() => {
-  return window.chatwootConfig?.fbAppId;
+  return window.kozmopathConfig?.fbAppId;
 });
 
 const hasInstagramConfigured = computed(() => {
-  return window.chatwootConfig?.instagramAppId;
+  return window.kozmopathConfig?.instagramAppId;
 });
 
 const hasTiktokConfigured = computed(() => {
-  return window.chatwootConfig?.tiktokAppId;
+  return window.kozmopathConfig?.tiktokAppId;
 });
 
 const isActive = computed(() => {
@@ -52,10 +52,17 @@ const isActive = computed(() => {
     return props.enabledFeatures.channel_tiktok && hasTiktokConfigured.value;
   }
 
-  if (key === 'voice' || key === 'whatsapp_call') {
+  if (key === 'voice') {
     return props.enabledFeatures.channel_voice;
   }
 
+  if (key === 'whatsapp_call') {
+    return (
+      props.enabledFeatures.channel_voice &&
+      !!window.kozmopathConfig?.whatsappAppId &&
+      window.kozmopathConfig.whatsappAppId !== 'none'
+    );
+  }
   return [
     'website',
     'twilio',

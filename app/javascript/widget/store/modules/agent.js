@@ -16,11 +16,25 @@ export const getters = {
     $state.records.filter(agent => agent.availability_status === 'online'),
 };
 
-const CACHE_KEY_PREFIX = 'chatwoot_available_agents_';
+const CACHE_KEY_PREFIX = 'kozmopath_available_agents_';
+
+const clearLegacyAgentCache = websiteToken => {
+  const cacheSuffix = `_available_agents_${websiteToken}`;
+  const currentCacheKey = `${CACHE_KEY_PREFIX}${websiteToken}`;
+
+  Object.keys(localStorage).forEach(key => {
+    const isAgentCacheKey =
+      key.endsWith(cacheSuffix) || key.endsWith(`${cacheSuffix}:ts`);
+    if (isAgentCacheKey && !key.startsWith(currentCacheKey)) {
+      localStorage.removeItem(key);
+    }
+  });
+};
 
 export const actions = {
   fetchAvailableAgents: async ({ commit }, websiteToken) => {
     try {
+      clearLegacyAgentCache(websiteToken);
       const cachedData = getFromCache(`${CACHE_KEY_PREFIX}${websiteToken}`);
       if (cachedData) {
         commit('setAgents', cachedData);

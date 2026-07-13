@@ -151,7 +151,7 @@ const createVuexStore = ({
       'aiAgent/getUIFlags': () => ({ isFetching: false }),
       'accounts/getAccount': state => () => state.account,
       'accounts/isFeatureEnabledonAccount': () => () => false,
-      'globalConfig/isOnChatwootCloud': () => false,
+      'globalConfig/isCloudDeployment': () => false,
       'inboxes/getInboxes': state => state.inboxes,
       'labels/getLabels': state => state.labels,
       'aiAgentTestConversations/getTestConversations': () => [],

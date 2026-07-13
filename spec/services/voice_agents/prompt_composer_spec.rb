@@ -12,7 +12,7 @@ RSpec.describe VoiceAgents::PromptComposer do
           'enabled' => %w[human_handoff ikas_catalog_search ikas_lookup_order]
         ).normalized_config
       )
-      allow(GlobalConfigService).to receive(:load).with('INSTALLATION_NAME', 'Chatwoot').and_return('Acme Support')
+      allow(GlobalConfigService).to receive(:load).with('INSTALLATION_NAME', 'Kozmopath').and_return('Acme Support')
       allow(AiAgents::Settings).to receive(:global_instructions).and_return('Never invent facts.')
 
       prompt = described_class.new(voice_agent: voice_agent).effective_system_prompt

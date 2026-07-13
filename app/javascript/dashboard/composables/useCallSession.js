@@ -21,7 +21,8 @@ import {
 import Timer from 'dashboard/helper/Timer';
 
 const isWhatsappCall = call => call?.provider === VOICE_CALL_PROVIDERS.WHATSAPP;
-const isLivekitCall = call => call?.provider === VOICE_CALL_PROVIDERS.LIVEKIT;
+const isKozmopathVoiceCall = call =>
+  call?.provider === VOICE_CALL_PROVIDERS.KOZMOPATH_VOICE;
 
 // Dismissed call sids must not be re-seeded by the conversation-load watcher.
 // Lives at module scope so all consumers share the same set.
@@ -118,7 +119,7 @@ const buildCallActions = ({ callsStore, whatsappSession, t }) => {
 
   const endCall = async ({ conversationId, inboxId, callSid }) => {
     const call = findCall(callSid);
-    if (isLivekitCall(call)) {
+    if (isKozmopathVoiceCall(call)) {
       try {
         if (call?.callId) {
           await AccountVoiceAPI.endCall(call.callId, {
@@ -156,7 +157,7 @@ const buildCallActions = ({ callsStore, whatsappSession, t }) => {
     if (globalIsJoining.value) return null;
 
     const call = findCall(callSid);
-    if (isLivekitCall(call)) return null;
+    if (isKozmopathVoiceCall(call)) return null;
 
     // Outbound *WhatsApp* calls have no separate join step — the offer was
     // sent at initiate time and the answer is applied by the cable handler.
@@ -232,7 +233,7 @@ const buildCallActions = ({ callsStore, whatsappSession, t }) => {
   const rejectIncomingCall = async callSid => {
     const call = findCall(callSid);
     try {
-      if (isLivekitCall(call)) return;
+      if (isKozmopathVoiceCall(call)) return;
 
       if (isWhatsappCall(call) && call?.callId) {
         if (call.callDirection === VOICE_CALL_DIRECTION.OUTBOUND) {
@@ -312,7 +313,7 @@ export function useCallSession() {
       (conv.messages || []).forEach(msg => {
         if (msg.content_type !== CONTENT_TYPES.VOICE_CALL) return;
         if (msg.call?.status !== VOICE_CALL_STATUS.RINGING) return;
-        const callSid = msg.call?.provider_call_id;
+        const callSid = msg.call?.call_reference || msg.call?.provider_call_id;
         if (callSid && dismissedCallSids.has(callSid)) return;
         handleVoiceCallCreated(msg, currentUserId, currentUserAvailability);
       });

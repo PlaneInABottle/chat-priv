@@ -39,8 +39,8 @@ const showChatSupport = computed(() => {
   return (
     isFeatureEnabledonAccount.value(
       accountId.value,
-      FEATURE_FLAGS.CONTACT_CHATWOOT_SUPPORT_TEAM
-    ) && globalConfig.value.chatwootInboxToken
+      FEATURE_FLAGS.CONTACT_SUPPORT_TEAM
+    ) && globalConfig.value.supportInboxToken
   );
 });
 
@@ -49,6 +49,7 @@ const toggleChatSupport = () => {
     window.$chatwoot.toggle();
   }
 };
+const brandURL = computed(() => globalConfig.value.brandURL || '/');
 
 const menuItems = computed(() => {
   return [
@@ -92,7 +93,7 @@ const menuItems = computed(() => {
       showOnCustomBrandedInstance: false,
       label: t('SIDEBAR_ITEMS.DOCS'),
       icon: 'i-lucide-book',
-      link: 'https://www.chatwoot.com/hc/user-guide/en',
+      link: brandURL.value,
       nativeLink: true,
       target: '_blank',
     },
@@ -101,7 +102,7 @@ const menuItems = computed(() => {
       showOnCustomBrandedInstance: false,
       label: t('SIDEBAR_ITEMS.CHANGELOG'),
       icon: 'i-lucide-scroll-text',
-      link: 'https://www.chatwoot.com/changelog/',
+      link: brandURL.value,
       nativeLink: true,
       target: '_blank',
     },

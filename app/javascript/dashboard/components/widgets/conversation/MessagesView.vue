@@ -12,7 +12,7 @@ import ConversationLabelSuggestion from './conversation/LabelSuggestion.vue';
 import Banner from 'dashboard/components/ui/Banner.vue';
 import Spinner from 'dashboard/components-next/spinner/Spinner.vue';
 import ResizableEditorWrapper from './ResizableEditorWrapper.vue';
-import ActiveLivekitCallBar from './ActiveLivekitCallBar.vue';
+import ActiveVoiceCallBar from './ActiveVoiceCallBar.vue';
 
 // stores and apis
 import { mapGetters } from 'vuex';
@@ -47,7 +47,7 @@ export default {
     ConversationLabelSuggestion,
     Spinner,
     ResizableEditorWrapper,
-    ActiveLivekitCallBar,
+    ActiveVoiceCallBar,
   },
   mixins: [inboxMixin],
   setup() {
@@ -246,7 +246,7 @@ export default {
 
       return { incoming, outgoing };
     },
-    activeLivekitCall() {
+    activeVoiceCall() {
       return [...this.getMessages]
         .reverse()
         .map(message => this.voiceCallFromMessage(message))
@@ -468,7 +468,7 @@ export default {
       const status = call.status || data.status;
       const id = call.id || data.call_id;
 
-      if (provider !== VOICE_CALL_PROVIDERS.LIVEKIT) return null;
+      if (provider !== VOICE_CALL_PROVIDERS.KOZMOPATH_VOICE) return null;
       if (!['in-progress', 'in_progress'].includes(status)) return null;
       if (!id) return null;
 
@@ -476,8 +476,8 @@ export default {
         id,
         provider,
         status,
-        providerCallId: call.provider_call_id || data.call_sid,
-        livekitRoomName: call.livekit_room_name || data.livekit_room_name,
+        callReference: call.call_reference || data.call_reference,
+        roomName: call.room_name || data.room_name,
         handoffStatus: call.handoff_status || data.handoff_status,
         aiStatus: call.ai_status || data.ai_status,
       };
@@ -550,10 +550,7 @@ export default {
       </template>
     </MessageList>
     <div class="flex relative flex-col bg-n-surface-1">
-      <ActiveLivekitCallBar
-        v-if="activeLivekitCall"
-        :call="activeLivekitCall"
-      />
+      <ActiveVoiceCallBar v-if="activeVoiceCall" :call="activeVoiceCall" />
       <div
         v-if="isAnyoneTyping"
         class="absolute flex items-center w-full h-0 -top-7"

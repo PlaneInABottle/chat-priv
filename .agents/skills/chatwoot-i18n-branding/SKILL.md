@@ -1,6 +1,6 @@
 ---
 name: chatwoot-i18n-branding
-description: Focused guide for Chatwoot translation-source and installation-branding work. Use when the task is to find the English source locale files, update only repo-owned translation sources, run `pnpm sync:i18n`, or replace hardcoded Chatwoot UI text through `replaceInstallationName`.
+description: Focused guide for translation-source and installation-branding work. Use when the task is to find the English source locale files, update only repo-owned translation sources, run `pnpm sync:i18n`, replace hardcoded public product or provider copy, or apply build-time branding to translated UI text.
 ---
 
 # Chatwoot I18n and Branding

@@ -22,12 +22,13 @@ import constants from 'dashboard/constants/globals';
 import * as Sentry from '@sentry/vue';
 import {
   initializeAnalyticsEvents,
-  initializeChatwootEvents,
+  initializeKozmopathEvents,
 } from 'dashboard/helper/scriptHelpers.js';
 import FluentIcon from 'shared/components/FluentIcon/DashboardIcon.vue';
 import Icon from 'dashboard/components-next/icon/Icon.vue';
 import VueDOMPurifyHTML from 'vue-dompurify-html';
 import { domPurifyConfig } from 'shared/helpers/HTMLSanitizer.js';
+import { replaceTranslatedBranding } from 'shared/composables/useBranding';
 
 import { vResizeObserver } from '@vueuse/components';
 import { directive as onClickaway } from 'vue3-click-away';
@@ -38,6 +39,7 @@ const i18n = createI18n({
   legacy: false, // https://github.com/intlify/vue-i18n/issues/1902
   locale: 'en',
   messages: i18nMessages,
+  postTranslation: replaceTranslatedBranding,
 });
 
 sync(store, router);
@@ -115,7 +117,7 @@ window.axios = createAxios(axios);
 // [VITE] Disabled this we don't need it, we can use `useEmitter` directly
 // app.prototype.$emitter = emitter;
 
-initializeChatwootEvents();
+initializeKozmopathEvents();
 initializeAnalyticsEvents();
 initalizeRouter();
 

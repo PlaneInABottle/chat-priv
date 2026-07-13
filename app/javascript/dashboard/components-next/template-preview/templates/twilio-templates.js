@@ -129,18 +129,18 @@ export const twilioTemplates = [
     template_type: 'quick_reply',
   },
   {
-    body: 'What type of Chatwoot installation are you using? Select "Chatwoot Cloud" if you are using app.chatwoot.com, otherwise select "Self-hosted Chatwoot".',
+    body: 'What type of Kozmopath installation are you using? Select "Kozmopath Cloud" if you are using app.kozmopath.com, otherwise select "Self-hosted Kozmopath".',
     types: {
       'twilio/quick-reply': {
-        body: 'What type of Chatwoot installation are you using? Select "Chatwoot Cloud" if you are using app.chatwoot.com, otherwise select "Self-hosted Chatwoot".',
+        body: 'What type of Kozmopath installation are you using? Select "Kozmopath Cloud" if you are using app.kozmopath.com, otherwise select "Self-hosted Kozmopath".',
         actions: [
           {
-            id: 'Chatwoot Cloud_payload',
-            title: 'Chatwoot Cloud',
+            id: 'Kozmopath Cloud_payload',
+            title: 'Kozmopath Cloud',
           },
           {
-            id: 'Self-hosted Chatwoot_payload',
-            title: 'Self-hosted Chatwoot',
+            id: 'Self-hosted Kozmopath_payload',
+            title: 'Self-hosted Kozmopath',
           },
         ],
       },

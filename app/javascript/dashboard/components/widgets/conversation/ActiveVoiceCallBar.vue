@@ -42,8 +42,8 @@ const callField = (camelKey, snakeKey = camelKey) =>
 const callId = computed(() => callField('id'));
 const callSid = computed(
   () =>
-    callField('providerCallId', 'provider_call_id') ||
-    callField('livekitRoomName', 'livekit_room_name')
+    callField('callReference', 'call_reference') ||
+    callField('roomName', 'room_name')
 );
 const status = computed(() => callField('status'));
 const handoffStatus = computed(() =>
@@ -53,7 +53,7 @@ const aiStatus = computed(() => callField('aiStatus', 'ai_status'));
 const isTerminal = computed(() => TERMINAL_STATUSES.includes(status.value));
 const isActiveInCallWidget = computed(
   () =>
-    callsStore.activeCall?.provider === VOICE_CALL_PROVIDERS.LIVEKIT &&
+    callsStore.activeCall?.provider === VOICE_CALL_PROVIDERS.KOZMOPATH_VOICE &&
     callsStore.activeCall?.callSid === callSid.value
 );
 
@@ -97,7 +97,7 @@ const syncActiveCallStore = () => {
   callsStore.addCall({
     callSid: callSid.value,
     callId: callId.value,
-    provider: VOICE_CALL_PROVIDERS.LIVEKIT,
+    provider: VOICE_CALL_PROVIDERS.KOZMOPATH_VOICE,
     startedAt: callField('startedAt', 'started_at'),
     conversationId: callField('conversationId', 'conversation_id'),
     inboxId: callField('inboxId', 'inbox_id'),

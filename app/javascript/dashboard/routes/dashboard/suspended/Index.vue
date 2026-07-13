@@ -13,8 +13,8 @@ const showBillingLink = computed(
 );
 
 const toggleSupportWidgetVisibility = () => {
-  if (window.$chatwoot) {
-    window.$chatwoot.toggleBubbleVisibility('show');
+  if (window.$kozmopath) {
+    window.$kozmopath.toggleBubbleVisibility('show');
   }
 };
 
@@ -25,7 +25,7 @@ const toggleSupportWidget = () => {
 };
 
 const setupListenerForWidgetEvent = () => {
-  window.addEventListener('chatwoot:on-message', () => {
+  window.addEventListener('kozmopath:on-message', () => {
     toggleSupportWidgetVisibility();
   });
 };

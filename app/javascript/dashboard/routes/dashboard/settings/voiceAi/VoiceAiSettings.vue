@@ -14,7 +14,7 @@ import VoiceAPI from 'dashboard/api/voice';
 import { INBOX_TYPES } from 'dashboard/helper/inbox';
 import { useAlert } from 'dashboard/composables';
 import { useMapGetter, useStore } from 'dashboard/composables/store';
-import { useLivekitVoiceSession } from 'dashboard/composables/useLivekitVoiceSession';
+import { useVoiceSession } from 'dashboard/composables/useVoiceSession';
 import { BUS_EVENTS } from 'shared/constants/busEvents';
 import { emitter } from 'shared/helpers/mitt';
 
@@ -142,7 +142,7 @@ const {
   joinRoom,
   disconnectRoom,
   toggleMute,
-} = useLivekitVoiceSession({ call: currentCall });
+} = useVoiceSession({ call: currentCall });
 
 const inboxes = useMapGetter('inboxes/getInboxes');
 const teams = useMapGetter('teams/getTeams');

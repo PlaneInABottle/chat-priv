@@ -15,8 +15,12 @@ class PublicController < ActionController::Base
 
     render json: {
       error: "Domain: #{domain} is not registered with us. \
-      Please send us an email at support@chatwoot.com with the custom domain name and account API key"
+      Please send us an email at #{public_support_email} with the custom domain name and account API key"
     }, status: :unauthorized and return
+  end
+
+  def public_support_email
+    GlobalConfigService.load('MAILER_SUPPORT_EMAIL', 'support@kozmopath.com').presence || 'support@kozmopath.com'
   end
 
   def ensure_portal_feature_enabled
