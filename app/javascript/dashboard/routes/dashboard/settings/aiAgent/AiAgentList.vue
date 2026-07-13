@@ -72,6 +72,13 @@ const confirmDelete = async () => {
         <template #actions>
           <div class="flex flex-wrap justify-end gap-2">
             <Button
+              icon="i-lucide-chart-no-axes-column"
+              variant="outline"
+              color="slate"
+              :label="t('AI_ASSISTANT.USAGE.OPEN')"
+              @click="navigateToUsage"
+            />
+            <Button
               icon="i-lucide-library"
               variant="outline"
               color="slate"
@@ -90,15 +97,6 @@ const confirmDelete = async () => {
 
     <template #body>
       <div class="flex flex-col gap-6">
-        <div class="flex flex-wrap justify-end gap-2">
-          <Button
-            icon="i-lucide-chart-no-axes-column"
-            variant="outline"
-            color="slate"
-            :label="t('AI_ASSISTANT.USAGE.OPEN')"
-            @click="navigateToUsage"
-          />
-        </div>
         <div
           v-if="hasAgents"
           class="overflow-hidden rounded-lg border border-n-weak bg-n-alpha-1"

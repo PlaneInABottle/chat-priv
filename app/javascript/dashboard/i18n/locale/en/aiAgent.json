@@ -14,8 +14,8 @@
       "IMPROVE": "Improve"
     },
     "NAME": {
-      "LABEL": "Agent Name",
-      "PLACEHOLDER": "Enter agent name…"
+      "LABEL": "Assistant name",
+      "PLACEHOLDER": "Enter assistant name…"
     },
     "PROMPT": {
       "LABEL": "Instructions",
@@ -106,7 +106,6 @@
       "LABELS_IGNORED": "Unavailable labels:",
       "SOURCES_USED": "Sources used",
       "SAVE_BEFORE_TESTING": "Save your changes before testing this AI assistant.",
-      "ENABLE_BEFORE_TESTING": "Publish this AI assistant before testing.",
       "ADD_PROMPT_BEFORE_TESTING": "Add instructions and save your changes before testing this AI assistant.",
       "ERROR": "Sorry, I couldn't generate a response right now. Please try again."
     },
@@ -532,8 +531,15 @@
       },
       "LANGUAGE": "Response language",
       "LANGUAGES": {
+        "SAME_AS_CUSTOMER": "Match each customer",
         "TR": "Turkish",
         "EN": "English"
+      },
+      "GOAL_INSTRUCTIONS": {
+        "SUPPORT": "Answer customer questions and guide customers to the appropriate next step.",
+        "SALES": "Help customers understand and compare suitable products, then guide them to the next sales step.",
+        "ORDERS": "Help with general order, delivery, return, and exchange questions while requesting only the information needed for the next step.",
+        "CUSTOM": "Follow the business-specific support workflow described in these instructions."
       },
       "TONE": "Tone",
       "TONES": {
@@ -541,21 +547,21 @@
         "PROFESSIONAL": "Professional",
         "CONCISE": "Concise"
       },
-      "INSTRUCTIONS_TITLE": "Review the assistant's instructions",
-      "INSTRUCTIONS_HELP": "The draft below is built from your choices. Edit it in plain language so it matches your business.",
+      "INSTRUCTIONS_TITLE": "Add business guidance",
+      "INSTRUCTIONS_HELP": "Add business context and boundaries, then edit the suggested conversation flow in plain language.",
       "BUSINESS_CONTEXT": "What should it know about your business?",
       "BOUNDARIES": "What should it avoid or leave to a person?",
-      "REBUILD": "Rebuild draft",
-      "INSTRUCTIONS_LABEL": "Instructions",
+      "REBUILD": "Reset suggested flow",
+      "INSTRUCTIONS_LABEL": "Tasks and conversation flow",
       "INSTRUCTIONS_REQUIRED": "Add instructions before continuing.",
       "INBOXES_TITLE": "Where should it answer?",
       "INBOXES_HELP": "Connect at least one inbox. An inbox can belong to only one automated assistant.",
       "INBOX_REQUIRED": "Select at least one inbox before continuing.",
       "REVIEW_TITLE": "Create your draft",
-      "REVIEW_HELP": "The assistant will stay offline until it passes a test and you publish it.",
+      "REVIEW_HELP": "This creates an offline draft. Review it in the editor, then publish whenever it is ready.",
       "BACK": "Back",
       "CONTINUE": "Continue",
-      "CREATE_AND_TEST": "Create draft and test"
+      "CREATE_DRAFT": "Create draft"
     }
   },
   "AI_AGENTS": {
@@ -566,7 +572,7 @@
       "TITLE": "New AI Assistant",
       "NAME_LABEL": "Assistant name",
       "NAME_PLACEHOLDER": "e.g., Sales Assistant",
-      "CREATE": "Create Agent",
+      "CREATE": "Create assistant",
       "CANCEL": "Cancel",
       "NAME_REQUIRED": "Name is required",
       "SUCCESS": "AI assistant created successfully",

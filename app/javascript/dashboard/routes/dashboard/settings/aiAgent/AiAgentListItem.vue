@@ -38,7 +38,11 @@ const goToDetail = () => {
   <div
     class="grid grid-cols-1 gap-3 border-b border-n-weak px-4 py-4 last:border-b-0 md:grid-cols-[minmax(0,1fr)_120px_140px_140px_auto] md:items-center"
   >
-    <button type="button" class="min-w-0 text-left" @click="goToDetail">
+    <button
+      type="button"
+      class="min-w-0 rounded-sm text-left hover:text-n-slate-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-n-brand"
+      @click="goToDetail"
+    >
       <span class="block truncate text-sm font-semibold text-n-slate-12">
         {{ agent.name }}
       </span>

@@ -31,13 +31,17 @@ describe('AiAgentList.vue', () => {
               '<div :data-loading="isLoading"><slot name="header" /><slot name="body" /></div>',
           },
           BaseSettingsHeader: {
-            template: '<div><slot name="actions" /></div>',
+            template:
+              '<div data-testid="header-actions"><slot name="actions" /></div>',
           },
           AiAgentListItem: {
             props: ['agent'],
             template: '<div>{{ agent.name }}</div>',
           },
-          Button: { template: '<button />' },
+          Button: {
+            props: ['label'],
+            template: '<button>{{ label }}</button>',
+          },
           Dialog: { template: '<div />' },
         },
       },
@@ -45,5 +49,8 @@ describe('AiAgentList.vue', () => {
 
     expect(wrapper.vm.isInitialLoading).toBe(false);
     expect(wrapper.text()).toContain('Support assistant');
+    expect(wrapper.get('[data-testid="header-actions"]').text()).toContain(
+      'View usage'
+    );
   });
 });

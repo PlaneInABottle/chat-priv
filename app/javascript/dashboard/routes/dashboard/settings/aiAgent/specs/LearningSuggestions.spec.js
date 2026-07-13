@@ -189,7 +189,10 @@ describe('LearningSuggestions.vue', () => {
       target_section: null,
       source_name: 'Returns and exchanges',
     });
-    expect(refresh).not.toHaveBeenCalled();
+    expect(refresh).toHaveBeenCalledOnce();
+    expect(wrapper.emitted('draftUpdated')).toEqual([
+      [{ preserveInstructions: true }],
+    ]);
   });
 
   it('selects a valid section when changing knowledge to instructions', async () => {

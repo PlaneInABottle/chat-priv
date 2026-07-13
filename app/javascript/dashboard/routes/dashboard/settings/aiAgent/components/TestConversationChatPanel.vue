@@ -3,6 +3,7 @@ import { ref, watch, nextTick, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import Button from 'dashboard/components-next/button/Button.vue';
 import Icon from 'dashboard/components-next/icon/Icon.vue';
+import { useMessageFormatter } from 'shared/composables/useMessageFormatter';
 import TestConversationEmptyState from './TestConversationEmptyState.vue';
 
 const props = defineProps({
@@ -27,6 +28,7 @@ const props = defineProps({
 const emit = defineEmits(['send', 'back']);
 
 const { t } = useI18n();
+const { formatMessage } = useMessageFormatter();
 
 const inputValue = ref('');
 const messageAreaRef = ref(null);
@@ -48,6 +50,17 @@ const handoffPreviewSummary = message => {
     t('AI_AGENT.TEST_CONVERSATIONS.HANDOFF_PREVIEW')
   );
 };
+
+const formattedAssistantMessages = computed(() =>
+  Object.fromEntries(
+    (props.conversation?.messages || [])
+      .filter(message => message.role === 'assistant')
+      .map(message => [
+        message.id,
+        formatMessage(message.content || '', false, false, true),
+      ])
+  )
+);
 
 const scrollToBottom = () => {
   nextTick(() => {
@@ -141,10 +154,10 @@ const handleKeyup = event => {
           :class="msg.role === 'user' ? 'justify-end' : 'justify-start'"
         >
           <div
-            class="min-w-0 max-w-[80%] break-words whitespace-pre-wrap px-4 py-2 text-sm"
+            class="min-w-0 max-w-[80%] break-words px-4 py-2 text-sm"
             :class="
               msg.role === 'user'
-                ? 'bg-n-brand text-white rounded-2xl rounded-tr-sm'
+                ? 'whitespace-pre-wrap bg-n-brand text-white rounded-2xl rounded-tr-sm'
                 : 'bg-n-slate-3 dark:bg-n-slate-8 text-n-slate-12 rounded-2xl rounded-tl-sm'
             "
           >
@@ -175,9 +188,15 @@ const handleKeyup = event => {
                 {{ msg.tool_result.labels_ignored.join(', ') }}
               </p>
             </template>
-            <template v-else>
+            <template v-else-if="msg.role === 'user'">
               {{ msg.content }}
             </template>
+            <div
+              v-else
+              v-dompurify-html="formattedAssistantMessages[msg.id] || ''"
+              data-testid="assistant-message-content"
+              class="prose prose-sm prose-bubble max-w-none break-words dark:prose-invert"
+            />
             <div
               v-if="msg.role === 'assistant' && msg.source_attributions?.length"
               class="flex flex-wrap items-center gap-1.5 mt-2 pt-2 border-t border-n-weak"
