@@ -79,7 +79,7 @@ RSpec.describe 'Api::V1::Accounts::Voice::Agents', type: :request do
         'enabled' => false,
         'prompt' => 'Only speak Turkish.'
       )
-      expect(response.parsed_body.dig('tools_config', 'enabled')).to eq(['human_handoff'])
+      expect(response.parsed_body.dig('tools_config', 'enabled')).to eq(%w[human_handoff end_customer_call])
     end
 
     it 'uses deployment-controlled OpenAI runtime defaults without accepting runtime params from account admins' do
