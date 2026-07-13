@@ -6,8 +6,6 @@ RSpec.describe 'Api::V1::Accounts::Voice::Agents', type: :request do
 
   describe 'GET /api/v1/accounts/:account_id/voice/agents' do
     it 'returns voice agents for the account without creating records' do
-      account.voice_agents.destroy_all
-
       get "/api/v1/accounts/#{account.id}/voice/agents",
           headers: admin.create_new_auth_token,
           as: :json
@@ -31,7 +29,7 @@ RSpec.describe 'Api::V1::Accounts::Voice::Agents', type: :request do
 
   describe 'GET /api/v1/accounts/:account_id/voice/agents/:id' do
     it 'returns only account-owned voice agents' do
-      voice_agent = account.voice_agents.first!
+      voice_agent = create(:voice_agent, account: account)
       other_agent = create(:voice_agent)
 
       get "/api/v1/accounts/#{account.id}/voice/agents/#{voice_agent.id}",
@@ -78,10 +76,31 @@ RSpec.describe 'Api::V1::Accounts::Voice::Agents', type: :request do
       expect(response).to have_http_status(:created)
       expect(response.parsed_body).to include(
         'name' => 'Phone support',
-        'enabled' => true,
+        'enabled' => false,
         'prompt' => 'Only speak Turkish.'
       )
       expect(response.parsed_body.dig('tools_config', 'enabled')).to eq(['human_handoff'])
+    end
+
+    it 'uses deployment-controlled OpenAI runtime defaults without accepting runtime params from account admins' do
+      with_modified_env VOICE_AGENT_DEFAULT_REALTIME_PROVIDER: 'openai' do
+        post "/api/v1/accounts/#{account.id}/voice/agents",
+             params: {
+               name: 'OpenAI default',
+               provider: 'gemini',
+               model: 'gemini-3.1-flash-live-preview',
+               voice: 'Charon'
+             },
+             headers: admin.create_new_auth_token,
+             as: :json
+      end
+
+      expect(response).to have_http_status(:created)
+      expect(VoiceAgent.find(response.parsed_body['id'])).to have_attributes(
+        provider: 'openai',
+        model: 'gpt-realtime-2.1',
+        voice: 'marin'
+      )
     end
 
     it 'creates inbox assignments for the voice agent' do
@@ -121,7 +140,7 @@ RSpec.describe 'Api::V1::Accounts::Voice::Agents', type: :request do
 
   describe 'PATCH /api/v1/accounts/:account_id/voice/agents/:id' do
     it 'updates only account-owned voice agents' do
-      voice_agent = create(:voice_agent, account: account)
+      voice_agent = create(:voice_agent, account: account, enabled: false)
       other_agent = create(:voice_agent)
 
       patch "/api/v1/accounts/#{account.id}/voice/agents/#{voice_agent.id}",
@@ -141,7 +160,16 @@ RSpec.describe 'Api::V1::Accounts::Voice::Agents', type: :request do
     end
 
     it 'does not allow account admins to update runtime settings' do
-      voice_agent = create(:voice_agent, account: account, architecture: 'realtime', provider: 'gemini', model: nil, voice: 'Charon', language: 'tr')
+      voice_agent = create(
+        :voice_agent,
+        account: account,
+        enabled: false,
+        architecture: 'realtime',
+        provider: 'gemini',
+        model: nil,
+        voice: 'Charon',
+        language: 'tr'
+      )
 
       patch "/api/v1/accounts/#{account.id}/voice/agents/#{voice_agent.id}",
             params: {
@@ -169,7 +197,7 @@ RSpec.describe 'Api::V1::Accounts::Voice::Agents', type: :request do
     it 'moves an inbox assignment from another voice agent to the updated voice agent' do
       inbox = create(:channel_api, account: account).inbox
       original_agent = create(:voice_agent, account: account, name: 'Original')
-      target_agent = create(:voice_agent, account: account, name: 'Target')
+      target_agent = create(:voice_agent, account: account, name: 'Target', enabled: false)
       setting = create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: original_agent)
 
       patch "/api/v1/accounts/#{account.id}/voice/agents/#{target_agent.id}",
@@ -254,6 +282,73 @@ RSpec.describe 'Api::V1::Accounts::Voice::Agents', type: :request do
 
       expect(response).to have_http_status(:no_content)
       expect { voice_agent.reload }.to raise_error(ActiveRecord::RecordNotFound)
+    end
+  end
+
+  describe 'voice assistant lifecycle actions' do
+    let(:voice_agent) { create(:voice_agent, account: account, enabled: false) }
+
+    it 'publishes a ready draft and pauses it explicitly' do
+      inbox = create(:channel_api, account: account).inbox
+      create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: voice_agent)
+      voice_agent.mark_test_succeeded!
+
+      post "/api/v1/accounts/#{account.id}/voice/agents/#{voice_agent.id}/publish",
+           headers: admin.create_new_auth_token,
+           as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body).to include('lifecycle_status' => 'active', 'enabled' => true)
+
+      post "/api/v1/accounts/#{account.id}/voice/agents/#{voice_agent.id}/pause",
+           headers: admin.create_new_auth_token,
+           as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body).to include('lifecycle_status' => 'paused', 'enabled' => false)
+      expect(response.parsed_body['last_tested_at']).to be_present
+    end
+
+    it 'applies edits while active without taking the assistant offline' do
+      voice_agent.update!(enabled: true, published_at: Time.current)
+
+      patch "/api/v1/accounts/#{account.id}/voice/agents/#{voice_agent.id}",
+            params: { name: 'Live edit' },
+            headers: admin.create_new_auth_token,
+            as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(voice_agent.reload).to have_attributes(name: 'Live edit', enabled: true, last_tested_at: nil)
+    end
+
+    it 'publishes without starting traffic and activates the release separately' do
+      inbox = create(:channel_api, account: account).inbox
+      create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: voice_agent)
+      voice_agent.mark_test_succeeded!
+
+      post "/api/v1/accounts/#{account.id}/voice/agents/#{voice_agent.id}/publish",
+           params: { activate: false },
+           headers: admin.create_new_auth_token,
+           as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body).to include('lifecycle_status' => 'paused', 'enabled' => false, 'published_revision' => 1)
+
+      post "/api/v1/accounts/#{account.id}/voice/agents/#{voice_agent.id}/activate",
+           headers: admin.create_new_auth_token,
+           as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body).to include('lifecycle_status' => 'active', 'enabled' => true, 'published_revision' => 1)
+    end
+
+    it 'rejects activation before the first release is published' do
+      post "/api/v1/accounts/#{account.id}/voice/agents/#{voice_agent.id}/activate",
+           headers: admin.create_new_auth_token,
+           as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.parsed_body['error']).to eq('Publish the assistant before activation.')
     end
   end
 end

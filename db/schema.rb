@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_06_20_195000) do
+ActiveRecord::Schema[7.1].define(version: 2026_07_13_120000) do
   # These extensions should be enabled to support this database
   enable_extension "pg_stat_statements"
   enable_extension "pg_trgm"
@@ -145,6 +145,113 @@ ActiveRecord::Schema[7.1].define(version: 2026_06_20_195000) do
     t.index ["account_id"], name: "index_agent_capacity_policies_on_account_id"
   end
 
+  create_table "ai_agent_evaluation_cases", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "ai_agent_id", null: false
+    t.string "name", null: false
+    t.text "customer_message", null: false
+    t.text "success_criteria", null: false
+    t.integer "position", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.datetime "reviewed_at"
+    t.index ["account_id"], name: "index_ai_agent_evaluation_cases_on_account_id"
+    t.index ["ai_agent_id", "position"], name: "index_ai_agent_evaluation_cases_on_ai_agent_id_and_position"
+    t.index ["ai_agent_id"], name: "index_ai_agent_evaluation_cases_on_ai_agent_id"
+  end
+
+  create_table "ai_agent_evaluation_generations", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "ai_agent_id", null: false
+    t.bigint "initiated_by_id"
+    t.integer "status", default: 0, null: false
+    t.integer "requested_count", null: false
+    t.integer "created_count", default: 0, null: false
+    t.text "error_message"
+    t.datetime "started_at"
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.string "claim_id"
+    t.index ["account_id"], name: "index_ai_agent_evaluation_generations_on_account_id"
+    t.index ["ai_agent_id"], name: "index_ai_agent_evaluation_generations_on_ai_agent_id"
+    t.index ["ai_agent_id"], name: "index_ai_evaluation_generations_on_active_agent", unique: true, where: "(status = ANY (ARRAY[0, 1]))"
+    t.index ["initiated_by_id"], name: "index_ai_agent_evaluation_generations_on_initiated_by_id"
+  end
+
+  create_table "ai_agent_evaluation_results", force: :cascade do |t|
+    t.bigint "ai_agent_evaluation_run_id", null: false
+    t.bigint "ai_agent_evaluation_case_id"
+    t.integer "status", default: 0, null: false
+    t.string "case_name", null: false
+    t.text "customer_message", null: false
+    t.text "success_criteria", null: false
+    t.text "assistant_response"
+    t.boolean "passed", default: false, null: false
+    t.text "reason"
+    t.jsonb "tool_events", default: [], null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["ai_agent_evaluation_case_id"], name: "index_ai_evaluation_results_on_case_id"
+    t.index ["ai_agent_evaluation_run_id"], name: "index_ai_evaluation_results_on_run_id"
+  end
+
+  create_table "ai_agent_evaluation_runs", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "ai_agent_id", null: false
+    t.integer "status", default: 0, null: false
+    t.text "prompt_snapshot", null: false
+    t.jsonb "config_snapshot", default: {}, null: false
+    t.string "draft_fingerprint", null: false
+    t.integer "total_count", default: 0, null: false
+    t.integer "passed_count", default: 0, null: false
+    t.datetime "started_at"
+    t.datetime "completed_at"
+    t.text "error_message"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.jsonb "knowledge_snapshot", default: [], null: false
+    t.string "claim_id"
+    t.index ["account_id"], name: "index_ai_agent_evaluation_runs_on_account_id"
+    t.index ["ai_agent_id", "created_at"], name: "index_ai_agent_evaluation_runs_on_ai_agent_id_and_created_at"
+    t.index ["ai_agent_id"], name: "index_ai_agent_evaluation_runs_on_ai_agent_id"
+    t.index ["ai_agent_id"], name: "index_ai_evaluation_runs_on_active_agent", unique: true, where: "(status = ANY (ARRAY[0, 1]))"
+  end
+
+  create_table "ai_agent_learning_suggestions", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "ai_agent_id", null: false
+    t.bigint "conversation_id"
+    t.bigint "source_message_id"
+    t.bigint "submitted_by_id"
+    t.bigint "reviewed_by_id"
+    t.datetime "reviewed_at"
+    t.datetime "applied_at"
+    t.integer "status", default: 0, null: false
+    t.string "target_section"
+    t.text "customer_message", null: false
+    t.text "human_answer", null: false
+    t.text "suggested_instruction"
+    t.text "reason"
+    t.text "error_message"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.string "destination", default: "instructions", null: false
+    t.string "source_name"
+    t.bigint "ai_knowledge_source_id"
+    t.string "claim_id"
+    t.index ["account_id"], name: "index_ai_agent_learning_suggestions_on_account_id"
+    t.index ["ai_agent_id", "source_message_id"], name: "index_ai_learning_suggestions_on_agent_and_message", unique: true, where: "(source_message_id IS NOT NULL)"
+    t.index ["ai_agent_id", "status", "created_at"], name: "index_ai_learning_suggestions_on_agent_status_created"
+    t.index ["ai_agent_id"], name: "index_ai_agent_learning_suggestions_on_ai_agent_id"
+    t.index ["ai_knowledge_source_id"], name: "index_ai_agent_learning_suggestions_on_ai_knowledge_source_id"
+    t.index ["conversation_id"], name: "index_ai_agent_learning_suggestions_on_conversation_id"
+    t.index ["reviewed_by_id"], name: "index_ai_agent_learning_suggestions_on_reviewed_by_id"
+    t.index ["source_message_id"], name: "index_ai_agent_learning_suggestions_on_source_message_id"
+    t.index ["submitted_by_id"], name: "index_ai_agent_learning_suggestions_on_submitted_by_id"
+    t.check_constraint "destination::text = ANY (ARRAY['instructions'::character varying, 'knowledge'::character varying]::text[])", name: "ai_learning_suggestions_destination_check"
+  end
+
   create_table "ai_agent_llm_calls", force: :cascade do |t|
     t.bigint "account_id", null: false
     t.bigint "ai_agent_id", null: false
@@ -172,6 +279,23 @@ ActiveRecord::Schema[7.1].define(version: 2026_06_20_195000) do
     t.index ["conversation_id"], name: "index_ai_agent_llm_calls_on_conversation_id"
     t.index ["message_id"], name: "index_ai_agent_llm_calls_on_message_id"
     t.index ["status"], name: "index_ai_agent_llm_calls_on_status"
+  end
+
+  create_table "ai_agent_releases", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "ai_agent_id", null: false
+    t.bigint "created_by_id"
+    t.integer "revision", null: false
+    t.string "source", default: "publish", null: false
+    t.string "fingerprint", null: false
+    t.jsonb "snapshot", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "created_at"], name: "index_ai_agent_releases_on_account_id_and_created_at"
+    t.index ["account_id"], name: "index_ai_agent_releases_on_account_id"
+    t.index ["ai_agent_id", "revision"], name: "index_ai_agent_releases_on_ai_agent_id_and_revision", unique: true
+    t.index ["ai_agent_id"], name: "index_ai_agent_releases_on_ai_agent_id"
+    t.index ["created_by_id"], name: "index_ai_agent_releases_on_created_by_id"
   end
 
   create_table "ai_agent_test_conversations", force: :cascade do |t|
@@ -238,6 +362,30 @@ ActiveRecord::Schema[7.1].define(version: 2026_06_20_195000) do
     t.index ["message_id"], name: "index_ai_agent_usage_events_on_message_id"
   end
 
+  create_table "ai_agent_website_imports", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "ai_agent_id", null: false
+    t.bigint "requested_by_id"
+    t.string "website_url", null: false
+    t.integer "mode", default: 0, null: false
+    t.integer "status", default: 0, null: false
+    t.integer "stage", default: 0, null: false
+    t.jsonb "source_urls", default: [], null: false
+    t.jsonb "proposed_sections", default: {}, null: false
+    t.string "base_draft_fingerprint", null: false
+    t.string "error_code"
+    t.text "error_message"
+    t.datetime "started_at"
+    t.datetime "completed_at"
+    t.datetime "applied_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ai_agent_website_imports_on_account_id"
+    t.index ["ai_agent_id"], name: "index_ai_agent_website_imports_on_ai_agent_id"
+    t.index ["ai_agent_id"], name: "index_ai_website_imports_on_active_agent", unique: true, where: "(status = ANY (ARRAY[0, 1]))"
+    t.index ["requested_by_id"], name: "index_ai_agent_website_imports_on_requested_by_id"
+  end
+
   create_table "ai_agents", force: :cascade do |t|
     t.bigint "account_id", null: false
     t.bigint "agent_bot_id"
@@ -247,8 +395,80 @@ ActiveRecord::Schema[7.1].define(version: 2026_06_20_195000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "name", default: "AI Asistan", null: false
+    t.datetime "published_at"
+    t.datetime "last_tested_at"
+    t.string "last_tested_prompt_digest"
+    t.text "published_prompt"
+    t.jsonb "published_config", default: {}, null: false
+    t.integer "published_revision", default: 0, null: false
+    t.bigint "current_release_id"
+    t.boolean "auto_learning_enabled", default: false, null: false
     t.index ["account_id"], name: "index_ai_agents_on_account_id"
     t.index ["agent_bot_id"], name: "index_ai_agents_on_agent_bot_id", unique: true
+    t.index ["current_release_id"], name: "index_ai_agents_on_current_release_id"
+  end
+
+  create_table "ai_improvement_usage_events", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "ai_agent_id"
+    t.bigint "voice_agent_id"
+    t.bigint "call_id"
+    t.bigint "initiated_by_id"
+    t.string "operation", null: false
+    t.string "unit_type", null: false
+    t.bigint "units", default: 0, null: false
+    t.integer "credits", default: 1, null: false
+    t.integer "status", default: 0, null: false
+    t.datetime "period_start_at", null: false
+    t.datetime "period_end_at", null: false
+    t.string "idempotency_key", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "operation", "created_at"], name: "idx_ai_improvement_usage_on_account_operation"
+    t.index ["account_id", "period_start_at", "idempotency_key"], name: "idx_ai_improvement_usage_on_idempotency", unique: true
+    t.index ["account_id", "period_start_at", "status"], name: "idx_ai_improvement_usage_on_account_period_status"
+    t.index ["account_id"], name: "index_ai_improvement_usage_events_on_account_id"
+    t.index ["ai_agent_id"], name: "index_ai_improvement_usage_events_on_ai_agent_id"
+    t.index ["call_id"], name: "index_ai_improvement_usage_events_on_call_id"
+    t.index ["initiated_by_id"], name: "index_ai_improvement_usage_events_on_initiated_by_id"
+    t.index ["voice_agent_id"], name: "index_ai_improvement_usage_events_on_voice_agent_id"
+  end
+
+  create_table "ai_knowledge_source_assignments", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "ai_knowledge_source_id", null: false
+    t.string "assistant_type", null: false
+    t.bigint "assistant_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "assistant_type", "assistant_id"], name: "index_ai_knowledge_assignments_on_account_and_assistant"
+    t.index ["account_id"], name: "index_ai_knowledge_source_assignments_on_account_id"
+    t.index ["ai_knowledge_source_id"], name: "idx_on_ai_knowledge_source_id_1c19131e3a"
+    t.index ["assistant_type", "assistant_id", "ai_knowledge_source_id"], name: "index_ai_knowledge_assignments_on_assistant_and_source", unique: true
+    t.check_constraint "assistant_type::text = ANY (ARRAY['AiAgent'::character varying, 'VoiceAgent'::character varying]::text[])", name: "ai_knowledge_assignments_assistant_type_check"
+  end
+
+  create_table "ai_knowledge_sources", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.string "name", null: false
+    t.string "source_type", default: "manual", null: false
+    t.text "content", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.string "website_url"
+    t.integer "sync_status", default: 0, null: false
+    t.jsonb "source_urls", default: [], null: false
+    t.datetime "last_sync_started_at"
+    t.datetime "last_synced_at"
+    t.text "sync_error"
+    t.index ["account_id", "name"], name: "index_ai_knowledge_sources_on_account_id_and_name"
+    t.index ["account_id", "source_type"], name: "index_ai_knowledge_sources_on_account_id_and_source_type"
+    t.index ["account_id"], name: "index_ai_knowledge_sources_on_account_id"
+    t.check_constraint "char_length(name::text) >= 1 AND char_length(name::text) <= 120", name: "ai_knowledge_sources_name_length_check"
+    t.check_constraint "source_type::text <> 'website'::text OR website_url IS NOT NULL", name: "ai_knowledge_sources_website_url_check"
+    t.check_constraint "source_type::text = 'manual'::text AND char_length(content) >= 1 AND char_length(content) <= 100000 OR source_type::text = 'website'::text AND char_length(content) >= 0 AND char_length(content) <= 100000", name: "ai_knowledge_sources_content_length_check"
+    t.check_constraint "source_type::text = ANY (ARRAY['manual'::character varying, 'website'::character varying]::text[])", name: "ai_knowledge_sources_type_check"
   end
 
   create_table "applied_slas", force: :cascade do |t|
@@ -407,10 +627,12 @@ ActiveRecord::Schema[7.1].define(version: 2026_06_20_195000) do
     t.text "transcript"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.bigint "voice_agent_release_id"
     t.index ["account_id", "contact_id"], name: "index_calls_on_account_id_and_contact_id"
     t.index ["account_id", "conversation_id"], name: "index_calls_on_account_id_and_conversation_id"
     t.index ["message_id"], name: "index_calls_on_message_id"
     t.index ["provider", "provider_call_id"], name: "index_calls_on_provider_and_provider_call_id", unique: true
+    t.index ["voice_agent_release_id"], name: "index_calls_on_voice_agent_release_id"
   end
 
   create_table "campaigns", force: :cascade do |t|
@@ -836,10 +1058,12 @@ ActiveRecord::Schema[7.1].define(version: 2026_06_20_195000) do
     t.datetime "waiting_since"
     t.text "cached_label_list"
     t.bigint "assignee_agent_bot_id"
+    t.bigint "ai_agent_release_id"
     t.index ["account_id", "display_id"], name: "index_conversations_on_account_id_and_display_id", unique: true
     t.index ["account_id", "id"], name: "index_conversations_on_id_and_account_id"
     t.index ["account_id", "inbox_id", "status", "assignee_id"], name: "conv_acid_inbid_stat_asgnid_idx"
     t.index ["account_id"], name: "index_conversations_on_account_id"
+    t.index ["ai_agent_release_id"], name: "index_conversations_on_ai_agent_release_id"
     t.index ["assignee_id", "account_id"], name: "index_conversations_on_assignee_id_and_account_id"
     t.index ["campaign_id"], name: "index_conversations_on_campaign_id"
     t.index ["contact_id"], name: "index_conversations_on_contact_id"
@@ -1440,6 +1664,23 @@ ActiveRecord::Schema[7.1].define(version: 2026_06_20_195000) do
     t.index ["uid", "provider"], name: "index_users_on_uid_and_provider", unique: true
   end
 
+  create_table "voice_agent_releases", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "voice_agent_id", null: false
+    t.bigint "created_by_id"
+    t.integer "revision", null: false
+    t.string "source", default: "publish", null: false
+    t.string "fingerprint", null: false
+    t.jsonb "snapshot", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "created_at"], name: "index_voice_agent_releases_on_account_id_and_created_at"
+    t.index ["account_id"], name: "index_voice_agent_releases_on_account_id"
+    t.index ["created_by_id"], name: "index_voice_agent_releases_on_created_by_id"
+    t.index ["voice_agent_id", "revision"], name: "index_voice_agent_releases_on_voice_agent_id_and_revision", unique: true
+    t.index ["voice_agent_id"], name: "index_voice_agent_releases_on_voice_agent_id"
+  end
+
   create_table "voice_agents", force: :cascade do |t|
     t.bigint "account_id", null: false
     t.string "name", default: "Voice Assistant", null: false
@@ -1455,8 +1696,13 @@ ActiveRecord::Schema[7.1].define(version: 2026_06_20_195000) do
     t.jsonb "config", default: {}, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.datetime "published_at"
+    t.datetime "last_tested_at"
+    t.bigint "current_release_id"
+    t.string "last_tested_draft_fingerprint"
     t.index ["account_id", "created_at"], name: "index_voice_agents_on_account_id_and_created_at"
     t.index ["account_id"], name: "index_voice_agents_on_account_id"
+    t.index ["current_release_id"], name: "index_voice_agents_on_current_release_id"
   end
 
   create_table "voice_inbox_settings", force: :cascade do |t|
@@ -1584,10 +1830,29 @@ ActiveRecord::Schema[7.1].define(version: 2026_06_20_195000) do
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "ai_agent_evaluation_cases", "accounts", on_delete: :cascade
+  add_foreign_key "ai_agent_evaluation_cases", "ai_agents", on_delete: :cascade
+  add_foreign_key "ai_agent_evaluation_generations", "accounts", on_delete: :cascade
+  add_foreign_key "ai_agent_evaluation_generations", "ai_agents", on_delete: :cascade
+  add_foreign_key "ai_agent_evaluation_generations", "users", column: "initiated_by_id", on_delete: :nullify
+  add_foreign_key "ai_agent_evaluation_results", "ai_agent_evaluation_cases", on_delete: :nullify
+  add_foreign_key "ai_agent_evaluation_results", "ai_agent_evaluation_runs", on_delete: :cascade
+  add_foreign_key "ai_agent_evaluation_runs", "accounts", on_delete: :cascade
+  add_foreign_key "ai_agent_evaluation_runs", "ai_agents", on_delete: :cascade
+  add_foreign_key "ai_agent_learning_suggestions", "accounts", on_delete: :cascade
+  add_foreign_key "ai_agent_learning_suggestions", "ai_agents", on_delete: :cascade
+  add_foreign_key "ai_agent_learning_suggestions", "ai_knowledge_sources", on_delete: :nullify
+  add_foreign_key "ai_agent_learning_suggestions", "conversations", on_delete: :nullify
+  add_foreign_key "ai_agent_learning_suggestions", "messages", column: "source_message_id", on_delete: :nullify
+  add_foreign_key "ai_agent_learning_suggestions", "users", column: "reviewed_by_id", on_delete: :nullify
+  add_foreign_key "ai_agent_learning_suggestions", "users", column: "submitted_by_id", on_delete: :nullify
   add_foreign_key "ai_agent_llm_calls", "accounts", on_delete: :cascade
   add_foreign_key "ai_agent_llm_calls", "ai_agents", on_delete: :cascade
   add_foreign_key "ai_agent_llm_calls", "conversations", on_delete: :nullify
   add_foreign_key "ai_agent_llm_calls", "messages", on_delete: :nullify
+  add_foreign_key "ai_agent_releases", "accounts", on_delete: :cascade
+  add_foreign_key "ai_agent_releases", "ai_agents", on_delete: :cascade
+  add_foreign_key "ai_agent_releases", "users", column: "created_by_id", on_delete: :nullify
   add_foreign_key "ai_agent_tool_executions", "accounts", on_delete: :cascade
   add_foreign_key "ai_agent_tool_executions", "ai_agents", on_delete: :cascade
   add_foreign_key "ai_agent_tool_executions", "conversations", on_delete: :nullify
@@ -1597,15 +1862,33 @@ ActiveRecord::Schema[7.1].define(version: 2026_06_20_195000) do
   add_foreign_key "ai_agent_usage_events", "contacts", on_delete: :nullify
   add_foreign_key "ai_agent_usage_events", "conversations", on_delete: :nullify
   add_foreign_key "ai_agent_usage_events", "messages", on_delete: :nullify
+  add_foreign_key "ai_agent_website_imports", "accounts", on_delete: :cascade
+  add_foreign_key "ai_agent_website_imports", "ai_agents", on_delete: :cascade
+  add_foreign_key "ai_agent_website_imports", "users", column: "requested_by_id", on_delete: :nullify
   add_foreign_key "ai_agents", "accounts", on_delete: :cascade
   add_foreign_key "ai_agents", "agent_bots", on_delete: :nullify
+  add_foreign_key "ai_agents", "ai_agent_releases", column: "current_release_id", on_delete: :nullify
+  add_foreign_key "ai_improvement_usage_events", "accounts", on_delete: :cascade
+  add_foreign_key "ai_improvement_usage_events", "ai_agents", on_delete: :nullify
+  add_foreign_key "ai_improvement_usage_events", "calls", on_delete: :nullify
+  add_foreign_key "ai_improvement_usage_events", "users", column: "initiated_by_id", on_delete: :nullify
+  add_foreign_key "ai_improvement_usage_events", "voice_agents", on_delete: :nullify
+  add_foreign_key "ai_knowledge_source_assignments", "accounts", on_delete: :cascade
+  add_foreign_key "ai_knowledge_source_assignments", "ai_knowledge_sources", on_delete: :cascade
+  add_foreign_key "ai_knowledge_sources", "accounts", on_delete: :cascade
   add_foreign_key "call_transcript_segments", "accounts"
   add_foreign_key "call_transcript_segments", "calls"
   add_foreign_key "call_transcript_segments", "conversations"
+  add_foreign_key "calls", "voice_agent_releases", on_delete: :nullify
+  add_foreign_key "conversations", "ai_agent_releases", on_delete: :nullify
   add_foreign_key "ikas_catalog_snapshots", "accounts", on_delete: :cascade
   add_foreign_key "ikas_catalog_snapshots", "integrations_hooks", on_delete: :cascade
   add_foreign_key "inboxes", "portals"
+  add_foreign_key "voice_agent_releases", "accounts", on_delete: :cascade
+  add_foreign_key "voice_agent_releases", "users", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "voice_agent_releases", "voice_agents", on_delete: :cascade
   add_foreign_key "voice_agents", "accounts", on_delete: :cascade
+  add_foreign_key "voice_agents", "voice_agent_releases", column: "current_release_id", on_delete: :nullify
   add_foreign_key "voice_inbox_settings", "accounts"
   add_foreign_key "voice_inbox_settings", "inboxes"
   add_foreign_key "voice_inbox_settings", "teams", column: "fallback_team_id"

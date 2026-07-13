@@ -19,6 +19,14 @@ class AiAgentPolicy < ApplicationPolicy
     @account_user.administrator?
   end
 
+  def publish?
+    @account_user.administrator?
+  end
+
+  def pause?
+    @account_user.administrator?
+  end
+
   def simulate?
     @account_user.administrator?
   end

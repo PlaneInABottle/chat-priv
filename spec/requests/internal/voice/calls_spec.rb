@@ -5,7 +5,7 @@ RSpec.describe 'Internal voice calls API', type: :request do
   let(:api_channel) { create(:channel_api, account: account) }
   let(:inbox) { api_channel.inbox }
   let(:agent) { create(:user, account: account, role: :agent) }
-  let(:voice_agent) { account.voice_agents.first! }
+  let(:voice_agent) { create(:voice_agent, account: account) }
   let!(:voice_inbox_setting) { create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: voice_agent) }
   let(:call) { Voice::TestCallBuilder.perform!(account: account, inbox: inbox, voice_agent: voice_agent) }
   let(:conversation_call) { build_conversation_call }
@@ -114,6 +114,27 @@ RSpec.describe 'Internal voice calls API', type: :request do
   describe 'POST /internal/voice/calls/:provider_call_id/event' do
     let(:path) { "/internal/voice/calls/#{conversation_call.provider_call_id}/event" }
 
+    it 'records the first customer join time for a sandbox improvement budget' do
+      test_call = call
+      joined_at = Time.zone.parse('2026-07-11 12:00:00 UTC')
+
+      travel_to(joined_at) do
+        expect do
+          with_modified_env VOICE_AGENT_INTERNAL_TOKEN: 'secret' do
+            post "/internal/voice/calls/#{test_call.provider_call_id}/event",
+                 params: { event: 'test_call_customer_joined', payload: { participant_identity: 'test-caller' } },
+                 headers: { 'X-Voice-Agent-Token' => 'secret' },
+                 as: :json
+          end
+        end.to have_enqueued_job(Voice::TestCallImprovementBudgetJob).with(test_call).at(
+          joined_at + test_call.meta['ai_improvement_max_duration_seconds'].seconds
+        )
+      end
+
+      expect(response).to have_http_status(:ok)
+      expect(test_call.reload.meta['ai_improvement_started_at']).to eq(joined_at.iso8601(3))
+    end
+
     it 'marks the AI active when the worker starts listening' do
       with_modified_env VOICE_AGENT_INTERNAL_TOKEN: 'secret' do
         post path,
@@ -189,6 +210,27 @@ RSpec.describe 'Internal voice calls API', type: :request do
 
   describe 'POST /internal/voice/calls/:provider_call_id/end' do
     let(:path) { "/internal/voice/calls/#{conversation_call.provider_call_id}/end" }
+
+    it 'uses the reserved duration when the Voice worker enforces a test budget' do
+      test_call = call
+      test_call.update!(
+        meta: test_call.meta.merge('ai_improvement_started_at' => (test_call.started_at + 5.seconds).iso8601(3))
+      )
+
+      with_modified_env VOICE_AGENT_INTERNAL_TOKEN: 'secret' do
+        post "/internal/voice/calls/#{test_call.provider_call_id}/end",
+             params: { end_reason: 'ai_improvement_credit_limit' },
+             headers: { 'X-Voice-Agent-Token' => 'secret' },
+             as: :json
+      end
+
+      expect(response).to have_http_status(:ok)
+      expect(test_call.reload).to have_attributes(
+        status: 'completed',
+        end_reason: 'ai_improvement_credit_limit',
+        duration_seconds: test_call.meta['ai_improvement_max_duration_seconds']
+      )
+    end
 
     it 'does not end a call when the AI worker shuts down after human takeover' do
       conversation_call.update!(
@@ -305,7 +347,7 @@ RSpec.describe 'Internal voice calls API', type: :request do
 
       expect(response).to have_http_status(:ok)
       expect(response.parsed_body.dig('voice_agent', 'id')).to eq(call.meta['voice_agent_id'])
-      expect(response.parsed_body['instructions']).to include('Voice agent instructions')
+      expect(response.parsed_body['instructions']).to include('# Customer Instructions')
       expect(response.parsed_body['tools'].pluck('key')).to include('human_handoff', 'end_customer_call')
     end
 

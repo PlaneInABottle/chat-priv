@@ -23,7 +23,7 @@ vi.mock(
 vi.mock('vue-router', async importOriginal => {
   const actual = await importOriginal();
   const { reactive } = await import('vue');
-  const route = reactive({ params: { id: '1' } });
+  const route = reactive({ name: 'ai_agent_detail', params: { id: '1' } });
   const push = vi.fn();
 
   return {
@@ -33,19 +33,27 @@ vi.mock('vue-router', async importOriginal => {
     setRouteId(id) {
       route.params.id = id;
     },
+    setRouteName(name) {
+      route.name = name;
+    },
     resetRoute() {
+      route.name = 'ai_agent_detail';
       route.params.id = '1';
       push.mockReset();
     },
   };
 });
 
-import { setRouteId, resetRoute } from 'vue-router';
+import { setRouteId, setRouteName, resetRoute } from 'vue-router';
 
 const buildAiAgent = overrides => ({
   id: 1,
   name: 'Helper',
   enabled: true,
+  lifecycle_status: 'active',
+  published_revision: 1,
+  draft_changes: false,
+  readiness: { can_publish: true, checks: [] },
   prompt: 'Persisted prompt',
   agent_bot: { inbox_ids: [2] },
   available_inboxes: [],
@@ -100,6 +108,11 @@ const createVuexStore = ({
       commit('SET_AI_AGENT_RECORD', record);
       return record;
     }),
+    refresh: vi.fn(async ({ commit }, id) => {
+      const record = recordsById[id];
+      commit('SET_AI_AGENT_RECORD', record);
+      return record;
+    }),
     update: vi.fn(async ({ commit }, payload) => {
       if (updateResult) {
         if (updateResult.id) {
@@ -110,6 +123,15 @@ const createVuexStore = ({
 
       return payload;
     }),
+    pause: vi.fn(async ({ commit }) => {
+      const paused = {
+        ...recordsById[1],
+        enabled: false,
+        lifecycle_status: 'paused',
+      };
+      commit('SET_AI_AGENT_RECORD', paused);
+      return paused;
+    }),
     reset: vi.fn(),
     get: vi.fn().mockResolvedValue([]),
     getUsage: vi.fn().mockResolvedValue(usage),
@@ -118,6 +140,7 @@ const createVuexStore = ({
   const store = createStore({
     state: {
       aiAgentRecord: recordsById[1],
+      account: { id: 1, custom_attributes: { website: 'https://example.com' } },
       inboxes: [],
       labels,
       usage,
@@ -126,6 +149,9 @@ const createVuexStore = ({
       'aiAgent/getAiAgent': state => state.aiAgentRecord,
       'aiAgent/getUsage': state => state.usage,
       'aiAgent/getUIFlags': () => ({ isFetching: false }),
+      'accounts/getAccount': state => () => state.account,
+      'accounts/isFeatureEnabledonAccount': () => () => false,
+      'globalConfig/isOnChatwootCloud': () => false,
       'inboxes/getInboxes': state => state.inboxes,
       'labels/getLabels': state => state.labels,
       'aiAgentTestConversations/getTestConversations': () => [],
@@ -139,7 +165,9 @@ const createVuexStore = ({
     },
     actions: {
       'aiAgent/show': actionMocks.show,
+      'aiAgent/refresh': actionMocks.refresh,
       'aiAgent/update': actionMocks.update,
+      'aiAgent/pause': actionMocks.pause,
       'aiAgent/getUsage': actionMocks.getUsage,
       'labels/get': vi.fn().mockResolvedValue([]),
       'aiAgentTestConversations/reset': actionMocks.reset,
@@ -180,6 +208,22 @@ const mountComponent = options => {
           template: '<textarea>{{ message }}</textarea>',
           props: ['modelValue', 'message', 'messageType', 'maxLength'],
         },
+        InstructionWorkspace: {
+          template: '<div class="instruction-workspace" />',
+          props: ['modelValue', 'aiAgentId', 'isDirty', 'isDisabled'],
+        },
+        ImproveWorkspace: {
+          name: 'ImproveWorkspace',
+          template:
+            '<button class="improve-workspace" @click="$emit(\'draftUpdated\')">{{ mode }}</button>',
+          props: [
+            'aiAgentId',
+            'mode',
+            'hasUnsavedInstructions',
+            'autoLearningEnabled',
+          ],
+          emits: ['draftUpdated'],
+        },
         TabBar: {
           template:
             '<div><button v-for="tab in tabs" :key="tab.value" @click="$emit(\'tabChanged\', tab)">{{ tab.label }}</button></div>',
@@ -188,6 +232,7 @@ const mountComponent = options => {
         Avatar: { template: '<div />' },
         Icon: { template: '<i />' },
         TestConversationLayout: TestConversationLayoutStub,
+        AssistantReleaseHistoryDialog: { template: '<div />' },
         WootInput: { template: '<input />' },
       },
       mocks: {
@@ -279,7 +324,7 @@ describe('AiAgentDetail.vue', () => {
     expect(wrapper.vm.formState.inbox_ids).toEqual([]);
   });
 
-  it('keeps simulator disabled while form is dirty even if local form looks valid', async () => {
+  it('keeps saved-prompt test history disabled when only a local draft exists', async () => {
     const { wrapper } = mountComponent({
       aiAgentRecord: buildAiAgent({
         enabled: false,
@@ -289,18 +334,18 @@ describe('AiAgentDetail.vue', () => {
       }),
     });
 
-    await nextTick();
-    wrapper.vm.formState.enabled = true;
-    wrapper.vm.formState.prompt = 'Unsaved prompt';
+    await flushPromises();
+    wrapper.vm.formState.instructions.sections.additional +=
+      '\n\nUnsaved prompt';
     await nextTick();
 
     expect(wrapper.vm.isSimulatorDisabled).toBe(true);
-    expect(wrapper.text()).toContain(
-      'Save your changes before testing this AI agent.'
+    expect(wrapper.vm.simulatorDisabledMessage).toBe(
+      'Add instructions and save your changes before testing this AI assistant.'
     );
   });
 
-  it('shows prompt guidance and keeps save actionable when enabled agent has no prompt', async () => {
+  it('shows prompt guidance when an active assistant has no prompt', async () => {
     const { wrapper } = mountComponent({
       aiAgentRecord: buildAiAgent({
         name: 'Browser Verify Bot',
@@ -318,19 +363,226 @@ describe('AiAgentDetail.vue', () => {
     expect(wrapper.vm.simulatorDisabledMessageKey).toBe(
       'AI_AGENT.TEST_CONVERSATIONS.ADD_PROMPT_BEFORE_TESTING'
     );
-    expect(wrapper.vm.promptMessageKey).toBe(
-      'AI_AGENT.PROMPT.REQUIRED_FOR_TESTING'
+    expect(wrapper.vm.simulatorDisabledMessage).toBe(
+      'Add instructions and save your changes before testing this AI assistant.'
     );
-    expect(wrapper.vm.promptMessageType).toBe('error');
-    expect(wrapper.text()).toContain(
-      'Add a system prompt and save your changes before testing this AI agent.'
-    );
-    expect(wrapper.text()).toContain(
-      'Add a system prompt, then save your changes before testing this AI agent.'
-    );
+  });
 
-    const buttons = wrapper.findAll('button');
-    expect(buttons.at(-1).attributes('disabled')).toBeUndefined();
+  it('saves structured instructions without changing active lifecycle state', async () => {
+    setRouteName('ai_agent_instructions');
+    const updatedRecord = buildAiAgent({
+      lifecycle_status: 'active',
+      enabled: true,
+      prompt: 'Updated live instructions',
+      config: {
+        instructions: {
+          version: 3,
+          profile: {
+            language: 'same_as_customer',
+            tone: 'natural',
+            formality: 'balanced',
+            response_length: 'balanced',
+          },
+          sections: { additional: 'Updated live instructions' },
+        },
+      },
+    });
+    const { wrapper, actionMocks } = mountComponent({
+      aiAgentRecord: buildAiAgent({
+        lifecycle_status: 'active',
+        enabled: true,
+      }),
+      updateResult: updatedRecord,
+    });
+
+    await flushPromises();
+    wrapper.vm.formState.instructions.sections.additional =
+      'Updated live instructions';
+    await wrapper.vm.handleSave();
+
+    const [, payload] = actionMocks.update.mock.calls.at(-1);
+    expect(payload.data.prompt).toBeUndefined();
+    expect(payload.data.name).toBeUndefined();
+    expect(payload.data.inbox_ids).toBeUndefined();
+    expect(payload.data.config.tools).toBeUndefined();
+    expect(payload.data.config.instructions.sections.additional).toBe(
+      'Updated live instructions'
+    );
+    expect(payload.data.enabled).toBeUndefined();
+    expect(wrapper.vm.isActive).toBe(true);
+  });
+
+  it('shows the live version and a publish-update action for a saved draft', async () => {
+    const { wrapper } = mountComponent({
+      aiAgentRecord: buildAiAgent({
+        lifecycle_status: 'active',
+        published_revision: 3,
+        draft_changes: true,
+      }),
+    });
+
+    await flushPromises();
+
+    expect(wrapper.vm.releaseNotice.message).toBe(
+      'Version 3 is still responding to customers. Your saved draft is not live until you publish the update.'
+    );
+    expect(wrapper.vm.showPublishAction).toBe(true);
+    expect(wrapper.vm.publishActionLabel).toBe('Publish');
+  });
+
+  it('hides setup guidance after all required publishing fields are complete', async () => {
+    const { wrapper } = mountComponent();
+
+    await flushPromises();
+
+    expect(wrapper.vm.showSetupNotice).toBe(false);
+    expect(wrapper.find('#readiness-title').exists()).toBe(false);
+  });
+
+  it('shows only incomplete required setup fields', async () => {
+    const { wrapper } = mountComponent({
+      aiAgentRecord: buildAiAgent({
+        readiness: {
+          can_publish: false,
+          checks: [
+            { key: 'instructions', complete: true },
+            { key: 'inbox', complete: false },
+          ],
+        },
+      }),
+    });
+
+    await flushPromises();
+
+    expect(wrapper.vm.showSetupNotice).toBe(true);
+    expect(wrapper.find('#readiness-title').exists()).toBe(true);
+    expect(wrapper.text()).toContain('Inbox connected');
+    expect(wrapper.text()).not.toContain('Instructions added');
+  });
+
+  it('offers to resume an unchanged paused version without presenting it as an update', async () => {
+    const { wrapper } = mountComponent({
+      aiAgentRecord: buildAiAgent({
+        enabled: false,
+        lifecycle_status: 'paused',
+        published_revision: 2,
+        draft_changes: false,
+      }),
+    });
+
+    await flushPromises();
+
+    expect(wrapper.vm.releaseNotice.message).toBe(
+      'Version 2 is paused. Resume it as-is or publish the saved draft.'
+    );
+    expect(wrapper.vm.publishActionLabel).toBe('Resume assistant');
+  });
+
+  it('opens evaluations as a read-only workspace tab', async () => {
+    setRouteName('ai_agent_evaluations');
+    const { wrapper } = mountComponent();
+
+    await flushPromises();
+
+    expect(wrapper.vm.activeTab).toBe('improve');
+    expect(wrapper.vm.isCurrentTabDirty).toBe(false);
+    expect(wrapper.find('.improve-workspace').text()).toBe('evaluations');
+  });
+
+  it('opens learning suggestions in the improve workspace', async () => {
+    setRouteName('ai_agent_learning_suggestions');
+    const { wrapper } = mountComponent();
+
+    await flushPromises();
+
+    expect(wrapper.vm.activeTab).toBe('improve');
+    expect(wrapper.find('.improve-workspace').text()).toBe('learnings');
+  });
+
+  it('synchronizes the editor after a learning updates the saved draft', async () => {
+    setRouteName('ai_agent_learning_suggestions');
+    const { wrapper, store } = mountComponent();
+    await flushPromises();
+    wrapper.vm.formState.name = 'Unsaved connection name';
+
+    const updatedRecord = buildAiAgent({
+      config: {
+        instructions: {
+          version: 3,
+          profile: {
+            language: 'same_as_customer',
+            tone: 'natural',
+            formality: 'balanced',
+            response_length: 'balanced',
+          },
+          sections: {
+            additional: 'Use destination-specific delivery guidance.',
+          },
+        },
+      },
+    });
+    store.commit('SET_AI_AGENT_RECORD', updatedRecord);
+
+    await wrapper.find('.improve-workspace').trigger('click');
+
+    expect(wrapper.vm.formState.instructions.sections.additional).toBe(
+      'Use destination-specific delivery guidance.'
+    );
+    expect(wrapper.vm.isInstructionsDirty).toBe(false);
+    expect(wrapper.vm.formState.name).toBe('Unsaved connection name');
+    expect(wrapper.vm.isConnectionsDirty).toBe(true);
+  });
+
+  it('refreshes learned knowledge without replacing unsaved instructions', async () => {
+    setRouteName('ai_agent_learning_suggestions');
+    const { wrapper, store } = mountComponent();
+    await flushPromises();
+    wrapper.vm.formState.instructions.sections.additional =
+      'Keep this unsaved instruction.';
+
+    const updatedRecord = buildAiAgent({ knowledge_source_ids: [77] });
+    store.commit('SET_AI_AGENT_RECORD', updatedRecord);
+    wrapper.vm.refreshAfterLearningApplied({ preserveInstructions: true });
+
+    expect(wrapper.vm.formState.instructions.sections.additional).toBe(
+      'Keep this unsaved instruction.'
+    );
+    expect(wrapper.vm.formState.knowledge_source_ids).toEqual([77]);
+  });
+
+  it('preserves unsaved edits when pausing the live assistant', async () => {
+    const { wrapper } = mountComponent();
+    await flushPromises();
+    wrapper.vm.formState.instructions.sections.additional =
+      'Unsaved pause-safe instruction.';
+    wrapper.vm.formState.name = 'Unsaved assistant name';
+
+    await wrapper.vm.handlePause();
+
+    expect(wrapper.vm.formState.instructions.sections.additional).toBe(
+      'Unsaved pause-safe instruction.'
+    );
+    expect(wrapper.vm.formState.name).toBe('Unsaved assistant name');
+    expect(wrapper.vm.lifecycleStatus).toBe('paused');
+  });
+
+  it('discards the current instruction draft without affecting connection edits', async () => {
+    setRouteName('ai_agent_instructions');
+    const { wrapper } = mountComponent();
+
+    await flushPromises();
+    const savedContent = wrapper.vm.formState.instructions.sections.additional;
+    wrapper.vm.formState.instructions.sections.additional +=
+      '\n\nUnsaved instruction';
+    wrapper.vm.formState.name = 'Unsaved name';
+    await nextTick();
+
+    wrapper.vm.discardCurrentChanges();
+
+    expect(wrapper.vm.formState.instructions.sections.additional).toBe(
+      savedContent
+    );
+    expect(wrapper.vm.formState.name).toBe('Unsaved name');
   });
 
   it('preserves owner labels after save response includes available_inboxes', async () => {
@@ -405,7 +657,7 @@ describe('AiAgentDetail.vue', () => {
       aiAgentId: 2,
     });
     expect(wrapper.vm.formState.name).toBe('Agent Two');
-    expect(wrapper.find('.test-conversation-layout').exists()).toBe(true);
+    expect(wrapper.find('.test-conversation-layout').exists()).toBe(false);
   });
 
   it('loads labels and exposes existing-label options for human handoff settings', async () => {

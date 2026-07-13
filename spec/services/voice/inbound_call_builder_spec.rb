@@ -6,7 +6,7 @@ RSpec.describe Voice::InboundCallBuilder do
       account = create(:account, settings: { voice_ai_enabled: true })
       api_channel = create(:channel_api, account: account)
       inbox = api_channel.inbox
-      local_voice_agent = account.voice_agents.first
+      local_voice_agent = create(:voice_agent, account: account)
       create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: local_voice_agent)
       foreign_setting = create(:voice_inbox_setting)
 

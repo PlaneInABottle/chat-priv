@@ -16,17 +16,19 @@ class AiAgents::ToolRegistry
   HUMAN_HANDOFF_INPUT_SCHEMA = {
     type: 'object',
     properties: {
-      reason: {
-        type: 'string',
-        description: 'Short internal reason for why automated assistance should stop.'
-      },
+      reason: { type: 'string', description: 'Short internal reason for why automated assistance should stop. Use the customer conversation language.' },
       customer_message: {
         type: 'string',
-        description: 'Public message sent to the customer before automation stops. Write it naturally as brand support copy and keep operational details in internal_note.'
+        description: 'Public message sent before automation stops, written naturally in the same language as the latest customer message. ' \
+                     'Keep operational details in internal_note.'
       },
       internal_note: {
         type: 'string',
-        description: 'Private note for the human agent with the useful context needed to continue.'
+        description: [
+          'Private context for the human teammate, in the customer conversation language. In 1-3 concise sentences, state the customer goal,',
+          'relevant facts already provided, actions attempted and their outcome, and the recommended next step.',
+          'Do not repeat the public transfer message or the latest customer message.'
+        ].join(' ')
       },
       labels: {
         type: 'array',
@@ -100,8 +102,32 @@ class AiAgents::ToolRegistry
     additionalProperties: false
   }.freeze
 
+  KNOWLEDGE_SEARCH_DESCRIPTION = [
+    'Search the assistant selected verified knowledge sources before answering business facts, policies, services, or support questions.',
+    'Use a short query with the important customer terms and relevant synonyms.',
+    'Treat returned excerpts as the only verified evidence for the answer.'
+  ].join(' ').freeze
+
+  KNOWLEDGE_SEARCH_INPUT_SCHEMA = {
+    type: 'object',
+    properties: {
+      query: {
+        type: 'string',
+        maxLength: AiKnowledgeSources::Retriever::MAX_QUERY_LENGTH,
+        description: 'A concise search query using the important customer terms and useful synonyms.'
+      },
+      limit: { type: 'integer', minimum: 1, maximum: AiKnowledgeSources::Retriever::MAX_LIMIT, default: 3 }
+    },
+    required: ['query'],
+    additionalProperties: false
+  }.freeze
+
   def self.available_definitions
     @available_definitions ||= [human_handoff_definition, ikas_lookup_order_definition, ikas_catalog_search_definition]
+  end
+
+  def self.runtime_definitions
+    @runtime_definitions ||= [*available_definitions, knowledge_search_definition]
   end
 
   def self.keys
@@ -109,7 +135,7 @@ class AiAgents::ToolRegistry
   end
 
   def self.find(tool_key)
-    available_definitions.find { |definition| definition.key == tool_key.to_s }
+    runtime_definitions.find { |definition| definition.key == tool_key.to_s || definition.name == tool_key.to_s }
   end
 
   def self.human_handoff_definition
@@ -148,6 +174,19 @@ class AiAgents::ToolRegistry
       requires_integration_app_id: Integrations::Ikas::ConnectionStatus::IKAS_APP_ID,
       terminal: false,
       service_class: 'AiAgents::Tools::IkasCatalogSearchService'
+    )
+  end
+
+  def self.knowledge_search_definition
+    Definition.new(
+      key: AiAgents::Config::KNOWLEDGE_SEARCH_TOOL,
+      name: AiAgents::Config::KNOWLEDGE_SEARCH_TOOL,
+      description: KNOWLEDGE_SEARCH_DESCRIPTION,
+      input_schema: KNOWLEDGE_SEARCH_INPUT_SCHEMA,
+      mode_support: 'both',
+      requires_integration_app_id: nil,
+      terminal: false,
+      service_class: 'AiAgents::Tools::KnowledgeSearchService'
     )
   end
 end

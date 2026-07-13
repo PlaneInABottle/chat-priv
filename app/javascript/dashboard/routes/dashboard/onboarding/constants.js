@@ -66,3 +66,12 @@ export const USER_ROLE_OPTIONS = [
   { value: 'sales', label: 'Sales' },
   { value: 'other', label: 'Other' },
 ];
+
+export const AI_PURPOSE_OPTIONS = [
+  'support',
+  'sales',
+  'support_and_sales',
+  'orders',
+];
+
+export const AI_TONE_OPTIONS = ['friendly', 'professional', 'warm', 'concise'];

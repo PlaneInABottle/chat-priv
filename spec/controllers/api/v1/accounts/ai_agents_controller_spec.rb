@@ -140,6 +140,17 @@ RSpec.describe 'Ai Agents API', type: :request do
         expect(json['ikas_integration']).to include('feature_enabled', 'state', 'can_connect')
       end
 
+      it 'presents legacy instructions as a normalized fixed-section document without persisting migration' do
+        ai_agent.update!(prompt: 'Existing live instructions', config: {})
+
+        get "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}", headers: admin.create_new_auth_token, as: :json
+
+        instructions = response.parsed_body.dig('config', 'instructions')
+        expect(instructions['version']).to eq(3)
+        expect(instructions.dig('sections', 'additional')).to eq('Existing live instructions')
+        expect(ai_agent.reload.config).not_to have_key('instructions')
+      end
+
       it 'returns ikas tools only when the integration and catalog are usable' do
         account.enable_features('ikas_integration')
         stub_ikas_status(state: 'connected', hook: ikas_hook_with_catalog)
@@ -393,6 +404,47 @@ RSpec.describe 'Ai Agents API', type: :request do
         expect(ai_agent.reload.prompt).to eq('You are a helpful assistant.')
       end
 
+      it 'updates automatic learning without changing the published assistant revision' do
+        published_revision = ai_agent.published_revision
+
+        patch "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}",
+              headers: admin.create_new_auth_token,
+              params: { auto_learning_enabled: true },
+              as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(response.parsed_body['auto_learning_enabled']).to be(true)
+        expect(ai_agent.reload).to have_attributes(
+          auto_learning_enabled: true,
+          published_revision: published_revision
+        )
+      end
+
+      it 'normalizes structured instructions and compiles the live prompt' do
+        instructions = {
+          version: 3,
+          profile: {
+            language: 'en',
+            tone: 'professional',
+            formality: 'formal',
+            response_length: 'short'
+          },
+          sections: { rules: 'Never invent a price.' }
+        }
+
+        patch "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}",
+              headers: admin.create_new_auth_token,
+              params: { config: { instructions: instructions } },
+              as: :json
+
+        expect(response).to have_http_status(:success)
+        ai_agent.reload
+        expect(ai_agent.config.dig('instructions', 'version')).to eq(3)
+        expect(ai_agent.prompt).to include('## Language and tone')
+        expect(ai_agent.prompt).to include("## Rules and boundaries\n\nNever invent a price.")
+        expect(ai_agent.prompt).not_to include('CRITICAL')
+      end
+
       it 'updates nested tools config without dropping sibling config keys' do
         ai_agent.update!(config: { 'existing' => { 'keep' => true } })
 
@@ -585,6 +637,64 @@ RSpec.describe 'Ai Agents API', type: :request do
 
         expect(response).to have_http_status(:unauthorized)
       end
+    end
+  end
+
+  describe 'assistant lifecycle actions' do
+    let!(:ai_agent) { create(:ai_agent, account: account) }
+
+    it 'publishes a configured draft without a test and pauses it explicitly' do
+      inbox = create(:inbox, account: account)
+      AgentBotInbox.create!(agent_bot: ai_agent.agent_bot, inbox: inbox, account: account)
+
+      post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/publish",
+           headers: admin.create_new_auth_token,
+           as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body).to include('lifecycle_status' => 'active', 'enabled' => true)
+
+      post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/pause",
+           headers: admin.create_new_auth_token,
+           as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body).to include('lifecycle_status' => 'paused', 'enabled' => false)
+      expect(response.parsed_body['last_tested_at']).to be_nil
+    end
+
+    it 'rejects publication before the readiness checklist is complete' do
+      post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/publish",
+           headers: admin.create_new_auth_token,
+           as: :json
+
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response.parsed_body.dig('readiness', 'can_publish')).to be(false)
+    end
+
+    it 'saves active edits as a draft without changing the published release' do
+      inbox = create(:inbox, account: account)
+      AgentBotInbox.create!(agent_bot: ai_agent.agent_bot, inbox: inbox, account: account)
+      ai_agent.publish!
+      published_prompt = ai_agent.live_prompt
+
+      patch "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}",
+            params: { name: 'Live edit', prompt: 'Draft instructions' },
+            headers: admin.create_new_auth_token,
+            as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(ai_agent.reload).to have_attributes(name: 'Live edit', prompt: 'Draft instructions', enabled: true, published_revision: 1)
+      expect(ai_agent.live_prompt).to eq(published_prompt)
+      expect(response.parsed_body).to include('draft_changes' => true, 'published_revision' => 1)
+
+      post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/publish",
+           headers: admin.create_new_auth_token,
+           as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body).to include('draft_changes' => false, 'published_revision' => 2)
+      expect(ai_agent.reload.live_prompt).to eq('Draft instructions')
     end
   end
 end

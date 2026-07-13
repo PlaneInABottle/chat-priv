@@ -5,7 +5,7 @@ RSpec.describe 'Api::V1::Accounts::Voice::Calls', type: :request do
   let(:agent) { create(:user, account: account, role: :agent) }
   let(:api_channel) { create(:channel_api, account: account) }
   let(:inbox) { api_channel.inbox }
-  let(:voice_agent) { account.voice_agents.first! }
+  let(:voice_agent) { create(:voice_agent, account: account) }
   let!(:voice_inbox_setting) { create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: voice_agent) }
   let(:call) { Voice::TestCallBuilder.perform!(account: account, inbox: inbox, voice_agent: voice_agent) }
   let(:conversation_call) { build_conversation_call }
@@ -43,6 +43,44 @@ RSpec.describe 'Api::V1::Accounts::Voice::Calls', type: :request do
       }
     ).tap do |created_call|
       created_call.update!(started_at: Time.zone.now, status: 'in_progress')
+    end
+  end
+
+  describe 'GET /api/v1/accounts/:account_id/voice/calls' do
+    it 'lists real calls with owner-facing evidence and excludes sandbox calls' do
+      sandbox_call = call
+      release = create(:voice_agent_release, account: account, voice_agent: voice_agent)
+      real_call = conversation_call
+      real_call.update!(
+        status: 'completed',
+        duration_seconds: 42,
+        voice_agent_release: release,
+        summary: { 'text' => 'Customer asked about an order.', 'model' => 'hidden-model' }
+      )
+      real_call.transcript_segments.create!(
+        account: account,
+        conversation: real_call.conversation,
+        role: 'caller',
+        source: 'livekit_agent',
+        text: 'Where is my order?'
+      )
+
+      get "/api/v1/accounts/#{account.id}/voice/calls",
+          headers: agent.create_new_auth_token,
+          as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body.pluck('id')).to include(real_call.id)
+      expect(response.parsed_body.pluck('id')).not_to include(sandbox_call.id)
+      expect(response.parsed_body.find { |item| item['id'] == real_call.id }).to include(
+        'conversation_id' => real_call.conversation.display_id,
+        'outcome' => 'completed',
+        'duration_seconds' => 42,
+        'summary' => 'Customer asked about an order.',
+        'transcript_count' => 1,
+        'voice_agent' => include('id' => voice_agent.id, 'name' => voice_agent.name)
+      )
+      expect(response.body).not_to include('hidden-model')
     end
   end
 

@@ -4,6 +4,7 @@ class VoiceAgents::Config
   HUMAN_HANDOFF_TOOL = AiAgents::Config::HUMAN_HANDOFF_TOOL
   IKAS_LOOKUP_ORDER_TOOL = AiAgents::Config::IKAS_LOOKUP_ORDER_TOOL
   IKAS_CATALOG_SEARCH_TOOL = AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL
+  KNOWLEDGE_SEARCH_TOOL = AiAgents::Config::KNOWLEDGE_SEARCH_TOOL
   END_CUSTOMER_CALL_TOOL = 'end_customer_call'
   ENABLED_KEY = 'enabled'
   DEFAULT_ENABLED_TOOL_KEYS = [HUMAN_HANDOFF_TOOL, END_CUSTOMER_CALL_TOOL].freeze
@@ -32,7 +33,7 @@ class VoiceAgents::Config
 
   def enabled_tool_keys
     @enabled_tool_keys ||= begin
-      keys = Array(enabled_tools_value).filter_map(&:presence).map(&:to_s).uniq
+      keys = [*DEFAULT_ENABLED_TOOL_KEYS, *Array(enabled_tools_value)].filter_map(&:presence).map(&:to_s).uniq
       keys & VoiceAgents::ToolRegistry.keys
     end
   end

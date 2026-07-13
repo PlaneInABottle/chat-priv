@@ -1,0 +1,225 @@
+import { flushPromises, mount } from '@vue/test-utils';
+
+import AssistantReleaseHistoryDialog from '../AssistantReleaseHistoryDialog.vue';
+
+const mockUseAlert = vi.hoisted(() => vi.fn());
+const mockTextApi = vi.hoisted(() => ({
+  getReleases: vi.fn(),
+  getRelease: vi.fn(),
+  rollbackRelease: vi.fn(),
+}));
+const mockVoiceApi = vi.hoisted(() => ({
+  getAgentReleases: vi.fn(),
+  getAgentRelease: vi.fn(),
+  rollbackAgentRelease: vi.fn(),
+}));
+const mockDialogClose = vi.hoisted(() => vi.fn());
+
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({
+    t: (key, params = {}) => {
+      if (params.version) return `${key}:${params.version}`;
+      if (params.name) return `${key}:${params.name}`;
+      return key;
+    },
+  }),
+}));
+
+vi.mock('dashboard/composables', () => ({
+  useAlert: mockUseAlert,
+}));
+
+vi.mock('dashboard/api/aiAgent', () => ({ default: mockTextApi }));
+vi.mock('dashboard/api/voice', () => ({ default: mockVoiceApi }));
+
+const releases = [
+  {
+    id: 12,
+    revision: 2,
+    source: 'publish',
+    created_at: '2026-07-11T12:00:00Z',
+    created_by: { name: 'Alex' },
+  },
+  {
+    id: 11,
+    revision: 1,
+    source: 'migration',
+    created_at: '2026-07-10T12:00:00Z',
+  },
+];
+
+const DialogStub = {
+  name: 'Dialog',
+  props: ['showConfirmButton', 'confirmButtonLabel'],
+  emits: ['confirm'],
+  template: `
+    <div>
+      <slot />
+      <button
+        v-if="showConfirmButton"
+        data-testid="confirm-restore"
+        @click="$emit('confirm')"
+      >{{ confirmButtonLabel }}</button>
+    </div>
+  `,
+  methods: {
+    open() {},
+    close: mockDialogClose,
+  },
+};
+
+const mountComponent = (props = {}) =>
+  mount(AssistantReleaseHistoryDialog, {
+    props: {
+      assistantType: 'text',
+      assistantId: 42,
+      currentReleaseId: 12,
+      ...props,
+    },
+    global: {
+      stubs: {
+        Dialog: DialogStub,
+        Button: {
+          name: 'Button',
+          props: ['label'],
+          emits: ['click'],
+          template: '<button @click="$emit(\'click\')">{{ label }}</button>',
+        },
+      },
+    },
+  });
+
+describe('AssistantReleaseHistoryDialog', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockTextApi.getReleases.mockResolvedValue({ data: releases });
+    mockTextApi.getRelease.mockImplementation((assistantId, releaseId) =>
+      Promise.resolve({
+        data: {
+          ...(releaseId === 12 ? releases[0] : releases[1]),
+          snapshot: {
+            prompt:
+              releaseId === 12
+                ? 'Current instructions'
+                : 'Original instructions',
+          },
+        },
+      })
+    );
+    mockTextApi.rollbackRelease.mockResolvedValue({ data: {} });
+    mockVoiceApi.getAgentReleases.mockResolvedValue({ data: releases });
+  });
+
+  it('lists customer-facing versions and inspects a text snapshot', async () => {
+    const wrapper = mountComponent();
+
+    await wrapper.vm.open();
+    await flushPromises();
+
+    expect(mockTextApi.getReleases).toHaveBeenCalledWith(42);
+    expect(wrapper.text()).toContain(
+      'AI_ASSISTANT.RELEASE_HISTORY.SOURCE.PUBLISHED'
+    );
+    expect(wrapper.text()).not.toContain('migration');
+
+    const originalVersionButton = wrapper
+      .findAll('button[type="button"]')
+      .find(button =>
+        button.text().includes('AI_ASSISTANT.RELEASE_HISTORY.VERSION:1')
+      );
+    await originalVersionButton.trigger('click');
+    await flushPromises();
+
+    expect(mockTextApi.getRelease).toHaveBeenCalledWith(42, 11);
+    expect(wrapper.text()).toContain('Original instructions');
+    const changedSegments = wrapper.findAll('[data-diff-changed="true"]');
+    expect(changedSegments.map(segment => segment.text())).toEqual(
+      expect.arrayContaining(['Original', 'Current'])
+    );
+  });
+
+  it('confirms rollback and reports that the assistant was restored', async () => {
+    const wrapper = mountComponent();
+    await wrapper.vm.open();
+    await flushPromises();
+
+    const restoreButton = wrapper
+      .findAll('button')
+      .find(button =>
+        button.text().includes('AI_ASSISTANT.RELEASE_HISTORY.RESTORE')
+      );
+    await restoreButton.trigger('click');
+    await wrapper.get('[data-testid="confirm-restore"]').trigger('click');
+    await flushPromises();
+
+    expect(mockTextApi.rollbackRelease).toHaveBeenCalledWith(42, 11);
+    expect(wrapper.emitted('restored')).toHaveLength(1);
+    expect(mockDialogClose).toHaveBeenCalled();
+  });
+
+  it('uses the voice release API for voice assistants', async () => {
+    const wrapper = mountComponent({ assistantType: 'voice' });
+
+    await wrapper.vm.open();
+    await flushPromises();
+
+    expect(mockVoiceApi.getAgentReleases).toHaveBeenCalledWith(42);
+    expect(mockTextApi.getReleases).not.toHaveBeenCalled();
+  });
+
+  it('shows a knowledge difference when source content changed without a rename', async () => {
+    mockTextApi.getRelease.mockImplementation((assistantId, releaseId) =>
+      Promise.resolve({
+        data: {
+          ...(releaseId === 12 ? releases[0] : releases[1]),
+          snapshot: {
+            prompt: 'Same instructions',
+            knowledge_sources: [
+              {
+                id: 7,
+                name: 'Returns policy',
+                source_type: 'manual',
+                content:
+                  releaseId === 12
+                    ? 'Returns are accepted within 30 days.'
+                    : 'Returns are accepted within 14 days.',
+              },
+            ],
+          },
+        },
+      })
+    );
+    const wrapper = mountComponent();
+
+    await wrapper.vm.open();
+    await flushPromises();
+    const originalVersionButton = wrapper
+      .findAll('button[type="button"]')
+      .find(button =>
+        button.text().includes('AI_ASSISTANT.RELEASE_HISTORY.VERSION:1')
+      );
+    await originalVersionButton.trigger('click');
+    await flushPromises();
+
+    expect(wrapper.text()).toContain(
+      'AI_ASSISTANT.RELEASE_HISTORY.FIELDS.KNOWLEDGE'
+    );
+    expect(wrapper.text()).toContain(
+      'AI_ASSISTANT.RELEASE_HISTORY.KNOWLEDGE_CONTENT_CHANGED:Returns policy'
+    );
+    expect(wrapper.text()).not.toContain(
+      'AI_ASSISTANT.RELEASE_HISTORY.NO_DIFFERENCES'
+    );
+  });
+
+  it('keeps version history usable when the live comparison cannot load', async () => {
+    mockTextApi.getRelease.mockRejectedValueOnce(new Error('Unavailable'));
+    const wrapper = mountComponent();
+
+    await wrapper.vm.open();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('AI_ASSISTANT.RELEASE_HISTORY.VERSION:1');
+    expect(mockUseAlert).not.toHaveBeenCalled();
+  });
+});

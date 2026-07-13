@@ -22,12 +22,50 @@ class VoiceAPI extends ApiClient {
     return axios.get(`${this.url}/agents`);
   }
 
+  getAgent(id) {
+    return axios.get(`${this.url}/agents/${id}`);
+  }
+
   createAgent(data) {
     return axios.post(`${this.url}/agents`, data);
   }
 
   updateAgent(id, data) {
     return axios.patch(`${this.url}/agents/${id}`, data);
+  }
+
+  deleteAgent(id) {
+    return axios.delete(`${this.url}/agents/${id}`);
+  }
+
+  publishAgent(id, data = {}) {
+    return axios.post(`${this.url}/agents/${id}/publish`, data);
+  }
+
+  activateAgent(id) {
+    return axios.post(`${this.url}/agents/${id}/activate`);
+  }
+
+  pauseAgent(id) {
+    return axios.post(`${this.url}/agents/${id}/pause`);
+  }
+
+  getAgentReleases(id) {
+    return axios.get(`${this.url}/agents/${id}/releases`);
+  }
+
+  getAgentRelease(id, releaseId) {
+    return axios.get(`${this.url}/agents/${id}/releases/${releaseId}`);
+  }
+
+  rollbackAgentRelease(id, releaseId) {
+    return axios.post(
+      `${this.url}/agents/${id}/releases/${releaseId}/rollback`
+    );
+  }
+
+  getTelephonyReadiness() {
+    return axios.get(`${this.url}/telephony_readiness`);
   }
 
   createSetting(data) {
@@ -44,6 +82,10 @@ class VoiceAPI extends ApiClient {
 
   getCall(id) {
     return axios.get(`${this.url}/calls/${id}`);
+  }
+
+  getCalls(params = {}) {
+    return axios.get(`${this.url}/calls`, { params });
   }
 
   createToken(id, data) {

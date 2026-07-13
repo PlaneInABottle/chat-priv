@@ -48,12 +48,16 @@ const ButtonStub = {
 };
 
 const mountComponent = createResult => {
+  const createAction = vi.fn().mockResolvedValue(createResult);
   const store = createStore({
+    state: { inboxes: [] },
     getters: {
       'aiAgent/getUIFlags': () => ({ isCreating: false }),
+      'inboxes/getInboxes': state => state.inboxes,
     },
     actions: {
-      'aiAgent/create': vi.fn().mockResolvedValue(createResult),
+      'aiAgent/create': createAction,
+      'inboxes/get': vi.fn().mockResolvedValue([]),
     },
   });
 
@@ -71,7 +75,7 @@ const mountComponent = createResult => {
     },
   });
 
-  return { wrapper, store };
+  return { wrapper, store, createAction };
 };
 
 describe('AiAgentNew.vue', () => {
@@ -79,26 +83,115 @@ describe('AiAgentNew.vue', () => {
     routerPush.mockClear();
   });
 
-  it('renders blank-name validation errors through the Input message API', async () => {
+  it('shows a blank-name validation error before continuing', async () => {
     const { wrapper } = mountComponent();
 
-    await wrapper.find('form').trigger('submit');
+    wrapper.vm.nextStep();
+    await wrapper.vm.$nextTick();
 
-    const input = wrapper.findComponent(InputStub);
-    expect(input.props('message')).toBe('AI_AGENTS.NEW.NAME_REQUIRED');
-    expect(input.props('messageType')).toBe('error');
-    expect(wrapper.text()).toContain('AI_AGENTS.NEW.NAME_REQUIRED');
+    const alert = wrapper.find('[role="alert"]');
+    expect(alert.text()).toBe('AI_AGENTS.NEW.NAME_REQUIRED');
+    expect(wrapper.vm.currentStep).toBe(0);
   });
 
-  it('renders create API errors through the Input message API', async () => {
+  it('shows create API errors on the review step', async () => {
     const { wrapper } = mountComponent({ error: 'Name already exists' });
 
-    await wrapper.find('input').setValue('Support bot');
-    await wrapper.find('form').trigger('submit');
+    wrapper.vm.form.name = 'Support bot';
+    wrapper.vm.form.instructions = 'Help customers.';
+    wrapper.vm.form.inboxIds = [1];
+    wrapper.vm.currentStep = 3;
+    await wrapper.vm.handleSubmit();
+    await wrapper.vm.$nextTick();
 
-    const input = wrapper.findComponent(InputStub);
-    expect(input.props('message')).toBe('Name already exists');
-    expect(input.props('messageType')).toBe('error');
-    expect(wrapper.text()).toContain('Name already exists');
+    expect(wrapper.find('[role="alert"]').text()).toBe('Name already exists');
+  });
+
+  it('defaults to matching the customer and builds only task guidance', () => {
+    const { wrapper } = mountComponent();
+
+    expect(wrapper.vm.form.language).toBe('same_as_customer');
+    wrapper.vm.form.name = 'Support bot';
+    wrapper.vm.nextStep();
+
+    expect(wrapper.vm.form.instructions).toBe(
+      'AI_ASSISTANT.CREATE.GOAL_INSTRUCTIONS.SUPPORT'
+    );
+    expect(wrapper.vm.form.instructions).not.toContain('Role:');
+    expect(wrapper.vm.form.instructions).not.toContain('Tone:');
+    expect(wrapper.vm.form.instructions).not.toContain('human');
+    const document = wrapper.vm.buildInstructionDocument();
+    expect(document.profile.language).toBe('same_as_customer');
+    expect(document.sections.identity).toContain('Support bot');
+    expect(document.sections.tasks).toBe(
+      'AI_ASSISTANT.CREATE.GOAL_INSTRUCTIONS.SUPPORT'
+    );
+    expect(document.sections.handoff).toContain(
+      'hand the conversation to a human'
+    );
+  });
+
+  it('creates structured instructions and opens the instructions workspace', async () => {
+    const { wrapper, createAction } = mountComponent({ id: 42 });
+
+    wrapper.vm.form.name = 'Support bot';
+    wrapper.vm.form.instructions = 'Help customers choose a product.';
+    wrapper.vm.form.businessContext = 'We sell window products.';
+    wrapper.vm.form.boundaries = 'Never invent prices.';
+    wrapper.vm.form.inboxIds = [1];
+    await wrapper.vm.handleSubmit();
+
+    expect(createAction).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        config: expect.objectContaining({
+          instructions: expect.objectContaining({
+            version: 3,
+            sections: expect.objectContaining({
+              tasks: 'Help customers choose a product.',
+              rules: 'Never invent prices.',
+            }),
+          }),
+        }),
+      })
+    );
+    expect(createAction.mock.calls[0][1].prompt).toBeUndefined();
+    expect(routerPush).toHaveBeenCalledWith({
+      name: 'ai_agent_instructions',
+      params: { id: 42 },
+    });
+  });
+
+  it('preserves edited instructions when returning to the basics step', async () => {
+    const { wrapper } = mountComponent();
+    wrapper.vm.form.name = 'Support bot';
+    wrapper.vm.nextStep();
+    wrapper.vm.form.instructions = 'Keep my carefully edited instructions.';
+
+    wrapper.vm.previousStep();
+    wrapper.vm.form.name = 'Renamed support bot';
+    wrapper.vm.form.goal = 'sales';
+    wrapper.vm.nextStep();
+
+    expect(wrapper.vm.form.instructions).toBe(
+      'Keep my carefully edited instructions.'
+    );
+  });
+
+  it('rebuilds untouched generated instructions when the goal changes', () => {
+    const { wrapper } = mountComponent();
+    wrapper.vm.form.name = 'Store assistant';
+    wrapper.vm.nextStep();
+    expect(wrapper.vm.form.instructions).toBe(
+      'AI_ASSISTANT.CREATE.GOAL_INSTRUCTIONS.SUPPORT'
+    );
+
+    wrapper.vm.previousStep();
+    wrapper.vm.form.goal = 'sales';
+    wrapper.vm.nextStep();
+
+    expect(wrapper.vm.form.instructions).toBe(
+      'AI_ASSISTANT.CREATE.GOAL_INSTRUCTIONS.SALES'
+    );
   });
 });

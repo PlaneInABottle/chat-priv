@@ -4,22 +4,23 @@
 
 Build voice AI as a native Chatwoot product while using LiveKit for realtime rooms and media. Chatwoot/Rails owns calls, contacts, conversations, mandatory transcript persistence, handoff, summaries, settings, and later recordings. A separate Python `services/voice_agent` worker joins LiveKit rooms and runs the AI voice session.
 
-Enterprise voice code may remain in the repository, but the new voice AI implementation must not depend on Enterprise-only classes. Shared voice primitives for this feature live under `app/`.
+The native voice AI implementation does not edit or depend on Enterprise-only classes. Shared voice primitives for this feature live under `app/`.
 
 ## Core Decisions
 
 - Use Python for the LiveKit agent worker because LiveKit Python has broader STT/TTS/LLM provider coverage and stronger advanced speech support.
 - Support both architectures:
   - `pipeline`: separate STT + LLM + TTS, preferred for tuning Turkish phone-call quality.
-  - `realtime`: provider-native realtime audio, initially Gemini Live API via LiveKit Google plugin.
+  - `realtime`: provider-native realtime audio using Gemini Live or OpenAI Realtime through LiveKit plugins.
 - Store every final transcript segment automatically in DB. Transcript saving is system-owned, not an AI tool decision.
 - Start without Netgsm. First prove browser caller -> LiveKit room -> Python AI -> Chatwoot transcript/handoff.
 - Add recording/audio saving later using LiveKit Insights or Egress after transcript and handoff are stable.
 
-## Gemini Live Notes
+## Realtime Provider Notes
 
 - `VOICE_AGENT_ARCHITECTURE=realtime` enables provider-native realtime audio.
 - `VOICE_AGENT_REALTIME_PROVIDER=gemini` selects Gemini Live as the first realtime provider.
+- `provider=openai` with `model=gpt-realtime-2.1` selects OpenAI Realtime. It uses low reasoning effort, semantic VAD, and explicit input transcription so Chatwoot retains caller transcripts.
 - Default realtime model should be a stable Gemini 2.5 native audio model.
 - `gemini-3.1-flash-live-preview` is allowed for experiments, but has LiveKit compatibility limits:
   - no compatible mid-session `generate_reply()`
@@ -44,7 +45,7 @@ Enterprise voice code may remain in the repository, but the new voice AI impleme
 
 3. Python voice worker
    - Add `services/voice_agent` with `uv`.
-   - Implement `pipeline` and `gemini_realtime` modes.
+   - Implement pipeline plus Gemini and OpenAI realtime modes.
    - Persist transcript segments from LiveKit session events.
    - Expose handoff/end as AI-callable tools, but keep transcript persistence automatic.
 

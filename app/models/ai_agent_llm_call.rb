@@ -41,7 +41,7 @@
 #  fk_rails_...  (message_id => messages.id) ON DELETE => nullify
 #
 class AiAgentLlmCall < ApplicationRecord
-  enum mode: { test: 0, live: 1 }
+  enum mode: { test: 0, live: 1, website_import: 2 }
   enum status: { succeeded: 0, failed: 1 }
 
   belongs_to :account

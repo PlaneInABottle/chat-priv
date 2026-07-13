@@ -1,29 +1,5 @@
 import { mount } from '@vue/test-utils';
 import AiAgentPromptEditor from '../AiAgentPromptEditor.vue';
-import Editor from 'dashboard/components-next/Editor/Editor.vue';
-
-vi.mock('dashboard/components-next/Editor/Editor.vue', () => ({
-  default: {
-    name: 'Editor',
-    props: {
-      modelValue: { type: String, default: '' },
-      editorKey: { type: String, default: '' },
-      label: { type: String, default: '' },
-      placeholder: { type: String, default: '' },
-      message: { type: String, default: '' },
-      messageType: { type: String, default: 'info' },
-      maxLength: { type: Number, default: 4000 },
-      showCharacterCount: { type: Boolean, default: false },
-      enableCannedResponses: { type: Boolean, default: true },
-      variant: { type: String, default: 'message' },
-      enabledMenuOptions: { type: Array, default: () => [] },
-      minHeight: { type: [Number, String], default: '' },
-      maxHeight: { type: [Number, String], default: '' },
-    },
-    emits: ['update:modelValue'],
-    template: '<div data-test-id="wysiwyg-editor" />',
-  },
-}));
 
 const mountComponent = props =>
   mount(AiAgentPromptEditor, {
@@ -38,51 +14,29 @@ const mountComponent = props =>
   });
 
 describe('AiAgentPromptEditor', () => {
-  it('renders the WYSIWYG editor with prompt props', () => {
+  it('renders instructions as plain text with an explicit limit', () => {
     const wrapper = mountComponent();
+    const textarea = wrapper.find('textarea');
 
-    expect(wrapper.findComponent(Editor).props()).toMatchObject({
-      modelValue: '**hello**',
-      message: 'Help',
-      messageType: 'info',
-      maxLength: 4000,
-      showCharacterCount: true,
-      enableCannedResponses: false,
-      variant: 'article',
-      enabledMenuOptions: [
-        'h1',
-        'h2',
-        'h3',
-        'strong',
-        'em',
-        'strike',
-        'link',
-        'bulletList',
-        'orderedList',
-        'code',
-        'undo',
-        'redo',
-      ],
-      minHeight: 12,
-      maxHeight: 48,
-    });
+    expect(textarea.element.value).toBe('**hello**');
+    expect(textarea.attributes('maxlength')).toBe('4000');
+    expect(wrapper.text()).toContain('9 / 4000');
+    expect(wrapper.text()).toContain('Help');
   });
 
-  it('emits markdown model updates from the editor', async () => {
+  it('emits plain-text model updates from the textarea', async () => {
     const wrapper = mountComponent();
 
-    await wrapper
-      .findComponent(Editor)
-      .vm.$emit('update:modelValue', '*updated*');
+    await wrapper.find('textarea').setValue('Updated instructions');
 
-    expect(wrapper.emitted('update:modelValue')[0][0]).toBe('*updated*');
+    expect(wrapper.emitted('update:modelValue')[0][0]).toBe(
+      'Updated instructions'
+    );
   });
 
-  it('does not render preview controls or a textarea', () => {
-    const wrapper = mountComponent();
+  it('disables editing when requested', () => {
+    const wrapper = mountComponent({ disabled: true });
 
-    expect(wrapper.text()).not.toContain('Show preview');
-    expect(wrapper.find('textarea').exists()).toBe(false);
-    expect(wrapper.find('.prose').exists()).toBe(false);
+    expect(wrapper.find('textarea').attributes('disabled')).toBeDefined();
   });
 });

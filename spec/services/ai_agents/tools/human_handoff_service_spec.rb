@@ -136,4 +136,17 @@ RSpec.describe AiAgents::Tools::HumanHandoffService do
     expect(result).not_to have_key(:team_id)
     expect(result).not_to have_key(:assignee_id)
   end
+
+  it 'bounds generated brief fields before saving the private note' do
+    result = service.call(args: {
+      'reason' => 'r' * 2_000,
+      'customer_message' => 'A human will continue helping you.',
+      'internal_note' => 'c' * 5_000,
+      'labels' => ['vip']
+    })
+
+    expect(result[:private_note_preview]).not_to include('r' * 301)
+    expect(result[:private_note_preview]).not_to include('c' * 1_501)
+    expect(result[:private_note_preview].length).to be < 3_000
+  end
 end

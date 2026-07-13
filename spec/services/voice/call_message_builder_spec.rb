@@ -45,7 +45,11 @@ RSpec.describe Voice::CallMessageBuilder do
       status: 'completed',
       duration_seconds: 64,
       ai_status: 'silent',
-      summary: { 'text' => 'Customer gave buyer@example.com and +905551112233' }
+      summary: {
+        'text' => 'Customer gave buyer@example.com and +905551112233',
+        'source' => 'ai_agent_llm',
+        'model' => 'hidden-model'
+      }
     )
     recording = create(:voice_recording, account: account, call: call, status: 'completed', duration_seconds: 61)
 

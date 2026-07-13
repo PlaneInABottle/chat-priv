@@ -108,13 +108,24 @@ Rails.application.routes.draw do
           end
           resource :saml_settings, only: [:show, :create, :update, :destroy]
           resource :ai_agent_usage, only: [:show], controller: 'ai_agent_usage'
+          resource :ai_improvement_usage, only: [:show], controller: 'ai_improvement_usage'
           namespace :voice do
             resource :usage, only: [:show], controller: 'usage'
-            resources :agents
+            resource :telephony_readiness, only: [:show], controller: 'telephony_readiness'
+            resources :agents do
+              member do
+                post :publish
+                post :activate
+                post :pause
+              end
+              resources :releases, only: [:index, :show], controller: 'agent_releases' do
+                post :rollback, on: :member
+              end
+            end
             resources :inbox_settings, only: [:index, :show, :create, :update]
             resources :recordings, only: [:index]
             resources :test_calls, only: [:create]
-            resources :calls, only: [:show] do
+            resources :calls, only: [:index, :show] do
               member do
                 post :token
                 post :take_over
@@ -123,6 +134,13 @@ Rails.application.routes.draw do
             end
           end
           resources :ai_agents, only: [:index, :show, :create, :update, :destroy] do
+            member do
+              post :publish
+              post :pause
+            end
+            resources :releases, only: [:index, :show], controller: 'ai_agent_releases' do
+              post :rollback, on: :member
+            end
             resources :test_conversations, only: [:index, :create, :show, :destroy], controller: 'ai_agent_test_conversations' do
               collection do
                 delete :clear_all
@@ -131,6 +149,43 @@ Rails.application.routes.draw do
                 post :send_message
               end
             end
+            resources :evaluation_cases,
+                      only: [:index, :create, :update, :destroy],
+                      controller: 'ai_agent_evaluation_cases' do
+              collection do
+                post :generate
+                get :generation
+              end
+            end
+            resources :evaluation_runs,
+                      only: [:index, :create, :show],
+                      controller: 'ai_agent_evaluation_runs' do
+              collection do
+                get :quality
+              end
+            end
+            resources :learning_suggestions,
+                      only: [:index],
+                      controller: 'ai_agent_learning_suggestions' do
+              member do
+                post :apply
+                post :dismiss
+              end
+            end
+            resources :website_imports,
+                      only: [:index, :create, :show],
+                      controller: 'ai_agent_website_imports' do
+              member do
+                post :apply
+                post :dismiss
+              end
+            end
+          end
+          resource :ai_agent_onboarding, only: [:show, :create], controller: 'ai_agent_onboarding' do
+            post :complete
+          end
+          resources :ai_knowledge_sources, only: [:index, :show, :create, :update, :destroy] do
+            post :sync, on: :member
           end
           resources :agent_bots, only: [:index, :create, :show, :update, :destroy] do
             delete :avatar, on: :member
@@ -184,6 +239,7 @@ Rails.application.routes.draw do
                 member do
                   post :translate
                   post :retry
+                  post :suggest_learning
                 end
               end
               resources :assignments, only: [:create]
@@ -722,6 +778,7 @@ Rails.application.routes.draw do
       resources :accounts, only: [:index, :new, :create, :show, :edit, :update, :destroy] do
         post :seed, on: :member
         post :reset_cache, on: :member
+        post :purge_ai_data, on: :member
       end
       resources :users, only: [:index, :new, :create, :show, :edit, :update, :destroy] do
         delete :avatar, on: :member, action: :destroy_avatar

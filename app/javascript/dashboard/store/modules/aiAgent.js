@@ -83,6 +83,17 @@ export const actions = {
     }
   },
 
+  refresh: async ({ commit }, id) => {
+    try {
+      const response = await AiAgentAPI.show(id);
+      commit('SET_AI_AGENT', response.data);
+      return response.data;
+    } catch (error) {
+      throwErrorMessage(error);
+      return null;
+    }
+  },
+
   create: async ({ commit }, data) => {
     commit('SET_AI_AGENT_UI_FLAG', { isCreating: true });
     try {
@@ -133,6 +144,26 @@ export const actions = {
       throwErrorMessage(error);
     } finally {
       commit('SET_AI_AGENT_UI_FLAG', { isDeleting: false });
+    }
+  },
+
+  publish: async ({ commit }, id) => {
+    try {
+      const response = await AiAgentAPI.publish(id);
+      commit('UPDATE_AI_AGENT', response.data);
+      return response.data;
+    } catch (error) {
+      return { error: parseAPIErrorResponse(error) };
+    }
+  },
+
+  pause: async ({ commit }, id) => {
+    try {
+      const response = await AiAgentAPI.pause(id);
+      commit('UPDATE_AI_AGENT', response.data);
+      return response.data;
+    } catch (error) {
+      return { error: parseAPIErrorResponse(error) };
     }
   },
 };

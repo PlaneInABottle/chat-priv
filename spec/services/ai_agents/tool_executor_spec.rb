@@ -65,6 +65,27 @@ RSpec.describe AiAgents::ToolExecutor do
     expect(AiAgentToolExecution.last).to have_attributes(status: 'executed', tool_key: 'human_handoff')
   end
 
+  it 'implicitly enables knowledge search only when runtime sources are present' do
+    knowledge_executor = described_class.new(
+      ai_agent: ai_agent,
+      account: account,
+      mode: :test,
+      context: {
+        knowledge_sources: [
+          { id: 9, name: 'Returns', content: 'Returns are accepted within 14 days.' }
+        ]
+      }
+    )
+
+    result = knowledge_executor.execute(
+      tool_call(name: 'search_knowledge', arguments: { query: 'returns within 14 days' })
+    )
+
+    expect(result.status).to eq('executed')
+    expect(result.tool_result[:attributions]).to eq([{ source_id: 9, source_name: 'Returns' }])
+    expect(AiAgentToolExecution.last).to have_attributes(status: 'executed', tool_key: 'search_knowledge')
+  end
+
   it 'logs test conversation tool executions without a live conversation link' do
     test_conversation = create(:ai_agent_test_conversation, account: account, ai_agent: ai_agent)
     test_executor = described_class.new(

@@ -8,7 +8,6 @@ import { ONBOARDING_EVENTS } from 'dashboard/helper/AnalyticsHelper/events';
 import { useAccount } from 'dashboard/composables/useAccount';
 import { useConfig } from 'dashboard/composables/useConfig';
 import { useMapGetter, useStore } from 'dashboard/composables/store';
-import { frontendURL } from 'dashboard/helper/URLHelper';
 import Avatar from 'dashboard/components-next/avatar/Avatar.vue';
 import Icon from 'dashboard/components-next/icon/Icon.vue';
 import NextButton from 'dashboard/components-next/button/Button.vue';
@@ -18,7 +17,10 @@ import OnboardingFormRow from './OnboardingFormRow.vue';
 import OnboardingFormSelect from './OnboardingFormSelect.vue';
 import InlineInput from 'dashboard/components-next/inline-input/InlineInput.vue';
 import Spinner from 'dashboard/components-next/spinner/Spinner.vue';
+import AiAgentOnboardingAPI from 'dashboard/api/aiAgentOnboarding';
 import {
+  AI_PURPOSE_OPTIONS,
+  AI_TONE_OPTIONS,
   COMPANY_SIZE_OPTIONS,
   INDUSTRY_OPTIONS,
   REFERRAL_SOURCE_OPTIONS,
@@ -28,7 +30,7 @@ import {
 const { t } = useI18n();
 const router = useRouter();
 const store = useStore();
-const { accountId, currentAccount, updateAccount } = useAccount();
+const { accountId, currentAccount } = useAccount();
 const { enabledLanguages } = useConfig();
 const currentUser = useMapGetter('getCurrentUser');
 
@@ -39,10 +41,15 @@ const timezone = ref('');
 const companySize = ref('');
 const industry = ref('');
 const referralSource = ref('');
+const aiPurpose = ref('support');
+const aiTone = ref('friendly');
 const isSubmitting = ref(false);
 const isEditingWebsite = ref(false);
 const websiteInput = ref(null);
 const showErrorOnFields = ref(false);
+const onboardingPhase = ref('details');
+const onboardingState = ref(null);
+const isCompleting = ref(false);
 
 const validationRules = {
   userRole: {},
@@ -63,6 +70,45 @@ const v$ = useVuelidate(validationRules, {
   industry,
   referralSource,
 });
+
+const importStatus = computed(() => onboardingState.value?.status);
+const importStage = computed(() => onboardingState.value?.stage || 'queued');
+const isImportRunning = computed(() =>
+  ['pending', 'running'].includes(importStatus.value)
+);
+const draftIsReady = computed(() =>
+  ['applied', 'ready', 'failed', 'fallback'].includes(importStatus.value)
+);
+const assistantId = computed(() => onboardingState.value?.ai_agent?.id);
+const canReviewDraft = computed(() =>
+  Boolean(assistantId.value && (draftIsReady.value || isImportRunning.value))
+);
+const hasWebsiteImport = computed(() =>
+  Boolean(onboardingState.value?.website_import)
+);
+
+let importPollTimer = null;
+
+const stopImportPolling = () => {
+  if (importPollTimer) clearTimeout(importPollTimer);
+  importPollTimer = null;
+};
+
+const loadOnboardingState = async () => {
+  try {
+    const { data } = await AiAgentOnboardingAPI.get();
+    onboardingState.value = data;
+    if (data.status !== 'not_started') onboardingPhase.value = 'building';
+
+    stopImportPolling();
+    if (['pending', 'running'].includes(data.status)) {
+      importPollTimer = setTimeout(loadOnboardingState, 1500);
+    }
+  } catch {
+    stopImportPolling();
+    importPollTimer = setTimeout(loadOnboardingState, 3000);
+  }
+};
 
 const userName = computed(() => currentUser.value?.name || '');
 const userEmail = computed(() => currentUser.value?.email || '');
@@ -97,6 +143,20 @@ const timezoneOptions = computed(() => {
     return [];
   }
 });
+
+const aiPurposeOptions = computed(() =>
+  AI_PURPOSE_OPTIONS.map(value => ({
+    value,
+    label: t(`ONBOARDING_NEXT.AI_PURPOSE_OPTIONS.${value.toUpperCase()}`),
+  }))
+);
+
+const aiToneOptions = computed(() =>
+  AI_TONE_OPTIONS.map(value => ({
+    value,
+    label: t(`ONBOARDING_NEXT.AI_TONE_OPTIONS.${value.toUpperCase()}`),
+  }))
+);
 
 // Best-effort match browser language to enabled Chatwoot locales.
 // Tries exact match first (e.g. 'pt_BR'), then base language (e.g. 'pt'),
@@ -164,10 +224,16 @@ onMounted(() => {
   populateFormFields();
   useTrack(ONBOARDING_EVENTS.ACCOUNT_DETAILS_VISITED);
   if (isEnriching.value) startEnrichmentTimer();
+  if (
+    currentAccount.value?.custom_attributes?.onboarding_step === 'ai_assistant'
+  ) {
+    loadOnboardingState();
+  }
 });
 
 onUnmounted(() => {
   if (enrichmentTimer) clearTimeout(enrichmentTimer);
+  stopImportPolling();
 });
 
 watch(isEnriching, newVal => {
@@ -213,16 +279,23 @@ const handleSubmit = async () => {
 
   isSubmitting.value = true;
   try {
-    await updateAccount({
-      name: accountName.value,
-      locale: locale.value,
-      website: website.value,
-      industry: industry.value,
-      company_size: companySize.value,
-      timezone: timezone.value,
-      referral_source: referralSource.value,
-      user_role: userRole.value,
+    const { data } = await AiAgentOnboardingAPI.create({
+      account: {
+        locale: locale.value,
+        website: website.value,
+        industry: industry.value,
+        company_size: companySize.value,
+        timezone: timezone.value,
+        referral_source: referralSource.value,
+        user_role: userRole.value,
+      },
+      assistant: {
+        purpose: aiPurpose.value,
+        tone: aiTone.value,
+      },
     });
+    onboardingState.value = data;
+    onboardingPhase.value = 'building';
 
     const init = initialValues.value;
     const enrichableFields = {
@@ -244,19 +317,37 @@ const handleSubmit = async () => {
       referral_source: referralSource.value,
     });
 
-    useAlert(t('ONBOARDING_NEXT.SUCCESS'));
-    store.commit('RESET_ONBOARDING', accountId.value);
-    router.push(frontendURL(`accounts/${accountId.value}/dashboard`));
+    if (['pending', 'running'].includes(data.status)) {
+      importPollTimer = setTimeout(loadOnboardingState, 1500);
+    }
   } catch {
     useAlert(t('ONBOARDING_NEXT.ERROR'));
   } finally {
     isSubmitting.value = false;
   }
 };
+
+const reviewAssistant = async () => {
+  if (!assistantId.value) return;
+
+  isCompleting.value = true;
+  try {
+    await AiAgentOnboardingAPI.complete();
+    store.commit('RESET_ONBOARDING', accountId.value);
+    router.push({
+      name: 'ai_agent_instructions',
+      params: { id: assistantId.value, accountId: accountId.value },
+    });
+  } catch {
+    useAlert(t('ONBOARDING_NEXT.ERROR'));
+  } finally {
+    isCompleting.value = false;
+  }
+};
 </script>
 
 <template>
-  <form @submit.prevent="handleSubmit">
+  <form v-if="onboardingPhase === 'details'" @submit.prevent="handleSubmit">
     <OnboardingLayout
       :greeting="t('ONBOARDING_NEXT.GREETING', { name: userName })"
       :subtitle="t('ONBOARDING_NEXT.SUBTITLE')"
@@ -343,8 +434,10 @@ const handleSubmit = async () => {
                 @blur="isEditingWebsite = false"
               />
               <NextButton
+                v-tooltip="t('ONBOARDING_NEXT.EDIT_WEBSITE')"
                 type="button"
                 icon="i-lucide-pencil"
+                :aria-label="t('ONBOARDING_NEXT.EDIT_WEBSITE')"
                 slate
                 xs
                 ghost
@@ -412,6 +505,131 @@ const handleSubmit = async () => {
           </OnboardingFormRow>
         </template>
       </OnboardingSection>
+
+      <OnboardingSection
+        :title="t('ONBOARDING_NEXT.ASSISTANT_DETAILS')"
+        icon="i-lucide-bot"
+      >
+        <OnboardingFormRow
+          :title="t('ONBOARDING_NEXT.FIELDS.AI_PURPOSE')"
+          icon="i-lucide-goal"
+        >
+          <OnboardingFormSelect
+            v-model="aiPurpose"
+            :options="aiPurposeOptions"
+          />
+        </OnboardingFormRow>
+        <OnboardingFormRow
+          :title="t('ONBOARDING_NEXT.FIELDS.AI_TONE')"
+          icon="i-lucide-message-circle"
+        >
+          <OnboardingFormSelect v-model="aiTone" :options="aiToneOptions" />
+        </OnboardingFormRow>
+        <div class="flex items-start gap-3 border-t border-n-weak px-3 py-3">
+          <Icon
+            icon="i-lucide-shield-check"
+            class="mt-0.5 size-4 flex-shrink-0 text-n-teal-11"
+          />
+          <p class="m-0 text-xs leading-5 text-n-slate-11">
+            {{ t('ONBOARDING_NEXT.ASSISTANT_DRAFT_HELP') }}
+          </p>
+        </div>
+      </OnboardingSection>
     </OnboardingLayout>
   </form>
+
+  <main
+    v-else
+    class="flex min-h-screen w-full items-center justify-center bg-n-surface-2 px-4 py-12"
+  >
+    <section class="w-full max-w-2xl">
+      <div class="mb-8 flex items-start gap-4">
+        <div
+          class="flex size-11 flex-shrink-0 items-center justify-center rounded-lg bg-n-blue-3 text-n-blue-11"
+        >
+          <Icon icon="i-lucide-bot" class="size-5" />
+        </div>
+        <div>
+          <h1 class="m-0 text-2xl font-semibold text-n-slate-12">
+            {{ t('ONBOARDING_NEXT.BUILDING.TITLE') }}
+          </h1>
+          <p class="mb-0 mt-2 text-sm leading-6 text-n-slate-11">
+            {{ t('ONBOARDING_NEXT.BUILDING.DESCRIPTION') }}
+          </p>
+        </div>
+      </div>
+
+      <div
+        v-if="hasWebsiteImport"
+        role="status"
+        aria-live="polite"
+        class="border-y border-n-weak py-2"
+      >
+        <div
+          v-for="stage in ['crawling', 'generating', 'applying']"
+          :key="stage"
+          class="flex min-h-14 items-center gap-3 border-b border-n-weak px-2 last:border-b-0"
+        >
+          <Spinner
+            v-if="isImportRunning && importStage === stage"
+            :size="16"
+            class="text-n-blue-10"
+          />
+          <Icon
+            v-else
+            :icon="
+              draftIsReady ||
+              ['generating', 'applying'].indexOf(importStage) >
+                ['generating', 'applying'].indexOf(stage)
+                ? 'i-lucide-circle-check'
+                : 'i-lucide-circle'
+            "
+            class="size-4 flex-shrink-0"
+            :class="draftIsReady ? 'text-n-teal-11' : 'text-n-slate-8'"
+          />
+          <span class="text-sm font-medium text-n-slate-12">
+            {{ t(`ONBOARDING_NEXT.BUILDING.STAGES.${stage.toUpperCase()}`) }}
+          </span>
+        </div>
+      </div>
+
+      <div
+        v-else
+        class="flex items-center gap-3 border-y border-n-weak px-2 py-5"
+      >
+        <Icon icon="i-lucide-circle-check" class="size-5 text-n-teal-11" />
+        <div>
+          <p class="m-0 text-sm font-medium text-n-slate-12">
+            {{ t('ONBOARDING_NEXT.BUILDING.DRAFT_READY') }}
+          </p>
+          <p class="mb-0 mt-1 text-xs text-n-slate-10">
+            {{ t('ONBOARDING_NEXT.BUILDING.DRAFT_READY_HELP') }}
+          </p>
+        </div>
+      </div>
+
+      <div
+        v-if="importStatus === 'failed'"
+        class="mt-5 flex items-start gap-3 rounded-lg border border-n-amber-5 bg-n-amber-2 p-4"
+      >
+        <Icon icon="i-lucide-info" class="mt-0.5 size-4 text-n-amber-11" />
+        <p class="m-0 text-sm text-n-amber-12">
+          {{ t('ONBOARDING_NEXT.BUILDING.FALLBACK') }}
+        </p>
+      </div>
+
+      <div v-if="canReviewDraft" class="mt-6 flex justify-end">
+        <NextButton
+          icon="i-lucide-arrow-right"
+          :label="
+            isImportRunning
+              ? t('ONBOARDING_NEXT.BUILDING.REVIEW_STARTER')
+              : t('ONBOARDING_NEXT.BUILDING.REVIEW')
+          "
+          :is-loading="isCompleting"
+          @click="reviewAssistant"
+        />
+      </div>
+    </section>
+  </main>
 </template>

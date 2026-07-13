@@ -54,23 +54,8 @@ RSpec.describe Account do
   end
 
   describe 'voice agent defaults' do
-    it 'creates one default voice agent when the account is created' do
-      account = create(:account)
-
-      expect(account.voice_agents.count).to eq(1)
-      expect(account.voice_agents.first).to have_attributes(
-        name: 'Voice Assistant',
-        enabled: true,
-        language: 'tr',
-        voice: 'Charon'
-      )
-      expect(account.voice_agents.first.tools_config['enabled']).to include('human_handoff', 'end_customer_call')
-    end
-
-    it 'does not create duplicate default voice agents' do
-      account = create(:account)
-
-      expect { account.create_default_voice_agent! }.not_to change { account.voice_agents.count }
+    it 'does not provision an active voice agent for a new account' do
+      expect { create(:account) }.not_to change(VoiceAgent, :count)
     end
   end
 
@@ -372,6 +357,16 @@ RSpec.describe Account do
       expect(account.ai_agent_conversation_reuse_window_hours).to eq(24)
     end
 
+    it 'normalizes text AI data retention to a supported duration' do
+      expect(account.ai_agent_data_retention_days).to eq(30)
+
+      account.update!(ai_agent_data_retention_days: '90')
+      expect(account.reload.ai_agent_data_retention_days).to eq(90)
+
+      account.update!(ai_agent_data_retention_days: 14)
+      expect(account.reload.ai_agent_data_retention_days).to eq(30)
+    end
+
     it 'is disabled by default' do
       expect(account.ai_agent_enabled?).to be(false)
     end
@@ -401,12 +396,19 @@ RSpec.describe Account do
         enabled: false,
         model: 'deepseek/deepseek-v4-flash',
         conversation_limit: 0,
-        conversation_reuse_window_hours: 24
+        conversation_reuse_window_hours: 24,
+        data_retention_days: 30
       )
     end
 
     it 'round-trips ai_agent_settings through virtual attribute' do
-      account.ai_agent_settings = { enabled: true, model: 'anthropic/claude-3.5-sonnet', conversation_limit: 50, conversation_reuse_window_hours: 48 }
+      account.ai_agent_settings = {
+        enabled: true,
+        model: 'anthropic/claude-3.5-sonnet',
+        conversation_limit: 50,
+        conversation_reuse_window_hours: 48,
+        data_retention_days: 90
+      }
       account.save!
       account.reload
 
@@ -414,11 +416,13 @@ RSpec.describe Account do
       expect(account.ai_agent_model).to eq('anthropic/claude-3.5-sonnet')
       expect(account.ai_agent_conversation_limit).to eq(50)
       expect(account.ai_agent_conversation_reuse_window_hours).to eq(48)
+      expect(account.ai_agent_data_retention_days).to eq(90)
       expect(account.ai_agent_settings).to eq(
         enabled: true,
         model: 'anthropic/claude-3.5-sonnet',
         conversation_limit: 50,
-        conversation_reuse_window_hours: 48
+        conversation_reuse_window_hours: 48,
+        data_retention_days: 90
       )
     end
 
@@ -439,17 +443,19 @@ RSpec.describe Account do
 
   describe 'voice_agent_runtime_settings' do
     let(:account) { create(:account) }
-    let!(:voice_agent) { create(:voice_agent, account: account, architecture: 'realtime', provider: 'gemini', model: nil, voice: 'Charon', language: 'tr') }
+    let!(:voice_agent) do
+      create(:voice_agent, account: account, architecture: 'realtime', provider: 'gemini', model: nil, voice: 'Charon', language: 'tr')
+    end
     let!(:other_voice_agent) { create(:voice_agent, architecture: 'realtime', provider: 'gemini', voice: 'Puck', language: 'tr') }
 
     it 'updates runtime settings for account-owned voice agents only' do
       account.voice_agent_runtime_settings = {
         voice_agent.id.to_s => {
-          architecture: 'pipeline',
+          architecture: 'realtime',
           provider: 'openai',
-          model: 'gpt-4o-realtime-preview',
-          voice: 'alloy',
-          language: 'en',
+          model: 'gpt-realtime-2.1',
+          voice: 'marin',
+          language: 'tr',
           prompt: 'ignored'
         },
         other_voice_agent.id.to_s => {
@@ -459,26 +465,60 @@ RSpec.describe Account do
       account.save!
 
       expect(voice_agent.reload).to have_attributes(
-        architecture: 'pipeline',
+        architecture: 'realtime',
         provider: 'openai',
-        model: 'gpt-4o-realtime-preview',
-        voice: 'alloy',
-        language: 'en'
+        model: 'gpt-realtime-2.1',
+        voice: 'marin',
+        language: 'tr'
       )
       expect(voice_agent.prompt).not_to eq('ignored')
       expect(other_voice_agent.reload.voice).to eq('Puck')
     end
   end
 
+  describe 'ai_improvement_settings' do
+    let(:account) { create(:account) }
+
+    it 'defaults to a finite monthly allowance' do
+      expect(account.ai_improvement_settings).to eq(monthly_credit_limit: 1_000)
+    end
+
+    it 'round-trips an explicit limit and preserves zero as unlimited' do
+      account.ai_improvement_settings = { monthly_credit_limit: '250' }
+      account.save!
+      expect(account.reload.ai_improvement_monthly_credit_limit).to eq(250)
+
+      account.ai_improvement_settings = { monthly_credit_limit: '0' }
+      account.save!
+      expect(account.reload.ai_improvement_monthly_credit_limit).to eq(0)
+    end
+
+    it 'falls back to the finite default for blank, malformed, or negative input' do
+      ['', 'not-a-number', '-10'].each do |value|
+        account.ai_improvement_settings = { monthly_credit_limit: value }
+        account.save!
+        expect(account.reload.ai_improvement_monthly_credit_limit).to eq(1_000)
+      end
+    end
+  end
+
   describe 'voice_ai_settings' do
     let(:account) { create(:account) }
+
+    it 'normalizes voice AI data retention to a supported duration' do
+      expect(account.voice_ai_data_retention_days).to eq(30)
+
+      account.update!(voice_ai_data_retention_days: 180)
+      expect(account.reload.voice_ai_data_retention_days).to eq(180)
+    end
 
     it 'returns defaults when absent' do
       expect(account.voice_ai_settings).to eq(
         enabled: false,
         monthly_minute_limit: 0,
         max_call_duration_minutes: 15,
-        concurrent_call_limit: 1
+        concurrent_call_limit: 1,
+        data_retention_days: 30
       )
     end
 
@@ -487,7 +527,8 @@ RSpec.describe Account do
         enabled: true,
         monthly_minute_limit: 100,
         max_call_duration_minutes: 20,
-        concurrent_call_limit: 3
+        concurrent_call_limit: 3,
+        data_retention_days: 180
       }
       account.save!
       account.reload
@@ -496,6 +537,7 @@ RSpec.describe Account do
       expect(account.voice_ai_monthly_minute_limit).to eq(100)
       expect(account.voice_ai_max_call_duration_minutes).to eq(20)
       expect(account.voice_ai_concurrent_call_limit).to eq(3)
+      expect(account.voice_ai_data_retention_days).to eq(180)
     end
 
     it 'normalizes invalid numeric values to safe defaults' do
@@ -552,60 +594,6 @@ RSpec.describe Account do
       create(:voice_inbox_setting, account: other_account, inbox: other_inbox)
 
       expect(account.voice_inbox_setting_for(inbox: other_inbox)).to be_nil
-    end
-  end
-
-  describe 'ai_agent_settings' do
-    let(:account) { create(:account) }
-
-    it 'returns default model when absent' do
-      expect(account.ai_agent_model).to eq('deepseek/deepseek-v4-flash')
-    end
-
-    it 'returns default limit when absent' do
-      expect(account.ai_agent_conversation_limit).to eq(0)
-    end
-
-    it 'allows explicit model to override default' do
-      account.update!(ai_agent_model: 'openai/gpt-4o')
-      expect(account.reload.ai_agent_model).to eq('openai/gpt-4o')
-    end
-
-    it 'allows explicit limit to override default' do
-      account.update!(ai_agent_conversation_limit: 100)
-      expect(account.reload.ai_agent_conversation_limit).to eq(100)
-    end
-
-    it 'returns ai_agent_settings as a hash' do
-      expect(account.ai_agent_settings).to eq(
-        model: 'deepseek/deepseek-v4-flash',
-        conversation_limit: 0
-      )
-    end
-
-    it 'round-trips ai_agent_settings through virtual attribute' do
-      account.ai_agent_settings = { model: 'anthropic/claude-3.5-sonnet', conversation_limit: 50 }
-      account.save!
-      account.reload
-
-      expect(account.ai_agent_model).to eq('anthropic/claude-3.5-sonnet')
-      expect(account.ai_agent_conversation_limit).to eq(50)
-      expect(account.ai_agent_settings).to eq(
-        model: 'anthropic/claude-3.5-sonnet',
-        conversation_limit: 50
-      )
-    end
-
-    it 'preserves existing settings keys when updating AI settings' do
-      account.update!(settings: { auto_resolve_after: 30, auto_resolve_message: 'Hello' })
-      account.ai_agent_settings = { model: 'openai/gpt-4o-mini', conversation_limit: 25 }
-      account.save!
-      account.reload
-
-      expect(account.settings['auto_resolve_after']).to eq(30)
-      expect(account.settings['auto_resolve_message']).to eq('Hello')
-      expect(account.ai_agent_model).to eq('openai/gpt-4o-mini')
-      expect(account.ai_agent_conversation_limit).to eq(25)
     end
   end
 

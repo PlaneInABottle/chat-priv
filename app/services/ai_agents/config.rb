@@ -5,6 +5,7 @@ module AiAgents
     HUMAN_HANDOFF_TOOL = 'human_handoff'.freeze
     IKAS_LOOKUP_ORDER_TOOL = 'ikas_lookup_order'.freeze
     IKAS_CATALOG_SEARCH_TOOL = 'ikas_catalog_search'.freeze
+    KNOWLEDGE_SEARCH_TOOL = 'search_knowledge'.freeze
     TOOLS_KEY = 'tools'.freeze
     ENABLED_KEY = 'enabled'.freeze
     DEFAULT_ENABLED_TOOL_KEYS = [HUMAN_HANDOFF_TOOL].freeze

@@ -2,19 +2,29 @@
 
 class VoiceAgents::PromptComposer
   BASE_PROMPT = <<~PROMPT
+    # Role and Objective
     You are %<installation_name>s's customer support voice assistant.
+
+    # Personality and Tone
     Speak naturally and keep answers short enough for a phone call.
     Ask one clarification question at a time.
-    Do not read long product links, identifiers, or JSON aloud.
+
+    # Unclear Audio
     Treat unclear or multilingual-looking speech as possible speech-to-text noise.
     Do not switch languages or infer a foreign-language request unless the caller clearly asks.
     If the voice language is Turkish, prefer a plausible Turkish interpretation and ask a short Turkish clarification when unsure.
+
+    # Spoken Content
+    Do not read long product links, identifiers, or JSON aloud.
+
+    # Escalation and Call Completion
     If a caller asks for a human, call `request_human_handoff`.
     If the conversation is complete and the caller is ready to finish, call `end_customer_call`.
   PROMPT
 
-  def initialize(voice_agent:)
+  def initialize(voice_agent:, snapshot: nil)
     @voice_agent = voice_agent
+    @snapshot = snapshot&.deep_stringify_keys
   end
 
   def effective_system_prompt
@@ -30,7 +40,7 @@ class VoiceAgents::PromptComposer
 
   private
 
-  attr_reader :voice_agent
+  attr_reader :voice_agent, :snapshot
 
   def base_prompt
     installation_name = GlobalConfigService.load('INSTALLATION_NAME', 'Chatwoot').presence || 'Chatwoot'
@@ -41,31 +51,32 @@ class VoiceAgents::PromptComposer
     instructions = AiAgents::Settings.global_instructions
     return if instructions.blank?
 
-    "Platform global AI instructions:\n#{instructions}"
+    "# Platform Rules\n#{instructions}"
   end
 
   def language_prompt
-    return if voice_agent.language.blank?
+    return if value(:language).blank?
 
-    "Voice language: #{voice_agent.language}. Use this language unless the caller clearly asks otherwise."
+    "# Language\nVoice language: #{value(:language)}. Use this language unless the caller clearly asks otherwise."
   end
 
   def greeting_prompt
-    return if voice_agent.greeting.blank?
+    return if value(:greeting).blank?
 
-    "Preferred greeting: #{voice_agent.greeting}"
+    "# Greeting\nPreferred greeting: #{value(:greeting)}"
   end
 
   def agent_prompt
-    return if voice_agent.prompt.blank?
+    return if value(:prompt).blank?
 
-    "Voice agent instructions:\n#{voice_agent.prompt}"
+    "# Customer Instructions\n#{value(:prompt)}"
   end
 
   def tool_policy_prompt
     policies = [AiAgents::ToolPromptPolicy.new(enabled_tool_keys).instructions.presence]
     policies << voice_link_policy if enabled_tool_keys.include?(VoiceAgents::Config::IKAS_CATALOG_SEARCH_TOOL)
-    policies.compact.join("\n").presence
+    content = policies.compact.join("\n").presence
+    content ? "# Tools\n#{content}" : nil
   end
 
   def voice_link_policy
@@ -76,6 +87,16 @@ class VoiceAgents::PromptComposer
   end
 
   def enabled_tool_keys
-    @enabled_tool_keys ||= VoiceAgents::Config.new(voice_agent.tools_config).enabled_tool_keys
+    @enabled_tool_keys ||= begin
+      keys = VoiceAgents::Config.new(value(:tools_config)).enabled_tool_keys
+      keys = [*keys, VoiceAgents::Config::KNOWLEDGE_SEARCH_TOOL] if Array(value(:knowledge_sources)).present?
+      keys
+    end
+  end
+
+  def value(key)
+    return snapshot[key.to_s] if snapshot&.key?(key.to_s)
+
+    voice_agent.public_send(key)
   end
 end

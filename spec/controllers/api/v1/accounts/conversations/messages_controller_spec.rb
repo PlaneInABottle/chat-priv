@@ -189,6 +189,54 @@ RSpec.describe 'Conversation Messages API', type: :request do
     end
   end
 
+  describe 'POST /api/v1/accounts/{account.id}/conversations/:conversation_id/messages/:id/suggest_learning' do
+    let(:inbox) { create(:inbox, account: account) }
+    let(:conversation) { create(:conversation, inbox: inbox, account: account) }
+    let(:agent) { create(:user, account: account, role: :agent) }
+    let(:ai_agent) { create(:ai_agent, account: account) }
+
+    before do
+      account.update!(settings: account.settings.merge('ai_agent_enabled' => true))
+      create(:inbox_member, inbox: inbox, user: agent)
+      create(:agent_bot_inbox, account: account, inbox: inbox, agent_bot: ai_agent.agent_bot)
+    end
+
+    it 'accepts a public human reply for learning review' do
+      create(
+        :message,
+        account: account,
+        inbox: inbox,
+        conversation: conversation,
+        message_type: :incoming,
+        content: 'When will my order arrive?'
+      )
+      human_reply = create(
+        :message,
+        account: account,
+        inbox: inbox,
+        conversation: conversation,
+        message_type: :outgoing,
+        sender: agent,
+        content: 'Delivery timing depends on the destination.'
+      )
+
+      expect do
+        post "/api/v1/accounts/#{account.id}/conversations/#{conversation.display_id}/messages/#{human_reply.id}/suggest_learning",
+             headers: agent.create_new_auth_token,
+             as: :json
+      end.to change(AiAgentLearningSuggestion, :count).by(1)
+                                                      .and have_enqueued_job(AiAgents::LearningSuggestionJob)
+
+      expect(response).to have_http_status(:accepted)
+      expect(response.parsed_body).to include(
+        'ai_agent_id' => ai_agent.id,
+        'status' => 'pending',
+        'customer_message' => 'When will my order arrive?',
+        'human_answer' => 'Delivery timing depends on the destination.'
+      )
+    end
+  end
+
   describe 'DELETE /api/v1/accounts/{account.id}/conversations/:conversation_id/messages/:id' do
     let(:message) { create(:message, account: account, content_attributes: { bcc_emails: ['hello@chatwoot.com'] }) }
     let(:conversation) { message.conversation }

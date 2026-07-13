@@ -1,0 +1,704 @@
+<script setup>
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
+import { useAlert } from 'dashboard/composables';
+import { parseAPIErrorResponse } from 'dashboard/store/utils/api';
+
+import AiAgentEvaluationsAPI from 'dashboard/api/aiAgentEvaluations';
+import Button from 'dashboard/components-next/button/Button.vue';
+import EvaluationQuality from './EvaluationQuality.vue';
+
+const props = defineProps({
+  aiAgentId: { type: Number, required: true },
+  hasUnsavedInstructions: { type: Boolean, default: false },
+  creditsExhausted: { type: Boolean, default: false },
+});
+const emit = defineEmits(['usageChanged']);
+
+const { t } = useI18n();
+const evaluationCases = ref([]);
+const evaluationRuns = ref([]);
+const quality = ref(null);
+const generation = ref(null);
+const isLoading = ref(false);
+const isSaving = ref(false);
+const isStartingRun = ref(false);
+const approvingCaseId = ref(null);
+const showForm = ref(false);
+const editingCaseId = ref(null);
+const confirmDialog = ref(null);
+const formRef = ref(null);
+const nameInputRef = ref(null);
+let pollTimer;
+let generationPollTimer;
+
+const emptyForm = () => ({
+  name: '',
+  customer_message: '',
+  success_criteria: '',
+});
+const form = ref(emptyForm());
+
+const api = computed(() => new AiAgentEvaluationsAPI(props.aiAgentId));
+const latestRun = computed(() => evaluationRuns.value[0] || null);
+const isRunActive = computed(() =>
+  ['pending', 'running'].includes(latestRun.value?.status)
+);
+const isGenerating = computed(() =>
+  ['pending', 'running'].includes(generation.value?.status)
+);
+const isFormValid = computed(
+  () =>
+    form.value.name.trim() &&
+    form.value.customer_message.trim() &&
+    form.value.success_criteria.trim()
+);
+const reviewedCases = computed(() =>
+  evaluationCases.value.filter(evaluationCase => !evaluationCase.needs_review)
+);
+
+const runSummary = computed(() => {
+  const run = latestRun.value;
+  if (!run) return null;
+  if (['pending', 'running'].includes(run.status)) {
+    return {
+      icon: 'i-lucide-loader-circle animate-spin',
+      classes: 'text-n-blue-11',
+      label: t('AI_ASSISTANT.EVALUATIONS.RUN.RUNNING'),
+    };
+  }
+  if (run.status === 'failed') {
+    return {
+      icon: 'i-lucide-circle-alert',
+      classes: 'text-n-ruby-11',
+      label: run.error_message || t('AI_ASSISTANT.EVALUATIONS.RUN.FAILED'),
+    };
+  }
+
+  return {
+    icon:
+      run.passed_count === run.total_count
+        ? 'i-lucide-circle-check'
+        : 'i-lucide-circle-dot-dashed',
+    classes:
+      run.passed_count === run.total_count
+        ? 'text-n-teal-11'
+        : 'text-n-amber-11',
+    label: t('AI_ASSISTANT.EVALUATIONS.RUN.SUMMARY', {
+      passed: run.passed_count,
+      total: run.total_count,
+    }),
+  };
+});
+
+let refreshRun;
+let refreshGeneration;
+
+function schedulePoll() {
+  window.clearTimeout(pollTimer);
+  if (isRunActive.value) {
+    pollTimer = window.setTimeout(refreshRun, 1500);
+  }
+}
+
+function scheduleGenerationPoll() {
+  window.clearTimeout(generationPollTimer);
+  if (isGenerating.value) {
+    generationPollTimer = window.setTimeout(refreshGeneration, 1500);
+  }
+}
+
+const refreshQuality = async () => {
+  try {
+    const response = await api.value.getQuality();
+    quality.value = response.data;
+  } catch (error) {
+    useAlert(
+      parseAPIErrorResponse(error) ||
+        t('AI_ASSISTANT.EVALUATIONS.ERROR.QUALITY')
+    );
+  }
+};
+
+const loadEvaluations = async () => {
+  isLoading.value = true;
+  try {
+    const [casesResponse, runsResponse, generationResponse] = await Promise.all(
+      [
+        api.value.get(),
+        api.value.getRuns(),
+        api.value.getGeneration(),
+        refreshQuality(),
+      ]
+    );
+    evaluationCases.value = casesResponse.data;
+    evaluationRuns.value = runsResponse.data;
+    generation.value = generationResponse.data?.id
+      ? generationResponse.data
+      : null;
+    schedulePoll();
+    scheduleGenerationPoll();
+  } catch (error) {
+    useAlert(
+      parseAPIErrorResponse(error) || t('AI_ASSISTANT.EVALUATIONS.ERROR.LOAD')
+    );
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+refreshRun = async () => {
+  if (!latestRun.value) return;
+  try {
+    const response = await api.value.getRun(latestRun.value.id);
+    evaluationRuns.value = [
+      response.data,
+      ...evaluationRuns.value.filter(run => run.id !== response.data.id),
+    ];
+    if (['completed', 'failed'].includes(response.data.status)) {
+      await refreshQuality();
+      emit('usageChanged');
+    }
+    schedulePoll();
+  } catch (error) {
+    useAlert(
+      parseAPIErrorResponse(error) ||
+        t('AI_ASSISTANT.EVALUATIONS.ERROR.REFRESH')
+    );
+    schedulePoll();
+  }
+};
+
+refreshGeneration = async () => {
+  if (!generation.value) return;
+
+  try {
+    const response = await api.value.getGeneration();
+    generation.value = response.data?.id ? response.data : null;
+    if (generation.value?.status === 'completed') {
+      const casesResponse = await api.value.get();
+      evaluationCases.value = casesResponse.data;
+      useAlert(
+        t('AI_ASSISTANT.EVALUATIONS.GENERATE.SUCCESS', {
+          count: generation.value.created_count,
+        })
+      );
+      emit('usageChanged');
+    } else if (generation.value?.status === 'failed') {
+      useAlert(
+        generation.value.error_message ||
+          t('AI_ASSISTANT.EVALUATIONS.ERROR.GENERATE')
+      );
+      emit('usageChanged');
+    }
+    scheduleGenerationPoll();
+  } catch (error) {
+    useAlert(
+      parseAPIErrorResponse(error) ||
+        t('AI_ASSISTANT.EVALUATIONS.ERROR.GENERATE')
+    );
+    scheduleGenerationPoll();
+  }
+};
+
+const resetForm = () => {
+  form.value = emptyForm();
+  editingCaseId.value = null;
+  showForm.value = false;
+};
+
+const openCreateForm = () => {
+  form.value = emptyForm();
+  editingCaseId.value = null;
+  showForm.value = true;
+};
+
+const openEditForm = async evaluationCase => {
+  form.value = {
+    name: evaluationCase.name,
+    customer_message: evaluationCase.customer_message,
+    success_criteria: evaluationCase.success_criteria,
+  };
+  editingCaseId.value = evaluationCase.id;
+  showForm.value = true;
+  await nextTick();
+  formRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  nameInputRef.value?.focus({ preventScroll: true });
+};
+
+const saveCase = async () => {
+  if (!isFormValid.value) return;
+  isSaving.value = true;
+  const payload = {
+    name: form.value.name.trim(),
+    customer_message: form.value.customer_message.trim(),
+    success_criteria: form.value.success_criteria.trim(),
+  };
+
+  try {
+    const response = editingCaseId.value
+      ? await api.value.updateCase(editingCaseId.value, payload)
+      : await api.value.create(payload);
+    const existingIndex = evaluationCases.value.findIndex(
+      item => item.id === response.data.id
+    );
+    if (existingIndex >= 0) {
+      evaluationCases.value.splice(existingIndex, 1, response.data);
+    } else {
+      evaluationCases.value.push(response.data);
+    }
+    resetForm();
+    useAlert(t('AI_ASSISTANT.EVALUATIONS.SAVED'));
+  } catch (error) {
+    useAlert(
+      parseAPIErrorResponse(error) || t('AI_ASSISTANT.EVALUATIONS.ERROR.SAVE')
+    );
+  } finally {
+    isSaving.value = false;
+  }
+};
+
+const deleteCase = async evaluationCase => {
+  const confirmed = await confirmDialog.value.showConfirmation();
+  if (!confirmed) return;
+
+  try {
+    await api.value.deleteCase(evaluationCase.id);
+    evaluationCases.value = evaluationCases.value.filter(
+      item => item.id !== evaluationCase.id
+    );
+    useAlert(t('AI_ASSISTANT.EVALUATIONS.DELETED'));
+  } catch (error) {
+    useAlert(
+      parseAPIErrorResponse(error) || t('AI_ASSISTANT.EVALUATIONS.ERROR.DELETE')
+    );
+  }
+};
+
+const approveCase = async evaluationCase => {
+  approvingCaseId.value = evaluationCase.id;
+  try {
+    const response = await api.value.updateCase(evaluationCase.id, {});
+    const index = evaluationCases.value.findIndex(
+      item => item.id === evaluationCase.id
+    );
+    if (index >= 0) evaluationCases.value.splice(index, 1, response.data);
+    useAlert(t('AI_ASSISTANT.EVALUATIONS.REVIEW.APPROVED'));
+  } catch (error) {
+    useAlert(
+      parseAPIErrorResponse(error) || t('AI_ASSISTANT.EVALUATIONS.ERROR.REVIEW')
+    );
+  } finally {
+    approvingCaseId.value = null;
+  }
+};
+
+const generateCases = async () => {
+  if (
+    props.hasUnsavedInstructions ||
+    props.creditsExhausted ||
+    isGenerating.value ||
+    evaluationCases.value.length >= 20
+  ) {
+    return;
+  }
+
+  try {
+    const response = await api.value.generateCases();
+    generation.value = response.data;
+    scheduleGenerationPoll();
+    useAlert(t('AI_ASSISTANT.EVALUATIONS.GENERATE.STARTED'));
+  } catch (error) {
+    emit('usageChanged');
+    useAlert(
+      parseAPIErrorResponse(error) ||
+        t('AI_ASSISTANT.EVALUATIONS.ERROR.GENERATE')
+    );
+  }
+};
+
+const startRun = async () => {
+  if (props.hasUnsavedInstructions || props.creditsExhausted) return;
+
+  isStartingRun.value = true;
+  try {
+    const response = await api.value.createRun();
+    evaluationRuns.value = [response.data, ...evaluationRuns.value];
+    schedulePoll();
+  } catch (error) {
+    emit('usageChanged');
+    useAlert(
+      parseAPIErrorResponse(error) || t('AI_ASSISTANT.EVALUATIONS.ERROR.RUN')
+    );
+  } finally {
+    isStartingRun.value = false;
+  }
+};
+
+const resultForCase = evaluationCase => {
+  const run = latestRun.value;
+  if (!run) return null;
+
+  return run.results.find(
+    result => result.evaluation_case_id === evaluationCase.id
+  );
+};
+
+const resultAppearance = (result, caseChangedSinceRun) => {
+  if (caseChangedSinceRun) {
+    return {
+      icon: 'i-lucide-history',
+      classes: 'text-n-amber-11',
+      label: t('AI_ASSISTANT.EVALUATIONS.RESULT.CHANGED'),
+    };
+  }
+  if (result && !latestRun.value?.current_draft) {
+    return {
+      icon: 'i-lucide-history',
+      classes: 'text-n-amber-11',
+      label: t('AI_ASSISTANT.EVALUATIONS.RESULT.OLDER_DRAFT'),
+    };
+  }
+  if (!result || result.status === 'pending') {
+    return {
+      icon: 'i-lucide-clock-3',
+      classes: 'text-n-slate-10',
+      label: t('AI_ASSISTANT.EVALUATIONS.RESULT.NOT_RUN'),
+    };
+  }
+  if (result.status === 'failed' || !result.passed) {
+    return {
+      icon: 'i-lucide-circle-x',
+      classes: 'text-n-ruby-11',
+      label: t('AI_ASSISTANT.EVALUATIONS.RESULT.FAILED'),
+    };
+  }
+
+  return {
+    icon: 'i-lucide-circle-check',
+    classes: 'text-n-teal-11',
+    label: t('AI_ASSISTANT.EVALUATIONS.RESULT.PASSED'),
+  };
+};
+
+const scenarioRows = computed(() =>
+  evaluationCases.value.map(evaluationCase => {
+    const result = resultForCase(evaluationCase);
+    const caseChangedSinceRun = Boolean(
+      result &&
+        new Date(evaluationCase.updated_at) >
+          new Date(latestRun.value.created_at)
+    );
+    return {
+      evaluationCase,
+      result: caseChangedSinceRun ? null : result,
+      appearance: resultAppearance(result, caseChangedSinceRun),
+    };
+  })
+);
+
+onMounted(loadEvaluations);
+onBeforeUnmount(() => {
+  window.clearTimeout(pollTimer);
+  window.clearTimeout(generationPollTimer);
+});
+</script>
+
+<template>
+  <section
+    class="flex min-w-0 flex-col gap-6"
+    aria-labelledby="evaluation-title"
+  >
+    <header
+      class="flex flex-col gap-4 border-b border-n-weak pb-5 sm:flex-row sm:items-start sm:justify-between"
+    >
+      <div class="min-w-0">
+        <h2
+          id="evaluation-title"
+          class="m-0 text-xl font-semibold text-n-slate-12"
+        >
+          {{ t('AI_ASSISTANT.EVALUATIONS.TITLE') }}
+        </h2>
+        <p class="mb-0 mt-1 max-w-2xl text-sm text-n-slate-11">
+          {{ t('AI_ASSISTANT.EVALUATIONS.DESCRIPTION') }}
+        </p>
+      </div>
+      <div class="flex flex-shrink-0 flex-wrap items-center gap-2">
+        <Button
+          v-if="evaluationCases.length < 20"
+          icon="i-lucide-sparkles"
+          variant="outline"
+          color="slate"
+          :label="t('AI_ASSISTANT.EVALUATIONS.GENERATE.ACTION')"
+          :is-loading="isGenerating"
+          :disabled="hasUnsavedInstructions || creditsExhausted || isGenerating"
+          @click="generateCases"
+        />
+        <Button
+          v-if="evaluationCases.length < 20"
+          icon="i-lucide-plus"
+          variant="outline"
+          color="slate"
+          :label="t('AI_ASSISTANT.EVALUATIONS.ADD')"
+          @click="openCreateForm"
+        />
+        <Button
+          icon="i-lucide-play"
+          :label="t('AI_ASSISTANT.EVALUATIONS.RUN.ACTION')"
+          :is-loading="isStartingRun"
+          :disabled="
+            !reviewedCases.length ||
+            isRunActive ||
+            hasUnsavedInstructions ||
+            creditsExhausted
+          "
+          @click="startRun"
+        />
+      </div>
+    </header>
+
+    <EvaluationQuality :quality="quality" />
+
+    <div
+      v-if="latestRun"
+      class="flex flex-col gap-2 border-b border-n-weak pb-5 text-sm sm:flex-row sm:items-center sm:justify-between"
+    >
+      <div class="flex min-w-0 items-start gap-2" :class="runSummary.classes">
+        <span
+          aria-hidden="true"
+          class="mt-0.5 size-4 flex-shrink-0"
+          :class="runSummary.icon"
+        />
+        <span>{{ runSummary.label }}</span>
+      </div>
+      <p
+        v-if="!latestRun.current_draft"
+        class="m-0 flex items-center gap-1.5 text-xs text-n-amber-11"
+      >
+        <span
+          aria-hidden="true"
+          class="i-lucide-history size-3.5 flex-shrink-0"
+        />
+        {{ t('AI_ASSISTANT.EVALUATIONS.RUN.OLDER_DRAFT') }}
+      </p>
+    </div>
+
+    <form
+      v-if="showForm"
+      ref="formRef"
+      data-testid="evaluation-scenario-form"
+      class="grid grid-cols-1 gap-4 border-b border-n-weak pb-6"
+      @submit.prevent="saveCase"
+    >
+      <div>
+        <h3 class="m-0 text-base font-semibold text-n-slate-12">
+          {{
+            editingCaseId
+              ? t('AI_ASSISTANT.EVALUATIONS.FORM.EDIT_TITLE')
+              : t('AI_ASSISTANT.EVALUATIONS.FORM.ADD_TITLE')
+          }}
+        </h3>
+        <p v-if="editingCaseId" class="mb-0 mt-1 text-sm text-n-slate-10">
+          {{ form.name }}
+        </p>
+      </div>
+      <label
+        class="flex max-w-2xl flex-col gap-1.5 text-sm font-medium text-n-slate-12"
+      >
+        {{ t('AI_ASSISTANT.EVALUATIONS.FORM.NAME') }}
+        <input
+          ref="nameInputRef"
+          v-model="form.name"
+          name="evaluation-name"
+          autocomplete="off"
+          maxlength="100"
+          class="h-10 rounded-lg border border-n-weak bg-n-alpha-1 px-3 font-normal outline-none focus-visible:border-n-brand focus-visible:ring-2 focus-visible:ring-n-brand/20"
+          :placeholder="t('AI_ASSISTANT.EVALUATIONS.FORM.NAME_PLACEHOLDER')"
+        />
+      </label>
+      <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <label
+          class="flex flex-col gap-1.5 text-sm font-medium text-n-slate-12"
+        >
+          {{ t('AI_ASSISTANT.EVALUATIONS.FORM.MESSAGE') }}
+          <textarea
+            v-model="form.customer_message"
+            name="evaluation-customer-message"
+            autocomplete="off"
+            maxlength="5000"
+            rows="4"
+            class="min-h-28 resize-y rounded-lg border border-n-weak bg-n-alpha-1 px-3 py-2 font-normal outline-none focus-visible:border-n-brand focus-visible:ring-2 focus-visible:ring-n-brand/20"
+            :placeholder="
+              t('AI_ASSISTANT.EVALUATIONS.FORM.MESSAGE_PLACEHOLDER')
+            "
+          />
+          <span class="font-normal text-n-slate-10">
+            {{ t('AI_ASSISTANT.EVALUATIONS.FORM.MESSAGE_HELP') }}
+          </span>
+        </label>
+        <label
+          class="flex flex-col gap-1.5 text-sm font-medium text-n-slate-12"
+        >
+          {{ t('AI_ASSISTANT.EVALUATIONS.FORM.CRITERIA') }}
+          <textarea
+            v-model="form.success_criteria"
+            name="evaluation-success-criteria"
+            autocomplete="off"
+            maxlength="5000"
+            rows="4"
+            class="min-h-28 resize-y rounded-lg border border-n-weak bg-n-alpha-1 px-3 py-2 font-normal outline-none focus-visible:border-n-brand focus-visible:ring-2 focus-visible:ring-n-brand/20"
+            :placeholder="
+              t('AI_ASSISTANT.EVALUATIONS.FORM.CRITERIA_PLACEHOLDER')
+            "
+          />
+          <span class="font-normal text-n-slate-10">
+            {{ t('AI_ASSISTANT.EVALUATIONS.FORM.CRITERIA_HELP') }}
+          </span>
+        </label>
+      </div>
+      <div class="flex justify-end gap-2">
+        <Button
+          type="button"
+          variant="ghost"
+          color="slate"
+          :label="t('AI_ASSISTANT.EVALUATIONS.FORM.CANCEL')"
+          :disabled="isSaving"
+          @click="resetForm"
+        />
+        <Button
+          type="submit"
+          :label="t('AI_ASSISTANT.EVALUATIONS.FORM.SAVE')"
+          :is-loading="isSaving"
+          :disabled="!isFormValid"
+        />
+      </div>
+    </form>
+
+    <div v-if="isLoading" class="py-12 text-center text-sm text-n-slate-10">
+      {{ t('AI_ASSISTANT.EVALUATIONS.LOADING') }}
+    </div>
+    <div
+      v-else-if="!evaluationCases.length"
+      class="border-y border-n-weak py-12 text-center"
+    >
+      <span
+        aria-hidden="true"
+        class="i-lucide-list-checks mx-auto block size-6 text-n-slate-9"
+      />
+      <h3 class="mb-0 mt-3 text-sm font-semibold text-n-slate-12">
+        {{ t('AI_ASSISTANT.EVALUATIONS.EMPTY.TITLE') }}
+      </h3>
+      <p class="mx-auto mb-0 mt-1 max-w-lg text-sm text-n-slate-10">
+        {{ t('AI_ASSISTANT.EVALUATIONS.EMPTY.DESCRIPTION') }}
+      </p>
+    </div>
+    <div v-else class="flex flex-col border-y border-n-weak">
+      <article
+        v-for="row in scenarioRows"
+        :key="row.evaluationCase.id"
+        class="flex min-w-0 flex-col gap-4 border-b border-n-weak px-1 py-5 last:border-b-0"
+      >
+        <div class="flex min-w-0 items-start justify-between gap-4">
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <h3 class="m-0 break-words text-sm font-semibold text-n-slate-12">
+                {{ row.evaluationCase.name }}
+              </h3>
+              <span
+                v-if="row.evaluationCase.needs_review"
+                class="inline-flex items-center gap-1 text-xs font-medium text-n-amber-11"
+              >
+                <span
+                  aria-hidden="true"
+                  class="i-lucide-sparkles size-3.5 flex-shrink-0"
+                />
+                {{ t('AI_ASSISTANT.EVALUATIONS.REVIEW.NEEDED') }}
+              </span>
+              <span
+                class="inline-flex items-center gap-1 text-xs font-medium"
+                :class="row.appearance.classes"
+              >
+                <span
+                  aria-hidden="true"
+                  class="size-3.5 flex-shrink-0"
+                  :class="row.appearance.icon"
+                />
+                {{ row.appearance.label }}
+              </span>
+            </div>
+            <p class="mb-0 mt-2 break-words text-sm text-n-slate-12">
+              {{ row.evaluationCase.customer_message }}
+            </p>
+            <p class="mb-0 mt-1 break-words text-xs text-n-slate-10">
+              <span class="font-medium text-n-slate-11">
+                {{ t('AI_ASSISTANT.EVALUATIONS.CRITERIA_LABEL') }}
+              </span>
+              {{ row.evaluationCase.success_criteria }}
+            </p>
+          </div>
+          <div class="flex flex-shrink-0 items-center gap-1">
+            <Button
+              v-if="row.evaluationCase.needs_review"
+              v-tooltip="t('AI_ASSISTANT.EVALUATIONS.REVIEW.APPROVE')"
+              icon="i-lucide-check"
+              size="sm"
+              variant="ghost"
+              color="slate"
+              :aria-label="t('AI_ASSISTANT.EVALUATIONS.REVIEW.APPROVE')"
+              :is-loading="approvingCaseId === row.evaluationCase.id"
+              @click="approveCase(row.evaluationCase)"
+            />
+            <Button
+              v-tooltip="t('AI_ASSISTANT.EVALUATIONS.EDIT')"
+              icon="i-lucide-pencil"
+              size="sm"
+              variant="ghost"
+              color="slate"
+              :aria-label="t('AI_ASSISTANT.EVALUATIONS.EDIT')"
+              @click="openEditForm(row.evaluationCase)"
+            />
+            <Button
+              v-tooltip="t('AI_ASSISTANT.EVALUATIONS.DELETE')"
+              icon="i-lucide-trash-2"
+              size="sm"
+              variant="ghost"
+              color="ruby"
+              :aria-label="t('AI_ASSISTANT.EVALUATIONS.DELETE')"
+              @click="deleteCase(row.evaluationCase)"
+            />
+          </div>
+        </div>
+
+        <div
+          v-if="row.result?.assistant_response || row.result?.reason"
+          class="grid min-w-0 grid-cols-1 gap-3 border-l-2 border-n-weak pl-4 lg:grid-cols-2"
+        >
+          <div v-if="row.result.assistant_response" class="min-w-0">
+            <p class="m-0 text-xs font-medium text-n-slate-10">
+              {{ t('AI_ASSISTANT.EVALUATIONS.RESULT.ANSWER') }}
+            </p>
+            <p
+              class="mb-0 mt-1 whitespace-pre-wrap break-words text-sm text-n-slate-12"
+            >
+              {{ row.result.assistant_response }}
+            </p>
+          </div>
+          <div v-if="row.result.reason" class="min-w-0">
+            <p class="m-0 text-xs font-medium text-n-slate-10">
+              {{ t('AI_ASSISTANT.EVALUATIONS.RESULT.REASON') }}
+            </p>
+            <p class="mb-0 mt-1 break-words text-sm text-n-slate-11">
+              {{ row.result.reason }}
+            </p>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <woot-confirm-modal
+      ref="confirmDialog"
+      :title="t('AI_ASSISTANT.EVALUATIONS.CONFIRM_DELETE.TITLE')"
+      :description="t('AI_ASSISTANT.EVALUATIONS.CONFIRM_DELETE.DESCRIPTION')"
+    />
+  </section>
+</template>

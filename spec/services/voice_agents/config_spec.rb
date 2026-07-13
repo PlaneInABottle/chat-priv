@@ -15,7 +15,7 @@ RSpec.describe VoiceAgents::Config do
         'human_handoff' => { 'allowed_labels' => ['vip', '', 'vip'] }
       )
 
-      expect(config.enabled_tool_keys).to eq(%w[human_handoff ikas_catalog_search])
+      expect(config.enabled_tool_keys).to eq(%w[human_handoff end_customer_call ikas_catalog_search])
       expect(config.tool_settings('human_handoff')).to eq('allowed_labels' => ['vip'])
     end
   end

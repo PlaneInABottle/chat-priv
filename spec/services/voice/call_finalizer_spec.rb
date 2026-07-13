@@ -4,7 +4,7 @@ RSpec.describe Voice::CallFinalizer do
   let(:account) { create(:account, settings: { voice_ai_enabled: true }) }
   let(:api_channel) { create(:channel_api, account: account) }
   let(:inbox) { api_channel.inbox }
-  let(:voice_agent) { account.voice_agents.first! }
+  let(:voice_agent) { create(:voice_agent, account: account) }
   let!(:voice_inbox_setting) { create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: voice_agent) }
 
   before do
@@ -35,7 +35,10 @@ RSpec.describe Voice::CallFinalizer do
   it 'marks a sandbox test call terminal without a conversation message' do
     started_at = Time.zone.now.change(usec: 0) - 2.minutes
     call = Voice::TestCallBuilder.perform!(account: account, inbox: inbox, voice_agent: voice_agent)
-    call.update!(started_at: started_at)
+    call.update!(
+      started_at: started_at,
+      meta: call.meta.merge('ai_improvement_started_at' => started_at.iso8601(3))
+    )
 
     travel_to(started_at + 45.seconds) do
       described_class.perform!(call: call, end_reason: 'caller_disconnected')
@@ -46,7 +49,41 @@ RSpec.describe Voice::CallFinalizer do
       duration_seconds: 45,
       end_reason: 'caller_disconnected'
     )
+    usage_event = account.ai_improvement_usage_events.find(call.meta['ai_improvement_usage_event_id'])
+    expect(usage_event).to have_attributes(
+      status: 'consumed',
+      unit_type: 'audio_seconds',
+      units: 45,
+      credits: 5
+    )
     expect(call.message).to be_nil
+  end
+
+  it 'releases reserved credits when a sandbox test ends before the caller joins' do
+    call = Voice::TestCallBuilder.perform!(account: account, inbox: inbox, voice_agent: voice_agent)
+    usage_event = account.ai_improvement_usage_events.find(call.meta['ai_improvement_usage_event_id'])
+
+    described_class.perform!(call: call, end_reason: 'agent_ended')
+
+    expect(usage_event.reload).to have_attributes(status: 'released', units: 0)
+  end
+
+  it 'charges a newly started credit interval for partial audio seconds' do
+    improvement_started_at = Time.zone.now.change(usec: 0)
+    call = Voice::TestCallBuilder.perform!(account: account, inbox: inbox, voice_agent: voice_agent)
+    call.update!(
+      started_at: improvement_started_at,
+      meta: call.meta.merge('ai_improvement_started_at' => improvement_started_at.iso8601(3))
+    )
+
+    described_class.perform!(
+      call: call,
+      end_reason: 'caller_disconnected',
+      timing: { ended_at: improvement_started_at + 10.1.seconds }
+    )
+
+    usage_event = account.ai_improvement_usage_events.find(call.meta['ai_improvement_usage_event_id'])
+    expect(usage_event).to have_attributes(status: 'consumed', units: 11, credits: 2)
   end
 
   it 'marks a conversation call terminal and refreshes the voice-call message payload' do

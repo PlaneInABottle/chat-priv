@@ -3,9 +3,18 @@ json.array! @ai_agents do |ai_agent|
   json.name ai_agent.name
   json.prompt ai_agent.prompt
   json.enabled ai_agent.enabled
+  json.auto_learning_enabled ai_agent.auto_learning_enabled
   json.enabled_tool_keys AiAgents::Config.new(ai_agent.config).enabled_tool_keys
+  json.knowledge_source_ids ai_agent.knowledge_sources.map(&:id).sort
   json.created_at ai_agent.created_at
   json.updated_at ai_agent.updated_at
+  json.lifecycle_status ai_agent.lifecycle_status
+  json.published_at ai_agent.published_at
+  json.published_revision ai_agent.published_revision
+  json.current_release AssistantReleases::Serializer.new(ai_agent.current_release).payload if ai_agent.current_release
+  json.draft_changes ai_agent.draft_changes?
+  json.last_tested_at ai_agent.last_tested_at
+  json.readiness ai_agent.readiness
 
   if ai_agent.agent_bot.present?
     json.agent_bot do

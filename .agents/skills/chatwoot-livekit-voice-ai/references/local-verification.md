@@ -14,14 +14,17 @@
 
 ## Prerequisites
 
-- `.env.local` must define `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `CHATWOOT_INTERNAL_API_URL`, `VOICE_AGENT_INTERNAL_TOKEN`, `VOICE_AGENT_NAME`, `VOICE_AGENT_ARCHITECTURE`, and provider-specific keys such as `GOOGLE_API_KEY`.
+- `.env.local` must define `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `CHATWOOT_INTERNAL_API_URL`, `VOICE_AGENT_INTERNAL_TOKEN`, `VOICE_AGENT_NAME`, `VOICE_AGENT_ARCHITECTURE`, and provider-specific keys such as `GOOGLE_API_KEY` or `OPENAI_API_KEY`.
 - For Gemini realtime, use `VOICE_AGENT_ARCHITECTURE=realtime` and `VOICE_AGENT_REALTIME_PROVIDER=gemini`.
+- For OpenAI realtime, set the voice agent runtime to `provider=openai`, `model=gpt-realtime-2.1`, and a supported voice such as `marin`. The worker uses low reasoning, semantic VAD, and `gpt-realtime-whisper` input transcription.
+- Gemini realtime sessions must enable `ContextWindowCompressionConfig` with a sliding window. The worker uses provider-selected trigger and target defaults so model-specific context limits do not terminate longer calls.
 - Keep `.env.local` out of git. Never print or commit secret values.
 - The Python worker entrypoint is `services/voice_agent/agent.py`.
 - The Rails dispatch path is `Voice::Livekit::AgentDispatchService`.
 - Voice agents are separate from text AI agents. Configure them in Settings -> Voice AI -> Voice agents. Assign API sandbox inboxes inside each voice agent; do not use a separate global voice setup tab. Voice inbox settings select `voice_agent_id`; do not expect `ai_agent_id`, setting-level `greeting`, or setting-level `instructions`.
 - Voice inbox assignments do not have a separate readiness `status`. If an inbox is assigned to a voice agent and account Voice AI access is enabled, it is eligible for browser tests and SIP routing.
 - Super Admin controls account-level Voice AI access and limits under `/super_admin/accounts/:id/edit`. Test calls are excluded from monthly minute and concurrent-call limits, but Voice AI must still be enabled for the account.
+- Browser Voice tests use the account's separate AI improvement credits at 10 seconds per credit. Credits are reserved when the room is created, but metering and the `test_duration_limit_seconds` timer start only after the caller joins; unjoined tests release the reservation. The Voice worker enforces the connected duration, and `Voice::TestCallImprovementBudgetJob` is the delayed recovery guard.
 - If Voice AI is disabled after a call is already active, account users and the voice worker should not be able to join, take over, fetch runtime context, append transcript, post non-terminal lifecycle events, or record tool calls. Ending/finalizing the call remains allowed so LiveKit/SIP cleanup can complete. A late terminal `agent_session_ended` event is still accepted only to mark `ai_status: completed`.
 - Integration tools such as `ikas_catalog_search` and `ikas_lookup_order` are enabled per voice agent. Ikas tools also require the account `ikas_integration` feature, a connected `ikas` hook, and a completed storefront catalog sync.
 - SIP/phone-number routing is modeled separately from browser test calls:
@@ -65,10 +68,14 @@ pm2 start zsh --name chatwoot-worker -- -lc 'set -a; source /Users/Y_ALTAY1/Docu
 
 The voice agent must log `registered worker` with `agent_name` matching `VOICE_AGENT_NAME`. The Sidekiq worker is required for live conversation-thread updates because Chatwoot broadcasts `message.created` and `message.updated` through queued `ActionCableBroadcastJob`s.
 
+The worker health check is `GET /` on `VOICE_AGENT_HEALTH_PORT` (default `9090`). If `VOICE_AGENT_PROMETHEUS_PORT` is set, verify `/metrics` exposes `lk_agents_active_job_count` and `lk_agents_worker_load`.
+
 ## Fast Checks
 
 ```bash
 curl -fsS http://localhost:3000/health
+curl -fsS http://localhost:9090/
+curl -fsS http://localhost:9091/metrics
 python3 -m py_compile services/voice_agent/agent.py
 set -a; source .env.local; set +a; uv run --directory services/voice_agent python -c "import agent; print(agent.voice_agent_architecture()); print(type(agent.build_session()).__name__)"
 set -a; source .env.local; set +a; eval "$(rbenv init -)"; bundle exec rspec spec/services/voice/test_call_builder_spec.rb spec/services/voice/livekit/agent_dispatch_service_spec.rb spec/services/voice/telephony/inbound_call_bootstrapper_spec.rb spec/services/voice/transcript_appender_spec.rb spec/requests/internal/voice/calls_spec.rb
@@ -82,9 +89,37 @@ set -a; source .env.local; set +a; eval "$(rbenv init -)"; POSTGRES_HOST=localho
 
 Use `uv lock --check --directory services/voice_agent` after dependency changes.
 
+## Deterministic Audio Scenario
+
+Prefer `dev/voice_ai/run_scenario.py` for repeatable end-to-end voice assertions. It creates a real isolated Chatwoot test call, joins the LiveKit room as the caller, publishes a mono 16-bit PCM WAV exactly once, records the agent audio, polls persisted transcript/tool state, and ends the call in cleanup.
+
+```bash
+export CHATWOOT_TEST_EMAIL='admin@example.com'
+export CHATWOOT_TEST_PASSWORD='local-password'
+
+uv run --project services/voice_agent python3 dev/voice_ai/run_scenario.py \
+  --account-id <account_id> \
+  --inbox-id <api_inbox_id> \
+  --voice-agent-id <voice_agent_id> \
+  --wav /tmp/customer-question.wav \
+  --expect-caller-text '<expected words>'
+```
+
+Use `--expect-tool <tool_name>` for tool scenarios; each occurrence requires exactly one executed event, so duplicate terminal tool calls fail the scenario. Successful JSON output must include a completed call, caller and post-caller AI transcripts, a non-zero `agent_audio_seconds`, and the saved response WAV path. The harness waits for the post-session-start `ai_status=active` signal before publishing audio. It is intentionally single-call; run separate processes for bounded concurrency checks.
+
 ## Browser Test Call
 
-1. Open `/app/accounts/:account_id/settings/voice-ai` with `agent-browser`.
+Use the browser path for settings UI and media-permission validation. Chromium's fake audio capture loops its WAV fixture, so do not use it for exact tool-call counts or other deterministic voice assertions. Chromium's headless shell returns `NotSupportedError` from `getUserMedia` even when fake-device flags are present. Include several seconds of silence after the spoken fixture so provider turn detection closes the turn.
+
+```bash
+agent-browser --session voice-media --headed \
+  --args '--use-fake-ui-for-media-stream,--use-fake-device-for-media-stream,--use-file-for-fake-audio-capture=/tmp/customer-talk.wav,--autoplay-policy=no-user-gesture-required' \
+  open 'http://localhost:3000/app/accounts/<account_id>/settings/voice-assistants?section=test'
+```
+
+Before creating a call, verify the browser can open an audio track with `navigator.mediaDevices.getUserMedia({ audio: true })`. A dispatched room without a live audio track is not customer-speech proof.
+
+1. Open `/app/accounts/:account_id/settings/voice-assistants?section=test` with `agent-browser`.
 2. Snapshot before clicking.
 3. On the Voice agents tab, select or create the voice agent.
 4. In that agent's Inbox assignments panel, assign an API sandbox inbox, choose fallback team and recording, then save the voice agent. The local verified path used account `36`, but always verify current local data.
@@ -105,7 +140,7 @@ The floating incoming-call popup is LiveKit-aware. Accepting a LiveKit call from
 Expected proof:
 
 - Rails returns `201 Created` for `/api/v1/accounts/:id/voice/test_calls`.
-- The call payload includes `test_call: true`, `test_call_source: voice_ai_settings`, `test_call_initiated_by_user_id`, and nil `conversation_id`, `contact_id`, and `message_id`.
+- The call payload includes `test_call: true`, `test_call_source: voice_ai_settings`, `test_call_initiated_by_user_id`, `test_duration_limit_seconds`, and nil `conversation_id`, `contact_id`, and `message_id`.
 - The call metadata includes `voice_agent_id` and `voice_agent_dispatch.status = dispatched`.
 - The worker fetches `/internal/voice/calls/:provider_call_id/agent_context` and receives voice-agent instructions, runtime provider/model/voice, and the enabled voice tool schemas.
 - The worker receives a LiveKit job request for the room.

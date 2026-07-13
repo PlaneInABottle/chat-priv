@@ -42,10 +42,14 @@ const confirmDelete = () => {
 <template>
   <div
     class="flex flex-col p-3 rounded-lg cursor-pointer hover:bg-n-alpha-black1 group relative"
+    role="button"
+    tabindex="0"
     :class="{
       'bg-n-alpha-black1 border-l-2 border-n-brand': isActive,
     }"
     @click="emit('select', conversation.id)"
+    @keydown.enter="emit('select', conversation.id)"
+    @keydown.space.prevent="emit('select', conversation.id)"
   >
     <div class="flex items-center justify-between gap-2">
       <span class="text-sm font-medium text-n-slate-12 truncate flex-1">

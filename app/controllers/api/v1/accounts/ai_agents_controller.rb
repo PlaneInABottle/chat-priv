@@ -2,10 +2,10 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
   before_action :current_account
   before_action :check_authorization
   before_action :ensure_ai_agent_enabled
-  before_action :set_ai_agent, only: [:show, :update, :destroy]
+  before_action :set_ai_agent, only: [:show, :update, :destroy, :publish, :pause]
 
   def index
-    @ai_agents = Current.account.ai_agents.includes(agent_bot: :inboxes).order(:created_at)
+    @ai_agents = Current.account.ai_agents.includes(:current_release, :knowledge_sources, agent_bot: :inboxes).order(:created_at)
   end
 
   def show
@@ -14,10 +14,15 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
 
   def create
     @ai_agent = Current.account.ai_agents.build(merged_ai_agent_params)
+    @ai_agent.enabled = false
     @ai_agent.inbox_ids = inbox_ids_param if params.key?(:inbox_ids)
 
-    if @ai_agent.save
-      sync_inbox_bindings if params.key?(:inbox_ids)
+    if @ai_agent.valid?
+      ActiveRecord::Base.transaction do
+        @ai_agent.save!
+        sync_inbox_bindings if params.key?(:inbox_ids)
+        sync_knowledge_sources if params.key?(:knowledge_source_ids)
+      end
       load_available_inboxes
       render :show
     else
@@ -29,9 +34,13 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
     @ai_agent.assign_attributes(merged_ai_agent_params)
     @ai_agent.inbox_ids = inbox_ids_param if params.key?(:inbox_ids)
 
-    if @ai_agent.save
-      @ai_agent.agent_bot&.update!(name: @ai_agent.name)
-      sync_inbox_bindings if params.key?(:inbox_ids)
+    if @ai_agent.valid?
+      ActiveRecord::Base.transaction do
+        @ai_agent.save!
+        @ai_agent.agent_bot&.update!(name: @ai_agent.name)
+        sync_inbox_bindings if params.key?(:inbox_ids)
+        sync_knowledge_sources if params.key?(:knowledge_source_ids)
+      end
       load_available_inboxes
       render :show
     else
@@ -44,18 +53,36 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
     head :no_content
   end
 
+  def publish
+    return render_readiness_error unless @ai_agent.readiness[:can_publish]
+
+    @ai_agent.publish!(created_by: Current.user)
+    load_available_inboxes
+    render :show
+  end
+
+  def pause
+    @ai_agent.pause!
+    load_available_inboxes
+    render :show
+  end
+
   private
 
   def set_ai_agent
-    @ai_agent = Current.account.ai_agents.includes(agent_bot: :inboxes).find(params[:id])
+    @ai_agent = Current.account.ai_agents.includes(:current_release, :knowledge_sources, agent_bot: :inboxes).find(params[:id])
   end
 
   def ai_agent_params
-    params.permit(:name, :prompt, :enabled, config: {})
+    params.permit(:name, :prompt, :auto_learning_enabled, config: {})
   end
 
   def inbox_ids_param
     Array(params[:inbox_ids]).map(&:to_i).select(&:positive?)
+  end
+
+  def knowledge_source_ids_param
+    Array(params[:knowledge_source_ids]).map(&:to_i).select(&:positive?)
   end
 
   def merged_ai_agent_params
@@ -63,10 +90,18 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
     return permitted unless permitted.key?('config')
 
     merged_config = existing_config.deep_merge(permitted['config'] || {})
-    merged_config['tools'] = tool_availability.filter_tools_config(
-      merged_config['tools'],
-      AiAgents::ToolRegistry.available_definitions
-    ) if merged_config.key?('tools')
+    if merged_config.key?('tools')
+      merged_config['tools'] = tool_availability.filter_tools_config(
+        merged_config['tools'],
+        AiAgents::ToolRegistry.available_definitions
+      )
+    end
+
+    if merged_config.key?('instructions')
+      instruction_document = AiAgents::InstructionDocument.new(merged_config['instructions'])
+      merged_config['instructions'] = instruction_document.normalized
+      permitted['prompt'] = instruction_document.compile
+    end
 
     permitted.merge('config' => merged_config)
   end
@@ -101,7 +136,18 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
     true
   end
 
+  def sync_knowledge_sources
+    AiKnowledgeSources::AssignmentSync.new(
+      assistant: @ai_agent,
+      source_ids: knowledge_source_ids_param
+    ).perform
+  end
+
   def load_available_inboxes
     @available_inboxes = Current.account.inboxes.includes(:channel, agent_bot: :ai_agent).order_by_name
+  end
+
+  def render_readiness_error
+    render json: { error: 'Complete the required setup before publishing.', readiness: @ai_agent.readiness }, status: :unprocessable_entity
   end
 end

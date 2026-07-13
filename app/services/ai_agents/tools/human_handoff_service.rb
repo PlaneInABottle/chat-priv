@@ -3,6 +3,9 @@
 module AiAgents
   module Tools
     class HumanHandoffService
+      REASON_LIMIT = 300
+      CONTEXT_LIMIT = 1_500
+
       def initialize(ai_agent:, account:, mode:, settings:, conversation: nil, trigger_message: nil)
         @ai_agent = ai_agent
         @account = account
@@ -15,13 +18,14 @@ module AiAgents
       def call(args:)
         requested_labels = normalize_labels(args['labels'])
         labels_to_apply = filter_labels(requested_labels)
+        private_note = handoff_brief(args: args)
 
         result = {
           status: 'ok',
           terminal_action: 'handoff',
           conversation_status: 'open',
           customer_message: args['customer_message'],
-          private_note_preview: args['internal_note'],
+          private_note_preview: private_note,
           labels_requested: requested_labels,
           labels_to_apply: labels_to_apply,
           labels_ignored: requested_labels - labels_to_apply,
@@ -30,7 +34,7 @@ module AiAgents
 
         return result if test_mode?
 
-        execute_live_handoff!(result: result, internal_note: args['internal_note'])
+        execute_live_handoff!(result: result, private_note: private_note)
       end
 
       private
@@ -56,13 +60,13 @@ module AiAgents
         filtered & normalize_labels(allowed_labels)
       end
 
-      def execute_live_handoff!(result:, internal_note:)
+      def execute_live_handoff!(result:, private_note:)
         return live_error_result('conversation_required') unless conversation
         return live_error_result('trigger_message_required') unless trigger_message
         return live_error_result('handoff_already_completed') if handoff_completed?
 
         add_customer_message!(result[:customer_message])
-        add_private_note!(internal_note)
+        add_private_note!(private_note)
         conversation.add_labels(result[:labels_to_apply]) if result[:labels_to_apply].present?
         mark_handoff_completed!(result: result)
         conversation.bot_handoff!
@@ -92,6 +96,11 @@ module AiAgents
         }
 
         Messages::MessageBuilder.new(nil, conversation.reload, params).perform
+      end
+
+      def handoff_brief(args:)
+        args['internal_note'].presence&.to_s&.strip&.truncate(CONTEXT_LIMIT) ||
+          args['reason'].to_s.strip.truncate(REASON_LIMIT)
       end
 
       def mark_handoff_completed!(result:)

@@ -667,6 +667,16 @@ const menuItems = computed(() => {
           icon: 'i-lucide-bot',
           to: accountScopedRoute('agent_bots'),
         },
+        ...(hasAiAgent.value || hasVoiceAi.value
+          ? [
+              {
+                name: 'Settings AI Setup',
+                label: t('SIDEBAR.AI_SETUP'),
+                icon: 'i-lucide-list-checks',
+                to: accountScopedRoute('ai_setup'),
+              },
+            ]
+          : []),
         ...(hasAiAgent.value
           ? [
               {
@@ -687,12 +697,16 @@ const menuItems = computed(() => {
               },
             ]
           : []),
-        {
-          name: 'Settings AI Agent',
-          label: t('SIDEBAR.AI_ASISTAN'),
-          icon: 'i-lucide-sparkles',
-          to: accountScopedRoute('ai_agents'),
-        },
+        ...(hasAiAgent.value || hasVoiceAi.value
+          ? [
+              {
+                name: 'Settings Shared Knowledge',
+                label: t('SIDEBAR.SHARED_KNOWLEDGE'),
+                icon: 'i-lucide-library',
+                to: accountScopedRoute('ai_knowledge_sources'),
+              },
+            ]
+          : []),
         {
           name: 'Settings Macros',
           label: t('SIDEBAR.MACROS'),

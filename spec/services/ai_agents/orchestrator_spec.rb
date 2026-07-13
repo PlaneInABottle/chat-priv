@@ -36,6 +36,50 @@ RSpec.describe AiAgents::Orchestrator do
     expect(AiAgentLlmCall.last.response).to include('assistant_text' => 'Hello there', 'finish_reason' => 'stop')
   end
 
+  it 'searches runtime knowledge and attributes the sources used in the final answer' do
+    calls = []
+    allow(adapter).to receive(:perform) do |payload|
+      calls << payload
+      if calls.one?
+        {
+          assistant_text: nil,
+          tool_calls: [
+            {
+              id: 'knowledge-1',
+              type: 'function',
+              name: 'search_knowledge',
+              arguments: { query: 'custom product return within 14 days' }.to_json
+            }
+          ],
+          finish_reason: 'tool_calls'
+        }
+      else
+        { assistant_text: 'Custom-sized products can be reviewed for return within 14 days.', tool_calls: [], finish_reason: 'stop' }
+      end
+    end
+
+    result = described_class.new(
+      ai_agent: ai_agent,
+      messages: [{ role: 'user', content: 'Can I return a custom-sized product?' }],
+      mode: :test,
+      adapter: adapter,
+      knowledge_sources_override: [
+        { id: 12, name: 'Returns and exchanges', content: 'Custom-sized products are reviewed for return within 14 days.' }
+      ]
+    ).perform
+
+    expect(calls.first[:tools].pluck(:function).pluck(:name)).to include('search_knowledge')
+    expect(calls.second[:messages].last[:content]).to include('Returns and exchanges', 'within 14 days')
+    expect(result[:assistant_message]['source_attributions']).to eq(
+      [{ 'source_id' => 12, 'source_name' => 'Returns and exchanges' }]
+    )
+    expect(result[:assistant_message]['turn_telemetry']).to include(
+      'knowledge_searches_used' => 1,
+      'knowledge_sources_used' => 1,
+      'final_answer_source' => 'knowledge_evidence'
+    )
+  end
+
   it 'retries once when the provider returns an empty response without tool calls' do
     allow(adapter).to receive(:perform).and_return(
       { assistant_text: nil, tool_calls: [], finish_reason: 'stop' },

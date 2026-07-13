@@ -5,7 +5,7 @@ RSpec.describe Voice::Diagnostics::CallBundle do
   let(:api_channel) { create(:channel_api, account: account) }
   let(:inbox) { api_channel.inbox }
   let(:conversation) { create(:conversation, account: account, inbox: inbox) }
-  let(:voice_agent) { account.voice_agents.first! }
+  let(:voice_agent) { create(:voice_agent, account: account) }
   let(:call) do
     create(
       :call,

@@ -9,8 +9,8 @@ RSpec.describe BackfillVoiceAiEnabledForExistingVoiceAgents do
     disabled_agent_account = create(:account, settings: {})
     configured_account = create(:account, settings: { voice_ai_enabled: false })
     old_account_without_agents = create(:account, settings: {})
-    disabled_agent_account.voice_agents.each { |voice_agent| voice_agent.update!(enabled: false) }
-    old_account_without_agents.voice_agents.delete_all
+    create(:voice_agent, account: enabled_account, enabled: true)
+    create(:voice_agent, account: disabled_agent_account, enabled: false)
 
     migration.up
     migration.up

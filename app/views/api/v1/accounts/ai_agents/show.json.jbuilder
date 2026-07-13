@@ -7,14 +7,23 @@ tools_summary[AiAgents::Config::ENABLED_KEY] = tool_availability.filter_enabled_
   tools_summary[AiAgents::Config::ENABLED_KEY],
   AiAgents::ToolRegistry.available_definitions
 )
+config_payload = @ai_agent.config.to_h.deep_stringify_keys
+instruction_source = config_payload['instructions']
+config_payload['instructions'] = if instruction_source.present?
+                                   AiAgents::InstructionDocument.new(instruction_source).normalized
+                                 else
+                                   AiAgents::InstructionDocument.from_legacy(@ai_agent.prompt)
+                                 end
 
 json.id @ai_agent.id
 json.account_id @ai_agent.account_id
 json.name @ai_agent.name
 json.prompt @ai_agent.prompt
 json.enabled @ai_agent.enabled
-json.config @ai_agent.config
+json.auto_learning_enabled @ai_agent.auto_learning_enabled
+json.config config_payload
 json.tools_config tools_summary
+json.knowledge_source_ids @ai_agent.knowledge_sources.map(&:id).sort
 json.available_tools available_tools do |tool|
   json.key tool.key
   json.name tool.name
@@ -41,6 +50,14 @@ end
 json.account_ai_agent_enabled @ai_agent.account.ai_agent_enabled?
 json.created_at @ai_agent.created_at
 json.updated_at @ai_agent.updated_at
+json.lifecycle_status @ai_agent.lifecycle_status
+json.published_at @ai_agent.published_at
+json.published_revision @ai_agent.published_revision
+json.current_release AssistantReleases::Serializer.new(@ai_agent.current_release).payload if @ai_agent.current_release
+json.releases_count @ai_agent.releases.count
+json.draft_changes @ai_agent.draft_changes?
+json.last_tested_at @ai_agent.last_tested_at
+json.readiness @ai_agent.readiness
 
 if @ai_agent.agent_bot.present?
   json.agent_bot do

@@ -3,19 +3,27 @@ import hashlib
 import json
 import logging
 import os
-import threading
-import time
 import uuid
 from typing import Any
 
 import aiohttp
-import aiohttp.web
 from dotenv import load_dotenv
+from google.genai import types as google_types
 from livekit import agents, rtc
-from livekit.agents import Agent, AgentSession, AutoSubscribe, RoomInputOptions, RunContext, function_tool, inference
+from livekit.agents import (
+    Agent,
+    AgentSession,
+    AutoSubscribe,
+    RoomInputOptions,
+    RunContext,
+    function_tool,
+    inference,
+)
 from livekit.agents.llm import ChatMessage
 from livekit.agents.llm import ToolError
-from livekit.plugins import google
+from livekit.plugins import google, openai
+from openai.types.realtime import AudioTranscription, RealtimeReasoning
+from openai.types.realtime.realtime_audio_input_turn_detection import SemanticVad
 
 load_dotenv()
 
@@ -32,6 +40,8 @@ DEFAULT_BASE_INSTRUCTIONS = (
     "If the caller asks for a human, call request_human_handoff."
 )
 DEFAULT_REALTIME_MODEL = "gemini-3.1-flash-live-preview"
+DEFAULT_OPENAI_REALTIME_MODEL = "gpt-realtime-2.1"
+DEFAULT_OPENAI_REALTIME_VOICE = "marin"
 
 
 _REQUIRED_ENV_VARS = ["CHATWOOT_INTERNAL_API_URL", "VOICE_AGENT_INTERNAL_TOKEN"]
@@ -134,7 +144,14 @@ class ChatwootClient:
             payload,
         )
 
-    async def append_transcript(self, provider_call_id: str, role: str, text: str, source: str, metadata: dict[str, Any]) -> dict[str, Any]:
+    async def append_transcript(
+        self,
+        provider_call_id: str,
+        role: str,
+        text: str,
+        source: str,
+        metadata: dict[str, Any],
+    ) -> dict[str, Any]:
         payload = {"role": role, "text": text, "source": source, "metadata": metadata}
         external_id = metadata.get("external_segment_id")
         if external_id:
@@ -159,14 +176,19 @@ class VoiceAssistant(Agent):
         instructions: str,
         greeting: str | None = None,
         tools: list[Any] | None = None,
+        language: str = "tr",
+        realtime_provider: str | None = None,
         realtime_model_name: str | None = None,
     ) -> None:
         self.provider_call_id = provider_call_id
         self.greeting = greeting
+        self.language = language
+        self.realtime_provider = realtime_provider
         self.realtime_model_name = realtime_model_name
         super().__init__(instructions=instructions, tools=tools or [])
 
     async def on_enter(self) -> None:
+        self._bind_realtime_metrics()
         if self.realtime_model_name and "gemini-3.1" in self.realtime_model_name:
             logger.info(
                 "skipping proactive greeting for room=%s model=%s reason=gemini_31_generate_reply_unsupported",
@@ -175,10 +197,43 @@ class VoiceAssistant(Agent):
             )
             return
 
-        greeting = self.greeting or "Merhaba, size nasil yardimci olabilirim?"
-        logger.info("requesting proactive greeting for room=%s greeting_chars=%s", self.provider_call_id, len(greeting))
-        await self.session.generate_reply(instructions=f"Greet the caller in Turkish with this greeting: {greeting}")
+        greeting = self.greeting or self._default_greeting()
+        logger.info(
+            "requesting proactive greeting for room=%s greeting_chars=%s",
+            self.provider_call_id,
+            len(greeting),
+        )
+        await self.session.generate_reply(instructions=f"Greet the caller naturally in {self.language} using this greeting: {greeting}")
         logger.info("proactive greeting requested for room=%s", self.provider_call_id)
+
+    def _default_greeting(self) -> str:
+        if self.language.lower().startswith("tr"):
+            return "Merhaba, size nasil yardimci olabilirim?"
+
+        return "Hello, how can I help you?"
+
+    def _bind_realtime_metrics(self) -> None:
+        if self.realtime_provider is None:
+            return
+
+        realtime_session = self.realtime_llm_session
+
+        @realtime_session.on("metrics_collected")
+        def on_metrics_collected(metrics: Any) -> None:
+            logger.info(
+                "realtime metrics room=%s provider=%s model=%s request_id=%s ttfa_seconds=%s duration_seconds=%s "
+                "input_tokens=%s output_tokens=%s audio_input_tokens=%s audio_output_tokens=%s",
+                self.provider_call_id,
+                self.realtime_provider,
+                self.realtime_model_name,
+                getattr(metrics, "request_id", None),
+                getattr(metrics, "ttft", None),
+                getattr(metrics, "duration", None),
+                getattr(metrics, "input_tokens", None),
+                getattr(metrics, "output_tokens", None),
+                getattr(getattr(metrics, "input_token_details", None), "audio_tokens", None),
+                getattr(getattr(metrics, "output_token_details", None), "audio_tokens", None),
+            )
 
 
 def base_instructions() -> str:
@@ -191,6 +246,31 @@ def realtime_model() -> str:
 
 def realtime_voice() -> str:
     return os.getenv("VOICE_AGENT_GEMINI_VOICE", "Charon")
+
+
+def openai_realtime_model() -> str:
+    return os.getenv("VOICE_AGENT_OPENAI_REALTIME_MODEL", DEFAULT_OPENAI_REALTIME_MODEL)
+
+
+def openai_realtime_voice() -> str:
+    return os.getenv("VOICE_AGENT_OPENAI_VOICE", DEFAULT_OPENAI_REALTIME_VOICE)
+
+
+def resolve_realtime_runtime(runtime: dict[str, Any]) -> dict[str, str]:
+    provider = str(runtime.get("provider") or os.getenv("VOICE_AGENT_REALTIME_PROVIDER", "gemini")).lower()
+    if provider == "openai":
+        default_model = openai_realtime_model()
+        default_voice = openai_realtime_voice()
+    else:
+        default_model = realtime_model()
+        default_voice = realtime_voice()
+
+    return {
+        "provider": provider,
+        "model": str(runtime.get("model") or default_model),
+        "voice": str(runtime.get("voice") or default_voice),
+        "language": str(runtime.get("language") or os.getenv("VOICE_AGENT_LANGUAGE", "tr")),
+    }
 
 
 def instruction_fingerprint(instructions: str) -> str:
@@ -247,6 +327,9 @@ def build_chatwoot_tool(tool: dict[str, Any], chatwoot: ChatwootClient, provider
         if result.get("status") in {"error", "rejected"} or payload.get("status") == "error":
             raise ToolError(payload.get("error_message") or "Tool execution failed.")
 
+        if payload.get("terminal_action"):
+            context.session.input.set_audio_enabled(False)
+
         return json.dumps(compact_tool_result(tool_key, payload), ensure_ascii=False)
 
     return function_tool(handler, raw_schema=raw_tool_schema(tool))
@@ -296,6 +379,52 @@ def participant_wait_timeout() -> float:
     return float(os.getenv("VOICE_AGENT_WAIT_FOR_PARTICIPANT_TIMEOUT_SECONDS", "120"))
 
 
+def improvement_budget_duration_seconds(runtime_context: dict[str, Any]) -> float | None:
+    call_context = runtime_context.get("call")
+    if not isinstance(call_context, dict):
+        return None
+
+    try:
+        duration = float(call_context.get("test_duration_limit_seconds"))
+    except (TypeError, ValueError):
+        return None
+
+    return duration if duration > 0 else None
+
+
+async def enforce_improvement_budget(
+    runtime_context: dict[str, Any],
+    end_call: Any,
+) -> None:
+    duration = improvement_budget_duration_seconds(runtime_context)
+    if duration is None:
+        return
+
+    await asyncio.sleep(duration)
+    await end_call("ai_improvement_credit_limit")
+
+
+async def start_improvement_budget(
+    runtime_context: dict[str, Any],
+    chatwoot: ChatwootClient,
+    provider_call_id: str,
+    participant_identity: str,
+    end_call: Any,
+) -> asyncio.Task[Any] | None:
+    if improvement_budget_duration_seconds(runtime_context) is None:
+        return None
+
+    await chatwoot.record_event(
+        provider_call_id,
+        "test_call_customer_joined",
+        {"participant_identity": participant_identity},
+    )
+    return _fire_and_forget(
+        "improvement_budget",
+        enforce_improvement_budget(runtime_context, end_call),
+    )
+
+
 def is_customer_participant(participant: rtc.RemoteParticipant) -> bool:
     identity = participant.identity or ""
     if identity.startswith("agent-"):
@@ -305,7 +434,9 @@ def is_customer_participant(participant: rtc.RemoteParticipant) -> bool:
     return True
 
 
-async def wait_for_customer_participant(ctx: agents.JobContext) -> rtc.RemoteParticipant:
+async def wait_for_customer_participant(
+    ctx: agents.JobContext,
+) -> rtc.RemoteParticipant:
     for participant in ctx.room.remote_participants.values():
         if is_customer_participant(participant):
             return participant
@@ -329,10 +460,11 @@ def build_session(instructions: str | None = None, runtime: dict[str, Any] | Non
     runtime = runtime or {}
     architecture = runtime.get("architecture") or voice_agent_architecture()
     if architecture == "realtime":
-        provider = runtime.get("provider") or os.getenv("VOICE_AGENT_REALTIME_PROVIDER", "gemini")
+        resolved_runtime = resolve_realtime_runtime(runtime)
+        provider = resolved_runtime["provider"]
         if provider == "gemini":
-            model = runtime.get("model") or realtime_model()
-            voice = runtime.get("voice") or realtime_voice()
+            model = resolved_runtime["model"]
+            voice = resolved_runtime["voice"]
             logger.info(
                 "building Gemini realtime session model=%s voice=%s instructions_chars=%s instructions_sha256=%s",
                 model,
@@ -346,6 +478,38 @@ def build_session(instructions: str | None = None, runtime: dict[str, Any] | Non
                     voice=voice,
                     temperature=float(os.getenv("VOICE_AGENT_TEMPERATURE", "0.8")),
                     instructions=resolved_instructions,
+                    context_window_compression=google_types.ContextWindowCompressionConfig(
+                        sliding_window=google_types.SlidingWindow(),
+                    ),
+                )
+            )
+        if provider == "openai":
+            model = resolved_runtime["model"]
+            voice = resolved_runtime["voice"]
+            language = resolved_runtime["language"]
+            logger.info(
+                "building OpenAI realtime session model=%s voice=%s language=%s instructions_chars=%s instructions_sha256=%s",
+                model,
+                voice,
+                language,
+                len(resolved_instructions),
+                instruction_fingerprint(resolved_instructions),
+            )
+            return AgentSession(
+                llm=openai.realtime.RealtimeModel(
+                    model=model,
+                    voice=voice,
+                    reasoning=RealtimeReasoning(effort="low"),
+                    input_audio_transcription=AudioTranscription(
+                        model="gpt-realtime-whisper",
+                        language=language,
+                    ),
+                    turn_detection=SemanticVad(
+                        type="semantic_vad",
+                        eagerness="medium",
+                        create_response=True,
+                        interrupt_response=True,
+                    ),
                 )
             )
         raise ValueError(f"Unsupported realtime provider: {provider}")
@@ -426,7 +590,7 @@ def _transcript_segment_id(item: ChatMessage, text: str) -> str | None:
     return hashlib.sha256(f"{item.role}:{text}".encode("utf-8")).hexdigest()[:16]
 
 
-def _fire_and_forget(name: str, coro: Any) -> None:
+def _fire_and_forget(name: str, coro: Any) -> asyncio.Task[Any]:
     async def _run() -> None:
         try:
             await coro
@@ -436,6 +600,7 @@ def _fire_and_forget(name: str, coro: Any) -> None:
     task = asyncio.create_task(_run())
     _BACKGROUND_TASKS.add(task)
     task.add_done_callback(_BACKGROUND_TASKS.discard)
+    return task
 
 
 def bind_transcript_events(session: AgentSession, provider_call_id: str, chatwoot: ChatwootClient) -> None:
@@ -476,11 +641,7 @@ async def entrypoint(ctx: agents.JobContext) -> None:
     await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
 
     provider_call_id = ctx.room.name
-    _active_rooms.add(provider_call_id)
-    try:
-        await _entrypoint_inner(ctx, provider_call_id)
-    finally:
-        _active_rooms.discard(provider_call_id)
+    await _entrypoint_inner(ctx, provider_call_id)
 
 
 async def _entrypoint_inner(ctx: agents.JobContext, provider_call_id: str) -> None:
@@ -501,42 +662,55 @@ async def _entrypoint_inner(ctx: agents.JobContext, provider_call_id: str) -> No
         instructions = str(runtime_context.get("instructions") or "").strip() or session_instructions(metadata)
         voice_agent = runtime_context.get("voice_agent") or {}
         runtime = runtime_context.get("runtime") or {}
-        realtime_model_name = str(runtime.get("model") or realtime_model()).strip()
+        resolved_runtime = resolve_realtime_runtime(runtime)
+        realtime_model_name = resolved_runtime["model"] if runtime.get("architecture") == "realtime" else None
         greeting = str(voice_agent.get("greeting") or "").strip() or None
         tools = build_chatwoot_tools(runtime_context, chatwoot, provider_call_id)
-        try:
-            participant = await wait_for_customer_participant(ctx)
-        except asyncio.TimeoutError:
-            await chatwoot.end_call(provider_call_id, "participant_timeout")
-            return
-        await chatwoot.record_event(
-            provider_call_id,
-            "agent_listening",
-            {"participant_identity": participant.identity},
-        )
-
         ended = False
+        budget_task: asyncio.Task[Any] | None = None
 
         async def end_call_once(reason: str) -> None:
-            nonlocal ended
+            nonlocal ended, budget_task
             if ended:
                 return
             ended = True
+            if reason != "ai_improvement_credit_limit" and budget_task:
+                budget_task.cancel()
             await chatwoot.end_call(provider_call_id, reason)
 
+        try:
+            participant = await wait_for_customer_participant(ctx)
+        except asyncio.TimeoutError:
+            await end_call_once("participant_timeout")
+            return
+
         @ctx.room.on("participant_disconnected")
-        def on_participant_disconnected(disconnected_participant: rtc.RemoteParticipant) -> None:
+        def on_participant_disconnected(
+            disconnected_participant: rtc.RemoteParticipant,
+        ) -> None:
             if disconnected_participant.identity != participant.identity:
                 return
 
             reason = end_reason_for_disconnect(disconnected_participant.disconnect_reason)
             _fire_and_forget("participant_disconnected_end_call", end_call_once(reason))
 
+        budget_task = await start_improvement_budget(
+            runtime_context,
+            chatwoot,
+            provider_call_id,
+            participant.identity,
+            end_call_once,
+        )
+
         session = build_session(instructions=instructions, runtime=runtime)
         bind_transcript_events(session, provider_call_id, chatwoot)
 
         async def on_shutdown(reason: str) -> None:
-            logger.info("shutdown signal received for room=%s reason=%s", provider_call_id, reason)
+            logger.info(
+                "shutdown signal received for room=%s reason=%s",
+                provider_call_id,
+                reason,
+            )
             await chatwoot.record_event(provider_call_id, "agent_session_ended", {"reason": reason})
             await end_call_once("livekit_dispatch_cancelled")
 
@@ -549,87 +723,51 @@ async def _entrypoint_inner(ctx: agents.JobContext, provider_call_id: str) -> No
                 instructions=instructions,
                 greeting=greeting,
                 tools=tools,
+                language=resolved_runtime["language"],
+                realtime_provider=resolved_runtime["provider"] if realtime_model_name else None,
                 realtime_model_name=realtime_model_name,
             ),
             room_input_options=RoomInputOptions(participant_identity=participant.identity),
+        )
+        await chatwoot.record_event(
+            provider_call_id,
+            "agent_listening",
+            {"participant_identity": participant.identity},
         )
     finally:
         await chatwoot.close()
 
 
-_START_TIME = time.monotonic()
 _BACKGROUND_TASKS: set[asyncio.Task] = set()
-_active_rooms: set[str] = set()
-_health_server_started = False
-_health_runner: aiohttp.web.AppRunner | None = None
-_health_thread: threading.Thread | None = None
-_health_ready = threading.Event()
 
 
-async def _handle_health(request: aiohttp.web.Request) -> aiohttp.web.Response:
-    uptime = time.monotonic() - _START_TIME
-    payload = {
-        "status": "ok",
+def worker_max_concurrent_jobs() -> int:
+    value = int(os.getenv("VOICE_AGENT_MAX_CONCURRENT_JOBS", "10"))
+    if value < 1:
+        raise ValueError("VOICE_AGENT_MAX_CONCURRENT_JOBS must be at least 1")
+    return value
+
+
+def worker_load(server: agents.AgentServer) -> float:
+    return min(len(server.active_jobs) / worker_max_concurrent_jobs(), 1.0)
+
+
+def build_worker_options() -> agents.WorkerOptions:
+    options: dict[str, Any] = {
+        "entrypoint_fnc": entrypoint,
         "agent_name": os.getenv("VOICE_AGENT_NAME", "kozmopath-voice-agent"),
-        "active_rooms": len(_active_rooms),
-        "uptime_seconds": round(uptime),
+        "load_fnc": worker_load,
+        "load_threshold": 0.95,
+        "host": "0.0.0.0",
+        "port": int(os.getenv("VOICE_AGENT_HEALTH_PORT", "9090")),
+        "drain_timeout": int(os.getenv("VOICE_AGENT_DRAIN_TIMEOUT_SECONDS", "1200")),
     }
-    return aiohttp.web.json_response(payload)
+    prometheus_port = os.getenv("VOICE_AGENT_PROMETHEUS_PORT")
+    if prometheus_port:
+        options["prometheus_port"] = int(prometheus_port)
 
-
-async def _start_health_server() -> None:
-    global _health_server_started, _health_runner
-    if _health_server_started:
-        return
-
-    port = int(os.getenv("VOICE_AGENT_HEALTH_PORT", "9090"))
-    app = aiohttp.web.Application()
-    app.router.add_get("/health", _handle_health)
-    runner = aiohttp.web.AppRunner(app)
-    try:
-        await runner.setup()
-        _health_runner = runner
-        site = aiohttp.web.TCPSite(runner, "0.0.0.0", port)
-        await site.start()
-        _health_server_started = True
-        _health_ready.set()
-        logger.info("health server listening on port %d", port)
-    except Exception:
-        try:
-            await runner.cleanup()
-        except Exception:
-            pass
-        _health_runner = None
-        raise
-
-
-def _run_health_server_loop() -> None:
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(_start_health_server())
-    loop.run_forever()
-
-
-def _launch_health_server() -> None:
-    global _health_thread
-    if _health_thread and _health_thread.is_alive():
-        return
-
-    _health_ready.clear()
-    _health_thread = threading.Thread(
-        target=_run_health_server_loop,
-        name="voice-agent-health",
-        daemon=True,
-    )
-    _health_thread.start()
-    _health_ready.wait(timeout=5)
+    return agents.WorkerOptions(**options)
 
 
 if __name__ == "__main__":
-    _launch_health_server()
-    agents.cli.run_app(
-        agents.WorkerOptions(
-            entrypoint_fnc=entrypoint,
-            agent_name=os.getenv("VOICE_AGENT_NAME", "kozmopath-voice-agent"),
-        )
-    )
+    agents.cli.run_app(build_worker_options())

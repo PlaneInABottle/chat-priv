@@ -1,11 +1,14 @@
 # frozen_string_literal: true
 
 class AiAgents::EffectivePromptPreview
-  def initialize(ai_agent:)
+  def initialize(ai_agent:, prompt_override: nil, config_override: nil, knowledge_sources_override: nil)
     @ai_agent = ai_agent
+    @prompt_override = prompt_override
+    @config_override = config_override
+    @knowledge_sources_override = knowledge_sources_override
   end
 
-  attr_reader :ai_agent
+  attr_reader :ai_agent, :prompt_override, :config_override, :knowledge_sources_override
 
   delegate :account, to: :ai_agent
 
@@ -14,7 +17,9 @@ class AiAgents::EffectivePromptPreview
   end
 
   def enabled_tool_keys
-    tool_config.enabled_tool_keys
+    keys = tool_config.enabled_tool_keys
+    keys = [*keys, AiAgents::Config::KNOWLEDGE_SEARCH_TOOL] if knowledge_sources_override.present?
+    keys
   end
 
   def enabled_tool_definitions
@@ -48,11 +53,16 @@ class AiAgents::EffectivePromptPreview
   private
 
   def tool_config
-    @tool_config ||= AiAgents::Config.new(ai_agent.config, allow_legacy_human_handoff_settings: true)
+    @tool_config ||= AiAgents::Config.new(config_override || ai_agent.config, allow_legacy_human_handoff_settings: true)
   end
 
   def prompt_composer
-    @prompt_composer ||= AiAgents::PromptComposer.new(ai_agent: ai_agent)
+    @prompt_composer ||= AiAgents::PromptComposer.new(
+      ai_agent: ai_agent,
+      prompt_override: prompt_override,
+      config_override: config_override,
+      knowledge_sources_override: knowledge_sources_override
+    )
   end
 
   def integration_gate_for(definition)

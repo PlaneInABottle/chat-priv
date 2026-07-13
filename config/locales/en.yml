@@ -71,6 +71,8 @@ en:
         monthly_limit_exhausted: 'Voice AI monthly minute limit is exhausted.'
         concurrent_limit_reached: 'Voice AI concurrent call limit is reached.'
         rejected: 'Voice AI call cannot be started.'
+    ai_improvement_usage:
+      exhausted: 'AI improvement credits are exhausted for this month. Contact your service administrator.'
     assignment_policy:
       not_found: Assignment policy not found
     attachments:
@@ -565,7 +567,8 @@ en:
   helpers:
     label:
       account:
-        ai_agent_settings: "AI Agent Settings"
+        ai_agent_settings: "Text AI Settings"
+        ai_improvement_settings: "AI Improvement Credits"
         voice_ai_settings: "Voice AI Settings"
         voice_agent_runtime_settings: "Voice Agent Runtime Settings"
   portals:
@@ -585,7 +588,7 @@ en:
       custom_domain_not_configured: 'Custom domain is not configured'
   super_admin:
     account_ai_agent_settings:
-      title: "AI Agent Settings"
+      title: "Text AI Settings"
       account_access: "Account access"
       enabled: "Enabled"
       yes: "Yes"
@@ -599,6 +602,18 @@ en:
       hours: "hours"
       unlimited_hint: "0 = unlimited"
       reuse_window_hint: "Hours. New AI conversations from the same contact inside this window count once."
+      data_retention: "Sensitive Activity Retention"
+      data_retention_hint: "Model diagnostics, tool activity, test conversations, evaluation run results, and reviewed learning snapshots."
+    account_ai_improvement_settings:
+      title: "AI Improvement Credits"
+      monthly_limit: "Monthly Credit Limit"
+      credits: "Credits"
+      limit_hint: "Shared by draft tests, evaluations, website analysis, learning analysis, knowledge indexing, and Voice test calls. 0 = unlimited."
+      used: "Used Credits"
+      reserved: "In Progress"
+      remaining: "Remaining Credits"
+      resets_at: "Resets At"
+      unlimited: "Unlimited"
     account_voice_ai_settings:
       title: "Voice AI Settings"
       account_access: "Account access"
@@ -617,6 +632,19 @@ en:
       minutes: "minutes"
       unlimited_hint: "0 = unlimited. Test calls are excluded."
       max_call_duration_hint: "Minutes per call."
+      data_retention: "Sensitive Activity Retention"
+      data_retention_hint: "Transcripts, summaries, tool activity, and recordings."
+    data_retention:
+      days: "%{count} days"
+      cleanup_title: "AI Data Cleanup"
+      cleanup_description: "Permanently delete sensitive Text AI or Voice AI activity older than the account's configured retention period. Customer conversations, call records, and usage totals are retained."
+      text_action: "Clean Up Expired Text AI Data"
+      voice_action: "Clean Up Expired Voice AI Data"
+      text_warning: "Deletes Text AI diagnostics, tool activity, test conversations, evaluation run results, and reviewed learning snapshots older than %{days} days. Saved evaluation scenarios are retained."
+      voice_warning: "Deletes Voice AI transcripts, summaries, tool activity, and recordings older than %{days} days."
+      confirm: "This permanently deletes expired sensitive AI activity. Continue?"
+      queued: "%{kind} AI data cleanup queued."
+      invalid_kind: "AI data cleanup must target Text or Voice."
     account_voice_agent_runtime_settings:
       title: "Voice AI Runtime"
       panel_title: "Voice agent runtime settings"
@@ -632,6 +660,7 @@ en:
       voice: "Voice"
       language: "Language"
       default_from_worker_env: "Default from worker env"
+      openai_runtime_hint: "OpenAI Realtime 2.1 defaults to the Marin voice. Changing provider updates incompatible model and voice values."
     push_diagnostics:
       user_not_found: 'User not found.'
       no_subscriptions_to_test: 'Select at least one subscription to test.'

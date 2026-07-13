@@ -127,6 +127,7 @@ class Voice::InboundCallBuilder
       direction: :incoming,
       status: 'ringing',
       provider_call_id: call_sid,
+      voice_agent_release: configured_voice_setting&.voice_agent&.current_release,
       meta: inbound_call_meta
     )
     call.update!(conference_sid: call.default_conference_sid) if call.twilio?
@@ -141,12 +142,19 @@ class Voice::InboundCallBuilder
 
   def inbound_call_meta
     meta = { 'initiated_at' => Time.zone.now.to_i, 'from_number' => from_number }.merge(extra_meta.stringify_keys)
-    setting = account.voice_inbox_setting_for(inbox: inbox, id: meta['voice_inbox_setting_id'])
+    setting = configured_voice_setting
     return meta.except('voice_agent_id', 'voice_inbox_setting_id') unless setting&.voice_agent_id
 
     meta.merge(
       'voice_inbox_setting_id' => setting.id,
       'voice_agent_id' => setting.voice_agent_id
     )
+  end
+
+  def configured_voice_setting
+    @configured_voice_setting ||= begin
+      setting_id = extra_meta.to_h.with_indifferent_access[:voice_inbox_setting_id]
+      account.voice_inbox_setting_for(inbox: inbox, id: setting_id)
+    end
   end
 end

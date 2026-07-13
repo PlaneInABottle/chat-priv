@@ -4,7 +4,7 @@ RSpec.describe Voice::Telephony::InboundCallBootstrapper do
   describe '.perform!' do
     let(:account) { create(:account, settings: { voice_ai_enabled: true }) }
     let(:inbox) { create(:channel_api, account: account).inbox }
-    let(:voice_agent) { account.voice_agents.first! }
+    let(:voice_agent) { create(:voice_agent, account: account, enabled: true) }
     let!(:setting) { create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: voice_agent) }
     let!(:provider_connection) { create(:voice_provider_connection, account: account, provider: 'test_sip') }
     let!(:voice_number) do
@@ -96,6 +96,19 @@ RSpec.describe Voice::Telephony::InboundCallBootstrapper do
         result = described_class.perform!(provider_call_id: 'sip-room-existing', metadata: { account_id: account.id, voice_number_id: voice_number.id })
         expect(result).to eq(existing)
       end.not_to change(Call, :count)
+    end
+
+    it 'does not create a new production call for a paused assistant' do
+      voice_agent.update!(enabled: false)
+
+      expect do
+        described_class.perform!(
+          provider_call_id: 'sip-room-paused',
+          metadata: { account_id: account.id, voice_number_id: voice_number.id }
+        )
+      end.to raise_error(ActiveRecord::RecordNotFound, 'Voice assistant is paused')
+
+      expect(Call.find_by(provider_call_id: 'sip-room-paused')).to be_nil
     end
 
     it 'does not resolve an explicit voice number without an account scope' do

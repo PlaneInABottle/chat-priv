@@ -2,10 +2,10 @@ class Api::V1::Accounts::Voice::AgentsController < Api::V1::Accounts::BaseContro
   before_action :current_account
   before_action :check_admin_authorization?
   before_action :ensure_voice_ai_enabled
-  before_action :set_voice_agent, only: [:show, :update, :destroy]
+  before_action :set_voice_agent, only: [:show, :update, :destroy, :publish, :activate, :pause]
 
   def index
-    voice_agents = Current.account.voice_agents.order(:created_at)
+    voice_agents = Current.account.voice_agents.includes(:current_release, :knowledge_sources).order(:created_at)
     render json: { payload: voice_agents.map { |agent| VoiceAgents::Serializer.new(agent).payload } }
   end
 
@@ -14,18 +14,26 @@ class Api::V1::Accounts::Voice::AgentsController < Api::V1::Accounts::BaseContro
   end
 
   def create
-    voice_agent = Current.account.voice_agents.new(voice_agent_params)
+    voice_agent = Current.account.voice_agents.new(VoiceAgents::RuntimeDefaults.attributes.merge(voice_agent_params))
+    voice_agent.enabled = false
     ActiveRecord::Base.transaction do
       voice_agent.save!
       sync_inbox_assignments!(voice_agent) if inbox_settings_provided?
+      sync_knowledge_sources!(voice_agent) if knowledge_source_ids_provided?
     end
     render json: VoiceAgents::Serializer.new(voice_agent).payload, status: :created
   end
 
   def update
     ActiveRecord::Base.transaction do
-      @voice_agent.update!(voice_agent_params)
+      @voice_agent.assign_attributes(voice_agent_params)
+      unless @voice_agent.last_tested_draft_fingerprint == @voice_agent.draft_fingerprint
+        @voice_agent.last_tested_at = nil
+        @voice_agent.last_tested_draft_fingerprint = nil
+      end
+      @voice_agent.save!
       sync_inbox_assignments!(@voice_agent) if inbox_settings_provided?
+      sync_knowledge_sources!(@voice_agent) if knowledge_source_ids_provided?
     end
     render json: VoiceAgents::Serializer.new(@voice_agent).payload
   end
@@ -35,23 +43,48 @@ class Api::V1::Accounts::Voice::AgentsController < Api::V1::Accounts::BaseContro
     head :no_content
   end
 
+  def publish
+    return render_readiness_error unless @voice_agent.readiness[:can_publish]
+
+    @voice_agent.publish!(created_by: Current.user, activate: publish_activation?)
+    render json: VoiceAgents::Serializer.new(@voice_agent).payload
+  end
+
+  def activate
+    return render json: { error: 'Publish the assistant before activation.' }, status: :unprocessable_content unless @voice_agent.current_release
+
+    @voice_agent.activate!
+    render json: VoiceAgents::Serializer.new(@voice_agent).payload
+  end
+
+  def pause
+    @voice_agent.pause!
+    render json: VoiceAgents::Serializer.new(@voice_agent).payload
+  end
+
   private
 
+  def publish_activation?
+    return true unless params.key?(:activate)
+
+    ActiveModel::Type::Boolean.new.cast(params[:activate])
+  end
+
   def set_voice_agent
-    @voice_agent = Current.account.voice_agents.find(params[:id])
+    @voice_agent = Current.account.voice_agents.includes(:current_release, :knowledge_sources).find(params[:id])
   end
 
   def voice_agent_params
-    permitted = voice_agent_request_params.except('inbox_settings')
+    permitted = voice_agent_request_params.except('inbox_settings', 'knowledge_source_ids')
     normalize_voice_agent_params(permitted.to_h.deep_stringify_keys)
   end
 
   def voice_agent_request_params
     @voice_agent_request_params ||= params.permit(
       :name,
-      :enabled,
       :greeting,
       :prompt,
+      knowledge_source_ids: [],
       tools_config: {},
       inbox_settings: [
         :id,
@@ -83,12 +116,23 @@ class Api::V1::Accounts::Voice::AgentsController < Api::V1::Accounts::BaseContro
     voice_agent_request_params.key?('inbox_settings')
   end
 
+  def knowledge_source_ids_provided?
+    voice_agent_request_params.key?('knowledge_source_ids')
+  end
+
   def sync_inbox_assignments!(voice_agent)
     kept_setting_ids = inbox_settings_params.map do |assignment|
       sync_inbox_assignment!(voice_agent, assignment)
     end
 
     voice_agent.voice_inbox_settings.where.not(id: kept_setting_ids).destroy_all
+  end
+
+  def sync_knowledge_sources!(voice_agent)
+    AiKnowledgeSources::AssignmentSync.new(
+      assistant: voice_agent,
+      source_ids: voice_agent_request_params['knowledge_source_ids']
+    ).perform
   end
 
   def inbox_settings_params
@@ -100,11 +144,13 @@ class Api::V1::Accounts::Voice::AgentsController < Api::V1::Accounts::BaseContro
     setting = Current.account.voice_inbox_settings.find_or_initialize_by(inbox: inbox)
     setting.voice_agent = voice_agent
     setting.fallback_team_id = assignment['fallback_team_id'].presence
-    if assignment.key?('recording_enabled')
-      setting.recording_enabled = ActiveModel::Type::Boolean.new.cast(assignment['recording_enabled'])
-    end
+    setting.recording_enabled = ActiveModel::Type::Boolean.new.cast(assignment['recording_enabled']) if assignment.key?('recording_enabled')
     setting.settings = assignment['settings'] if assignment['settings'].is_a?(Hash)
     setting.save!
     setting.id
+  end
+
+  def render_readiness_error
+    render json: { error: 'Complete the required setup before publishing.', readiness: @voice_agent.readiness }, status: :unprocessable_entity
   end
 end

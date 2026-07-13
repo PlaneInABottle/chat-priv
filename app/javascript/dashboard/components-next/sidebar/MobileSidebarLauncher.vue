@@ -1,10 +1,11 @@
 <script setup>
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
 import Button from 'dashboard/components-next/button/Button.vue';
 import ButtonGroup from 'dashboard/components-next/buttonGroup/ButtonGroup.vue';
 
-defineProps({
+const props = defineProps({
   isMobileSidebarOpen: {
     type: Boolean,
     default: false,
@@ -14,6 +15,7 @@ defineProps({
 const emit = defineEmits(['toggle']);
 
 const route = useRoute();
+const { t } = useI18n();
 
 const isConversationRoute = computed(() => {
   const CONVERSATION_ROUTES = [
@@ -33,13 +35,21 @@ const isConversationRoute = computed(() => {
 const toggleSidebar = () => {
   emit('toggle');
 };
+
+const sidebarActionLabel = computed(() => {
+  if (props.isMobileSidebarOpen) {
+    return t('SIDEBAR.CLOSE_NAVIGATION');
+  }
+
+  return t('SIDEBAR.OPEN_NAVIGATION');
+});
 </script>
 
 <template>
   <div
     v-if="!isConversationRoute"
     id="mobile-sidebar-launcher"
-    class="fixed bottom-4 ltr:left-4 rtl:right-4 z-40 transition-transform duration-200 ease-out block md:hidden"
+    class="fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom))] ltr:left-3 rtl:right-3 z-40 transition-transform duration-200 ease-out block md:hidden"
     :class="[
       {
         'ltr:translate-x-48 rtl:-translate-x-48': isMobileSidebarOpen,
@@ -47,13 +57,14 @@ const toggleSidebar = () => {
     ]"
   >
     <ButtonGroup
-      class="rounded-full bg-n-alpha-2 backdrop-blur-lg p-1 shadow hover:shadow-md"
+      class="rounded-full bg-n-alpha-2 backdrop-blur-lg p-0.5 shadow-sm hover:shadow"
     >
       <Button
         icon="i-lucide-menu"
+        :aria-label="sidebarActionLabel"
         no-animation
-        class="!rounded-full !bg-n-solid-3 dark:!bg-n-alpha-2 !text-n-slate-12 text-xl transition-all duration-200 ease-out hover:brightness-110"
-        lg
+        class="!rounded-full !bg-n-solid-3 dark:!bg-n-alpha-2 !text-n-slate-12 text-xl transition-colors duration-200 ease-out hover:brightness-110"
+        size="md"
         @click="toggleSidebar"
       />
     </ButtonGroup>

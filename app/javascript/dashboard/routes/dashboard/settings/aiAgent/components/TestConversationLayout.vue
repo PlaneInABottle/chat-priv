@@ -1,8 +1,9 @@
 <script setup>
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useAlert } from 'dashboard/composables';
 import { useMapGetter, useStore } from 'dashboard/composables/store';
 import { useI18n } from 'vue-i18n';
+import ImprovementCreditsSummary from './ImprovementCreditsSummary.vue';
 import TestConversationList from './TestConversationList.vue';
 import TestConversationChatPanel from './TestConversationChatPanel.vue';
 
@@ -16,6 +17,7 @@ const props = defineProps({
     default: false,
   },
 });
+const emit = defineEmits(['tested']);
 
 const store = useStore();
 const { t } = useI18n();
@@ -29,6 +31,15 @@ const activeConversation = useMapGetter(
 const uiFlags = useMapGetter('aiAgentTestConversations/getUIFlags');
 
 const showListOnMobile = ref(true);
+const creditsSummaryRef = ref(null);
+const improvementUsage = ref(null);
+const creditsExhausted = computed(
+  () => improvementUsage.value?.status === 'exhausted'
+);
+
+const handleImprovementUsageLoaded = usage => {
+  improvementUsage.value = usage;
+};
 
 const selectConversation = id => {
   if (props.isDisabled) return;
@@ -65,7 +76,7 @@ const clearAllConversations = () => {
 };
 
 const sendMessage = async content => {
-  if (!activeConversation.value) return;
+  if (!activeConversation.value || creditsExhausted.value) return;
   const result = await store.dispatch('aiAgentTestConversations/sendMessage', {
     aiAgentId: props.aiAgentId,
     id: activeConversation.value.id,
@@ -74,7 +85,12 @@ const sendMessage = async content => {
 
   if (result?.error) {
     useAlert(result.error || t('AI_AGENT.TEST_CONVERSATIONS.ERROR'));
+    await creditsSummaryRef.value?.refresh?.();
+    return;
   }
+
+  await creditsSummaryRef.value?.refresh?.();
+  emit('tested');
 };
 
 const handleBack = () => {
@@ -83,38 +99,42 @@ const handleBack = () => {
 </script>
 
 <template>
-  <div
-    class="flex flex-col md:flex-row h-[28rem] border rounded-lg border-n-weak dark:border-n-weak overflow-hidden"
-  >
-    <!-- Sidebar / List -->
+  <div class="flex min-w-0 flex-col gap-3">
+    <ImprovementCreditsSummary
+      ref="creditsSummaryRef"
+      @loaded="handleImprovementUsageLoaded"
+    />
     <div
-      class="w-full md:w-72 border-b md:border-b-0 md:border-r border-n-slate-6"
-      :class="showListOnMobile ? 'flex' : 'hidden md:flex'"
+      class="flex h-[44rem] min-h-[36rem] flex-col overflow-hidden rounded-lg border border-n-weak md:h-[calc(100dvh-15rem)] md:max-h-[64rem] md:flex-row dark:border-n-weak"
     >
-      <TestConversationList
-        :conversations="conversations"
-        :active-id="activeConversation?.id"
-        :ui-flags="uiFlags"
-        :is-disabled="isDisabled"
-        @select="selectConversation"
-        @create="createConversation"
-        @delete="deleteConversation"
-        @clear-all="clearAllConversations"
-      />
-    </div>
+      <div
+        class="w-full border-b border-n-slate-6 md:w-72 md:border-b-0 md:border-r"
+        :class="showListOnMobile ? 'flex' : 'hidden md:flex'"
+      >
+        <TestConversationList
+          :conversations="conversations"
+          :active-id="activeConversation?.id"
+          :ui-flags="uiFlags"
+          :is-disabled="isDisabled"
+          @select="selectConversation"
+          @create="createConversation"
+          @delete="deleteConversation"
+          @clear-all="clearAllConversations"
+        />
+      </div>
 
-    <!-- Chat Panel -->
-    <div
-      class="flex-1 flex flex-col"
-      :class="!showListOnMobile ? 'flex' : 'hidden md:flex'"
-    >
-      <TestConversationChatPanel
-        :conversation="activeConversation"
-        :ui-flags="uiFlags"
-        :is-disabled="isDisabled"
-        @send="sendMessage"
-        @back="handleBack"
-      />
+      <div
+        class="min-w-0 flex-1 flex-col"
+        :class="!showListOnMobile ? 'flex' : 'hidden md:flex'"
+      >
+        <TestConversationChatPanel
+          :conversation="activeConversation"
+          :ui-flags="uiFlags"
+          :is-disabled="isDisabled || creditsExhausted"
+          @send="sendMessage"
+          @back="handleBack"
+        />
+      </div>
     </div>
   </div>
 </template>

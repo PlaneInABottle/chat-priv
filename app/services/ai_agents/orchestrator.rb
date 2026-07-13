@@ -18,12 +18,12 @@ module AiAgents
     TOOL_BUDGET_EXHAUSTED_PROMPT = [
       'No more tools are available for this customer message.',
       'Reply to the customer without calling tools.',
-      'Use the collected product/order evidence only; if it is insufficient, ask one focused clarification question.',
+      'Use only the collected tool evidence; if it is insufficient, ask one focused clarification question.',
       'Do not mention tools, tool calls, budgets, internal searches, system limitations, or application safety checks.'
     ].join(' ').freeze
     CUSTOMER_FACING_FINALIZER_PROMPT = [
       'Write the final customer-facing reply from the latest customer message and the available structured tool result messages.',
-      'Use only concrete facts, product names, prices, links, order fields, and compatibility details present in those results.',
+      'Use only concrete facts, policies, verified knowledge excerpts, product details, prices, links, and order fields present in those results.',
       'The latest customer message controls the product/category scope of the final answer.',
       'Use previous conversation context only to resolve an ambiguous follow-up; if the latest customer message names a different product or category, answer only that new topic unless the customer explicitly asks to compare or combine topics.',
       'If tool results contain multiple query results, answer only the query or queries directly requested by the latest customer message; ignore previous-topic query results unless the customer explicitly asked to compare or combine topics.',
@@ -47,23 +47,34 @@ module AiAgents
     MAX_TOOL_ITERATIONS = 4
     MAX_TOOL_CALLS_PER_RESPONSE = 4
     MAX_CATALOG_SEARCH_QUERY_UNITS = 3
+    MAX_KNOWLEDGE_SEARCH_CALLS = 2
     MAX_ORDER_LOOKUP_CALLS = 1
     MAX_HUMAN_HANDOFF_CALLS = 1
 
-    def initialize(ai_agent:, messages:, mode:, conversation: nil, trigger_message: nil, adapter: nil)
+    def initialize(ai_agent:, messages:, mode:, conversation: nil, trigger_message: nil, adapter: nil, prompt_override: nil, config_override: nil,
+                   knowledge_sources_override: nil, improvement_operation: nil, initiated_by: nil)
       @ai_agent = ai_agent
       @messages = messages
       @mode = mode
       @conversation = conversation
       @trigger_message = trigger_message
+      @runtime_config = config_override || (mode.to_s == 'live' ? ai_agent.live_config : ai_agent.config)
+      @prompt_override = if mode.to_s == 'live' && prompt_override.nil?
+                           ai_agent.live_prompt
+                         else
+                           prompt_override
+                         end
+      @runtime_knowledge_sources = resolve_knowledge_sources(knowledge_sources_override)
+      @improvement_operation = improvement_operation || ('text_test' if mode.to_s == 'test')
+      @initiated_by = initiated_by
       @adapter = adapter || default_adapter
-      @config = AiAgents::Config.new(ai_agent.config, allow_legacy_human_handoff_settings: true)
+      @config = AiAgents::Config.new(@runtime_config, allow_legacy_human_handoff_settings: true)
       @executed_tool_keys = Set.new
       @executed_tool_counts = Hash.new(0)
     end
 
     def perform
-      return failure_result unless ai_agent.enabled?
+      return failure_result unless ai_agent.enabled? || mode.to_s == 'test'
       return failure_result unless ai_agent.account.ai_agent_enabled?
       return failure_result unless config.valid?
 
@@ -98,6 +109,8 @@ module AiAgents
       end
 
       final_answer_result(request_messages, tool_events, TOOL_BUDGET_EXHAUSTED_PROMPT, budget_exhausted: true)
+    rescue AiImprovements::Usage::Exhausted
+      raise
     rescue StandardError => e
       Rails.logger.error("[AiAgents::Orchestrator] #{e.class}: #{e.message}")
       failure_result
@@ -105,10 +118,30 @@ module AiAgents
 
     private
 
-    attr_reader :ai_agent, :messages, :mode, :conversation, :trigger_message, :adapter, :config, :executed_tool_keys, :executed_tool_counts
+    attr_reader :ai_agent, :messages, :mode, :conversation, :trigger_message, :adapter, :config, :executed_tool_keys,
+                :executed_tool_counts, :prompt_override, :runtime_config, :runtime_knowledge_sources, :improvement_operation, :initiated_by
+
+    def resolve_knowledge_sources(override)
+      sources = if !override.nil?
+                  override
+                elsif mode.to_s == 'test'
+                  AiKnowledgeSources::Snapshot.for(ai_agent)
+                else
+                  []
+                end
+      Array(sources).map { |source| source.to_h.deep_stringify_keys }.deep_dup
+    end
 
     def default_adapter
-      AiAgents::LlmAdapters::OpenAiCompatibleAdapter.new(ai_agent: ai_agent, account: ai_agent.account)
+      AiAgents::LlmAdapters::OpenAiCompatibleAdapter.new(
+        ai_agent: ai_agent,
+        account: ai_agent.account,
+        prompt_override: prompt_override,
+        config_override: runtime_config,
+        knowledge_sources_override: runtime_knowledge_sources,
+        improvement_operation: improvement_operation,
+        initiated_by: initiated_by
+      )
     end
 
     def tool_executor
@@ -117,7 +150,12 @@ module AiAgents
         account: ai_agent.account,
         mode: mode,
         executed_tool_keys: executed_tool_keys,
-        context: { conversation: conversation, trigger_message: trigger_message }
+        context: {
+          conversation: conversation,
+          trigger_message: trigger_message,
+          config: runtime_config,
+          knowledge_sources: runtime_knowledge_sources
+        }
       )
     end
 
@@ -131,7 +169,7 @@ module AiAgents
     end
 
     def llm_tools
-      @llm_tools ||= config.enabled_tool_keys.filter_map do |tool_key|
+      @llm_tools ||= runtime_tool_keys.filter_map do |tool_key|
         definition = AiAgents::ToolRegistry.find(tool_key)
         next unless definition
 
@@ -144,6 +182,12 @@ module AiAgents
           }
         }
       end
+    end
+
+    def runtime_tool_keys
+      keys = config.enabled_tool_keys
+      keys = [*keys, AiAgents::Config::KNOWLEDGE_SEARCH_TOOL] if runtime_knowledge_sources.present?
+      keys.uniq
     end
 
     def perform_llm_call(step:, request_messages:, tools: llm_tools)
@@ -219,7 +263,12 @@ module AiAgents
     end
 
     def effective_system_prompt
-      @effective_system_prompt ||= AiAgents::EffectivePromptPreview.new(ai_agent: ai_agent).effective_system_prompt
+      @effective_system_prompt ||= AiAgents::EffectivePromptPreview.new(
+        ai_agent: ai_agent,
+        prompt_override: prompt_override,
+        config_override: runtime_config,
+        knowledge_sources_override: runtime_knowledge_sources
+      ).effective_system_prompt
     end
 
     def duration_ms(started_at)
@@ -527,6 +576,7 @@ module AiAgents
     def max_tool_calls_for(tool_key)
       case tool_key.to_s
       when AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL then MAX_CATALOG_SEARCH_QUERY_UNITS
+      when AiAgents::Config::KNOWLEDGE_SEARCH_TOOL then MAX_KNOWLEDGE_SEARCH_CALLS
       when AiAgents::Config::IKAS_LOOKUP_ORDER_TOOL then MAX_ORDER_LOOKUP_CALLS
       when AiAgents::Config::HUMAN_HANDOFF_TOOL then MAX_HUMAN_HANDOFF_CALLS
       else 1
@@ -691,15 +741,28 @@ module AiAgents
         'content' => content.to_s,
         'created_at' => Time.current.iso8601(3),
         'tool_events' => Array(tool_events).map { |event| event.deep_stringify_keys },
+        'source_attributions' => source_attributions(tool_events).presence,
         'turn_telemetry' => (telemetry || turn_telemetry(tool_events: tool_events)),
         'terminal_action' => terminal_action,
         'tool_result' => tool_result&.deep_stringify_keys
       }.compact
     end
 
+    def source_attributions(tool_events)
+      attributions = Array(tool_events).flat_map do |event|
+        next [] unless event['tool'] == AiAgents::Config::KNOWLEDGE_SEARCH_TOOL
+        next [] unless event['status'].to_s == 'ok'
+
+        Array(event.dig('result', 'attributions'))
+      end
+      attributions.uniq { |source| [source['source_id'], source['source_name']] }
+    end
+
     def turn_telemetry(tool_events:, budget_exhausted: false, final_answer_source: nil)
       {
         'catalog_search_units_used' => executed_tool_counts[AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL],
+        'knowledge_searches_used' => executed_tool_counts[AiAgents::Config::KNOWLEDGE_SEARCH_TOOL],
+        'knowledge_sources_used' => source_attributions(tool_events).length,
         'order_lookup_used' => executed_tool_counts[AiAgents::Config::IKAS_LOOKUP_ORDER_TOOL],
         'handoff_used' => handoff_used?(tool_events),
         'budget_exhausted' => budget_exhausted,
@@ -736,6 +799,7 @@ module AiAgents
     def final_answer_source_for(tool_events)
       return 'model_only' if tool_events.blank?
       return 'tool_error' if tool_events.any? { |event| event['status'].to_s == 'error' || event['status'].to_s == 'rejected' }
+      return 'knowledge_evidence' if tool_events.any? { |event| event['tool'] == AiAgents::Config::KNOWLEDGE_SEARCH_TOOL }
 
       'tool_evidence'
     end

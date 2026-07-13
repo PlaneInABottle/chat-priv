@@ -1,4 +1,4 @@
 interface:
   display_name: "Chatwoot LiveKit Voice AI"
-  short_description: "Verify the local LiveKit and Gemini voice-agent MVP."
+  short_description: "Verify the local LiveKit realtime voice-agent MVP."
   default_prompt: "Verify the local Chatwoot Voice AI MVP end to end: start the PM2 voice worker, create a browser test call, join as caller, confirm LiveKit dispatch, and prove transcript persistence."

@@ -16,10 +16,13 @@ module AccountSettingsSchema
         'ai_agent_model': { 'type': %w[string null] },
         'ai_agent_conversation_limit': { 'type': %w[integer string null] },
         'ai_agent_conversation_reuse_window_hours': { 'type': %w[integer string null] },
+        'ai_agent_data_retention_days': { 'type': %w[integer string null] },
+        'ai_improvement_monthly_credit_limit': { 'type': %w[integer null], 'minimum': 0 },
         'voice_ai_enabled': { 'type': %w[boolean string null] },
         'voice_ai_monthly_minute_limit': { 'type': %w[integer string null] },
         'voice_ai_max_call_duration_minutes': { 'type': %w[integer string null] },
         'voice_ai_concurrent_call_limit': { 'type': %w[integer string null] },
+        'voice_ai_data_retention_days': { 'type': %w[integer string null] },
         'conversation_required_attributes': {
           'type': %w[array null],
           'items': { 'type': 'string' }

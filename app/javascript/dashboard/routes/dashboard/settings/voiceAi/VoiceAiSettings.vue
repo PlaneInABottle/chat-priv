@@ -8,6 +8,7 @@ import {
   watch,
 } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
 
 import VoiceAPI from 'dashboard/api/voice';
 import { INBOX_TYPES } from 'dashboard/helper/inbox';
@@ -22,7 +23,12 @@ import BaseSettingsHeader from '../components/BaseSettingsHeader.vue';
 import Button from 'dashboard/components-next/button/Button.vue';
 import Input from 'dashboard/components-next/input/Input.vue';
 import Switch from 'dashboard/components-next/switch/Switch.vue';
-import TabBar from 'dashboard/components-next/tabbar/TabBar.vue';
+import AssistantReleaseHistoryDialog from '../aiAgent/components/AssistantReleaseHistoryDialog.vue';
+import ImprovementCreditsSummary from '../aiAgent/components/ImprovementCreditsSummary.vue';
+import KnowledgeSourceSelector from '../aiAgent/components/KnowledgeSourceSelector.vue';
+import ResponsiveTabNavigation from '../components/ResponsiveTabNavigation.vue';
+import VoiceCallActivity from './VoiceCallActivity.vue';
+import VoicePublishDialog from './VoicePublishDialog.vue';
 
 const TERMINAL_CALL_STATUSES = [
   'completed',
@@ -38,10 +44,10 @@ const TOOL_PAYLOAD_CLASS =
 
 const DEFAULT_AGENT = {
   name: 'Voice Assistant',
-  enabled: true,
   greeting: 'Merhaba, size nasil yardimci olabilirim?',
   prompt:
     'Yalnizca dogal Istanbul Turkcesiyle konus. Kisa, net ve sakin musteri destek cevaplari ver.',
+  knowledge_source_ids: [],
   tools_config: {
     enabled: ['human_handoff', 'end_customer_call'],
     human_handoff: { allowed_labels: [] },
@@ -58,7 +64,9 @@ const clone = value => JSON.parse(JSON.stringify(value));
 const normalizeToolsConfig = toolsConfig => {
   const tools = toolsConfig || {};
   return {
-    enabled: Array.from(new Set(tools.enabled || [])).filter(Boolean),
+    enabled: Array.from(
+      new Set(['human_handoff', 'end_customer_call', ...(tools.enabled || [])])
+    ).filter(Boolean),
     human_handoff: {
       allowed_labels: Array.from(
         new Set(tools.human_handoff?.allowed_labels || [])
@@ -72,13 +80,22 @@ const normalizeToolsConfig = toolsConfig => {
   };
 };
 
+const normalizeKnowledgeSourceIds = sourceIds =>
+  Array.from(new Set(sourceIds || []))
+    .map(Number)
+    .sort((first, second) => first - second);
+
 const store = useStore();
 const { t } = useI18n();
+const route = useRoute();
+const router = useRouter();
 
 const settings = ref([]);
 const voiceAgents = ref([]);
 const voiceUsage = ref(null);
+const improvementUsage = ref(null);
 const recordings = ref([]);
+const telephonyReadiness = ref({ configured: false, numbers: [] });
 const selectedVoiceAgentId = ref('');
 const selectedTestInboxId = ref('');
 const callerName = ref('Test caller');
@@ -88,6 +105,11 @@ const currentCall = ref(null);
 const isLoading = ref(false);
 const isLoadingRecordings = ref(false);
 const isSavingAgent = ref(false);
+const isPublishingAgent = ref(false);
+const isActivatingAgent = ref(false);
+const releaseHistoryRef = ref(null);
+const publishDialogRef = ref(null);
+const improvementCreditsRef = ref(null);
 const isCreatingCall = ref(false);
 const isEnding = ref(false);
 const isRefreshing = ref(false);
@@ -102,6 +124,12 @@ const agentForm = ref(clone(DEFAULT_AGENT));
 const assignmentForm = ref({});
 const editingVoiceAgentId = ref(null);
 const savedAgentSnapshot = ref('');
+const voiceSetupProfile = ref({
+  goal: 'support',
+  tone: 'friendly',
+  businessContext: '',
+  boundaries: '',
+});
 
 const {
   remoteAudioRef,
@@ -122,9 +150,13 @@ const teams = useMapGetter('teams/getTeams');
 const tabs = computed(() => [
   { label: t('VOICE_AI.TABS.AGENTS'), value: 'agents' },
   { label: t('VOICE_AI.TABS.TEST'), value: 'test' },
+  { label: t('VOICE_AI.TABS.CALLS'), value: 'calls' },
   { label: t('VOICE_AI.TABS.RECORDINGS'), value: 'recordings' },
   { label: t('VOICE_AI.TABS.USAGE'), value: 'usage' },
 ]);
+
+const openKnowledgeLibrary = () =>
+  router.push({ name: 'ai_knowledge_sources' });
 const activeTabIndex = computed(() =>
   tabs.value.findIndex(tab => tab.value === activeTab.value)
 );
@@ -194,11 +226,18 @@ const isVoiceAccessDisabled = computed(
   () => Boolean(voiceUsage.value) && !voiceAccessEnabled.value
 );
 const promptLength = computed(() => agentForm.value.prompt?.length || 0);
-const canSaveAgent = computed(
-  () =>
-    voiceAccessEnabled.value &&
-    Boolean(agentForm.value.name?.trim()) &&
-    promptLength.value <= PROMPT_CHARACTER_LIMIT
+const lifecycleStatus = computed(
+  () => selectedVoiceAgent.value?.lifecycle_status || 'draft'
+);
+const isActiveAgent = computed(() => lifecycleStatus.value === 'active');
+const hasPublishedVoiceRelease = computed(
+  () => (selectedVoiceAgent.value?.published_revision || 0) > 0
+);
+const hasVoiceDraftChanges = computed(() =>
+  Boolean(selectedVoiceAgent.value?.draft_changes)
+);
+const showVoicePublishAction = computed(
+  () => !hasPublishedVoiceRelease.value || hasVoiceDraftChanges.value
 );
 const currentCallStatus = computed(() => currentCall.value?.status || '');
 const isCurrentCallTerminal = computed(() =>
@@ -211,12 +250,40 @@ const hasActiveTestCall = computed(
 const canEditTest = computed(
   () => voiceAccessEnabled.value && !hasActiveTestCall.value
 );
+const improvementCreditsExhausted = computed(
+  () => improvementUsage.value?.status === 'exhausted'
+);
+const availableVoiceTestSeconds = computed(() => {
+  if (hasActiveTestCall.value) {
+    return currentCall.value?.test_duration_limit_seconds || null;
+  }
+  if (!improvementUsage.value || improvementUsage.value.unlimited) return null;
+
+  const secondsPerCredit = improvementUsage.value.rates?.audio_seconds || 10;
+  const accountMaximum =
+    (voiceUsage.value?.max_call_duration_minutes || 15) * 60;
+  return Math.min(
+    improvementUsage.value.remaining_credits * secondsPerCredit,
+    accountMaximum
+  );
+});
+const voiceTestDurationText = computed(() => {
+  const seconds = availableVoiceTestSeconds.value;
+  if (!seconds) return '';
+  if (seconds >= 60 && seconds % 60 === 0) {
+    return t('VOICE_AI.SETUP.TEST_CREDIT_DURATION_MINUTES', {
+      minutes: seconds / 60,
+    });
+  }
+
+  return t('VOICE_AI.SETUP.TEST_CREDIT_DURATION_SECONDS', { seconds });
+});
 const canStartTest = computed(
   () =>
     voiceAccessEnabled.value &&
-    Boolean(selectedVoiceAgent.value?.enabled) &&
     Boolean(selectedTestInboxSetting.value) &&
     !isCreatingCall.value &&
+    !improvementCreditsExhausted.value &&
     !hasActiveTestCall.value
 );
 const canJoin = computed(
@@ -358,6 +425,91 @@ const voiceRemainingText = computed(() => {
 
 const isToolEnabled = toolKey =>
   agentForm.value.tools_config.enabled.includes(toolKey);
+
+const isMandatoryTool = toolKey =>
+  ['human_handoff', 'end_customer_call'].includes(toolKey);
+
+const capabilityLabel = toolKey => {
+  if (toolKey === 'human_handoff') {
+    return t('VOICE_AI.CAPABILITIES.HUMAN_HANDOFF.LABEL');
+  }
+  if (toolKey === 'ikas_lookup_order') {
+    return t('VOICE_AI.CAPABILITIES.IKAS_LOOKUP_ORDER.LABEL');
+  }
+  if (toolKey === 'ikas_catalog_search') {
+    return t('VOICE_AI.CAPABILITIES.IKAS_CATALOG_SEARCH.LABEL');
+  }
+  if (toolKey === 'end_customer_call') {
+    return t('VOICE_AI.CAPABILITIES.END_CUSTOMER_CALL.LABEL');
+  }
+  return toolKey;
+};
+
+const capabilityDescription = toolKey => {
+  if (toolKey === 'human_handoff') {
+    return t('VOICE_AI.CAPABILITIES.HUMAN_HANDOFF.DESCRIPTION');
+  }
+  if (toolKey === 'ikas_lookup_order') {
+    return t('VOICE_AI.CAPABILITIES.IKAS_LOOKUP_ORDER.DESCRIPTION');
+  }
+  if (toolKey === 'ikas_catalog_search') {
+    return t('VOICE_AI.CAPABILITIES.IKAS_CATALOG_SEARCH.DESCRIPTION');
+  }
+  if (toolKey === 'end_customer_call') {
+    return t('VOICE_AI.CAPABILITIES.END_CUSTOMER_CALL.DESCRIPTION');
+  }
+  return '';
+};
+
+const statusLabel = status => {
+  if (status === 'active') return t('VOICE_AI.STATUS.ACTIVE');
+  if (status === 'paused') return t('VOICE_AI.STATUS.PAUSED');
+  return t('VOICE_AI.STATUS.DRAFT');
+};
+
+const readinessLabel = key => {
+  if (key === 'greeting') return t('VOICE_AI.READINESS.GREETING');
+  if (key === 'inbox') return t('VOICE_AI.READINESS.INBOX');
+  if (key === 'test') return t('VOICE_AI.READINESS.TEST');
+  if (key === 'phone') return t('VOICE_AI.READINESS.PHONE');
+  return t('VOICE_AI.READINESS.INSTRUCTIONS');
+};
+
+const goalLabel = goal => {
+  if (goal === 'sales') return t('VOICE_AI.CREATE.GOALS.SALES');
+  if (goal === 'orders') return t('VOICE_AI.CREATE.GOALS.ORDERS');
+  return t('VOICE_AI.CREATE.GOALS.SUPPORT');
+};
+
+const toneLabel = tone => {
+  if (tone === 'professional') {
+    return t('VOICE_AI.CREATE.TONES.PROFESSIONAL');
+  }
+  if (tone === 'concise') return t('VOICE_AI.CREATE.TONES.CONCISE');
+  return t('VOICE_AI.CREATE.TONES.FRIENDLY');
+};
+
+const buildVoiceInstructions = () => {
+  const goal = goalLabel(voiceSetupProfile.value.goal);
+  const tone = toneLabel(voiceSetupProfile.value.tone);
+  const lines = [
+    `Role: You are ${agentForm.value.name || 'a voice assistant'} for customer calls.`,
+    `Primary goal: ${goal}.`,
+    `Tone: ${tone}. Speak naturally and keep answers easy to follow aloud.`,
+  ];
+  if (voiceSetupProfile.value.businessContext.trim()) {
+    lines.push(
+      `Business context: ${voiceSetupProfile.value.businessContext.trim()}`
+    );
+  }
+  if (voiceSetupProfile.value.boundaries.trim()) {
+    lines.push(`Boundaries: ${voiceSetupProfile.value.boundaries.trim()}`);
+  }
+  lines.push(
+    'When a caller asks for a person or needs human judgment, request human support.'
+  );
+  agentForm.value.prompt = lines.join('\n\n');
+};
 const assignedAgentName = setting => {
   const agent = voiceAgents.value.find(
     item => Number(item.id) === Number(setting?.voice_agent_id)
@@ -398,9 +550,11 @@ const assignmentPayload = () =>
 const editableAgentPayload = () => ({
   id: editingVoiceAgentId.value || null,
   name: agentForm.value.name || '',
-  enabled: Boolean(agentForm.value.enabled),
   greeting: agentForm.value.greeting || '',
   prompt: agentForm.value.prompt || '',
+  knowledge_source_ids: normalizeKnowledgeSourceIds(
+    agentForm.value.knowledge_source_ids
+  ),
   tools_config: normalizeToolsConfigForAvailableTools(
     agentForm.value.tools_config
   ),
@@ -414,6 +568,14 @@ const hasUnsavedAgentChanges = computed(
   () =>
     Boolean(savedAgentSnapshot.value) &&
     currentAgentSnapshot.value !== savedAgentSnapshot.value
+);
+const canSaveAgent = computed(
+  () =>
+    voiceAccessEnabled.value &&
+    !isSavingAgent.value &&
+    Boolean(agentForm.value.name?.trim()) &&
+    promptLength.value <= PROMPT_CHARACTER_LIMIT &&
+    (!editingVoiceAgentId.value || hasUnsavedAgentChanges.value)
 );
 
 const resetAgentSnapshot = async () => {
@@ -458,6 +620,9 @@ const syncAgentForm = agent => {
   agentForm.value = {
     ...clone(DEFAULT_AGENT),
     ...agent,
+    knowledge_source_ids: normalizeKnowledgeSourceIds(
+      agent?.knowledge_source_ids
+    ),
     tools_config: normalizeToolsConfigForAvailableTools(agent?.tools_config),
     inbox_settings: agent?.inbox_settings || [],
   };
@@ -506,14 +671,20 @@ const loadData = async () => {
       store.dispatch('inboxes/get'),
       store.dispatch('teams/get'),
     ]);
-    const [agentResponse, settingsResponse, usageResponse] = await Promise.all([
-      VoiceAPI.getAgents(),
-      VoiceAPI.getSettings(),
-      VoiceAPI.getUsage(),
-    ]);
+    const [agentResponse, settingsResponse, usageResponse, telephonyResponse] =
+      await Promise.all([
+        VoiceAPI.getAgents(),
+        VoiceAPI.getSettings(),
+        VoiceAPI.getUsage(),
+        VoiceAPI.getTelephonyReadiness(),
+      ]);
     voiceAgents.value = agentResponse.data?.payload || [];
     settings.value = settingsResponse.data?.payload || [];
     voiceUsage.value = usageResponse.data || null;
+    telephonyReadiness.value = telephonyResponse.data || {
+      configured: false,
+      numbers: [],
+    };
     selectedVoiceAgentId.value =
       selectedVoiceAgentId.value || voiceAgents.value[0]?.id || '';
     syncAgentForm(selectedVoiceAgent.value || voiceAgents.value[0]);
@@ -531,9 +702,11 @@ const saveVoiceAgent = async () => {
   try {
     const payload = {
       name: agentForm.value.name,
-      enabled: agentForm.value.enabled,
       greeting: agentForm.value.greeting,
       prompt: agentForm.value.prompt,
+      knowledge_source_ids: normalizeKnowledgeSourceIds(
+        agentForm.value.knowledge_source_ids
+      ),
       tools_config: normalizeToolsConfigForAvailableTools(
         agentForm.value.tools_config
       ),
@@ -557,6 +730,76 @@ const saveVoiceAgent = async () => {
   } finally {
     isSavingAgent.value = false;
   }
+};
+
+const replaceVoiceAgent = saved => {
+  voiceAgents.value = [
+    ...voiceAgents.value.filter(agent => agent.id !== saved.id),
+    saved,
+  ].sort((a, b) => a.id - b.id);
+  selectedVoiceAgentId.value = saved.id;
+};
+
+const openPublishDialog = () => publishDialogRef.value?.open();
+
+const publishVoiceAgent = async ({ activate }) => {
+  if (!selectedVoiceAgent.value?.readiness?.can_publish) return;
+  isPublishingAgent.value = true;
+  try {
+    const response = await VoiceAPI.publishAgent(selectedVoiceAgent.value.id, {
+      activate,
+    });
+    replaceVoiceAgent(response.data);
+    syncAgentForm(response.data);
+    publishDialogRef.value?.close();
+    useAlert(
+      activate
+        ? t('VOICE_AI.AGENTS.PUBLISH_SUCCESS')
+        : t('VOICE_AI.AGENTS.PUBLISH_PAUSED_SUCCESS')
+    );
+  } catch (error) {
+    useAlert(error.response?.data?.error || t('VOICE_AI.AGENTS.PUBLISH_ERROR'));
+  } finally {
+    isPublishingAgent.value = false;
+  }
+};
+
+const activateVoiceAgent = async () => {
+  isActivatingAgent.value = true;
+  try {
+    const response = await VoiceAPI.activateAgent(selectedVoiceAgent.value.id);
+    replaceVoiceAgent(response.data);
+    useAlert(t('VOICE_AI.AGENTS.ACTIVATE_SUCCESS'));
+  } catch (error) {
+    useAlert(
+      error.response?.data?.error || t('VOICE_AI.AGENTS.ACTIVATE_ERROR')
+    );
+  } finally {
+    isActivatingAgent.value = false;
+  }
+};
+
+const pauseVoiceAgent = async () => {
+  try {
+    const response = await VoiceAPI.pauseAgent(selectedVoiceAgent.value.id);
+    replaceVoiceAgent(response.data);
+    useAlert(t('VOICE_AI.AGENTS.PAUSE_SUCCESS'));
+  } catch (error) {
+    useAlert(error.response?.data?.error || t('VOICE_AI.AGENTS.PAUSE_ERROR'));
+  }
+};
+
+const openReleaseHistory = () => releaseHistoryRef.value?.open();
+
+const refreshSelectedVoiceAgent = async () => {
+  if (!selectedVoiceAgentId.value) return;
+  const response = await VoiceAPI.getAgent(selectedVoiceAgentId.value);
+  replaceVoiceAgent(response.data);
+};
+
+const handleReleaseRestored = async () => {
+  await refreshSelectedVoiceAgent();
+  syncAgentForm(selectedVoiceAgent.value);
 };
 
 const createNewVoiceAgent = () => {
@@ -587,12 +830,14 @@ const changeTab = tab => {
   if (activeTab.value === 'agents' && !confirmDiscardAgentChanges()) return;
 
   activeTab.value = tab.value;
+  router.replace({ query: { ...route.query, section: tab.value } });
   if (tab.value === 'recordings') {
     fetchRecordings();
   }
 };
 
 const toggleTool = toolKey => {
+  if (isMandatoryTool(toolKey)) return;
   if (!availableToolKeys.value.includes(toolKey)) return;
 
   const enabled = new Set(agentForm.value.tools_config.enabled);
@@ -616,6 +861,10 @@ const toggleTool = toolKey => {
   };
 };
 
+const handleImprovementUsageLoaded = usage => {
+  improvementUsage.value = usage;
+};
+
 const createTestCall = async () => {
   if (!canStartTest.value) return;
   isCreatingCall.value = true;
@@ -627,9 +876,13 @@ const createTestCall = async () => {
       caller_number: callerNumber.value,
     });
     currentCall.value = response.data;
+    await improvementCreditsRef.value?.refresh();
     disconnectRoom();
     useAlert(t('VOICE_AI.SETUP.START_SUCCESS'));
   } catch (error) {
+    if (error.response?.data?.usage) {
+      improvementUsage.value = error.response.data.usage;
+    }
     useAlert(error.response?.data?.error || t('VOICE_AI.SETUP.START_ERROR'));
   } finally {
     isCreatingCall.value = false;
@@ -684,6 +937,7 @@ const endCall = async () => {
     currentCall.value = response.data;
     disconnectRoom();
     await refreshUsage();
+    await improvementCreditsRef.value?.refresh();
     useAlert(t('VOICE_AI.SESSION.END_SUCCESS'));
   } catch {
     useAlert(t('VOICE_AI.SESSION.ACTION_ERROR'));
@@ -692,7 +946,7 @@ const endCall = async () => {
   }
 };
 
-const onTranscriptSegment = data => {
+const onTranscriptSegment = async data => {
   if (!currentCall.value || data.call_id !== currentCall.value.id) return;
   const segments = currentCall.value.transcript_segments || [];
   if (segments.some(segment => segment.id === data.segment.id)) return;
@@ -700,6 +954,9 @@ const onTranscriptSegment = data => {
     ...currentCall.value,
     transcript_segments: [...segments, data.segment],
   };
+  if (data.segment.role === 'ai') {
+    await refreshSelectedVoiceAgent();
+  }
 };
 
 const onStatusChanged = data => {
@@ -737,6 +994,24 @@ watch(selectedVoiceAgentId, () => {
   }
 });
 
+watch(currentCallStatus, status => {
+  if (TERMINAL_CALL_STATUSES.includes(status)) disconnectRoom();
+});
+
+watch(
+  () => route.query.section,
+  section => {
+    if (tabs.value.some(tab => tab.value === section)) {
+      activeTab.value = section;
+    } else if (section) {
+      activeTab.value = 'agents';
+      router.replace({ query: { ...route.query, section: 'agents' } });
+    }
+  }
+);
+
+onBeforeRouteLeave(() => confirmDiscardAgentChanges());
+
 let voiceEventsSubscribed = false;
 const subscribeToVoiceEvents = () => {
   if (voiceEventsSubscribed) return;
@@ -756,6 +1031,11 @@ const unsubscribeFromVoiceEvents = () => {
 };
 
 onMounted(() => {
+  if (tabs.value.some(tab => tab.value === route.query.section)) {
+    activeTab.value = route.query.section;
+  } else if (route.query.section) {
+    router.replace({ query: { ...route.query, section: 'agents' } });
+  }
   loadData();
   subscribeToVoiceEvents();
   window.addEventListener('beforeunload', onBeforeUnload);
@@ -773,14 +1053,25 @@ onBeforeUnmount(() => {
         :title="t('VOICE_AI.HEADER')"
         :description="t('VOICE_AI.DESCRIPTION')"
         feature-name="voice_ai"
-      />
+      >
+        <template #actions>
+          <Button
+            icon="i-lucide-library"
+            variant="outline"
+            color="slate"
+            :label="t('AI_KNOWLEDGE.ACTIONS.MANAGE')"
+            @click="openKnowledgeLibrary"
+          />
+        </template>
+      </BaseSettingsHeader>
     </template>
 
     <template #body>
       <div class="flex flex-col gap-6">
-        <TabBar
+        <ResponsiveTabNavigation
           :tabs="tabs"
-          :initial-active-tab="activeTabIndex"
+          :active-tab-index="activeTabIndex"
+          :aria-label="t('VOICE_AI.TABS.LABEL')"
           @tab-changed="changeTab"
         />
 
@@ -791,7 +1082,7 @@ onBeforeUnmount(() => {
           <aside
             class="flex max-h-[calc(100vh-12rem)] flex-col rounded-xl border border-n-weak bg-n-solid-1 p-4"
           >
-            <div class="mb-4 flex items-center justify-between gap-3">
+            <div class="mb-4 flex flex-col gap-3">
               <div>
                 <h2 class="m-0 text-heading-2 text-n-slate-12">
                   {{ t('VOICE_AI.AGENTS.TITLE') }}
@@ -806,6 +1097,7 @@ onBeforeUnmount(() => {
                 variant="outline"
                 color="slate"
                 :label="t('VOICE_AI.AGENTS.NEW')"
+                class="w-full"
                 :disabled="!voiceAccessEnabled"
                 @click="createNewVoiceAgent"
               />
@@ -829,12 +1121,18 @@ onBeforeUnmount(() => {
                 <span class="block text-sm font-medium text-n-slate-12">
                   {{ agent.name }}
                 </span>
-                <span class="mt-1 block text-xs text-n-slate-11">
-                  {{
-                    agent.enabled
-                      ? t('VOICE_AI.AGENTS.STATUS_ENABLED')
-                      : t('VOICE_AI.AGENTS.STATUS_DISABLED')
-                  }}
+                <span
+                  class="mt-2 inline-flex w-fit rounded-md px-2 py-1 text-xs font-medium"
+                  :class="{
+                    'bg-n-teal-3 text-n-teal-11':
+                      agent.lifecycle_status === 'active',
+                    'bg-n-amber-3 text-n-amber-11':
+                      agent.lifecycle_status === 'paused',
+                    'bg-n-slate-3 text-n-slate-11':
+                      agent.lifecycle_status === 'draft',
+                  }"
+                >
+                  {{ statusLabel(agent.lifecycle_status) }}
                 </span>
                 <span class="mt-1 block text-xs text-n-slate-11">
                   {{
@@ -853,17 +1151,167 @@ onBeforeUnmount(() => {
             </div>
           </aside>
 
-          <div
-            class="rounded-xl border border-n-weak bg-n-solid-1 p-5 flex flex-col gap-5"
-          >
-            <div>
-              <h2 class="m-0 text-heading-2 text-n-slate-12">
-                {{ t('VOICE_AI.AGENTS.EDITOR_TITLE') }}
-              </h2>
-              <p class="mb-0 mt-1 text-sm text-n-slate-11">
-                {{ t('VOICE_AI.AGENTS.EDITOR_DESCRIPTION') }}
-              </p>
+          <div class="flex min-w-0 flex-col gap-5">
+            <div
+              class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between"
+            >
+              <div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <h2 class="m-0 text-heading-2 text-n-slate-12">
+                    {{ t('VOICE_AI.AGENTS.EDITOR_TITLE') }}
+                  </h2>
+                  <span
+                    v-if="editingVoiceAgentId"
+                    class="rounded-md px-2 py-1 text-xs font-medium"
+                    :class="
+                      isActiveAgent
+                        ? 'bg-n-teal-3 text-n-teal-11'
+                        : lifecycleStatus === 'paused'
+                          ? 'bg-n-amber-3 text-n-amber-11'
+                          : 'bg-n-slate-3 text-n-slate-11'
+                    "
+                  >
+                    {{ statusLabel(lifecycleStatus) }}
+                  </span>
+                </div>
+                <p class="mb-0 mt-1 text-sm text-n-slate-11">
+                  {{ t('VOICE_AI.AGENTS.EDITOR_DESCRIPTION') }}
+                </p>
+              </div>
+              <div
+                v-if="editingVoiceAgentId"
+                class="flex flex-wrap justify-end gap-2"
+              >
+                <Button
+                  v-if="hasPublishedVoiceRelease"
+                  icon="i-lucide-history"
+                  variant="outline"
+                  color="slate"
+                  :label="t('AI_ASSISTANT.RELEASE_HISTORY.OPEN')"
+                  @click="openReleaseHistory"
+                />
+                <Button
+                  v-if="isActiveAgent"
+                  icon="i-lucide-pause"
+                  variant="outline"
+                  color="amber"
+                  :label="t('VOICE_AI.AGENTS.PAUSE')"
+                  @click="pauseVoiceAgent"
+                />
+                <Button
+                  v-else-if="hasPublishedVoiceRelease"
+                  icon="i-lucide-play"
+                  variant="outline"
+                  color="teal"
+                  :label="t('VOICE_AI.AGENTS.ACTIVATE')"
+                  :is-loading="isActivatingAgent"
+                  @click="activateVoiceAgent"
+                />
+                <Button
+                  v-if="showVoicePublishAction"
+                  icon="i-lucide-rocket"
+                  :label="
+                    hasPublishedVoiceRelease
+                      ? t('VOICE_AI.AGENTS.PUBLISH_UPDATE')
+                      : t('VOICE_AI.AGENTS.PUBLISH')
+                  "
+                  :disabled="
+                    !selectedVoiceAgent?.readiness?.can_publish ||
+                    hasUnsavedAgentChanges
+                  "
+                  @click="openPublishDialog"
+                />
+              </div>
             </div>
+
+            <div
+              v-if="isActiveAgent"
+              class="rounded-lg border border-n-teal-5 bg-n-teal-2 p-3 text-sm text-n-teal-11"
+            >
+              {{ t('VOICE_AI.AGENTS.LIVE_EDIT_NOTICE') }}
+            </div>
+
+            <section
+              v-if="!editingVoiceAgentId"
+              class="flex flex-col gap-4 rounded-lg border border-n-weak p-4"
+            >
+              <div>
+                <h3 class="m-0 text-sm font-semibold text-n-slate-12">
+                  {{ t('VOICE_AI.CREATE.TITLE') }}
+                </h3>
+                <p class="mb-0 mt-1 text-sm text-n-slate-11">
+                  {{ t('VOICE_AI.CREATE.DESCRIPTION') }}
+                </p>
+              </div>
+              <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <label
+                  class="flex flex-col gap-1 text-sm font-medium text-n-slate-12"
+                >
+                  {{ t('VOICE_AI.CREATE.GOAL') }}
+                  <select
+                    v-model="voiceSetupProfile.goal"
+                    class="h-10 rounded-lg border border-n-weak bg-n-alpha-1 px-3 font-normal"
+                  >
+                    <option value="support">
+                      {{ t('VOICE_AI.CREATE.GOALS.SUPPORT') }}
+                    </option>
+                    <option value="sales">
+                      {{ t('VOICE_AI.CREATE.GOALS.SALES') }}
+                    </option>
+                    <option value="orders">
+                      {{ t('VOICE_AI.CREATE.GOALS.ORDERS') }}
+                    </option>
+                  </select>
+                </label>
+                <label
+                  class="flex flex-col gap-1 text-sm font-medium text-n-slate-12"
+                >
+                  {{ t('VOICE_AI.CREATE.TONE') }}
+                  <select
+                    v-model="voiceSetupProfile.tone"
+                    class="h-10 rounded-lg border border-n-weak bg-n-alpha-1 px-3 font-normal"
+                  >
+                    <option value="friendly">
+                      {{ t('VOICE_AI.CREATE.TONES.FRIENDLY') }}
+                    </option>
+                    <option value="professional">
+                      {{ t('VOICE_AI.CREATE.TONES.PROFESSIONAL') }}
+                    </option>
+                    <option value="concise">
+                      {{ t('VOICE_AI.CREATE.TONES.CONCISE') }}
+                    </option>
+                  </select>
+                </label>
+              </div>
+              <label
+                class="flex flex-col gap-1 text-sm font-medium text-n-slate-12"
+              >
+                {{ t('VOICE_AI.CREATE.BUSINESS_CONTEXT') }}
+                <textarea
+                  v-model="voiceSetupProfile.businessContext"
+                  rows="3"
+                  class="rounded-lg border border-n-weak bg-n-alpha-1 p-3 font-normal"
+                />
+              </label>
+              <label
+                class="flex flex-col gap-1 text-sm font-medium text-n-slate-12"
+              >
+                {{ t('VOICE_AI.CREATE.BOUNDARIES') }}
+                <textarea
+                  v-model="voiceSetupProfile.boundaries"
+                  rows="3"
+                  class="rounded-lg border border-n-weak bg-n-alpha-1 p-3 font-normal"
+                />
+              </label>
+              <Button
+                icon="i-lucide-wand-sparkles"
+                variant="outline"
+                color="slate"
+                class="w-fit"
+                :label="t('VOICE_AI.CREATE.BUILD_INSTRUCTIONS')"
+                @click="buildVoiceInstructions"
+              />
+            </section>
 
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
               <Input
@@ -874,23 +1322,6 @@ onBeforeUnmount(() => {
               <Input
                 v-model="agentForm.greeting"
                 :label="t('VOICE_AI.AGENTS.GREETING')"
-                :disabled="!voiceAccessEnabled"
-              />
-            </div>
-
-            <div
-              class="flex items-center justify-between gap-4 rounded-lg bg-n-alpha-2 p-3"
-            >
-              <div>
-                <p class="mb-1 text-sm font-medium text-n-slate-12">
-                  {{ t('VOICE_AI.AGENTS.ENABLED') }}
-                </p>
-                <p class="mb-0 text-sm text-n-slate-11">
-                  {{ t('VOICE_AI.AGENTS.ENABLED_HELP') }}
-                </p>
-              </div>
-              <Switch
-                v-model="agentForm.enabled"
                 :disabled="!voiceAccessEnabled"
               />
             </div>
@@ -916,6 +1347,11 @@ onBeforeUnmount(() => {
               </span>
             </label>
 
+            <KnowledgeSourceSelector
+              v-model="agentForm.knowledge_source_ids"
+              :disabled="!voiceAccessEnabled"
+            />
+
             <div>
               <h3 class="mb-2 text-sm font-medium text-n-slate-12">
                 {{ t('VOICE_AI.AGENTS.TOOLS') }}
@@ -927,6 +1363,7 @@ onBeforeUnmount(() => {
                   class="flex items-start gap-3 rounded-lg border border-n-weak bg-n-alpha-2 p-3"
                 >
                   <input
+                    v-if="!isMandatoryTool(tool.key)"
                     type="checkbox"
                     class="mt-1 h-4 w-4 rounded border-n-slate-6 text-n-brand"
                     :checked="isToolEnabled(tool.key)"
@@ -935,11 +1372,17 @@ onBeforeUnmount(() => {
                   />
                   <span class="min-w-0">
                     <span class="block text-sm font-medium text-n-slate-12">
-                      {{ tool.name }}
+                      {{ capabilityLabel(tool.key) }}
                     </span>
                     <span class="mt-1 block text-xs text-n-slate-11">
-                      {{ tool.description }}
+                      {{ capabilityDescription(tool.key) }}
                     </span>
+                  </span>
+                  <span
+                    v-if="isMandatoryTool(tool.key)"
+                    class="ml-auto flex-shrink-0 rounded-md bg-n-teal-3 px-2 py-1 text-xs font-medium text-n-teal-11"
+                  >
+                    {{ t('VOICE_AI.CAPABILITIES.ALWAYS_AVAILABLE') }}
                   </span>
                 </label>
               </div>
@@ -955,6 +1398,42 @@ onBeforeUnmount(() => {
                     : t('VOICE_AI.AGENTS.IKAS_NOT_CONNECTED')
                 }}
               </p>
+            </div>
+
+            <div
+              class="rounded-lg border p-4"
+              :class="
+                telephonyReadiness.configured
+                  ? 'border-n-teal-5 bg-n-teal-2'
+                  : 'border-n-amber-5 bg-n-amber-2'
+              "
+            >
+              <h3 class="m-0 text-sm font-semibold text-n-slate-12">
+                {{ t('VOICE_AI.PHONE_READINESS.TITLE') }}
+              </h3>
+              <p class="mb-0 mt-1 text-sm text-n-slate-11">
+                {{
+                  telephonyReadiness.configured
+                    ? t('VOICE_AI.PHONE_READINESS.READY')
+                    : t('VOICE_AI.PHONE_READINESS.MISSING')
+                }}
+              </p>
+              <ul
+                v-if="telephonyReadiness.numbers.length"
+                class="mb-0 mt-3 list-none p-0 text-sm text-n-slate-12"
+              >
+                <li
+                  v-for="number in telephonyReadiness.numbers"
+                  :key="number.id"
+                >
+                  {{
+                    t('VOICE_AI.PHONE_READINESS.NUMBER_STATUS', {
+                      number: number.phone_number,
+                      status: number.status,
+                    })
+                  }}
+                </li>
+              </ul>
             </div>
 
             <div class="rounded-lg border border-n-weak bg-n-alpha-1 p-4">
@@ -1047,12 +1526,55 @@ onBeforeUnmount(() => {
                     </span>
                     <Switch
                       v-model="row.form.recording_enabled"
+                      :aria-label="
+                        t('VOICE_AI.ASSIGNMENTS.RECORDING_LABEL', {
+                          inbox: row.inbox.name,
+                        })
+                      "
                       :disabled="!voiceAccessEnabled || !row.form.assigned"
                     />
                   </div>
                 </div>
               </div>
             </div>
+
+            <section
+              v-if="selectedVoiceAgent?.readiness"
+              class="rounded-lg border border-n-weak p-4"
+              aria-labelledby="voice-readiness-title"
+            >
+              <h3
+                id="voice-readiness-title"
+                class="m-0 text-sm font-semibold text-n-slate-12"
+              >
+                {{ t('VOICE_AI.READINESS.TITLE') }}
+              </h3>
+              <p class="mb-0 mt-1 text-sm text-n-slate-11">
+                {{ t('VOICE_AI.READINESS.DESCRIPTION') }}
+              </p>
+              <ul class="mb-0 mt-3 flex list-none flex-col gap-2 p-0">
+                <li
+                  v-for="check in selectedVoiceAgent.readiness.checks"
+                  :key="check.key"
+                  class="flex items-start gap-2 text-sm"
+                >
+                  <span
+                    class="mt-0.5 size-4 flex-shrink-0"
+                    :class="
+                      check.complete
+                        ? 'i-lucide-circle-check text-n-teal-10'
+                        : 'i-lucide-circle text-n-slate-9'
+                    "
+                  />
+                  <span class="text-n-slate-12">
+                    {{ readinessLabel(check.key) }}
+                    <span v-if="!check.blocking" class="text-n-slate-10">
+                      {{ t('VOICE_AI.READINESS.OPTIONAL') }}
+                    </span>
+                  </span>
+                </li>
+              </ul>
+            </section>
 
             <div class="flex justify-end">
               <Button
@@ -1065,6 +1587,11 @@ onBeforeUnmount(() => {
             </div>
           </div>
         </section>
+
+        <VoiceCallActivity
+          v-if="activeTab === 'calls'"
+          :voice-agents="voiceAgents"
+        />
 
         <section
           v-if="activeTab === 'test'"
@@ -1081,6 +1608,14 @@ onBeforeUnmount(() => {
                 {{ t('VOICE_AI.TEST.DESCRIPTION') }}
               </p>
             </div>
+
+            <ImprovementCreditsSummary
+              ref="improvementCreditsRef"
+              @loaded="handleImprovementUsageLoaded"
+            />
+            <p v-if="voiceTestDurationText" class="m-0 text-xs text-n-slate-10">
+              {{ voiceTestDurationText }}
+            </p>
 
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
               <label class="flex flex-col gap-1">
@@ -1175,7 +1710,7 @@ onBeforeUnmount(() => {
               <p class="mb-0 mt-1 truncate text-sm text-n-slate-11">
                 {{
                   hasCall
-                    ? currentCall.livekit_room_name
+                    ? selectedVoiceAgent?.name
                     : t('VOICE_AI.SESSION.NOT_STARTED')
                 }}
               </p>
@@ -1192,9 +1727,17 @@ onBeforeUnmount(() => {
                 {{ t('VOICE_AI.SESSION.BROWSER_STATUS') }}
               </dt>
               <dd class="text-n-slate-12">{{ sessionStatusLabel }}</dd>
-              <dt class="text-n-slate-11">{{ t('VOICE_AI.SESSION.ROOM') }}</dt>
+              <dt class="text-n-slate-11">
+                {{ t('VOICE_AI.SESSION.ASSISTANT') }}
+              </dt>
               <dd class="truncate text-n-slate-12">
-                {{ currentCall?.livekit_room_name || '-' }}
+                {{ selectedVoiceAgent?.name || '-' }}
+              </dd>
+              <dt class="text-n-slate-11">
+                {{ t('VOICE_AI.SESSION.INBOX') }}
+              </dt>
+              <dd class="truncate text-n-slate-12">
+                {{ selectedTestInboxSetting?.inbox_name || '-' }}
               </dd>
             </dl>
 
@@ -1353,14 +1896,11 @@ onBeforeUnmount(() => {
                   </details>
                 </template>
                 <template v-else>
-                  <div class="mb-1 flex items-center justify-between gap-3">
+                  <div class="mb-1 flex items-center gap-3">
                     <span
                       class="text-sm font-medium text-n-slate-12 capitalize"
                     >
                       {{ item.role }}
-                    </span>
-                    <span class="text-xs text-n-slate-10">
-                      {{ item.source }}
                     </span>
                   </div>
                   <p class="mb-0 whitespace-pre-wrap text-sm text-n-slate-12">
@@ -1649,4 +2189,19 @@ onBeforeUnmount(() => {
       </div>
     </template>
   </SettingsLayout>
+  <AssistantReleaseHistoryDialog
+    v-if="selectedVoiceAgent?.id"
+    ref="releaseHistoryRef"
+    assistant-type="voice"
+    :assistant-id="selectedVoiceAgent.id"
+    :current-release-id="selectedVoiceAgent.current_release?.id"
+    @restored="handleReleaseRestored"
+  />
+  <VoicePublishDialog
+    v-if="selectedVoiceAgent?.id"
+    ref="publishDialogRef"
+    :voice-agent="selectedVoiceAgent"
+    :is-publishing="isPublishingAgent"
+    @confirm="publishVoiceAgent"
+  />
 </template>

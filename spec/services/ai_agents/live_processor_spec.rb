@@ -65,6 +65,77 @@ RSpec.describe AiAgents::LiveProcessor do
     )
   end
 
+  it 'uses the published prompt and capabilities while an update remains in draft' do
+    ai_agent.update!(prompt: 'Published customer guidance')
+    ai_agent.mark_test_succeeded!
+    ai_agent.publish!
+    ai_agent.update!(
+      prompt: 'Unpublished draft guidance',
+      config: { 'tools' => { 'enabled' => %w[human_handoff ikas_catalog_search] } }
+    )
+    message = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming', sender: conversation.contact,
+                               content: 'Hello')
+    allow(adapter).to receive(:perform).and_return({ assistant_text: 'Hi there', tool_calls: [], finish_reason: 'stop' })
+
+    described_class.new(message: message, adapter: adapter).perform
+
+    system_prompt = AiAgentLlmCall.last.request_messages.first.fetch('content')
+    expect(system_prompt).to include('Published customer guidance')
+    expect(system_prompt).not_to include('Unpublished draft guidance')
+    expect(AiAgentLlmCall.last.request_tool_names).to eq(['human_handoff'])
+  end
+
+  it 'uses published knowledge and persists compact source attribution' do
+    source = create(
+      :ai_knowledge_source,
+      account: account,
+      name: 'Returns and exchanges',
+      content: 'Custom-sized products are reviewed for return within 14 days.'
+    )
+    AiKnowledgeSourceAssignment.create!(assistant: ai_agent, ai_knowledge_source: source)
+    ai_agent.mark_test_succeeded!
+    ai_agent.publish!
+    source.update!(content: 'Unpublished draft now says 30 days.')
+    message = create(
+      :message,
+      account: account,
+      inbox: inbox,
+      conversation: conversation,
+      message_type: 'incoming',
+      sender: conversation.contact,
+      content: 'Can I return a custom-sized product?'
+    )
+    allow(adapter).to receive(:perform).and_return(
+      {
+        assistant_text: nil,
+        tool_calls: [
+          {
+            id: 'knowledge-1',
+            type: 'function',
+            name: 'search_knowledge',
+            arguments: { query: 'custom product return within 14 days' }.to_json
+          }
+        ],
+        finish_reason: 'tool_calls'
+      },
+      {
+        assistant_text: 'Custom-sized products can be reviewed for return within 14 days.',
+        tool_calls: [],
+        finish_reason: 'stop'
+      }
+    )
+
+    described_class.new(message: message, adapter: adapter).perform
+
+    tool_result_message = AiAgentLlmCall.last.request_messages.find { |entry| entry['role'] == 'tool' }
+    expect(tool_result_message['content']).to include('within 14 days')
+    expect(tool_result_message['content']).not_to include('30 days')
+    outgoing = conversation.messages.where(message_type: 'outgoing', private: false, sender: ai_agent.agent_bot).last
+    expect(outgoing.content_attributes.dig('ai_agent', 'source_attributions')).to eq(
+      [{ 'source_id' => source.id, 'source_name' => 'Returns and exchanges' }]
+    )
+  end
+
   it 'consumes one monthly usage event for a successful live AI response' do
     account.update!(ai_agent_conversation_limit: 2, ai_agent_conversation_reuse_window_hours: 24)
     message = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming', sender: conversation.contact,

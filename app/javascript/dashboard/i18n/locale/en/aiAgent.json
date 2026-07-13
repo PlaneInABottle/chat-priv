@@ -1,23 +1,27 @@
 {
   "AI_AGENT": {
     "HEADER": "AI Assistant",
-    "DESCRIPTION": "Configure your AI assistant to help manage conversations",
+    "DESCRIPTION": "Set up how this assistant responds, connect inboxes, test it, and publish when ready.",
     "LEARN_MORE": "Learn more about AI Assistant",
     "BACK": "Back",
     "UNSAVED_CHANGES_WARNING": "You have unsaved changes. Are you sure you want to leave?",
     "TABS": {
-      "SETTINGS": "Settings",
-      "TEST": "Test"
+      "LABEL": "Assistant settings view",
+      "INSTRUCTIONS": "Instructions",
+      "KNOWLEDGE": "Knowledge",
+      "CONNECTIONS": "Connections",
+      "TEST_HISTORY": "Test",
+      "IMPROVE": "Improve"
     },
     "NAME": {
-      "LABEL": "Agent Name",
-      "PLACEHOLDER": "Enter agent name..."
+      "LABEL": "Assistant name",
+      "PLACEHOLDER": "Enter assistant name…"
     },
     "PROMPT": {
-      "LABEL": "System Prompt",
-      "PLACEHOLDER": "Enter instructions for your AI assistant...",
-      "HELP": "This prompt guides how the AI responds to conversations",
-      "REQUIRED_FOR_TESTING": "Add a system prompt, then save your changes before testing this AI agent."
+      "LABEL": "Instructions",
+      "PLACEHOLDER": "Describe how the assistant should respond…",
+      "HELP": "Write clear, plain-language guidance for customer conversations.",
+      "REQUIRED_FOR_TESTING": "Add instructions, then save your changes before testing this AI assistant."
     },
     "ENABLED": {
       "LABEL": "Enable AI Assistant",
@@ -30,26 +34,26 @@
       "ASSIGNED_TO": "Assigned to {owner}"
     },
     "TOOLS": {
-      "LABEL": "Built-in Tools",
-      "HELP": "Enable the allowlisted tools available to this AI agent.",
+      "LABEL": "Capabilities",
+      "HELP": "Choose the customer tasks this assistant can complete. Human support fallback is always available.",
       "HUMAN_HANDOFF": {
-        "LABEL": "Human handoff",
-        "HELP": "Allow the AI agent to hand conversations to a human and limit which existing labels it may apply.",
-        "ALLOWED_LABELS_LABEL": "Allowed labels",
+        "LABEL": "Human support fallback",
+        "HELP": "The assistant can always send a conversation to your team when a person is needed.",
+        "ALLOWED_LABELS_LABEL": "Handoff labels (optional)",
         "ALLOWED_LABELS_PLACEHOLDER": "Select labels",
         "ALLOWED_LABELS_SEARCH_PLACEHOLDER": "Search labels",
         "ALLOWED_LABELS_EMPTY": "No matching labels found",
-        "ALLOWED_LABELS_HELP": "Only existing account labels can be selected. The AI can apply only this subset during handoff."
+        "ALLOWED_LABELS_HELP": "These routing labels may be added to the conversation during handoff. They appear in the conversation sidebar, not in the private note."
       },
       "IKAS_LOOKUP_ORDER": {
-        "LABEL": "ikas lookup order",
-        "HELP": "Allow the AI agent to look up connected ikas order, package, payment, cargo, and tracking status from order number, phone, email, or the conversation contact.",
+        "LABEL": "Order updates",
+        "HELP": "Look up order, payment, package, cargo, and tracking information from your connected ikas store.",
         "CONNECTED": "ikas order lookup is ready for order and cargo questions.",
         "UNAVAILABLE": "ikas lookup order is unavailable (state: {state})."
       },
       "IKAS_CATALOG_SEARCH": {
-        "LABEL": "ikas catalog search",
-        "HELP": "Allow the AI agent to search the connected seller catalog before answering product, stock, size, dimension, color, category, weight, volume, and organic product questions.",
+        "LABEL": "Product information",
+        "HELP": "Search your connected ikas catalog before answering product, stock, size, color, and compatibility questions.",
         "READY": "ikas catalog is synced and ready for catalog answers.",
         "UNAVAILABLE": "ikas catalog search is unavailable (connection: {state}, catalog: {catalogStatus})."
       }
@@ -58,7 +62,7 @@
       "TITLE": "AI usage",
       "HELP": "Monthly AI conversation usage for this account.",
       "EXHAUSTED_HELP": "AI replies are paused until the monthly limit resets. New customer messages are routed to humans.",
-      "LOADING": "Loading...",
+      "LOADING": "Loading…",
       "UNAVAILABLE": "Unavailable",
       "DISABLED": "Disabled",
       "DISABLED_HELP": "AI Assistant is disabled for this account.",
@@ -84,7 +88,7 @@
       "NEW": "New Test",
       "CLEAR_ALL": "Clear All",
       "CLEAR_ALL_CONFIRM": "Delete all test conversations? This cannot be undone.",
-      "EMPTY": "No test conversations yet. Start a new one to test your AI agent.",
+      "EMPTY": "No test conversations yet. Start a new one to test your AI assistant.",
       "EMPTY_CHAT": "Select or create a test conversation to begin chatting",
       "DELETE_CONFIRM": "Delete this test conversation?",
       "DELETE": "Delete",
@@ -92,77 +96,713 @@
       "MESSAGES_COUNT": "{count} messages",
       "MESSAGE_LIMIT_REACHED": "Message limit reached (200 messages max). Start a new test conversation.",
       "TEST_MODE": "TEST MODE",
-      "PLACEHOLDER": "Type a test message...",
+      "PLACEHOLDER": "Type a test message…",
       "SEND": "Send",
-      "RESPONSE_WAIT": "AI is thinking...",
+      "RESPONSE_WAIT": "AI is thinking…",
       "HANDOFF_TITLE": "Human handoff preview",
       "HANDOFF_PREVIEW": "This conversation would be handed off to a human agent.",
-      "INTERNAL_NOTE": "Internal note",
-      "LABELS_TO_APPLY": "Labels to apply",
-      "LABELS_IGNORED": "Labels ignored",
-      "SAVE_BEFORE_TESTING": "Save your changes before testing this AI agent.",
-      "ENABLE_BEFORE_TESTING": "Enable this AI agent and save your changes before testing.",
-      "ADD_PROMPT_BEFORE_TESTING": "Add a system prompt and save your changes before testing this AI agent.",
+      "INTERNAL_NOTE": "Internal note:",
+      "LABELS_TO_APPLY": "Conversation labels:",
+      "LABELS_IGNORED": "Unavailable labels:",
+      "SOURCES_USED": "Sources used",
+      "SAVE_BEFORE_TESTING": "Save your changes before testing this AI assistant.",
+      "ADD_PROMPT_BEFORE_TESTING": "Add instructions and save your changes before testing this AI assistant.",
       "ERROR": "Sorry, I couldn't generate a response right now. Please try again."
     },
     "SAVE": {
       "BUTTON": "Save Changes",
+      "DISCARD": "Discard changes",
       "SUCCESS": "AI Assistant settings saved",
       "ERROR": "Failed to save AI Assistant settings"
     }
   },
-  "AI_AGENTS": {
-    "HEADER": "AI Agents",
-    "DESCRIPTION": "Manage your AI agents",
-    "ADD": "Add New Agent",
-    "NEW": {
-      "TITLE": "New AI Agent",
-      "NAME_LABEL": "Agent Name",
-      "NAME_PLACEHOLDER": "e.g., Sales Assistant",
-      "CREATE": "Create Agent",
-      "CANCEL": "Cancel",
-      "NAME_REQUIRED": "Name is required",
-      "SUCCESS": "AI agent created successfully",
-      "ERROR": "Failed to create AI agent"
+  "AI_ASSISTANT": {
+    "STATUS": {
+      "ACTIVE": "Active",
+      "PAUSED": "Paused",
+      "DRAFT": "Draft"
     },
     "LIST": {
-      "EMPTY_TITLE": "No AI agents yet",
-      "EMPTY_DESCRIPTION": "Create your first AI agent to get started.",
-      "CREATE_FIRST": "Create First Agent"
+      "NAME": "Assistant",
+      "STATUS": "Status",
+      "INBOXES": "Inboxes",
+      "UPDATED": "Updated",
+      "ACTIONS": "Actions",
+      "DRAFT_UPDATE": "Update pending",
+      "INBOX_COUNT": "No inboxes | {count} inbox | {count} inboxes"
+    },
+    "USAGE": {
+      "TITLE": "AI Assistant usage",
+      "DESCRIPTION": "Review account-wide conversation usage and recent activity.",
+      "OPEN": "View usage",
+      "BACK": "Back to assistants"
+    },
+    "READINESS": {
+      "TITLE": "Finish setup",
+      "DESCRIPTION": "Complete the remaining required items before publishing.",
+      "INSTRUCTIONS": "Instructions added",
+      "INBOX": "Inbox connected"
+    },
+    "ACTIONS": {
+      "PUBLISH": "Publish assistant",
+      "PUBLISH_UPDATE": "Publish",
+      "RESUME": "Resume assistant",
+      "PAUSE": "Pause",
+      "PUBLISHED": "Assistant published",
+      "UPDATED": "Assistant update published",
+      "RESUMED": "Assistant resumed",
+      "PAUSED": "Assistant paused and no longer responds to new customer messages.",
+      "PUBLISH_ERROR": "Complete the setup checklist before publishing."
+    },
+    "RELEASE": {
+      "LIVE": "Version {version} is responding to customers. You can edit and test a draft without interrupting it.",
+      "PENDING": "Version {version} is still responding to customers. Your saved draft is not live until you publish the update.",
+      "PAUSED": "Version {version} is paused. Resume it as-is or publish the saved draft."
+    },
+    "RELEASE_HISTORY": {
+      "TITLE": "Version history",
+      "OPEN": "Version history",
+      "VERSION": "Version {version}",
+      "LIVE": "Live",
+      "CREATED_BY": "{date} by {name}",
+      "SOURCE": {
+        "PUBLISHED": "Published",
+        "RESTORED": "Restored",
+        "IMPORTED": "Imported from the previous version",
+        "UNKNOWN": "Saved version"
+      },
+      "LOADING": "Loading versions…",
+      "EMPTY": "No published versions yet.",
+      "RESTORE": "Restore",
+      "CONFIRM_RESTORE": "Restore version",
+      "RESTORE_WARNING": "Restore version {version} as a new live version?",
+      "RESTORED": "Version restored",
+      "LOAD_ERROR": "Version history could not be loaded.",
+      "RESTORE_ERROR": "Version could not be restored.",
+      "COMPARE_HELP": "Only fields that differ from the current live version are shown.",
+      "VIEWED": "Viewed version",
+      "CURRENT_LIVE": "Current live version",
+      "EMPTY_VALUE": "Not set",
+      "KNOWLEDGE_CONTENT_CHANGED": "{name} (content changed)",
+      "NO_DIFFERENCES": "This version has the same customer-facing settings as the live version.",
+      "FIELDS": {
+        "GREETING": "Greeting",
+        "INSTRUCTIONS": "Instructions",
+        "LANGUAGE": "Language",
+        "VOICE": "Voice",
+        "KNOWLEDGE": "Shared knowledge"
+      }
+    },
+    "EVALUATIONS": {
+      "TITLE": "Evaluation scenarios",
+      "DESCRIPTION": "Save representative customer questions and describe what a good answer must do. Runs use the saved draft and never contact customers.",
+      "ADD": "Add scenario",
+      "EDIT": "Edit scenario",
+      "DELETE": "Delete scenario",
+      "LOADING": "Loading evaluation scenarios…",
+      "SAVED": "Evaluation scenario saved",
+      "DELETED": "Evaluation scenario deleted",
+      "CRITERIA_LABEL": "Good answer: ",
+      "GENERATE": {
+        "ACTION": "Suggest scenarios",
+        "STARTED": "Preparing suggested scenarios in the background",
+        "SUCCESS": "Added {count} suggested scenarios. Review them before running."
+      },
+      "REVIEW": {
+        "NEEDED": "Review needed",
+        "APPROVE": "Approve scenario",
+        "APPROVED": "Evaluation scenario approved"
+      },
+      "QUALITY": {
+        "TITLE": "Quality by version",
+        "DESCRIPTION": "Evaluation scores use the latest completed run for that version. Live activity shows customer conversations handled by each published version.",
+        "DRAFT": "Current draft",
+        "VERSION": "Version {version}",
+        "LIVE": "Live",
+        "CURRENT": "Current version",
+        "NOT_PUBLISHED": "Not published",
+        "VERSION_HEADER": "Version",
+        "EVALUATION_HEADER": "Evaluation",
+        "CONVERSATIONS": "Conversations",
+        "AI_REPLIES": "AI replies",
+        "HANDOFFS": "Human handoffs",
+        "NOT_EVALUATED": "Not evaluated",
+        "NOT_LIVE": "Not live",
+        "NO_ACTIVITY": "No live activity",
+        "EVALUATION_SCORE": "{passed} of {total} passed ({rate}%)",
+        "HANDOFF_VALUE": "{count} ({rate}%)"
+      },
+      "RUN": {
+        "ACTION": "Run reviewed",
+        "RUNNING": "Evaluating the current draft…",
+        "FAILED": "The evaluation run could not complete.",
+        "SUMMARY": "{passed} of {total} scenarios passed",
+        "OLDER_DRAFT": "These results belong to an older draft. Run the scenarios again before relying on them."
+      },
+      "FORM": {
+        "ADD_TITLE": "Add evaluation scenario",
+        "EDIT_TITLE": "Edit evaluation scenario",
+        "NAME": "Scenario name",
+        "NAME_PLACEHOLDER": "For example: Delivery time question",
+        "MESSAGE": "Customer message",
+        "MESSAGE_PLACEHOLDER": "Write the message exactly as a customer might send it…",
+        "MESSAGE_HELP": "Remove names, order numbers, addresses, and other personal details.",
+        "CRITERIA": "What should a good answer do?",
+        "CRITERIA_PLACEHOLDER": "For example: Explain that delivery depends on location and do not promise an exact date.",
+        "CRITERIA_HELP": "Describe required facts, actions, or boundaries in plain language.",
+        "CANCEL": "Cancel",
+        "SAVE": "Save scenario"
+      },
+      "RESULT": {
+        "NOT_RUN": "Not run",
+        "PASSED": "Passed",
+        "FAILED": "Needs attention",
+        "OLDER_DRAFT": "Older draft",
+        "CHANGED": "Changed since run",
+        "ANSWER": "Assistant answer",
+        "REASON": "Evaluation"
+      },
+      "EMPTY": {
+        "TITLE": "No evaluation scenarios yet",
+        "DESCRIPTION": "Start with the customer questions where accuracy, tone, or handoff behavior matters most."
+      },
+      "CONFIRM_DELETE": {
+        "TITLE": "Delete this scenario?",
+        "DESCRIPTION": "Past run results keep their snapshot, but this scenario will no longer be included in future runs."
+      },
+      "ERROR": {
+        "LOAD": "Evaluation scenarios could not be loaded.",
+        "QUALITY": "Version quality could not be loaded.",
+        "REFRESH": "The evaluation run could not be refreshed.",
+        "SAVE": "The evaluation scenario could not be saved.",
+        "DELETE": "The evaluation scenario could not be deleted.",
+        "GENERATE": "Evaluation scenarios could not be suggested.",
+        "REVIEW": "The evaluation scenario could not be approved.",
+        "RUN": "The evaluation run could not be started."
+      }
+    },
+    "IMPROVE": {
+      "EVALUATIONS": "Evaluations",
+      "LEARNINGS": "Learnings",
+      "SAVE_DRAFT_FIRST": "Save or discard instruction changes before running evaluations or applying instruction learnings. Reviewed facts can still be saved as shared knowledge."
+    },
+    "IMPROVEMENT_CREDITS": {
+      "TITLE": "Improvement credits",
+      "LOADING": "Loading usage…",
+      "UNLIMITED": "Unlimited",
+      "SUMMARY": "{remaining} of {limit} left - resets {date}",
+      "DESCRIPTION": "Used by assistant tests and improvement tools. Live customer conversations and real calls have separate limits.",
+      "LOAD_ERROR": "Improvement credit usage could not be loaded."
+    },
+    "LEARNING": {
+      "TITLE": "Learning suggestions",
+      "DESCRIPTION": "Review reusable guidance proposed from human replies, then save it as behavior instructions or shared business knowledge.",
+      "LOADING": "Loading learning suggestions…",
+      "OPEN_CONVERSATION": "Open conversation",
+      "CUSTOMER_MESSAGE": "Customer message",
+      "HUMAN_ANSWER": "Human answer",
+      "PROPOSED_INSTRUCTION": "Proposed instruction",
+      "PROPOSED_KNOWLEDGE": "Proposed knowledge",
+      "DESTINATION": "Save as",
+      "SOURCE_NAME": "Knowledge source name",
+      "TARGET_SECTION": "Instruction section",
+      "DISMISS": "Dismiss",
+      "APPLY_TO_DRAFT": "Apply to instructions",
+      "ADD_TO_KNOWLEDGE": "Add to shared knowledge",
+      "APPLIED": "Learning added to the assistant draft",
+      "ADDED_AS_KNOWLEDGE": "Added to shared knowledge: {name}",
+      "ADDED_AS_INSTRUCTION": "Added to assistant instructions",
+      "AUTO_CAPTURE": {
+        "TITLE": "Review resolved handoffs",
+        "DESCRIPTION": "After an AI handoff is resolved, analyze the final public human reply for reusable guidance. Each analysis uses improvement credits, and nothing changes until you approve it.",
+        "ENABLED": "Resolved handoffs will now be reviewed for learnings",
+        "DISABLED": "Automatic handoff review disabled"
+      },
+      "DISMISSED": "Learning suggestion dismissed",
+      "NO_OPEN": "No suggestions need review.",
+      "HISTORY": "Reviewed suggestions ({count})",
+      "EMPTY": {
+        "TITLE": "No learning suggestions yet",
+        "DESCRIPTION": "Human replies suggested for the assistant will appear here for administrator review."
+      },
+      "STATUS": {
+        "PENDING": "Waiting for analysis",
+        "ANALYZING": "Analyzing",
+        "READY": "Ready to review",
+        "APPLIED": "Added to draft",
+        "DISMISSED": "Dismissed",
+        "FAILED": "Needs attention",
+        "NOT_RECOMMENDED": "Not recommended"
+      },
+      "SECTIONS": {
+        "BUSINESS_CONTEXT": "Business context",
+        "TASKS": "Tasks and conversation flow",
+        "RULES": "Rules and boundaries",
+        "HANDOFF": "Human handoff",
+        "ADDITIONAL": "Additional instructions"
+      },
+      "DESTINATIONS": {
+        "KNOWLEDGE": "Shared knowledge",
+        "INSTRUCTIONS": "Assistant instructions"
+      },
+      "CONFIRM_DISMISS": {
+        "TITLE": "Dismiss this suggestion?",
+        "DESCRIPTION": "It will move to reviewed suggestions and will not change the assistant draft."
+      },
+      "ERROR": {
+        "LOAD": "Learning suggestions could not be loaded.",
+        "APPLY": "The suggestion could not be applied to the draft.",
+        "DISMISS": "The suggestion could not be dismissed."
+      }
+    },
+    "CAPABILITIES": {
+      "HANDOFF": "Human support fallback",
+      "ALWAYS_ON": "Always available"
+    },
+    "WEBSITE_IMPORT": {
+      "ENTRY_TITLE": "Business knowledge",
+      "ENTRY_HELP": "Bring stable company facts and policies into this draft from your website.",
+      "OPEN": "Import from website",
+      "SAVE_FIRST": "Save or discard instruction changes before importing from a website.",
+      "TITLE": "Import business knowledge",
+      "DESCRIPTION": "We read the home page and up to four relevant pages. Nothing changes until you review and apply selected sections.",
+      "URL_LABEL": "Company website",
+      "URL_PLACEHOLDER": "https://example.com",
+      "ANALYZE": "Analyze website",
+      "START_OVER": "Start another analysis",
+      "PROGRESS_HELP": "You can close this window. The analysis continues in the background.",
+      "STAGE": {
+        "QUEUED": "Waiting to analyze the website…",
+        "CRAWLING": "Reading key website pages…",
+        "GENERATING": "Preparing instruction suggestions…",
+        "APPLYING": "Applying selected suggestions…",
+        "COMPLETE": "Analysis complete"
+      },
+      "REVIEW_HELP": "Select only the suggestions you want. Existing language, tone, human handoff, examples, and additional instructions are not changed.",
+      "SOURCES": "Sources reviewed",
+      "CURRENT": "Current draft",
+      "SUGGESTED": "Website suggestion",
+      "EMPTY": "No instruction in this section",
+      "NO_CHANGES": "The website did not produce any new instruction suggestions.",
+      "APPLY_SELECTED": "Apply selected sections",
+      "APPLIED": "Website suggestions added to the saved draft",
+      "TRY_AGAIN": "Try another website",
+      "CANCEL": "Close",
+      "ERROR": {
+        "LOAD": "Previous website analysis could not be loaded.",
+        "START": "The website could not be analyzed. Check the address and try again.",
+        "APPLY": "The suggestions could not be applied. Refresh the draft and try again.",
+        "CREDITS_EXHAUSTED": "Improvement credits are exhausted for this month. Contact your service administrator.",
+        "INVALID_WEBSITE": "Enter a public company website, such as https://example.com.",
+        "RATE_LIMITED": "Website analysis was requested recently. Wait a moment and try again.",
+        "TIMED_OUT": "Website analysis took too long. Try again or add the business details manually.",
+        "TOO_LARGE": "A page on this website is too large to analyze. Try a more specific website address.",
+        "UNREACHABLE": "We could not reach this website. Check the address or try again later.",
+        "GENERATION_FAILED": "We read the website but could not prepare suggestions. Try again later.",
+        "ANALYSIS_FAILED": "Website analysis did not finish. Try again or add the business details manually.",
+        "DRAFT_CHANGED": "The saved instructions changed after this analysis started. Run the website analysis again to compare against the latest draft.",
+        "INVALID_SELECTION": "Select at least one available suggestion.",
+        "RESTART": "This analysis could not be discarded. Please try again."
+      }
+    },
+    "INSTRUCTIONS": {
+      "TITLE": "Instructions",
+      "DESCRIPTION": "Shape how this assistant speaks, decides, and handles customer requests. Save changes, test whenever useful, and publish when you are ready.",
+      "DRAFT_TEST": "Test this draft",
+      "DRAFT_TEST_HELP": "Messages here use the instructions on this screen, including unsaved changes.",
+      "FOCUS_TEST": "Expand test conversation",
+      "SHOW_EDITOR": "Show instruction editor",
+      "UNSAVED_DRAFT": "Unsaved draft",
+      "TEST_CONVERSATION": "Test conversation",
+      "SELECT_TEST": "Select a conversation",
+      "EDIT_VIEW": "Edit instructions",
+      "TEST_VIEW": "Test draft",
+      "DOCUMENT_PLACEHOLDER": "Write the assistant's instructions…",
+      "CONFIGURE": "Configure",
+      "HANDOFF_HELP": "The assistant can always transfer a conversation to your team. Configure which labels it may add during transfer.",
+      "CONFIGURED": "Configured",
+      "NOT_CONFIGURED": "Not configured",
+      "HANDOFF_DEFAULT_STATUS": "Available by default",
+      "ALL_SECTIONS_STATUS": "Combined preview",
+      "ALL_SECTIONS_EMPTY": "Add guidance in a section to see the complete instruction set here.",
+      "SECTION_SELECTOR": "Instruction section",
+      "TOTAL_CHAR_COUNT": "{count} / {limit} total characters",
+      "SECTIONS": {
+        "ALL": {
+          "SHORT_TITLE": "All instructions",
+          "TITLE": "All instructions",
+          "DESCRIPTION": "Review the complete instruction set the assistant will use. Select a section to make changes."
+        },
+        "PROFILE": {
+          "SHORT_TITLE": "Language & tone",
+          "TITLE": "Language and tone",
+          "DESCRIPTION": "Choose the assistant's default language and tone. Leave a field unset when the written instructions already cover it."
+        },
+        "IDENTITY": {
+          "SHORT_TITLE": "Identity",
+          "TITLE": "Identity and purpose",
+          "DESCRIPTION": "Define who the assistant represents and the outcome it should work toward.",
+          "PLACEHOLDER": "Describe the assistant's role, responsibilities, and primary goal…"
+        },
+        "BUSINESS_CONTEXT": {
+          "SHORT_TITLE": "Business context",
+          "TITLE": "Business context",
+          "DESCRIPTION": "Provide the business, product, policy, and customer context it should understand.",
+          "PLACEHOLDER": "Add the important facts the assistant should know about your business…"
+        },
+        "TASKS": {
+          "SHORT_TITLE": "Conversation flow",
+          "TITLE": "Tasks and conversation flow",
+          "DESCRIPTION": "Explain what the assistant should do and how it should guide customers through requests.",
+          "PLACEHOLDER": "Describe the actions and conversation flow the assistant should follow…"
+        },
+        "RULES": {
+          "SHORT_TITLE": "Rules",
+          "TITLE": "Rules and boundaries",
+          "DESCRIPTION": "State what the assistant must do, must avoid, and should never claim.",
+          "PLACEHOLDER": "Add clear rules, restrictions, and boundaries…"
+        },
+        "HANDOFF": {
+          "SHORT_TITLE": "Human handoff",
+          "TITLE": "Human handoff",
+          "DESCRIPTION": "Describe when the assistant should stop responding and transfer the conversation to your team.",
+          "PLACEHOLDER": "Describe the situations that require a human teammate…"
+        },
+        "EXAMPLES": {
+          "SHORT_TITLE": "Examples",
+          "TITLE": "Example conversations",
+          "DESCRIPTION": "Provide examples of preferred answers for important or difficult customer situations.",
+          "PLACEHOLDER": "Add example customer questions and preferred responses…"
+        },
+        "ADDITIONAL": {
+          "SHORT_TITLE": "Additional",
+          "TITLE": "Additional instructions",
+          "DESCRIPTION": "Keep guidance that does not belong in another fixed section.",
+          "PLACEHOLDER": "Add any remaining guidance for the assistant…"
+        }
+      },
+      "PROFILE": {
+        "TITLE": "Language and tone",
+        "DESCRIPTION": "Set the default communication style without writing prompt syntax.",
+        "NOT_SET": "Not set here",
+        "LANGUAGE_LABEL": "Reply language",
+        "TONE_LABEL": "Tone",
+        "FORMALITY_LABEL": "Formality",
+        "RESPONSE_LENGTH_LABEL": "Response length",
+        "LANGUAGE": {
+          "SAME_AS_CUSTOMER": "Match the customer",
+          "TURKISH": "Turkish",
+          "ENGLISH": "English"
+        },
+        "TONE": {
+          "NATURAL": "Natural",
+          "FRIENDLY": "Friendly",
+          "PROFESSIONAL": "Professional",
+          "WARM": "Warm",
+          "CONCISE": "Concise"
+        },
+        "FORMALITY": {
+          "BALANCED": "Balanced",
+          "CASUAL": "Casual",
+          "FORMAL": "Formal"
+        },
+        "RESPONSE_LENGTH": {
+          "BALANCED": "Balanced",
+          "SHORT": "Short",
+          "DETAILED": "Detailed"
+        }
+      }
+    },
+    "CREATE": {
+      "PROGRESS": "Assistant setup progress",
+      "STEPS": {
+        "BASICS": "Basics",
+        "INSTRUCTIONS": "Instructions",
+        "INBOXES": "Inboxes",
+        "REVIEW": "Review"
+      },
+      "BASICS_TITLE": "What should this assistant do?",
+      "BASICS_HELP": "Choose a clear purpose. You can refine the instructions before testing.",
+      "GOAL_LABEL": "Primary goal",
+      "GOALS": {
+        "SUPPORT": "Answer customer questions",
+        "SALES": "Help customers choose products",
+        "ORDERS": "Help with orders and delivery",
+        "CUSTOM": "A custom support workflow"
+      },
+      "LANGUAGE": "Response language",
+      "LANGUAGES": {
+        "SAME_AS_CUSTOMER": "Match each customer",
+        "TR": "Turkish",
+        "EN": "English"
+      },
+      "GOAL_INSTRUCTIONS": {
+        "SUPPORT": "Answer customer questions and guide customers to the appropriate next step.",
+        "SALES": "Help customers understand and compare suitable products, then guide them to the next sales step.",
+        "ORDERS": "Help with general order, delivery, return, and exchange questions while requesting only the information needed for the next step.",
+        "CUSTOM": "Follow the business-specific support workflow described in these instructions."
+      },
+      "TONE": "Tone",
+      "TONES": {
+        "FRIENDLY": "Friendly",
+        "PROFESSIONAL": "Professional",
+        "CONCISE": "Concise"
+      },
+      "INSTRUCTIONS_TITLE": "Add business guidance",
+      "INSTRUCTIONS_HELP": "Add business context and boundaries, then edit the suggested conversation flow in plain language.",
+      "BUSINESS_CONTEXT": "What should it know about your business?",
+      "BOUNDARIES": "What should it avoid or leave to a person?",
+      "REBUILD": "Reset suggested flow",
+      "INSTRUCTIONS_LABEL": "Tasks and conversation flow",
+      "INSTRUCTIONS_REQUIRED": "Add instructions before continuing.",
+      "INBOXES_TITLE": "Where should it answer?",
+      "INBOXES_HELP": "Connect at least one inbox. An inbox can belong to only one automated assistant.",
+      "INBOX_REQUIRED": "Select at least one inbox before continuing.",
+      "REVIEW_TITLE": "Create your draft",
+      "REVIEW_HELP": "This creates an offline draft. Review it in the editor, then publish whenever it is ready.",
+      "BACK": "Back",
+      "CONTINUE": "Continue",
+      "CREATE_DRAFT": "Create draft"
+    }
+  },
+  "AI_AGENTS": {
+    "HEADER": "AI Assistants",
+    "DESCRIPTION": "Create and manage assistants that answer customer conversations.",
+    "ADD": "New assistant",
+    "NEW": {
+      "TITLE": "New AI Assistant",
+      "NAME_LABEL": "Assistant name",
+      "NAME_PLACEHOLDER": "e.g., Sales Assistant",
+      "CREATE": "Create assistant",
+      "CANCEL": "Cancel",
+      "NAME_REQUIRED": "Name is required",
+      "SUCCESS": "AI assistant created successfully",
+      "ERROR": "Failed to create AI assistant"
+    },
+    "LIST": {
+      "EMPTY_TITLE": "No AI assistants yet",
+      "EMPTY_DESCRIPTION": "Create your first AI assistant to get started.",
+      "CREATE_FIRST": "Create first assistant"
     },
     "ITEM": {
       "EDIT": "Edit",
       "DELETE": "Delete",
-      "DELETE_CONFIRM": "Are you sure you want to delete this agent? This action cannot be undone.",
+      "DELETE_CONFIRM": "Are you sure you want to delete this assistant? This action cannot be undone.",
       "INBOXES_COUNT": "{count} inboxes",
-      "DELETE_SUCCESS": "AI agent deleted successfully",
-      "DELETE_ERROR": "Failed to delete AI agent",
+      "DELETE_SUCCESS": "AI assistant deleted successfully",
+      "DELETE_ERROR": "Failed to delete AI assistant",
       "STATUS_ENABLED": "Enabled",
       "STATUS_DISABLED": "Disabled"
     }
   },
+  "AI_KNOWLEDGE": {
+    "TITLE": "Shared knowledge",
+    "DESCRIPTION": "Maintain reusable business facts, policies, and answers for Text and Voice assistants.",
+    "LOADING": "Loading knowledge…",
+    "ACTIONS": {
+      "ADD": "Add source",
+      "MANAGE": "Shared knowledge",
+      "EDIT": "Edit source",
+      "DELETE": "Delete source",
+      "SYNC": "Sync now",
+      "ADD_AND_SYNC": "Add and sync",
+      "SAVE": "Save source",
+      "CANCEL": "Cancel"
+    },
+    "SELECTOR": {
+      "TITLE": "Shared knowledge",
+      "DESCRIPTION": "Select the sources this assistant can use after its next publish.",
+      "COUNT": "{count} of {limit} selected",
+      "CHOOSE": "Choose sources",
+      "NONE_SELECTED": "No shared knowledge selected for this assistant.",
+      "DIALOG_TITLE": "Choose shared knowledge",
+      "DIALOG_DESCRIPTION": "Search the library and select up to 20 sources for this assistant.",
+      "SEARCH": "Search knowledge sources",
+      "NO_MATCHES": "No knowledge sources match this search.",
+      "APPLY": "Apply selection"
+    },
+    "EMPTY": {
+      "TITLE": "No knowledge sources yet",
+      "DESCRIPTION": "Add verified business facts, policies, or frequently used answers once, then select them for any assistant."
+    },
+    "COLUMNS": {
+      "SOURCE": "Source",
+      "ASSISTANTS": "Assistants",
+      "UPDATED": "Updated",
+      "FRESHNESS": "Freshness",
+      "ACTIONS": "Actions"
+    },
+    "CHARACTERS": "{count} characters",
+    "ASSISTANT_COUNT": "Used by {count}",
+    "EDITOR": {
+      "CREATE_TITLE": "Add knowledge source",
+      "EDIT_TITLE": "Edit knowledge source",
+      "TYPE": "Source type",
+      "MANUAL": "Write content",
+      "WEBSITE": "Sync a website",
+      "MANUAL_DESCRIPTION": "Best for policies, answers, and facts your team maintains directly.",
+      "WEBSITE_DESCRIPTION": "We read the website and keep the last successful content available if a later sync fails.",
+      "NAME": "Source name",
+      "NAME_PLACEHOLDER": "e.g., Returns policy",
+      "WEBSITE_URL": "Website URL",
+      "WEBSITE_URL_PLACEHOLDER": "https://example.com/policies",
+      "CONTENT": "Verified content",
+      "CONTENT_PLACEHOLDER": "Add the facts and answers assistants may rely on…",
+      "CHARACTER_LIMIT": "{count} of {limit} characters",
+      "SYNCED_CONTENT": "Synced content preview",
+      "SYNCED_CONTENT_DESCRIPTION": "This content is read-only. Change the website and sync again to update it."
+    },
+    "STATUS": {
+      "PENDING": "Waiting to sync",
+      "SYNCING": "Syncing website",
+      "FAILED": "Sync failed",
+      "NOT_SYNCED": "Not synced yet",
+      "WAITING_CONTENT": "Content will be available after the first successful sync.",
+      "SYNCED_DATE": "Synced {date}",
+      "UPDATED_DATE": "Updated {date}",
+      "LAST_SYNCED_DATE": "Last success {date}"
+    },
+    "DELETE": {
+      "TITLE": "Delete knowledge source?",
+      "DESCRIPTION": "Delete {name} and remove it from {count} draft assignments? Published releases keep their existing snapshot."
+    },
+    "SUCCESS": {
+      "SAVED": "Knowledge source saved",
+      "SYNC_QUEUED": "Website sync started",
+      "DELETED": "Knowledge source deleted"
+    },
+    "ERROR": {
+      "LOAD": "Failed to load shared knowledge.",
+      "SAVE": "Failed to save the knowledge source.",
+      "SYNC": "Failed to start the website sync.",
+      "DELETE": "Failed to delete the knowledge source."
+    }
+  },
+  "AI_SETUP": {
+    "TITLE": "AI setup",
+    "DESCRIPTION": "Prepare messaging and phone assistants in separate tracks.",
+    "LOAD_ERROR": "Failed to load AI setup progress.",
+    "UNAVAILABLE": "AI assistants are not enabled for this account.",
+    "PROGRESS": "{complete} of {total} complete",
+    "STATUS": {
+      "NOT_STARTED": "Not started",
+      "IN_PROGRESS": "In progress",
+      "READY": "Ready"
+    },
+    "TEXT": {
+      "TITLE": "Text AI",
+      "DESCRIPTION": "Respond to customer messages while keeping human support available.",
+      "START": "Set up Text AI",
+      "CONTINUE": "Continue Text AI setup",
+      "MANAGE": "Manage Text AI",
+      "STEPS": {
+        "ASSISTANT": "Create a Text AI assistant",
+        "INSTRUCTIONS": "Define language, tone, and business rules",
+        "INBOX": "Connect a customer inbox",
+        "TEST": "Complete a test conversation",
+        "ACTIVE": "Activate the assistant"
+      }
+    },
+    "VOICE": {
+      "TITLE": "Voice AI",
+      "DESCRIPTION": "Answer customer calls with a separately configured voice assistant.",
+      "START": "Set up Voice AI",
+      "CONTINUE": "Continue Voice AI setup",
+      "MANAGE": "Manage Voice AI",
+      "STEPS": {
+        "ASSISTANT": "Create a Voice AI assistant",
+        "INSTRUCTIONS": "Set the greeting and call behavior",
+        "INBOX": "Assign a call inbox",
+        "TEST": "Complete a browser test call",
+        "ACTIVE": "Activate the assistant"
+      }
+    }
+  },
   "VOICE_AI": {
-    "HEADER": "Voice AI",
-    "DESCRIPTION": "Configure the LiveKit voice AI MVP and run browser-based test calls before connecting a phone provider.",
+    "HEADER": "Voice Assistants",
+    "DESCRIPTION": "Create, test, and manage assistants that answer customer calls.",
+    "STATUS": {
+      "ACTIVE": "Active",
+      "PAUSED": "Paused",
+      "DRAFT": "Draft"
+    },
+    "CREATE": {
+      "TITLE": "Build a starting point",
+      "DESCRIPTION": "Describe the job and tone, then build editable voice instructions.",
+      "GOAL": "Primary goal",
+      "TONE": "Tone",
+      "BUSINESS_CONTEXT": "What should it know about your business?",
+      "BOUNDARIES": "What should it avoid or leave to a person?",
+      "BUILD_INSTRUCTIONS": "Build instruction draft",
+      "GOALS": {
+        "SUPPORT": "Answer customer questions",
+        "SALES": "Help callers choose products",
+        "ORDERS": "Help with orders and delivery"
+      },
+      "TONES": {
+        "FRIENDLY": "Friendly",
+        "PROFESSIONAL": "Professional",
+        "CONCISE": "Concise"
+      }
+    },
+    "CAPABILITIES": {
+      "ALWAYS_AVAILABLE": "Always available",
+      "HUMAN_HANDOFF": {
+        "LABEL": "Human support fallback",
+        "DESCRIPTION": "Send the call to your team when a person is needed."
+      },
+      "IKAS_LOOKUP_ORDER": {
+        "LABEL": "Order updates",
+        "DESCRIPTION": "Look up order, payment, cargo, and tracking information from ikas."
+      },
+      "IKAS_CATALOG_SEARCH": {
+        "LABEL": "Product information",
+        "DESCRIPTION": "Search the connected catalog before answering product questions."
+      },
+      "END_CUSTOMER_CALL": {
+        "LABEL": "End completed calls",
+        "DESCRIPTION": "Finish the call naturally when the conversation is complete."
+      }
+    },
+    "READINESS": {
+      "TITLE": "Ready to publish?",
+      "DESCRIPTION": "Complete the required steps before this assistant can answer real calls.",
+      "GREETING": "Greeting added",
+      "INSTRUCTIONS": "Instructions added",
+      "INBOX": "Call inbox connected",
+      "TEST": "Browser test call completed",
+      "PHONE": "Production phone number connected",
+      "OPTIONAL": "(not required to publish)"
+    },
+    "PHONE_READINESS": {
+      "TITLE": "Production phone connection",
+      "READY": "A production number is connected and ready for incoming calls.",
+      "MISSING": "No production number is connected. You can still test and publish this assistant, but it cannot receive real calls yet. Contact your installation administrator to connect a number.",
+      "NUMBER_STATUS": "{number} · {status}"
+    },
     "TABS": {
-      "AGENTS": "Voice agents",
+      "LABEL": "Voice assistant view",
+      "AGENTS": "Assistants",
       "TEST": "Test call",
+      "CALLS": "Call activity",
       "RECORDINGS": "Recordings",
       "USAGE": "Usage"
     },
     "SETUP": {
       "TITLE": "Voice setup",
-      "DESCRIPTION": "Choose an API inbox, voice agent, fallback team, and recording behavior.",
-      "INBOX": "API inbox",
-      "VOICE_AGENT": "Voice agent",
+      "DESCRIPTION": "Choose a test inbox, voice assistant, fallback team, and recording behavior.",
+      "INBOX": "Test inbox",
+      "VOICE_AGENT": "Voice assistant",
       "FALLBACK_TEAM": "Fallback team",
       "NONE": "None",
       "CALLER_NAME": "Test caller name",
       "CALLER_NUMBER": "Test caller number",
       "RECORDING": "Record calls",
-      "RECORDING_HELP": "Store call recordings when LiveKit recording is enabled.",
+      "RECORDING_HELP": "Store a replay for completed customer calls when recording is configured.",
       "SAVE": "Save settings",
       "START_TEST": "Start test call",
+      "TEST_CREDIT_DURATION_SECONDS": "This test can run for up to {seconds} seconds with the credits currently available.",
+      "TEST_CREDIT_DURATION_MINUTES": "This test can run for up to {minutes} minutes with the credits currently available.",
       "NO_API_INBOX": "Create an API inbox before testing voice AI.",
       "SAVE_SUCCESS": "Voice AI settings saved.",
       "SAVE_ERROR": "Failed to save Voice AI settings.",
@@ -174,7 +814,7 @@
       "TITLE": "Voice AI usage",
       "HELP": "Monthly voice minute usage for this account. Sandbox test calls are excluded.",
       "DISABLED_HELP": "Voice AI is disabled by your administrator.",
-      "LOADING": "Loading...",
+      "LOADING": "Loading…",
       "DISABLED_REMAINING": "Disabled",
       "UNLIMITED_REMAINING": "Unlimited remaining",
       "UNLIMITED_USED": "{used} minutes used",
@@ -188,43 +828,69 @@
       "UNLIMITED_SHORT": "Unlimited"
     },
     "AGENTS": {
-      "TITLE": "Voice agents",
-      "CREATE": "Create voice agent",
-      "NEW": "New",
-      "EMPTY": "No voice agents yet.",
-      "LIST_HELP": "Create agents and assign inboxes they can answer.",
-      "EDITOR_TITLE": "Voice agent",
-      "EDITOR_DESCRIPTION": "Configure the greeting, prompt, and tools used during calls. Runtime settings are managed by your administrator.",
+      "TITLE": "Voice assistants",
+      "CREATE": "Create voice assistant",
+      "NEW": "New voice assistant",
+      "EMPTY": "No voice assistants yet.",
+      "LIST_HELP": "Create assistants and assign the call inboxes they can answer.",
+      "EDITOR_TITLE": "Voice assistant",
+      "EDITOR_DESCRIPTION": "Configure the greeting, instructions, capabilities, and call inboxes.",
       "STATUS_ENABLED": "Enabled",
       "STATUS_DISABLED": "Disabled",
       "ASSIGNED_COUNT": "{count} assigned",
       "NAME": "Name",
       "GREETING": "Greeting",
       "ENABLED": "Enabled",
-      "ENABLED_HELP": "Only enabled voice agents can answer calls.",
+      "ENABLED_HELP": "Only active voice assistants can answer calls.",
       "DISABLED_BY_ADMIN": "Voice AI is disabled by your administrator.",
       "PROMPT": "Voice prompt",
       "PROMPT_CHAR_COUNT": "{count} / {limit} characters",
-      "TOOLS": "Tools",
-      "SAVE": "Save voice agent",
-      "SAVE_SUCCESS": "Voice agent saved.",
-      "SAVE_ERROR": "Failed to save voice agent.",
-      "UNSAVED_CHANGES": "You have unsaved voice agent changes. Discard them?",
+      "TOOLS": "Capabilities",
+      "SAVE": "Save voice assistant",
+      "SAVE_SUCCESS": "Voice assistant saved.",
+      "SAVE_ERROR": "Failed to save voice assistant.",
+      "PUBLISH": "Publish assistant",
+      "PUBLISH_UPDATE": "Publish update",
+      "ACTIVATE": "Start answering",
+      "PAUSE": "Pause assistant",
+      "PUBLISH_SUCCESS": "Voice assistant published and started.",
+      "PUBLISH_PAUSED_SUCCESS": "Voice assistant published and kept paused.",
+      "PUBLISH_ERROR": "Complete the setup checklist before publishing.",
+      "ACTIVATE_SUCCESS": "Voice assistant is now answering new calls.",
+      "ACTIVATE_ERROR": "Voice assistant could not be started.",
+      "PAUSE_SUCCESS": "Voice assistant paused.",
+      "PAUSE_ERROR": "Failed to pause voice assistant.",
+      "LIVE_EDIT_NOTICE": "The published version keeps answering calls while you edit and test the next version.",
+      "UNSAVED_CHANGES": "You have unsaved voice assistant changes. Discard them?",
       "IKAS_READY": "Ikas is connected and the storefront catalog is synced.",
       "IKAS_CATALOG_NOT_SYNCED": "Ikas is connected, but the storefront catalog is not synced yet.",
       "IKAS_NOT_CONNECTED": "Ikas is not connected for this account."
     },
+    "ROLLOUT": {
+      "TITLE": "Review and publish",
+      "DESCRIPTION": "Review version {version} of {name}, then choose whether it should start answering new calls.",
+      "INBOXES_TITLE": "Assigned call inboxes",
+      "PHONE_READY": "A production phone number is connected.",
+      "PHONE_MISSING": "No production phone number is connected.",
+      "PHONE_MISSING_HELP": "You can publish and continue testing, but customers cannot call this assistant yet.",
+      "ACTIVE_UPDATE": "The current version keeps answering while this update is published. Calls already in progress stay on the version they started with.",
+      "START_ANSWERING": "Start answering new calls",
+      "START_ANSWERING_HELP": "Leave this off to publish the tested version without making it live.",
+      "PUBLISH_AND_START": "Publish and start answering",
+      "PUBLISH_PAUSED": "Publish paused"
+    },
     "ASSIGNMENTS": {
       "TITLE": "Inbox assignments",
-      "DESCRIPTION": "Choose which API inboxes this voice agent can answer. Move an inbox here when this agent should handle that test or future voice route.",
+      "DESCRIPTION": "Choose which API inboxes this voice assistant can answer. Move an inbox here when this assistant should handle tests or future phone routes.",
       "API_SANDBOX": "API sandbox inbox",
       "ASSIGNED_TO": "Currently assigned to {agent}; saving will move it here.",
-      "UNKNOWN_AGENT": "another voice agent"
+      "RECORDING_LABEL": "Record calls for {inbox}",
+      "UNKNOWN_AGENT": "another voice assistant"
     },
     "TEST": {
       "TITLE": "Sandbox test call",
-      "DESCRIPTION": "Start a browser-only call using a saved voice-agent inbox assignment.",
-      "NO_ASSIGNED_INBOX": "Assign an API inbox to this voice agent before starting a sandbox test call."
+      "DESCRIPTION": "Start a browser-only call using a saved voice assistant inbox assignment.",
+      "NO_ASSIGNED_INBOX": "Assign a test inbox to this voice assistant before starting a sandbox test call."
     },
     "TEST_STEPS": {
       "SETUP": "Inbox assigned",
@@ -233,12 +899,65 @@
       "AGENT_ACTIVE": "AI active",
       "ENDED": "Ended"
     },
+    "CALL_ACTIVITY": {
+      "TITLE": "Call activity",
+      "DESCRIPTION": "Review real customer calls, outcomes, handoffs, transcripts, and AI actions. Sandbox tests are excluded.",
+      "REFRESH": "Refresh",
+      "FILTERS": "Filters",
+      "APPLY": "Apply filters",
+      "LOADING": "Loading calls…",
+      "EMPTY": "No calls match these filters.",
+      "LOAD_ERROR": "Call activity could not be loaded.",
+      "ALL": "All",
+      "STATUS_LABEL": "Call status",
+      "HANDOFF_LABEL": "Handoff",
+      "ASSISTANT_LABEL": "Voice assistant",
+      "PHONE_LABEL": "Phone number",
+      "LIMIT_LABEL": "Limit",
+      "CONVERSATION": "Conversation #{id}",
+      "CALL": "Call {id}",
+      "OPEN_CONVERSATION": "Open conversation",
+      "NO_SUMMARY": "No call summary available.",
+      "METADATA_SEPARATOR": " / ",
+      "PHONE": "Caller",
+      "DURATION": "Duration",
+      "TRANSCRIPT": "Transcript turns",
+      "ACTIONS": "AI actions",
+      "HANDOFF_METRIC": "Handoff",
+      "RECORDING_METRIC": "Recording",
+      "ACTION_ERRORS": "({count} failed)",
+      "STATUS": {
+        "IN_PROGRESS": "In progress",
+        "COMPLETED": "Completed",
+        "NO_ANSWER": "No answer",
+        "FAILED": "Failed"
+      },
+      "HANDOFF": {
+        "REQUESTED": "Requested",
+        "ACCEPTED": "Accepted",
+        "NONE": "None"
+      },
+      "OUTCOME": {
+        "ACTIVE": "In progress",
+        "COMPLETED": "Completed",
+        "NO_ANSWER": "No answer",
+        "FAILED": "Failed",
+        "HUMAN_HANDOFF": "Human handoff"
+      },
+      "RECORDING": {
+        "DISABLED": "Not recorded",
+        "STARTING": "Starting",
+        "ACTIVE": "Recording",
+        "COMPLETED": "Available",
+        "FAILED": "Failed"
+      }
+    },
     "RECORDINGS": {
       "TITLE": "Recordings",
-      "DESCRIPTION": "Review completed LiveKit call recordings, handoff state, and generated summaries.",
+      "DESCRIPTION": "Review completed call recordings, handoff state, and generated summaries.",
       "REFRESH": "Refresh",
       "APPLY": "Apply filters",
-      "LOADING": "Loading recordings...",
+      "LOADING": "Loading recordings…",
       "EMPTY": "No recordings match these filters.",
       "LOAD_ERROR": "Failed to load recordings.",
       "STATUS": "Recording status",
@@ -255,7 +974,8 @@
     },
     "SESSION": {
       "TITLE": "Browser test call",
-      "ROOM": "Room",
+      "ASSISTANT": "Assistant",
+      "INBOX": "Test inbox",
       "CALL_STATUS": "Call",
       "BROWSER_STATUS": "Browser",
       "NOT_STARTED": "No test call yet",
@@ -274,8 +994,8 @@
       "OPEN_CONVERSATION": "Open conversation",
       "HANDOFF_TOOLS": "Handoff tools",
       "END_CALL_CONFIRM": "End this test call?",
-      "TOKEN_ERROR": "Failed to create LiveKit token.",
-      "CONNECT_ERROR": "Failed to join LiveKit room.",
+      "TOKEN_ERROR": "Failed to prepare the test call connection.",
+      "CONNECT_ERROR": "Failed to join the test call.",
       "TAKE_OVER_SUCCESS": "Call marked as taken over.",
       "END_SUCCESS": "Call ended.",
       "ACTION_ERROR": "Voice call action failed."
@@ -283,7 +1003,7 @@
     "TRANSCRIPT": {
       "TITLE": "Transcript",
       "DESCRIPTION": "Live speech turns and AI tool calls appear here during sandbox tests.",
-      "EMPTY": "Transcript segments and tool calls will appear here after the voice agent posts them.",
+      "EMPTY": "Transcript turns and tool calls will appear here after the test call begins.",
       "TRANSCRIPT_COUNT": "Transcript: {count}",
       "TOOL_COUNT": "Tool calls: {count}",
       "TOOL_EVENT": "Tool call",

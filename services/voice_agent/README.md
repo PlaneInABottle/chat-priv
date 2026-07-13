@@ -9,19 +9,27 @@ Required environment:
 - `LIVEKIT_URL`
 - `LIVEKIT_API_KEY`
 - `LIVEKIT_API_SECRET`
-- `OPENAI_API_KEY` or LiveKit Inference configuration
+- `OPENAI_API_KEY` when a voice agent uses the OpenAI realtime provider
 - `CHATWOOT_INTERNAL_API_URL`
 - `VOICE_AGENT_INTERNAL_TOKEN`
 - `VOICE_AGENT_NAME`: LiveKit worker name used for explicit dispatch
 - `VOICE_AGENT_ARCHITECTURE`: `pipeline` or `realtime`
-- `VOICE_AGENT_REALTIME_PROVIDER`: `gemini` for the first realtime implementation
+- `VOICE_AGENT_REALTIME_PROVIDER`: worker fallback provider, `gemini` or `openai`
+- `VOICE_AGENT_OPENAI_REALTIME_MODEL`: defaults to `gpt-realtime-2.1`
+- `VOICE_AGENT_OPENAI_VOICE`: defaults to `marin`
 - `GOOGLE_API_KEY` when `VOICE_AGENT_ARCHITECTURE=realtime` and `VOICE_AGENT_REALTIME_PROVIDER=gemini`
 - `VOICE_AGENT_WAIT_FOR_PARTICIPANT_TIMEOUT_SECONDS`: defaults to `120`; ends unjoined dispatched rooms instead of waiting forever
+- `VOICE_AGENT_MAX_CONCURRENT_JOBS`: per-worker admission cap, defaults to `10`
+- `VOICE_AGENT_HEALTH_PORT`: LiveKit connection-aware health endpoint port, defaults to `9090`
+- `VOICE_AGENT_PROMETHEUS_PORT`: optional Prometheus endpoint for active jobs, worker load, and process metrics
+- `VOICE_AGENT_DRAIN_TIMEOUT_SECONDS`: graceful shutdown window, defaults to `1200`
 
 Modes:
 
 - `pipeline`: separate STT, LLM, and TTS. This is best for tuning Turkish transcription and voice quality independently.
-- `realtime`: provider-native realtime audio. The first provider is Gemini Live API via LiveKit's Google plugin; OpenAI/AWS realtime can be added behind the same architecture flag later.
+- `realtime`: provider-native realtime audio using Gemini Live or OpenAI Realtime through LiveKit plugins.
+
+OpenAI realtime uses `gpt-realtime-2.1` with low reasoning effort, semantic VAD, and `gpt-realtime-whisper` input transcription. Runtime provider, model, voice, and language are selected per voice agent by Super Admin; environment variables are fallbacks and new-agent deployment defaults.
 
 Gemini 3.1 note:
 
@@ -32,3 +40,13 @@ Development command:
 ```bash
 uv run python agent.py dev
 ```
+
+Production command:
+
+```bash
+uv run python agent.py start
+```
+
+The SDK health endpoint is `GET /` on `VOICE_AGENT_HEALTH_PORT`. It returns `200` only while the worker is connected and healthy. When `VOICE_AGENT_PROMETHEUS_PORT` is set, metrics are available at `GET /metrics` on that port.
+
+For a 25-call initial capacity target, use three workers capped at 10 jobs each and scale out before average active jobs exceed 60% of the fleet cap. Confirm the OpenAI project rate limit supports the target before running a provider-backed load test.

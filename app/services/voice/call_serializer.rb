@@ -18,7 +18,7 @@ class Voice::CallSerializer
   attr_reader :call
 
   def identity_payload
-    base_identity_payload.merge(voice_identity_payload)
+    base_identity_payload.merge(voice_identity_payload).merge(release_identity_payload)
   end
 
   def base_identity_payload
@@ -33,6 +33,13 @@ class Voice::CallSerializer
       contact_id: call.contact_id,
       message_id: call.message_id,
       livekit_room_name: call.livekit_room_name
+    }
+  end
+
+  def release_identity_payload
+    {
+      voice_agent_release_id: call.voice_agent_release_id,
+      voice_agent_revision: voice_agent_release&.revision
     }
   end
 
@@ -51,6 +58,7 @@ class Voice::CallSerializer
       test_call: call.test_call?,
       test_call_source: call.test_call_source,
       test_call_initiated_by_user_id: call.test_call_initiated_by_user_id,
+      test_duration_limit_seconds: test_duration_limit_seconds,
       handoff_status: call.handoff_status,
       ai_status: call.ai_status,
       summary: summary_payload,
@@ -61,8 +69,12 @@ class Voice::CallSerializer
     }
   end
 
+  def test_duration_limit_seconds
+    call.meta&.fetch('ai_improvement_max_duration_seconds', nil)
+  end
+
   def transcript_segments
-    call.transcript_segments.order(:created_at, :id).map do |segment|
+    CallTranscriptSegment.where(call_id: call.id).order(:created_at, :id).map do |segment|
       {
         id: segment.id,
         role: segment.role,
@@ -82,7 +94,7 @@ class Voice::CallSerializer
 
   def build_recording_payload
     recording = VoiceRecording.where(call_id: call.id).latest_first.first
-    return { status: 'disabled', url: call.recording_url }.compact unless recording
+    return { status: 'disabled', url: legacy_recording_url }.compact unless recording
 
     {
       id: recording.id,
@@ -148,7 +160,7 @@ class Voice::CallSerializer
     return if summary.blank?
     return { text: AiAgents::PrivacyRedactor.redact_text(summary) } if summary.is_a?(String)
 
-    summary.slice('text', 'generated_at', 'source', 'model').tap do |payload|
+    summary.slice('text', 'generated_at').tap do |payload|
       payload['text'] = AiAgents::PrivacyRedactor.redact_text(payload['text']) if payload['text'].present?
     end
   end
@@ -158,6 +170,14 @@ class Voice::CallSerializer
 
     voice_agent_id = call.meta&.fetch('voice_agent_id', nil)
     @voice_agent = voice_agent_id ? call.account.voice_agents.find_by(id: voice_agent_id) : nil
+  end
+
+  def voice_agent_release
+    @voice_agent_release ||= VoiceAgentRelease.find_by(id: call.voice_agent_release_id, account_id: call.account_id)
+  end
+
+  def legacy_recording_url
+    call.recording_url if call.respond_to?(:recording_url)
   end
 
   def voice_tool_events

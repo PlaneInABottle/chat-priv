@@ -23,6 +23,7 @@ class Voice::TranscriptAppender
 
     segment = call.transcript_segments.create!(segment_attributes)
     append_transcript_line!(segment)
+    mark_voice_agent_test_succeeded!(segment)
     broadcast_transcript_segment(call, segment)
     segment
   end
@@ -60,5 +61,16 @@ class Voice::TranscriptAppender
 
   def external_segment_id
     attributes[:external_segment_id]
+  end
+
+  def mark_voice_agent_test_succeeded!(segment)
+    return unless call.test_call? && segment.role == 'ai'
+
+    voice_agent_id = call.meta&.fetch('voice_agent_id', nil)
+    voice_agent = call.account.voice_agents.find_by(id: voice_agent_id)
+    return unless voice_agent
+
+    tested_fingerprint = call.meta&.fetch('voice_agent_draft_fingerprint', nil) || voice_agent.draft_fingerprint
+    voice_agent.mark_test_succeeded!(tested_fingerprint: tested_fingerprint)
   end
 end

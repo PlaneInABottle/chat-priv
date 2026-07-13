@@ -61,6 +61,7 @@ export default {
   props: {
     modelValue: { type: String, default: '' },
     editorId: { type: String, default: '' },
+    ariaLabel: { type: String, default: '' },
     placeholder: { type: String, default: '' },
     enabledMenuOptions: { type: Array, default: () => [] },
     allowImageUpload: { type: Boolean, default: true },
@@ -103,6 +104,14 @@ export default {
     },
     editorId() {
       this.reloadState();
+    },
+    ariaLabel(value) {
+      if (!editorView?.dom) return;
+      if (value) {
+        editorView.dom.setAttribute('aria-label', value);
+      } else {
+        editorView.dom.removeAttribute('aria-label');
+      }
     },
   },
 
@@ -364,8 +373,14 @@ export default {
       this.focusEditorInputField();
     },
     createEditorView() {
+      const attributes = {
+        role: 'textbox',
+        'aria-multiline': 'true',
+        ...(this.ariaLabel ? { 'aria-label': this.ariaLabel } : {}),
+      };
       editorView = new EditorView(this.$refs.editor, {
         state: state,
+        attributes,
         nodeViews: {
           image: imageResizeView,
         },

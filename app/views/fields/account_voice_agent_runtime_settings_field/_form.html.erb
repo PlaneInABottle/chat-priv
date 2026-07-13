@@ -1,3 +1,5 @@
+<%= javascript_include_tag 'voiceAgentRuntimeSettings' %>
+
 <div class="field-unit__label">
   <%= f.label field.attribute, t('super_admin.account_voice_agent_runtime_settings.title') %>
 </div>
@@ -16,7 +18,7 @@
       <div class="voice-agent-runtime-panel__list">
         <% field.voice_agents.each do |voice_agent| %>
           <% input_id_prefix = "account_voice_agent_runtime_settings_#{voice_agent.id}" %>
-          <section class="voice-agent-runtime-card">
+          <section class="voice-agent-runtime-card" data-voice-runtime-card>
             <div class="voice-agent-runtime-card__header">
               <div>
                 <h4><%= voice_agent.name %></h4>
@@ -39,7 +41,8 @@
                 <%= label_tag "#{input_id_prefix}_provider", t('super_admin.account_voice_agent_runtime_settings.provider') %>
                 <%= select_tag "#{field.html_name}[#{voice_agent.id}][provider]",
                                options_for_select(VoiceAgent::PROVIDERS.map { |value| [value.titleize, value] }, voice_agent.provider),
-                               id: "#{input_id_prefix}_provider" %>
+                               id: "#{input_id_prefix}_provider",
+                               data: { voice_runtime_provider: true } %>
               </div>
 
               <div class="ai-agent-settings-control">
@@ -47,14 +50,31 @@
                 <%= text_field_tag "#{field.html_name}[#{voice_agent.id}][model]",
                                    voice_agent.model,
                                    id: "#{input_id_prefix}_model",
+                                   list: "#{input_id_prefix}_models",
+                                   data: { voice_runtime_model: true },
                                    placeholder: t('super_admin.account_voice_agent_runtime_settings.default_from_worker_env') %>
+                <datalist id="<%= input_id_prefix %>_models">
+                  <% VoiceAgent::OPENAI_REALTIME_MODELS.each do |model| %>
+                    <option value="<%= model %>"></option>
+                  <% end %>
+                </datalist>
               </div>
 
               <div class="ai-agent-settings-control">
                 <%= label_tag "#{input_id_prefix}_voice", t('super_admin.account_voice_agent_runtime_settings.voice') %>
                 <%= text_field_tag "#{field.html_name}[#{voice_agent.id}][voice]",
                                    voice_agent.voice,
-                                   id: "#{input_id_prefix}_voice" %>
+                                   id: "#{input_id_prefix}_voice",
+                                   list: "#{input_id_prefix}_voices",
+                                   data: { voice_runtime_voice: true } %>
+                <datalist id="<%= input_id_prefix %>_voices">
+                  <% VoiceAgent::OPENAI_REALTIME_VOICES.each do |voice| %>
+                    <option value="<%= voice %>"></option>
+                  <% end %>
+                </datalist>
+                <span class="ai-agent-settings-control__hint">
+                  <%= t('super_admin.account_voice_agent_runtime_settings.openai_runtime_hint') %>
+                </span>
               </div>
 
               <div class="ai-agent-settings-control">

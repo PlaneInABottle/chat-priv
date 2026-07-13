@@ -1,0 +1,34 @@
+<section class="main-content__body">
+  <div class="sa-card">
+    <h3 class="sa-section-title mb-2"><%= t('super_admin.data_retention.cleanup_title') %></h3>
+    <p class="mb-4 text-sm text-slate-500"><%= t('super_admin.data_retention.cleanup_description') %></p>
+
+    <div class="grid gap-5 md:grid-cols-2">
+      <div>
+        <p class="mb-3 text-sm text-slate-500">
+          <%= t('super_admin.data_retention.text_warning', days: page.resource.ai_agent_data_retention_days) %>
+        </p>
+        <%= form_with url: purge_ai_data_super_admin_account_path(page.resource), method: :post, local: true do %>
+          <%= hidden_field_tag :kind, 'text' %>
+          <%= button_tag t('super_admin.data_retention.text_action'),
+                         type: 'submit',
+                         class: 'button button--danger',
+                         data: { confirm: t('super_admin.data_retention.confirm') } %>
+        <% end %>
+      </div>
+
+      <div>
+        <p class="mb-3 text-sm text-slate-500">
+          <%= t('super_admin.data_retention.voice_warning', days: page.resource.voice_ai_data_retention_days) %>
+        </p>
+        <%= form_with url: purge_ai_data_super_admin_account_path(page.resource), method: :post, local: true do %>
+          <%= hidden_field_tag :kind, 'voice' %>
+          <%= button_tag t('super_admin.data_retention.voice_action'),
+                         type: 'submit',
+                         class: 'button button--danger',
+                         data: { confirm: t('super_admin.data_retention.confirm') } %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</section>

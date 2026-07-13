@@ -108,7 +108,7 @@ describe('aiAgentTestConversations store', () => {
       );
 
       expect(result).toEqual({ error: 'AI response failed' });
-      expect(sendMessage).toHaveBeenCalledWith(99, 'Hello there');
+      expect(sendMessage).toHaveBeenCalledWith(99, 'Hello there', undefined);
       expect(commit).toHaveBeenCalledWith('SET_UI_FLAG', { isSending: true });
       expect(optimisticCommit[1]).toEqual({
         id: 99,

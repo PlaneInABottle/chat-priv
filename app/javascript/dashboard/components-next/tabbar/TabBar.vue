@@ -38,6 +38,10 @@ const updateIndicator = () => {
       left: `${activeElement.value.offsetLeft}px`,
       width: `${activeElement.value.offsetWidth}px`,
     };
+    activeElement.value.scrollIntoView?.({
+      block: 'nearest',
+      inline: 'nearest',
+    });
   });
 };
 
@@ -95,7 +99,7 @@ const showDivider = index => {
 <template>
   <div
     role="tablist"
-    class="relative flex items-center h-8 rounded-lg bg-n-alpha-1 dark:bg-n-solid-1 w-fit transition-all duration-200 ease-out has-[button:active]:scale-[1.01]"
+    class="relative flex h-8 max-w-full items-center overflow-x-auto rounded-lg bg-n-alpha-1 transition-all duration-200 ease-out has-[button:active]:scale-[1.01] dark:bg-n-solid-1 sm:w-fit"
   >
     <div
       class="absolute rounded-lg bg-n-solid-active shadow-sm pointer-events-none h-8 outline-1 outline outline-n-container inset-y-0"
@@ -109,7 +113,7 @@ const showDivider = index => {
         role="tab"
         :aria-selected="activeTab === index"
         :tabindex="activeTab === index ? 0 : -1"
-        class="relative z-10 px-4 truncate py-1.5 text-sm border-0 outline-1 outline-transparent rounded-lg transition-all duration-200 ease-out hover:text-n-brand active:scale-[1.02]"
+        class="relative z-10 flex-none rounded-lg border-0 px-3 py-1.5 text-sm outline-1 outline-transparent transition-all duration-200 ease-out hover:text-n-brand active:scale-[1.02] sm:px-4"
         :class="[
           activeTab === index
             ? 'text-n-blue-11 scale-100'

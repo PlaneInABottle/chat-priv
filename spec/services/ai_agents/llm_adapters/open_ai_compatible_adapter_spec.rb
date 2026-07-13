@@ -32,6 +32,64 @@ RSpec.describe AiAgents::LlmAdapters::OpenAiCompatibleAdapter do
     expect(result[:finish_reason]).to eq('stop')
   end
 
+  it 'records actual token credits for improvement work' do
+    metered_adapter = described_class.new(
+      ai_agent: ai_agent,
+      account: account,
+      improvement_operation: 'evaluation'
+    )
+    response_payload = {
+      'choices' => [{ 'finish_reason' => 'stop', 'message' => { 'content' => 'Hello' } }],
+      'usage' => { 'total_tokens' => 1_001 }
+    }
+    allow(http).to receive(:request).and_return(http_response(response_payload))
+
+    expect do
+      metered_adapter.perform(messages: [{ role: 'user', content: 'Hi' }], tools: [])
+    end.to change(AiImprovementUsageEvent.consumed, :count).by(1)
+
+    expect(AiImprovementUsageEvent.last).to have_attributes(
+      operation: 'evaluation',
+      unit_type: 'tokens',
+      units: 1_001,
+      credits: 2,
+      status: 'consumed'
+    )
+  end
+
+  it 'releases the reservation when the model request fails' do
+    metered_adapter = described_class.new(
+      ai_agent: ai_agent,
+      account: account,
+      improvement_operation: 'text_test'
+    )
+    allow(http).to receive(:request).and_return(http_response({ 'error' => 'unavailable' }, code: 503))
+
+    expect do
+      metered_adapter.perform(messages: [{ role: 'user', content: 'Hi' }], tools: [])
+    end.to raise_error(described_class::RequestFailed, 'LLM request failed with HTTP 503')
+
+    expect(AiImprovementUsageEvent.last).to be_released
+  end
+
+  it 'does not call the model when the account has no credits left' do
+    account.ai_improvement_settings = { monthly_credit_limit: 1 }
+    account.save!
+    limiter = AiImprovements::Usage::Limiter.new(account: account, operation: 'evaluation')
+    limiter.consume!(limiter.reserve_or_raise!, unit_type: 'tokens', units: 1)
+    metered_adapter = described_class.new(
+      ai_agent: ai_agent,
+      account: account,
+      improvement_operation: 'evaluation'
+    )
+    allow(http).to receive(:request)
+
+    expect do
+      metered_adapter.perform(messages: [{ role: 'user', content: 'Hi' }], tools: [])
+    end.to raise_error(AiImprovements::Usage::Exhausted)
+    expect(http).not_to have_received(:request)
+  end
+
   it 'normalizes a single tool call response' do
     response_payload = {
       'choices' => [{
@@ -97,6 +155,33 @@ RSpec.describe AiAgents::LlmAdapters::OpenAiCompatibleAdapter do
     adapter.perform(messages: [{ role: 'user', content: 'Hi' }], tools: [], tool_choice: 'auto')
   end
 
+  it 'sends task-specific generation options without changing defaults' do
+    configured_adapter = described_class.new(
+      ai_agent: ai_agent,
+      account: account,
+      llm_options: {
+        max_tokens: 4_096,
+        temperature: 0.1,
+        response_format: { type: 'json_object' }
+      }
+    )
+    response_payload = {
+      'choices' => [{ 'finish_reason' => 'stop', 'message' => { 'content' => '{"ok":true}' } }]
+    }
+    allow(http).to receive(:request).and_return(http_response(response_payload))
+
+    expect(request).to receive(:body=) do |body|
+      payload = JSON.parse(body)
+      expect(payload).to include(
+        'max_tokens' => 4_096,
+        'temperature' => 0.1,
+        'response_format' => { 'type' => 'json_object' }
+      )
+    end
+
+    configured_adapter.perform(messages: [{ role: 'user', content: 'Return JSON' }], tools: [], tool_choice: 'auto')
+  end
+
   it 'does not stringify nil assistant content for tool call messages' do
     response_payload = {
       'choices' => [{ 'finish_reason' => 'stop', 'message' => { 'content' => 'Done' } }]
@@ -122,7 +207,7 @@ RSpec.describe AiAgents::LlmAdapters::OpenAiCompatibleAdapter do
     )
   end
 
-  def http_response(payload)
-    instance_double(Net::HTTPResponse, body: payload.to_json)
+  def http_response(payload, code: 200)
+    instance_double(Net::HTTPResponse, body: payload.to_json, code: code.to_s)
   end
 end

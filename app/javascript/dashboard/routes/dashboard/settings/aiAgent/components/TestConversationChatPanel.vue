@@ -3,6 +3,7 @@ import { ref, watch, nextTick, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import Button from 'dashboard/components-next/button/Button.vue';
 import Icon from 'dashboard/components-next/icon/Icon.vue';
+import { useMessageFormatter } from 'shared/composables/useMessageFormatter';
 import TestConversationEmptyState from './TestConversationEmptyState.vue';
 
 const props = defineProps({
@@ -18,11 +19,16 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  showBackButton: {
+    type: Boolean,
+    default: true,
+  },
 });
 
 const emit = defineEmits(['send', 'back']);
 
 const { t } = useI18n();
+const { formatMessage } = useMessageFormatter();
 
 const inputValue = ref('');
 const messageAreaRef = ref(null);
@@ -44,6 +50,17 @@ const handoffPreviewSummary = message => {
     t('AI_AGENT.TEST_CONVERSATIONS.HANDOFF_PREVIEW')
   );
 };
+
+const formattedAssistantMessages = computed(() =>
+  Object.fromEntries(
+    (props.conversation?.messages || [])
+      .filter(message => message.role === 'assistant')
+      .map(message => [
+        message.id,
+        formatMessage(message.content || '', false, false, true),
+      ])
+  )
+);
 
 const scrollToBottom = () => {
   nextTick(() => {
@@ -92,11 +109,18 @@ const handleKeyup = event => {
         class="flex items-center gap-3 p-3 border-b border-n-slate-6 shrink-0"
       >
         <button
+          v-if="showBackButton"
+          data-testid="test-conversation-back"
           type="button"
           class="md:hidden p-1 rounded-md hover:bg-n-alpha-black1"
+          :aria-label="t('AI_AGENT.BACK')"
           @click="emit('back')"
         >
-          <Icon icon="i-lucide-arrow-left" class="text-n-slate-11 size-5" />
+          <Icon
+            icon="i-lucide-arrow-left"
+            class="text-n-slate-11 size-5"
+            aria-hidden="true"
+          />
         </button>
         <span
           class="px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase rounded-full bg-n-amber-3 text-n-amber-11 border border-n-amber-6"
@@ -117,7 +141,12 @@ const handleKeyup = event => {
       </div>
 
       <!-- Messages Area -->
-      <div ref="messageAreaRef" class="flex-1 overflow-y-auto p-4 space-y-3">
+      <div
+        ref="messageAreaRef"
+        class="flex-1 overflow-y-auto p-4 space-y-3"
+        aria-live="polite"
+        :aria-busy="uiFlags.isSending"
+      >
         <div
           v-for="msg in conversation.messages"
           :key="msg.id"
@@ -125,10 +154,10 @@ const handleKeyup = event => {
           :class="msg.role === 'user' ? 'justify-end' : 'justify-start'"
         >
           <div
-            class="text-sm px-4 py-2 max-w-[80%]"
+            class="min-w-0 max-w-[80%] break-words px-4 py-2 text-sm"
             :class="
               msg.role === 'user'
-                ? 'bg-n-brand text-white rounded-2xl rounded-tr-sm'
+                ? 'whitespace-pre-wrap bg-n-brand text-white rounded-2xl rounded-tr-sm'
                 : 'bg-n-slate-3 dark:bg-n-slate-8 text-n-slate-12 rounded-2xl rounded-tl-sm'
             "
           >
@@ -141,27 +170,53 @@ const handleKeyup = event => {
                 v-if="msg.tool_result?.private_note_preview"
                 class="mt-2 text-xs text-n-slate-11"
               >
-                {{ t('AI_AGENT.TEST_CONVERSATIONS.INTERNAL_NOTE') }}:
+                {{ t('AI_AGENT.TEST_CONVERSATIONS.INTERNAL_NOTE') }}
                 {{ msg.tool_result.private_note_preview }}
               </p>
               <p
                 v-if="msg.tool_result?.labels_to_apply?.length"
                 class="mt-1 text-xs text-n-slate-11"
               >
-                {{ t('AI_AGENT.TEST_CONVERSATIONS.LABELS_TO_APPLY') }}:
+                {{ t('AI_AGENT.TEST_CONVERSATIONS.LABELS_TO_APPLY') }}
                 {{ msg.tool_result.labels_to_apply.join(', ') }}
               </p>
               <p
                 v-if="msg.tool_result?.labels_ignored?.length"
                 class="mt-1 text-xs text-n-slate-10"
               >
-                {{ t('AI_AGENT.TEST_CONVERSATIONS.LABELS_IGNORED') }}:
+                {{ t('AI_AGENT.TEST_CONVERSATIONS.LABELS_IGNORED') }}
                 {{ msg.tool_result.labels_ignored.join(', ') }}
               </p>
             </template>
-            <template v-else>
+            <template v-else-if="msg.role === 'user'">
               {{ msg.content }}
             </template>
+            <div
+              v-else
+              v-dompurify-html="formattedAssistantMessages[msg.id] || ''"
+              data-testid="assistant-message-content"
+              class="prose prose-sm prose-bubble max-w-none break-words dark:prose-invert"
+            />
+            <div
+              v-if="msg.role === 'assistant' && msg.source_attributions?.length"
+              class="flex flex-wrap items-center gap-1.5 mt-2 pt-2 border-t border-n-weak"
+            >
+              <Icon
+                icon="i-lucide-book-open"
+                class="size-3.5 text-n-slate-10"
+              />
+              <span class="text-xs text-n-slate-10">
+                {{ t('AI_AGENT.TEST_CONVERSATIONS.SOURCES_USED') }}
+              </span>
+              <span
+                v-for="source in msg.source_attributions"
+                :key="`${source.source_id}-${source.source_name}`"
+                class="max-w-full px-1.5 py-0.5 text-xs truncate rounded bg-n-alpha-black2 text-n-slate-11"
+                :title="source.source_name"
+              >
+                {{ source.source_name }}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -182,6 +237,8 @@ const handleKeyup = event => {
         <input
           v-model="inputValue"
           type="text"
+          name="test-message"
+          autocomplete="off"
           :placeholder="t('AI_AGENT.TEST_CONVERSATIONS.PLACEHOLDER')"
           :disabled="isInputDisabled"
           class="flex-1 px-3 py-2 text-sm border rounded-lg bg-n-alpha-black2 border-n-weak dark:border-n-weak text-n-slate-12 placeholder:text-n-slate-10 focus:outline-none focus:ring-1 focus:ring-n-brand disabled:opacity-50 disabled:cursor-not-allowed"
@@ -190,6 +247,7 @@ const handleKeyup = event => {
         <Button
           icon="i-lucide-send"
           type="button"
+          :aria-label="t('AI_AGENT.TEST_CONVERSATIONS.SEND')"
           :disabled="isInputDisabled || !inputValue.trim()"
           size="sm"
           @click.stop.prevent="handleSend"

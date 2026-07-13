@@ -14,14 +14,7 @@ class AiAgents::LiveProcessor
     usage_result = usage_limiter.reserve!
     return handle_usage_exhausted!(usage_result) if usage_result.exhausted?
 
-    result = AiAgents::Orchestrator.new(
-      ai_agent: ai_agent,
-      messages: orchestrator_messages,
-      mode: :live,
-      conversation: conversation,
-      trigger_message: message,
-      adapter: adapter
-    ).perform
+    result = orchestrator_result
 
     if handoff_result?(result)
       consume_usage!(usage_result, result)
@@ -48,6 +41,10 @@ class AiAgents::LiveProcessor
     @ai_agent ||= conversation.assignee_agent_bot&.ai_agent || conversation.inbox.agent_bot&.ai_agent
   end
 
+  def pinned_release
+    @pinned_release ||= AiAgents::ReleaseResolver.for(conversation: conversation, ai_agent: ai_agent)
+  end
+
   def eligible_message?
     ai_agent&.enabled? && ai_agent.account.ai_agent_enabled? && eligible_customer_message?
   end
@@ -72,6 +69,24 @@ class AiAgents::LiveProcessor
         content: entry.content_for_llm
       }
     end
+  end
+
+  def orchestrator_result
+    AiAgents::Orchestrator.new(
+      ai_agent: ai_agent,
+      messages: orchestrator_messages,
+      mode: :live,
+      conversation: conversation,
+      trigger_message: message,
+      adapter: adapter,
+      prompt_override: pinned_release&.prompt,
+      config_override: pinned_release&.config,
+      knowledge_sources_override: pinned_knowledge_sources
+    ).perform
+  end
+
+  def pinned_knowledge_sources
+    Array(pinned_release&.snapshot&.to_h&.fetch('knowledge_sources', []))
   end
 
   def recent_messages
@@ -122,12 +137,14 @@ class AiAgents::LiveProcessor
 
   def assistant_message_content_attributes(assistant_message)
     telemetry = assistant_message['turn_telemetry'] || assistant_message[:turn_telemetry]
-    return {} if telemetry.blank?
+    source_attributions = assistant_message['source_attributions'] || assistant_message[:source_attributions]
+    return {} if telemetry.blank? && source_attributions.blank?
 
     {
       ai_agent: {
-        turn_telemetry: telemetry
-      }
+        turn_telemetry: telemetry,
+        source_attributions: source_attributions
+      }.compact
     }
   end
 

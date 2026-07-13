@@ -278,6 +278,35 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
         expect(json['title']).to eq('Hello AI')
       end
 
+      it 'tests structured draft instructions without changing the saved prompt' do
+        ai_agent.update!(prompt: 'Saved live instructions')
+        draft_instructions = {
+          version: 3,
+          profile: {
+            language: 'tr',
+            tone: 'friendly',
+            formality: 'not_set',
+            response_length: 'short'
+          },
+          sections: { rules: 'Never invent a price.' }
+        }
+        compiled_prompt = AiAgents::InstructionDocument.new(draft_instructions).compile
+
+        post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations/#{test_conversation.id}/send_message",
+             headers: admin.create_new_auth_token,
+             params: { content: 'How much?', draft_instructions: draft_instructions },
+             as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(response.parsed_body['tested_draft']).to be(true)
+        expect(AiAgents::Orchestrator).to have_received(:new).with(
+          hash_including(ai_agent: ai_agent, prompt_override: compiled_prompt)
+        )
+        expect(ai_agent.reload.prompt).to eq('Saved live instructions')
+        expected_digest = ai_agent.send(:release_digest, compiled_prompt, ai_agent.config)
+        expect(ai_agent.last_tested_prompt_digest).to eq(expected_digest)
+      end
+
       it 'does not count simulator messages against AI usage limits' do
         expect do
           post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations/#{test_conversation.id}/send_message",

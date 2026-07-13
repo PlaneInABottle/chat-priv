@@ -6,7 +6,7 @@ RSpec.describe VoiceAgents::ToolExecutor do
     let(:api_channel) { create(:channel_api, account: account) }
     let(:inbox) { api_channel.inbox }
     let(:conversation) { create(:conversation, account: account, inbox: inbox) }
-    let(:voice_agent) { account.voice_agents.first }
+    let(:voice_agent) { create(:voice_agent, account: account) }
     let(:call) do
       create(
         :call,
@@ -19,15 +19,15 @@ RSpec.describe VoiceAgents::ToolExecutor do
       )
     end
 
-    it 'rejects disabled tools and records the rejection' do
+    it 'keeps human handoff enabled and rejects other disabled tools' do
       voice_agent.update!(
-        tools_config: VoiceAgents::Config.new('enabled' => [VoiceAgents::Config::END_CUSTOMER_CALL_TOOL]).normalized_config
+        tools_config: VoiceAgents::Config.new('enabled' => [VoiceAgents::Config::HUMAN_HANDOFF_TOOL]).normalized_config
       )
 
       result = described_class.perform!(
         call: call,
         voice_agent: voice_agent,
-        tool_key: VoiceAgents::Config::HUMAN_HANDOFF_TOOL,
+        tool_key: VoiceAgents::Config::END_CUSTOMER_CALL_TOOL,
         args: { reason: 'agent please' },
         external_id: 'tool-1'
       )
@@ -35,7 +35,7 @@ RSpec.describe VoiceAgents::ToolExecutor do
       expect(result[:status]).to eq('rejected')
       expect(result.dig(:result, :error_code)).to eq('tool_not_enabled')
       expect(call.voice_tool_events.find_by!(external_id: 'tool-1')).to have_attributes(
-        tool: VoiceAgents::Config::HUMAN_HANDOFF_TOOL,
+        tool: VoiceAgents::Config::END_CUSTOMER_CALL_TOOL,
         status: 'rejected'
       )
     end
@@ -107,6 +107,36 @@ RSpec.describe VoiceAgents::ToolExecutor do
           'phone' => '***9978',
           'limit' => 3
         }
+      )
+    end
+
+    it 'searches the knowledge frozen in the call release instead of the current draft' do
+      source = create(
+        :ai_knowledge_source,
+        account: account,
+        name: 'Returns and exchanges',
+        content: 'Custom-sized products are reviewed for return within 14 days.'
+      )
+      AiKnowledgeSourceAssignment.create!(assistant: voice_agent, ai_knowledge_source: source)
+      release = create(:voice_agent_release, voice_agent: voice_agent)
+      voice_agent.update!(current_release: release)
+      source.update!(content: 'Unpublished draft now says 30 days.')
+
+      result = described_class.perform!(
+        call: call,
+        voice_agent: voice_agent,
+        tool_key: VoiceAgents::Config::KNOWLEDGE_SEARCH_TOOL,
+        args: { query: 'custom product return within 14 days' },
+        external_id: 'tool-knowledge'
+      )
+
+      expect(result[:status]).to eq('executed')
+      expect(result.dig(:result, :matches, 0, :excerpt)).to include('within 14 days')
+      expect(result.dig(:result, :matches, 0, :excerpt)).not_to include('30 days')
+      expect(call.reload.voice_agent_release).to eq(release)
+      expect(call.voice_tool_events.find_by!(external_id: 'tool-knowledge')).to have_attributes(
+        tool: VoiceAgents::Config::KNOWLEDGE_SEARCH_TOOL,
+        status: 'executed'
       )
     end
   end

@@ -1,0 +1,21 @@
+json.id learning_suggestion.id
+json.ai_agent_id learning_suggestion.ai_agent_id
+json.status learning_suggestion.status
+json.destination learning_suggestion.destination
+json.target_section learning_suggestion.target_section
+json.source_name learning_suggestion.source_name
+json.ai_knowledge_source_id learning_suggestion.ai_knowledge_source_id
+json.customer_message learning_suggestion.customer_message
+json.human_answer learning_suggestion.human_answer
+json.suggested_instruction learning_suggestion.suggested_instruction
+json.reason learning_suggestion.reason
+json.error_message learning_suggestion.error_message
+json.conversation_id learning_suggestion.conversation&.display_id
+json.source_message_id learning_suggestion.source_message_id
+json.source_available learning_suggestion.conversation.present? && learning_suggestion.source_message.present?
+json.submitted_by learning_suggestion.submitted_by&.name
+json.reviewed_by learning_suggestion.reviewed_by&.name
+json.reviewed_at learning_suggestion.reviewed_at
+json.applied_at learning_suggestion.applied_at
+json.created_at learning_suggestion.created_at
+json.updated_at learning_suggestion.updated_at
