@@ -19,7 +19,7 @@ RSpec.describe VoiceAgents::ToolExecutor do
       )
     end
 
-    it 'keeps human handoff enabled and rejects other disabled tools' do
+    it 'rejects a disabled optional tool and records the rejection' do
       voice_agent.update!(
         tools_config: VoiceAgents::Config.new('enabled' => [VoiceAgents::Config::HUMAN_HANDOFF_TOOL]).normalized_config
       )
@@ -27,15 +27,15 @@ RSpec.describe VoiceAgents::ToolExecutor do
       result = described_class.perform!(
         call: call,
         voice_agent: voice_agent,
-        tool_key: VoiceAgents::Config::END_CUSTOMER_CALL_TOOL,
-        args: { reason: 'agent please' },
+        tool_key: VoiceAgents::Config::IKAS_LOOKUP_ORDER_TOOL,
+        args: { order_identifier: '30564' },
         external_id: 'tool-1'
       )
 
       expect(result[:status]).to eq('rejected')
       expect(result.dig(:result, :error_code)).to eq('tool_not_enabled')
       expect(call.voice_tool_events.find_by!(external_id: 'tool-1')).to have_attributes(
-        tool: VoiceAgents::Config::END_CUSTOMER_CALL_TOOL,
+        tool: VoiceAgents::Config::IKAS_LOOKUP_ORDER_TOOL,
         status: 'rejected'
       )
     end
