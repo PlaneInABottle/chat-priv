@@ -16,7 +16,7 @@ const callActions = vi.hoisted(() => ({
   hasActiveCall: { value: false },
   isJoining: { value: false },
 }));
-const livekitSession = vi.hoisted(() => ({
+const voiceSession = vi.hoisted(() => ({
   remoteAudioRef: { __v_isRef: true, value: null },
   sessionStatus: { value: 'disconnected' },
   sessionError: { value: '' },
@@ -78,8 +78,8 @@ vi.mock('dashboard/composables/useCallSession', () => ({
   useCallActions: () => callActions,
 }));
 
-vi.mock('dashboard/composables/useLivekitVoiceSession', () => ({
-  useLivekitVoiceSession: () => livekitSession,
+vi.mock('dashboard/composables/useVoiceSession', () => ({
+  useVoiceSession: () => voiceSession,
 }));
 
 vi.mock('dashboard/composables/useWhatsappCallSession', () => ({
@@ -143,8 +143,8 @@ describe('VoiceCall', () => {
   it('uses failed copy for a stale active recording on a completed call', () => {
     const wrapper = mountComponent({
       id: 3,
-      provider: 'livekit',
-      providerCallId: 'browser-recording-b1b47ada',
+      provider: 'kozmopath_voice',
+      callReference: 'browser-recording-b1b47ada',
       direction: 'incoming',
       status: 'completed',
       updatedAt: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
@@ -165,8 +165,8 @@ describe('VoiceCall', () => {
   it('keeps processing copy for a recently ended call while recording settles', () => {
     const wrapper = mountComponent({
       id: 5,
-      provider: 'livekit',
-      providerCallId: 'recent-room',
+      provider: 'kozmopath_voice',
+      callReference: 'recent-room',
       direction: 'incoming',
       status: 'completed',
       updatedAt: new Date(Date.now() - 30 * 1000).toISOString(),
@@ -184,8 +184,8 @@ describe('VoiceCall', () => {
   it('keeps processing copy for an active recording on a live call', () => {
     const wrapper = mountComponent({
       id: 4,
-      provider: 'livekit',
-      providerCallId: 'live-room',
+      provider: 'kozmopath_voice',
+      callReference: 'live-room',
       direction: 'incoming',
       status: 'in-progress',
       recording: { status: 'active' },
@@ -198,8 +198,8 @@ describe('VoiceCall', () => {
   it('shows one takeover action for a live handoff call', () => {
     const wrapper = mountComponent({
       id: 7,
-      provider: 'livekit',
-      providerCallId: 'handoff-room',
+      provider: 'kozmopath_voice',
+      callReference: 'handoff-room',
       direction: 'incoming',
       status: 'in-progress',
       handoffStatus: 'requested',
@@ -213,16 +213,16 @@ describe('VoiceCall', () => {
     expect(labels).not.toContain('Join live call');
   });
 
-  it('does not expose local disconnect for an active LiveKit call', () => {
+  it('does not expose local disconnect for an active Kozmopath Voice call', () => {
     callActions.activeCall.value = {
-      provider: 'livekit',
+      provider: 'kozmopath_voice',
       callSid: 'active-room',
     };
 
     const wrapper = mountComponent({
       id: 9,
-      provider: 'livekit',
-      providerCallId: 'active-room',
+      provider: 'kozmopath_voice',
+      callReference: 'active-room',
       direction: 'incoming',
       status: 'in-progress',
       handoffStatus: 'accepted',
@@ -243,15 +243,15 @@ describe('VoiceCall', () => {
     VoiceAPI.getCall.mockResolvedValueOnce({
       data: {
         id: 8,
-        provider: 'livekit',
-        provider_call_id: 'ended-room',
+        provider: 'kozmopath_voice',
+        call_reference: 'ended-room',
         status: 'completed',
       },
     });
     const wrapper = mountComponent({
       id: 8,
-      provider: 'livekit',
-      providerCallId: 'ended-room',
+      provider: 'kozmopath_voice',
+      callReference: 'ended-room',
       direction: 'incoming',
       status: 'in-progress',
     });

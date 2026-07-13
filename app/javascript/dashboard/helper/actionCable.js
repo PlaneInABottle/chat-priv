@@ -21,7 +21,7 @@ const UNREAD_COUNTS_REFETCH_THROTTLE_MS = 5000;
 
 class ActionCableConnector extends BaseActionCableConnector {
   constructor(app, pubsubToken) {
-    const { websocketURL = '' } = window.chatwootConfig || {};
+    const { websocketURL = '' } = window.kozmopathConfig || {};
     super(app, pubsubToken, websocketURL);
     this.CancelTyping = [];
     this.lastUnreadCountsFetchAt = null;

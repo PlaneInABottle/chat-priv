@@ -11,7 +11,7 @@
       <h1 class="main-content__page-title" id="page-title">
         <%= content_for(:title) %>
       </h1>
-      <p class="text-xs text-slate-600 m-0 -mt-0.5">Raw Super Admin diagnostics for this LiveKit call.</p>
+      <p class="text-xs text-slate-600 m-0 -mt-0.5">Raw Super Admin diagnostics for this voice call.</p>
     </div>
   </div>
   <div class="flex flex-wrap gap-2">
@@ -57,7 +57,7 @@
         <div><dt>Status</dt><dd><%= @call.status.humanize %></dd></div>
         <div><dt>Kind</dt><dd><%= @call.test_call? ? 'Test' : 'Live' %></dd></div>
         <div><dt>Provider call ID</dt><dd><%= @call.provider_call_id %></dd></div>
-        <div><dt>LiveKit room</dt><dd><%= @call.livekit_room_name.presence || '-' %></dd></div>
+        <div><dt>Voice room</dt><dd><%= @call.livekit_room_name.presence || '-' %></dd></div>
         <div><dt>Voice agent ID</dt><dd><%= @call.meta&.fetch('voice_agent_id', '-') %></dd></div>
         <div><dt>Handoff</dt><dd><%= @call.handoff_status.presence || '-' %></dd></div>
         <div><dt>AI status</dt><dd><%= @call.ai_status.presence || '-' %></dd></div>

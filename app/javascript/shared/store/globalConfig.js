@@ -4,14 +4,13 @@ import { resolveMaximumFileUploadSize } from 'shared/helpers/FileHelper';
 const {
   API_CHANNEL_NAME: apiChannelName,
   API_CHANNEL_THUMBNAIL: apiChannelThumbnail,
-  APP_VERSION: appVersion,
   AZURE_APP_ID: azureAppId,
+  BRAND_URL: brandURL,
   BRAND_NAME: brandName,
-  CHATWOOT_INBOX_TOKEN: chatwootInboxToken,
+  SUPPORT_INBOX_TOKEN: supportInboxToken,
   CREATE_NEW_ACCOUNT_FROM_DASHBOARD: createNewAccountFromDashboard,
   DIRECT_UPLOADS_ENABLED: directUploadsEnabled,
   DISPLAY_MANIFEST: displayManifest,
-  GIT_SHA: gitSha,
   MAXIMUM_FILE_UPLOAD_SIZE: maximumFileUploadSize,
   HCAPTCHA_SITE_KEY: hCaptchaSiteKey,
   INSTALLATION_NAME: installationName,
@@ -30,16 +29,15 @@ const {
 const state = {
   apiChannelName,
   apiChannelThumbnail,
-  appVersion,
   azureAppId,
+  brandURL,
   brandName,
-  chatwootInboxToken,
+  supportInboxToken,
   deploymentEnv,
   createNewAccountFromDashboard,
   directUploadsEnabled: parseBoolean(directUploadsEnabled),
   disableUserProfileUpdate: parseBoolean(disableUserProfileUpdate),
   displayManifest,
-  gitSha,
   maximumFileUploadSize: resolveMaximumFileUploadSize(maximumFileUploadSize),
   hCaptchaSiteKey,
   installationName,
@@ -55,9 +53,11 @@ const state = {
 
 export const getters = {
   get: $state => $state,
-  isOnChatwootCloud: $state => $state.deploymentEnv === 'cloud',
-  isACustomBrandedInstance: $state => $state.installationName !== 'Chatwoot',
-  isAChatwootInstance: $state => $state.installationName === 'Chatwoot',
+  isCloudDeployment: $state => $state.deploymentEnv === 'cloud',
+  isACustomBrandedInstance: $state =>
+    Boolean($state.brandName) && $state.installationName !== $state.brandName,
+  isDefaultInstallation: $state =>
+    Boolean($state.brandName) && $state.installationName === $state.brandName,
 };
 
 export const actions = {};

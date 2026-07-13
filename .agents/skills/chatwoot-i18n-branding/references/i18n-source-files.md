@@ -37,3 +37,12 @@ After changing locale keys or English source files, run:
 ```bash
 pnpm sync:i18n
 ```
+
+## Build-time translated branding
+
+`vite.config.ts` defines the `kozmopath-locale-branding` pre-transform for
+locale JSON modules. It recursively rewrites string values at build and test
+time while preserving translation keys and repo-owned non-English source
+files. Keep customer-facing provider/product replacement in that transform
+and in the Vue I18n `postTranslation` hook rather than bulk-editing community
+locales.

@@ -36,7 +36,7 @@ const withTimeout = (promise, timeoutMs, message) => {
   });
 };
 
-export function useLivekitVoiceSession({ call }) {
+export function useVoiceSession({ call }) {
   const { t } = useI18n();
 
   const sessionStatus = ref('disconnected');
@@ -61,7 +61,7 @@ export function useLivekitVoiceSession({ call }) {
     if (track.kind !== 'audio' || !remoteAudioRef.value) return;
     const element = track.attach();
     element.autoplay = true;
-    element.dataset.livekitRemoteAudio = 'true';
+    element.dataset.voiceRemoteAudio = 'true';
     remoteAudioRef.value.appendChild(element);
   };
 

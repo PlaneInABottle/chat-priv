@@ -21,7 +21,8 @@ const isVoiceCallMessage = message => {
 };
 
 const isTruthy = value => value === true || value === 'true';
-const isLivekit = provider => provider === VOICE_CALL_PROVIDERS.LIVEKIT;
+const isKozmopathVoice = provider =>
+  provider === VOICE_CALL_PROVIDERS.KOZMOPATH_VOICE;
 const isTerminalStatus = status => TERMINAL_STATUSES.includes(status);
 
 const shouldSkipCall = (callDirection, senderId, currentUserId) => {
@@ -60,8 +61,8 @@ const shouldRingInbound = (callDirection, currentUserAvailability) => {
   return currentUserAvailability === 'online';
 };
 
-const shouldNotifyHumanForLivekit = ({ provider, handoffStatus }) => {
-  if (!isLivekit(provider)) return true;
+const shouldNotifyHumanForKozmopathVoice = ({ provider, handoffStatus }) => {
+  if (!isKozmopathVoice(provider)) return true;
   return ['requested', 'accepted'].includes(handoffStatus);
 };
 
@@ -87,7 +88,11 @@ function extractCallData(message) {
   const call = message?.call || {};
   const data = message?.content_attributes?.data || {};
   return {
-    callSid: call.provider_call_id || data.call_sid,
+    callSid:
+      call.call_reference ||
+      call.provider_call_id ||
+      data.call_reference ||
+      data.call_sid,
     callId: call.id || data.call_id,
     provider: call.provider || data.call_source,
     status: call.status || data.status,
@@ -129,7 +134,7 @@ export function handleVoiceCallCreated(
   } = extractCallData(message);
 
   if (testCall) return;
-  if (!shouldNotifyHumanForLivekit({ provider, handoffStatus })) return;
+  if (!shouldNotifyHumanForKozmopathVoice({ provider, handoffStatus })) return;
 
   if (
     !shouldShowCall({
@@ -208,7 +213,7 @@ export function handleVoiceCallUpdated(
     return;
   }
 
-  if (!shouldNotifyHumanForLivekit({ provider, handoffStatus })) {
+  if (!shouldNotifyHumanForKozmopathVoice({ provider, handoffStatus })) {
     callsStore.removeCall(callSid);
     return;
   }
@@ -236,7 +241,10 @@ export function handleVoiceCallStatusPayload(
   currentUserAvailability
 ) {
   const callSid =
-    data?.provider_call_id || data?.call_sid || data?.livekit_room_name;
+    data?.call_reference ||
+    data?.provider_call_id ||
+    data?.call_sid ||
+    data?.room_name;
   if (!callSid) return;
 
   const callsStore = useCallsStore();
@@ -251,10 +259,10 @@ export function handleVoiceCallStatusPayload(
     return;
   }
 
-  if (!isLivekit(data?.provider)) return;
+  if (!isKozmopathVoice(data?.provider)) return;
 
   if (
-    !shouldNotifyHumanForLivekit({
+    !shouldNotifyHumanForKozmopathVoice({
       provider: data.provider,
       handoffStatus: data.handoff_status,
     })

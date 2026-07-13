@@ -50,18 +50,23 @@ class Voice::CallMessageBuilder
   end
 
   def call_payload
-    {
+    payload = {
       'call_id' => call.id,
-      'call_sid' => call.provider_call_id,
-      'call_source' => call.provider,
       'call_direction' => call.direction_label,
       'status' => call.display_status,
-      'livekit_room_name' => call.livekit_room_name,
       'test_call' => call.test_call?,
       'test_call_source' => call.test_call_source,
       'test_call_initiated_by_user_id' => call.test_call_initiated_by_user_id,
       'updated_at' => call.updated_at.iso8601
     }
+
+    return payload.merge('call_sid' => call.provider_call_id, 'call_source' => call.provider) unless call.livekit?
+
+    payload.merge(
+      'call_reference' => call.provider_call_id,
+      'call_source' => call.public_provider,
+      'room_name' => call.livekit_room_name
+    )
   end
 
   def status_payload

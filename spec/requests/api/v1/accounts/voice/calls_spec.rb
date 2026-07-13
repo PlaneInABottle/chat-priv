@@ -101,9 +101,14 @@ RSpec.describe 'Api::V1::Accounts::Voice::Calls', type: :request do
 
       expect(response).to have_http_status(:ok)
       expect(response.parsed_body).to include(
+        'provider' => 'kozmopath_voice',
+        'call_reference' => conversation_call.provider_call_id,
+        'room_name' => conversation_call.livekit_room_name,
         'voice_agent_id' => voice_agent.id,
         'voice_agent_name' => voice_agent.name
       )
+      expect(response.parsed_body).not_to have_key('provider_call_id')
+      expect(response.parsed_body).not_to have_key('livekit_room_name')
       expect(response.parsed_body).not_to have_key('tool_events')
       expect(response.parsed_body['tool_event_summaries'].first).to include(
         'tool' => 'request_human_handoff',

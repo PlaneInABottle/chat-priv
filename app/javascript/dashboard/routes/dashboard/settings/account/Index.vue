@@ -12,7 +12,6 @@ import NextInput from 'next/input/Input.vue';
 import BaseSettingsHeader from '../components/BaseSettingsHeader.vue';
 import NextButton from 'dashboard/components-next/button/Button.vue';
 import AccountId from './components/AccountId.vue';
-import BuildInfo from './components/BuildInfo.vue';
 import AccountDelete from './components/AccountDelete.vue';
 import AudioTranscription from './components/AudioTranscription.vue';
 import SectionLayout from './components/SectionLayout.vue';
@@ -22,7 +21,6 @@ export default {
     BaseSettingsHeader,
     NextButton,
     AccountId,
-    BuildInfo,
     AccountDelete,
     AudioTranscription,
     SectionLayout,
@@ -60,7 +58,7 @@ export default {
       getAccount: 'accounts/getAccount',
       uiFlags: 'accounts/getUIFlags',
       isFeatureEnabledonAccount: 'accounts/isFeatureEnabledonAccount',
-      isOnChatwootCloud: 'globalConfig/isOnChatwootCloud',
+      isCloudDeployment: 'globalConfig/isCloudDeployment',
     }),
     showAudioTranscriptionConfig() {
       return this.isFeatureEnabledonAccount(
@@ -239,9 +237,8 @@ export default {
     </div>
     <AudioTranscription v-if="showAudioTranscriptionConfig" />
     <AccountId />
-    <div v-if="!uiFlags.isFetchingItem && isOnChatwootCloud">
+    <div v-if="!uiFlags.isFetchingItem && isCloudDeployment">
       <AccountDelete />
     </div>
-    <BuildInfo />
   </div>
 </template>

@@ -1,4 +1,4 @@
-import { useBranding } from '../useBranding';
+import { replacePublicBranding, useBranding } from '../useBranding';
 import { useMapGetter } from 'dashboard/composables/store.js';
 
 // Mock the store composable
@@ -73,13 +73,13 @@ describe('useBranding', () => {
       expect(result).toBe('Welcome to our platform');
     });
 
-    it('should be case-sensitive for "Chatwoot"', () => {
+    it('should replace product names regardless of case', () => {
       const { replaceInstallationName } = useBranding();
       const result = replaceInstallationName(
         'Welcome to chatwoot and CHATWOOT'
       );
 
-      expect(result).toBe('Welcome to chatwoot and CHATWOOT');
+      expect(result).toBe('Welcome to MyCompany and MyCompany');
     });
 
     it('should handle special characters in installation name', () => {
@@ -91,6 +91,22 @@ describe('useBranding', () => {
       const result = replaceInstallationName('Welcome to Chatwoot');
 
       expect(result).toBe('Welcome to My-Company & Co.');
+    });
+  });
+
+  describe('replacePublicBranding', () => {
+    it('replaces voice vendor copy and upstream domains', () => {
+      const result = replacePublicBranding(
+        'Connect LiveKit at app.chatwoot.com or chatwoot.help',
+        {
+          installationName: 'Kozmopath',
+          brandURL: 'https://kozmopath.com',
+        }
+      );
+
+      expect(result).toBe(
+        'Connect Kozmopath Voice at kozmopath.com or kozmopath.com'
+      );
     });
   });
 });

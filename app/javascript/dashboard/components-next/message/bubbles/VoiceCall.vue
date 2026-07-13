@@ -74,8 +74,8 @@ const {
 } = useCallActions();
 const whatsappCallSession = useWhatsappCallSession();
 const callsStore = useCallsStore();
-const livekitCallDetails = ref(null);
-const isEndingLivekit = ref(false);
+const voiceCallDetails = ref(null);
+const isEndingKozmopathVoice = ref(false);
 const contactsUiFlags = useMapGetter('contacts/getUIFlags');
 const isInitiatingCall = computed(
   () => contactsUiFlags.value?.isInitiatingCall || false
@@ -83,7 +83,7 @@ const isInitiatingCall = computed(
 
 const contentData = computed(() => contentAttributes?.value?.data || {});
 const callField = (camelKey, snakeKey = camelKey) => {
-  const source = livekitCallDetails.value || call.value || {};
+  const source = voiceCallDetails.value || call.value || {};
   return (
     source[camelKey] ??
     source[snakeKey] ??
@@ -115,8 +115,8 @@ const isOutbound = computed(() => {
 const isWhatsapp = computed(
   () => callField('provider') === VOICE_CALL_PROVIDERS.WHATSAPP
 );
-const isLivekit = computed(
-  () => callField('provider') === VOICE_CALL_PROVIDERS.LIVEKIT
+const isKozmopathVoice = computed(
+  () => callField('provider') === VOICE_CALL_PROVIDERS.KOZMOPATH_VOICE
 );
 const isFailed = computed(() =>
   [
@@ -178,7 +178,7 @@ const durationSeconds = computed(() => {
 
 const formattedDuration = computed(() => formatDuration(durationSeconds.value));
 const showLiveBadge = computed(
-  () => isLivekit.value && status.value === VOICE_CALL_STATUS.IN_PROGRESS
+  () => isKozmopathVoice.value && status.value === VOICE_CALL_STATUS.IN_PROGRESS
 );
 
 // Agent who handled the call (initiator on outbound, answerer on inbound), taken
@@ -234,15 +234,15 @@ const subtext = computed(() => {
   }
   if (status.value === VOICE_CALL_STATUS.IN_PROGRESS) {
     const parts = [];
-    if (isLivekit.value && handoffStatus.value === 'requested') {
+    if (isKozmopathVoice.value && handoffStatus.value === 'requested') {
       parts.push(t('CONVERSATION.VOICE_CALL.HANDOFF_REQUESTED'));
-    } else if (isLivekit.value && handoffStatus.value === 'accepted') {
+    } else if (isKozmopathVoice.value && handoffStatus.value === 'accepted') {
       parts.push(
         handledBy.value || t('CONVERSATION.VOICE_CALL.HANDOFF_ACCEPTED')
       );
-    } else if (isLivekit.value && aiStatus.value === 'silent') {
+    } else if (isKozmopathVoice.value && aiStatus.value === 'silent') {
       parts.push(t('CONVERSATION.VOICE_CALL.AI_SILENT'));
-    } else if (isLivekit.value) {
+    } else if (isKozmopathVoice.value) {
       parts.push(t('CONVERSATION.VOICE_CALL.AI_ACTIVE'));
     } else {
       parts.push(handledBy.value);
@@ -295,15 +295,17 @@ const iconContainerClass = computed(() => {
 
 const callSid = computed(
   () =>
+    callField('callReference', 'call_reference') ||
     callField('providerCallId', 'provider_call_id') ||
+    contentData.value?.call_reference ||
     contentData.value?.call_sid
 );
-const livekitCallId = computed(
+const voiceCallId = computed(
   () => callField('id') || contentData.value?.call_id
 );
-const isJoiningLivekit = ref(false);
+const isJoiningKozmopathVoice = ref(false);
 
-const isLivekitTerminal = computed(() =>
+const isKozmopathVoiceTerminal = computed(() =>
   [
     VOICE_CALL_STATUS.COMPLETED,
     VOICE_CALL_STATUS.NO_ANSWER,
@@ -314,24 +316,26 @@ const isLivekitTerminal = computed(() =>
     VOICE_CALL_STATUS.ENDED,
   ].includes(status.value)
 );
-const canUseLivekitControls = computed(
+const canUseKozmopathVoiceControls = computed(
   () =>
-    isLivekit.value && Boolean(livekitCallId.value) && !isLivekitTerminal.value
+    isKozmopathVoice.value &&
+    Boolean(voiceCallId.value) &&
+    !isKozmopathVoiceTerminal.value
 );
-const isLivekitActiveInCallWidget = computed(
+const isKozmopathVoiceActiveInCallWidget = computed(
   () =>
-    activeCall.value?.provider === VOICE_CALL_PROVIDERS.LIVEKIT &&
+    activeCall.value?.provider === VOICE_CALL_PROVIDERS.KOZMOPATH_VOICE &&
     activeCall.value?.callSid === callSid.value
 );
-const displayLivekitSessionStatus = computed(() =>
-  isLivekitActiveInCallWidget.value ? 'connected' : 'disconnected'
+const displayKozmopathVoiceSessionStatus = computed(() =>
+  isKozmopathVoiceActiveInCallWidget.value ? 'connected' : 'disconnected'
 );
-const livekitPrimaryActionLabel = computed(() =>
+const voicePrimaryActionLabel = computed(() =>
   handoffStatus.value === 'accepted' || aiStatus.value === 'silent'
     ? t('CONVERSATION.VOICE_CALL.JOIN_LIVE_CALL')
     : t('CONVERSATION.VOICE_CALL.TAKE_OVER')
 );
-const livekitPrimaryActionIcon = computed(() =>
+const voicePrimaryActionIcon = computed(() =>
   handoffStatus.value === 'accepted' || aiStatus.value === 'silent'
     ? 'i-ph-headphones-bold'
     : 'i-ph-user-check-bold'
@@ -339,7 +343,7 @@ const livekitPrimaryActionIcon = computed(() =>
 
 const canJoinCall = computed(() => {
   if (status.value !== VOICE_CALL_STATUS.RINGING) return false;
-  if (isLivekit.value) return false;
+  if (isKozmopathVoice.value) return false;
   if (isOutbound.value) return false;
   if (acceptedByAgentId.value) return false;
   if (!callSid.value || !inboxId.value || !conversationId.value) return false;
@@ -382,7 +386,7 @@ const callTerminalReferenceAt = computed(
 );
 
 const isTerminalRecordingStale = computed(() => {
-  if (!isLivekitTerminal.value) return false;
+  if (!isKozmopathVoiceTerminal.value) return false;
   const referenceAt = timestampFromValue(callTerminalReferenceAt.value);
   if (referenceAt === null) return false;
   return Date.now() - referenceAt > RECORDING_STALE_AFTER_MS;
@@ -391,7 +395,7 @@ const isTerminalRecordingStale = computed(() => {
 const recordingStatusLabel = computed(() => {
   if (recordingAttachment.value) return '';
   if (['starting', 'active'].includes(recordingStatus.value)) {
-    if (isLivekitTerminal.value) {
+    if (isKozmopathVoiceTerminal.value) {
       return isTerminalRecordingStale.value
         ? t('CONVERSATION.VOICE_CALL.RECORDING_FAILED')
         : t('CONVERSATION.VOICE_CALL.RECORDING_PROCESSING');
@@ -409,24 +413,24 @@ const callSummary = computed(() => {
   return summary.text || '';
 });
 
-const refreshLivekitCallDetails = async () => {
-  if (!isLivekit.value || !livekitCallId.value) return;
+const refreshKozmopathVoiceCallDetails = async () => {
+  if (!isKozmopathVoice.value || !voiceCallId.value) return;
 
   try {
-    const response = await VoiceAPI.getCall(livekitCallId.value);
-    livekitCallDetails.value = response.data;
+    const response = await VoiceAPI.getCall(voiceCallId.value);
+    voiceCallDetails.value = response.data;
   } catch {
     // Keep the historical message payload visible if the detail fetch fails.
   }
 };
 
-const activateLivekitCallInWidget = () => {
-  if (!callSid.value || !livekitCallId.value) return;
+const activateKozmopathVoiceCallInWidget = () => {
+  if (!callSid.value || !voiceCallId.value) return;
 
   callsStore.addCall({
     callSid: callSid.value,
-    callId: livekitCallId.value,
-    provider: VOICE_CALL_PROVIDERS.LIVEKIT,
+    callId: voiceCallId.value,
+    provider: VOICE_CALL_PROVIDERS.KOZMOPATH_VOICE,
     startedAt: callField('startedAt', 'started_at'),
     conversationId: conversationId.value,
     inboxId: inboxId.value,
@@ -438,8 +442,8 @@ const activateLivekitCallInWidget = () => {
 };
 
 onMounted(() => {
-  if (isLivekitTerminal.value) {
-    refreshLivekitCallDetails();
+  if (isKozmopathVoiceTerminal.value) {
+    refreshKozmopathVoiceCallDetails();
   }
 });
 
@@ -464,7 +468,7 @@ const handleJoinCall = async () => {
 const canCallBack = computed(
   () =>
     isMissedInbound.value &&
-    !isLivekit.value &&
+    !isKozmopathVoice.value &&
     !!inboxId.value &&
     !!conversationId.value &&
     !hasActiveCall.value &&
@@ -515,40 +519,41 @@ const handleCallBack = async () => {
   }
 };
 
-const handleJoinLivekit = async () => {
+const handleJoinKozmopathVoice = async () => {
   if (
-    !canUseLivekitControls.value ||
-    isLivekitActiveInCallWidget.value ||
-    isJoiningLivekit.value
+    !canUseKozmopathVoiceControls.value ||
+    isKozmopathVoiceActiveInCallWidget.value ||
+    isJoiningKozmopathVoice.value
   ) {
     return;
   }
-  isJoiningLivekit.value = true;
+  isJoiningKozmopathVoice.value = true;
   try {
-    await refreshLivekitCallDetails();
-    if (!canUseLivekitControls.value) return;
+    await refreshKozmopathVoiceCallDetails();
+    if (!canUseKozmopathVoiceControls.value) return;
 
-    activateLivekitCallInWidget();
+    activateKozmopathVoiceCallInWidget();
   } finally {
-    isJoiningLivekit.value = false;
+    isJoiningKozmopathVoice.value = false;
   }
 };
 
-const handleEndLivekit = async () => {
-  if (!canUseLivekitControls.value || isEndingLivekit.value) return;
+const handleEndKozmopathVoice = async () => {
+  if (!canUseKozmopathVoiceControls.value || isEndingKozmopathVoice.value)
+    return;
 
-  isEndingLivekit.value = true;
+  isEndingKozmopathVoice.value = true;
   try {
-    const response = await VoiceAPI.endCall(livekitCallId.value, {
+    const response = await VoiceAPI.endCall(voiceCallId.value, {
       end_reason: 'agent_ended',
     });
-    livekitCallDetails.value = response.data;
+    voiceCallDetails.value = response.data;
     dismissCall(callSid.value);
     useAlert(t('VOICE_AI.SESSION.END_SUCCESS'));
   } catch {
     useAlert(t('VOICE_AI.SESSION.ACTION_ERROR'));
   } finally {
-    isEndingLivekit.value = false;
+    isEndingKozmopathVoice.value = false;
   }
 };
 </script>
@@ -598,7 +603,7 @@ const handleEndLivekit = async () => {
           <AudioChip
             :attachment="recordingAttachment"
             show-transcribed-text
-            :on-before-play="refreshLivekitCallDetails"
+            :on-before-play="refreshKozmopathVoiceCallDetails"
           />
         </div>
       </details>
@@ -625,7 +630,7 @@ const handleEndLivekit = async () => {
       </details>
 
       <details
-        v-if="canUseLivekitControls"
+        v-if="canUseKozmopathVoiceControls"
         class="group"
         :open="status === VOICE_CALL_STATUS.IN_PROGRESS"
       >
@@ -640,24 +645,26 @@ const handleEndLivekit = async () => {
               {{ $t('CONVERSATION.VOICE_CALL.LIVE_SESSION') }}
             </span>
             <span class="text-n-slate-10 capitalize">
-              {{ displayLivekitSessionStatus }}
+              {{ displayKozmopathVoiceSessionStatus }}
             </span>
           </div>
 
           <div
             class="grid gap-2"
-            :class="isLivekitActiveInCallWidget ? 'grid-cols-1' : 'grid-cols-2'"
+            :class="
+              isKozmopathVoiceActiveInCallWidget ? 'grid-cols-1' : 'grid-cols-2'
+            "
           >
             <NextButton
-              v-if="!isLivekitActiveInCallWidget"
+              v-if="!isKozmopathVoiceActiveInCallWidget"
               type="button"
-              :label="livekitPrimaryActionLabel"
-              :icon="livekitPrimaryActionIcon"
+              :label="voicePrimaryActionLabel"
+              :icon="voicePrimaryActionIcon"
               teal
               class="!rounded-full"
-              :disabled="isJoiningLivekit"
-              :is-loading="isJoiningLivekit"
-              @click="handleJoinLivekit"
+              :disabled="isJoiningKozmopathVoice"
+              :is-loading="isJoiningKozmopathVoice"
+              @click="handleJoinKozmopathVoice"
             />
             <NextButton
               type="button"
@@ -666,8 +673,8 @@ const handleEndLivekit = async () => {
               variant="outline"
               color="ruby"
               class="!rounded-full"
-              :is-loading="isEndingLivekit"
-              @click="handleEndLivekit"
+              :is-loading="isEndingKozmopathVoice"
+              @click="handleEndKozmopathVoice"
             />
           </div>
         </div>

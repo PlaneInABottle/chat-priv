@@ -17,7 +17,7 @@ export const INBOX_TYPES = {
 export const VOICE_CALL_PROVIDERS = {
   TWILIO: 'twilio',
   WHATSAPP: 'whatsapp',
-  LIVEKIT: 'livekit',
+  KOZMOPATH_VOICE: 'kozmopath_voice',
 };
 
 export const getVoiceCallProvider = inbox => {

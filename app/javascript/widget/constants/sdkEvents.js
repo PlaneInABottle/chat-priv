@@ -1,7 +1,8 @@
-export const CHATWOOT_ERROR = 'chatwoot:error';
-export const CHATWOOT_ON_MESSAGE = 'chatwoot:on-message';
-export const CHATWOOT_ON_START_CONVERSATION = 'chatwoot:on-start-conversation';
-export const CHATWOOT_POSTBACK = 'chatwoot:postback';
-export const CHATWOOT_READY = 'chatwoot:ready';
-export const CHATWOOT_OPENED = 'chatwoot:opened';
-export const CHATWOOT_CLOSED = 'chatwoot:closed';
+export const KOZMOPATH_ERROR = 'kozmopath:error';
+export const KOZMOPATH_ON_MESSAGE = 'kozmopath:on-message';
+export const KOZMOPATH_ON_START_CONVERSATION =
+  'kozmopath:on-start-conversation';
+export const KOZMOPATH_POSTBACK = 'kozmopath:postback';
+export const KOZMOPATH_READY = 'kozmopath:ready';
+export const KOZMOPATH_OPENED = 'kozmopath:opened';
+export const KOZMOPATH_CLOSED = 'kozmopath:closed';

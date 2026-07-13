@@ -43,7 +43,7 @@ class VoiceAgents::PromptComposer
   attr_reader :voice_agent, :snapshot
 
   def base_prompt
-    installation_name = GlobalConfigService.load('INSTALLATION_NAME', 'Chatwoot').presence || 'Chatwoot'
+    installation_name = GlobalConfigService.load('INSTALLATION_NAME', 'Kozmopath').presence || 'Kozmopath'
     format(BASE_PROMPT, installation_name: installation_name)
   end
 

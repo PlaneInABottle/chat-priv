@@ -196,13 +196,13 @@ const launchEmbeddedSignup = async () => {
     );
 
     await setupFacebookSdk(
-      window.chatwootConfig?.whatsappAppId,
-      window.chatwootConfig?.whatsappApiVersion
+      window.kozmopathConfig?.whatsappAppId,
+      window.kozmopathConfig?.whatsappApiVersion
     );
     fbSdkLoaded.value = true;
 
     const code = await initWhatsAppEmbeddedSignup(
-      window.chatwootConfig?.whatsappConfigurationId
+      window.kozmopathConfig?.whatsappConfigurationId
     );
 
     authCode.value = code;

@@ -2,17 +2,18 @@ class ApiController < ApplicationController
   skip_before_action :set_current_user, only: [:index]
 
   def index
-    render json: { version: Chatwoot.config[:version],
-                   timestamp: Time.now.utc.to_fs(:db),
-                   queue_services: redis_status,
-                   data_services: postgres_status }
+    render json: { status: services_healthy? ? 'ok' : 'failing' }
   end
 
   private
 
+  def services_healthy?
+    redis_status == 'ok' && postgres_status == 'ok'
+  end
+
   def redis_status
-    r = Redis.new(Redis::Config.app)
-    return 'ok' if r.ping
+    redis = Redis.new(Redis::Config.app)
+    return 'ok' if redis.ping
   rescue Redis::CannotConnectError
     'failing'
   end

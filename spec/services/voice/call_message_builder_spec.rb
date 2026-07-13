@@ -23,19 +23,22 @@ RSpec.describe Voice::CallMessageBuilder do
     )
   end
 
-  it 'creates a voice call message with LiveKit call metadata' do
+  it 'creates a voice call message with public Kozmopath metadata' do
     message = described_class.new(call).perform!
 
     expect(message).to be_persisted
     expect(message.content_type).to eq('voice_call')
     expect(message.content_attributes['data']).to include(
       'call_id' => call.id,
-      'call_sid' => 'room-message-builder',
-      'call_source' => 'livekit',
+      'call_reference' => 'room-message-builder',
+      'call_source' => 'kozmopath_voice',
+      'room_name' => 'room-message-builder',
       'status' => 'in-progress',
       'handoff_status' => 'requested',
       'ai_status' => 'active'
     )
+    expect(message.content_attributes['data']).not_to have_key('call_sid')
+    expect(message.content_attributes['data']).not_to have_key('livekit_room_name')
   end
 
   it 'refreshes terminal status and recording metadata without signed URLs' do

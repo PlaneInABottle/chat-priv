@@ -16,6 +16,19 @@ describe('#actions', () => {
     beforeEach(() => {
       commit = vi.fn();
       vi.clearAllMocks();
+      localStorage.clear();
+    });
+
+    it('removes agent cache entries left by an older public prefix', async () => {
+      const legacyCacheKey = `legacy_available_agents_${websiteToken}`;
+      localStorage.setItem(legacyCacheKey, JSON.stringify(agents));
+      localStorage.setItem(`${legacyCacheKey}:ts`, Date.now().toString());
+      getFromCache.mockReturnValue(agents);
+
+      await actions.fetchAvailableAgents({ commit }, websiteToken);
+
+      expect(localStorage.getItem(legacyCacheKey)).toBeNull();
+      expect(localStorage.getItem(`${legacyCacheKey}:ts`)).toBeNull();
     });
 
     it('returns cached data if available', async () => {
@@ -23,7 +36,7 @@ describe('#actions', () => {
       await actions.fetchAvailableAgents({ commit }, websiteToken);
 
       expect(getFromCache).toHaveBeenCalledWith(
-        `chatwoot_available_agents_${websiteToken}`
+        `kozmopath_available_agents_${websiteToken}`
       );
       expect(getAvailableAgents).not.toHaveBeenCalled();
       expect(setCache).not.toHaveBeenCalled();
@@ -39,11 +52,11 @@ describe('#actions', () => {
       await actions.fetchAvailableAgents({ commit }, websiteToken);
 
       expect(getFromCache).toHaveBeenCalledWith(
-        `chatwoot_available_agents_${websiteToken}`
+        `kozmopath_available_agents_${websiteToken}`
       );
       expect(getAvailableAgents).toHaveBeenCalledWith(websiteToken);
       expect(setCache).toHaveBeenCalledWith(
-        `chatwoot_available_agents_${websiteToken}`,
+        `kozmopath_available_agents_${websiteToken}`,
         agents
       );
       expect(commit).toHaveBeenCalledWith('setAgents', agents);

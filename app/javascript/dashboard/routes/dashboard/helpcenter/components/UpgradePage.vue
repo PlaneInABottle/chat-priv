@@ -1,6 +1,5 @@
 <script>
 import { mapGetters } from 'vuex';
-import wootConstants from 'dashboard/constants/globals';
 import NextButton from 'dashboard/components-next/button/Button.vue';
 import Icon from 'dashboard/components-next/icon/Icon.vue';
 
@@ -11,7 +10,6 @@ export default {
   },
   data() {
     return {
-      helpCenterDocsURL: wootConstants.HELP_CENTER_DOCS_URL,
       upgradeFeature: [
         {
           key: 1,
@@ -51,7 +49,8 @@ export default {
   computed: {
     ...mapGetters({
       accountId: 'getCurrentAccountId',
-      isOnChatwootCloud: 'globalConfig/isOnChatwootCloud', // Pending change text
+      globalConfig: 'globalConfig/get',
+      isCloudDeployment: 'globalConfig/isCloudDeployment', // Pending change text
     }),
   },
   methods: {
@@ -62,7 +61,7 @@ export default {
       });
     },
     openHelpCenterDocs() {
-      window.open(this.helpCenterDocsURL, '_blank');
+      window.open(this.globalConfig.brandURL || '/', '_blank');
     },
   },
 };
@@ -83,14 +82,14 @@ export default {
           class="max-w-2xl text-base font-normal leading-6 text-left sm:text-center text-n-slate-11"
         >
           {{
-            isOnChatwootCloud
+            isCloudDeployment
               ? $t('HELP_CENTER.UPGRADE_PAGE.DESCRIPTION')
               : $t('HELP_CENTER.UPGRADE_PAGE.SELF_HOSTED_DESCRIPTION')
           }}
         </p>
       </div>
       <div
-        v-if="isOnChatwootCloud"
+        v-if="isCloudDeployment"
         class="flex flex-row gap-3 justify-start items-center sm:justify-center"
       >
         <NextButton

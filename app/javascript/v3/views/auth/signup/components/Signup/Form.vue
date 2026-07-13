@@ -65,13 +65,13 @@ const termsLink = computed(() =>
 );
 
 const allowedLoginMethods = computed(
-  () => window.chatwootConfig.allowedLoginMethods || ['email']
+  () => window.kozmopathConfig.allowedLoginMethods || ['email']
 );
 
 const showGoogleOAuth = computed(
   () =>
     allowedLoginMethods.value.includes('google_oauth') &&
-    Boolean(window.chatwootConfig.googleOAuthClientId)
+    Boolean(window.kozmopathConfig.googleOAuthClientId)
 );
 
 const isFormValid = computed(() => !v$.value.$invalid);

@@ -9,7 +9,7 @@ const teardownByProvider = call => {
 
   if (call.provider === VOICE_CALL_PROVIDERS.WHATSAPP) {
     cleanupWhatsappSession();
-  } else if (call.provider !== VOICE_CALL_PROVIDERS.LIVEKIT) {
+  } else if (call.provider !== VOICE_CALL_PROVIDERS.KOZMOPATH_VOICE) {
     TwilioVoiceClient.endClientCall();
   }
 };

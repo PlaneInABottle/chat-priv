@@ -44,7 +44,7 @@ class VoiceInboxSetting < ApplicationRecord
   private
 
   def set_defaults
-    self.livekit_room_prefix = "cw-voice-#{account_id}-#{inbox_id}" if livekit_room_prefix.blank? && account_id && inbox_id
+    self.livekit_room_prefix = "kozmopath-voice-#{account_id}-#{inbox_id}" if livekit_room_prefix.blank? && account_id && inbox_id
   end
 
   def associations_belong_to_account

@@ -209,6 +209,18 @@ RSpec.describe 'Accounts API', type: :request do
         expect(response).to have_http_status(:success)
         expect(response.parsed_body.dig('features', 'ai_agent')).to be(true)
       end
+
+      it 'uses branded public names for internal product feature flags' do
+        account.enable_features!('chatwoot_v4', 'contact_chatwoot_support_team')
+
+        get "/api/v1/accounts/#{account.id}",
+            headers: admin.create_new_auth_token,
+            as: :json
+
+        features = response.parsed_body.fetch('features')
+        expect(features).to include('kozmopath_v4' => true, 'contact_support_team' => true)
+        expect(features.keys).not_to include('chatwoot_v4', 'contact_chatwoot_support_team')
+      end
     end
   end
 

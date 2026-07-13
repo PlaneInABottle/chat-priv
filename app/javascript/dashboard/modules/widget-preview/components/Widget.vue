@@ -91,12 +91,13 @@ const widgetScript = computed(() => {
     launcherTitle: props.widgetBubbleLauncherTitle,
   };
 
-  const script = props.webWidgetScript;
+  const script = props.webWidgetScript.replace(
+    /window\.[A-Za-z]+SDK\.run/,
+    'window.kozmopathSDK.run'
+  );
   return (
     script.substring(0, 13) +
-    t('INBOX_MGMT.WIDGET_BUILDER.SCRIPT_SETTINGS', {
-      options: JSON.stringify(options),
-    }) +
+    `\n      window.kozmopathSettings = ${JSON.stringify(options)};` +
     script.substring(13)
   );
 });
@@ -243,7 +244,7 @@ const handleToggleWidget = () => {
           :script="widgetScript"
           lang="html"
           class="!text-start"
-          :codepen-title="`${websiteName} - Chatwoot Widget Test`"
+          :codepen-title="`${websiteName} - ${globalConfig.installationName} Widget Test`"
           enable-code-pen
         />
       </div>

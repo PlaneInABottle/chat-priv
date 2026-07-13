@@ -47,13 +47,17 @@ RSpec.describe Voice::CallSerializer do
 
     expect(payload).to include(
       id: call.id,
-      provider: 'livekit',
+      provider: 'kozmopath_voice',
+      call_reference: 'room-serializer',
+      room_name: 'room-serializer',
       voice_agent_id: voice_agent.id,
       voice_agent_name: voice_agent.name,
       voice_agent_release_id: release.id,
       voice_agent_revision: 4,
       ai_status: 'active'
     )
+    expect(payload).not_to have_key(:provider_call_id)
+    expect(payload).not_to have_key(:livekit_room_name)
     expect(payload[:transcript_segments].first).to include(
       role: 'caller',
       source: 'livekit_agent',
@@ -76,6 +80,16 @@ RSpec.describe Voice::CallSerializer do
     expect(payload[:summary]).to eq(
       'text' => 'Customer gave [email redacted] and [phone redacted]',
       'generated_at' => '2026-07-12T10:00:00Z'
+    )
+  end
+
+  it 'preserves the private worker contract for internal callers' do
+    payload = described_class.new(call, internal: true).payload
+
+    expect(payload).to include(
+      provider: 'livekit',
+      provider_call_id: 'room-serializer',
+      livekit_room_name: 'room-serializer'
     )
   end
 

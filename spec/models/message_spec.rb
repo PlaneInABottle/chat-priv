@@ -171,6 +171,59 @@ RSpec.describe Message do
         expect(push_event_data[:call]).to include(from_number: contact.phone_number, to_number: nil)
       end
     end
+
+    context 'when the message contains a Kozmopath voice call' do
+      let(:account) { create(:account) }
+      let(:api_channel) { create(:channel_api, account: account) }
+      let(:inbox) { api_channel.inbox }
+      let(:contact) { create(:contact, account: account) }
+      let(:conversation) { create(:conversation, account: account, inbox: inbox, contact: contact) }
+      let(:message) do
+        create(
+          :message,
+          account: account,
+          inbox: inbox,
+          conversation: conversation,
+          sender: contact,
+          content_type: 'voice_call',
+          content_attributes: {
+            'data' => {
+              'call_sid' => 'private-room',
+              'call_source' => 'livekit',
+              'livekit_room_name' => 'private-room'
+            }
+          }
+        )
+      end
+
+      before do
+        create(
+          :call,
+          account: account,
+          inbox: inbox,
+          conversation: conversation,
+          contact: contact,
+          message: message,
+          provider: :livekit,
+          provider_call_id: 'private-room',
+          meta: { 'livekit_room_name' => 'private-room' }
+        )
+      end
+
+      it 'sanitizes stored provider metadata in customer-facing events' do
+        expect(push_event_data[:content_attributes]['data']).to include(
+          'call_reference' => 'private-room',
+          'call_source' => 'kozmopath_voice',
+          'room_name' => 'private-room'
+        )
+        expect(push_event_data[:content_attributes]['data']).not_to have_key('livekit_room_name')
+        expect(push_event_data[:call]).to include(
+          call_reference: 'private-room',
+          provider: 'kozmopath_voice',
+          room_name: 'private-room'
+        )
+      end
+    end
   end
 
   describe 'message create event' do

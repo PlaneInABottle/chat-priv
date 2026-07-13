@@ -65,7 +65,7 @@ const mountComponent = ({ conversation, contact, inbox } = {}) =>
 describe('ConversationCard.vue', () => {
   beforeEach(() => {
     pushMock.mockClear();
-    window.chatwootConfig = { hostURL: 'http://localhost:3000' };
+    window.kozmopathConfig = { hostURL: 'http://localhost:3000' };
   });
 
   it('navigates via router.push on click', async () => {

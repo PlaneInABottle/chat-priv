@@ -21,7 +21,7 @@ if resource.custom_attributes.present?
   end
 end
 json.domain @account.domain
-features = @account.enabled_features.dup
+features = @account.public_enabled_features
 features['ai_agent'] = true if @account.ai_agent_enabled?
 features['voice_ai'] = true if @account.voice_ai_enabled?
 json.features features

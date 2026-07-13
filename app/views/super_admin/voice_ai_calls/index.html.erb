@@ -11,7 +11,7 @@
       <h1 class="main-content__page-title" id="page-title">
         <%= content_for(:title) %>
       </h1>
-      <p class="text-xs text-slate-600 m-0 -mt-0.5">Inspect LiveKit voice calls, transcripts, recordings, and raw voice tool events.</p>
+      <p class="text-xs text-slate-600 m-0 -mt-0.5">Inspect voice calls, transcripts, recordings, and raw voice tool events.</p>
     </div>
   </div>
 </header>
@@ -44,7 +44,7 @@
         <input
           name="room"
           value="<%= params[:room] %>"
-          placeholder="LiveKit room or provider call id"
+          placeholder="Room or call reference"
           class="min-w-64 rounded border border-slate-300 p-2 text-sm"
         />
         <button type="submit" class="button button--primary">Apply</button>
@@ -64,7 +64,7 @@
               <th class="px-4 py-3 text-sm font-medium text-slate-900">Inbox</th>
               <th class="px-4 py-3 text-sm font-medium text-slate-900">Status</th>
               <th class="px-4 py-3 text-sm font-medium text-slate-900">Kind</th>
-              <th class="px-4 py-3 text-sm font-medium text-slate-900">LiveKit room</th>
+              <th class="px-4 py-3 text-sm font-medium text-slate-900">Voice room</th>
               <th class="px-4 py-3 text-sm font-medium text-slate-900">Signals</th>
               <th class="px-4 py-3 text-sm font-medium text-slate-900">Details</th>
             </tr>

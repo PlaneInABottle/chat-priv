@@ -153,6 +153,7 @@ class Message < ApplicationRecord
       conversation: conversation.present? ? conversation_push_event_data : nil
     )
     data[:echo_id] = echo_id if echo_id.present?
+    data[:content_attributes] = public_content_attributes
 
     attachments_payload = attachments.map(&:push_event_data).compact
     data[:attachments] = attachments_payload if attachments_payload.present?
@@ -188,7 +189,7 @@ class Message < ApplicationRecord
     data = {
       account: account.webhook_data,
       additional_attributes: additional_attributes,
-      content_attributes: content_attributes,
+      content_attributes: public_content_attributes,
       content_type: content_type,
       content: webhook_content,
       conversation: conversation.webhook_data,
@@ -203,6 +204,12 @@ class Message < ApplicationRecord
     attachments_payload = attachments.map(&:push_event_data).compact
     data[:attachments] = attachments_payload if attachments_payload.present?
     data
+  end
+
+  def public_content_attributes
+    return content_attributes unless content_type == 'voice_call' && call.present?
+
+    call.public_content_attributes(content_attributes)
   end
 
   # Method to get content with survey URL for outgoing channel delivery

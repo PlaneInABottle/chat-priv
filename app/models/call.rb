@@ -35,6 +35,7 @@
 #  fk_rails_...  (voice_agent_release_id => voice_agent_releases.id) ON DELETE => nullify
 #
 class Call < ApplicationRecord
+  PUBLIC_VOICE_PROVIDER = 'kozmopath_voice'.freeze
   STATUSES = %w[ringing in_progress completed no_answer failed].freeze
   TERMINAL_STATUSES = %w[completed no_answer failed].freeze
 
@@ -127,6 +128,25 @@ class Call < ApplicationRecord
     event_payload.merge(number_payload).merge(voice_payload)
   end
 
+  def public_provider
+    livekit? ? PUBLIC_VOICE_PROVIDER : provider
+  end
+
+  def public_content_attributes(attributes)
+    return attributes unless livekit? && attributes.is_a?(Hash)
+
+    sanitized = attributes.deep_dup
+    data = sanitized['data'] || sanitized[:data]
+    return sanitized unless data.is_a?(Hash)
+
+    call_reference = data.delete('call_sid') || data.delete(:call_sid) || provider_call_id
+    room_name = data.delete('livekit_room_name') || data.delete(:livekit_room_name) || livekit_room_name
+    data['call_reference'] = call_reference
+    data['call_source'] = public_provider
+    data['room_name'] = room_name if room_name.present?
+    sanitized
+  end
+
   private
 
   def inbox_channel_phone_number
@@ -136,10 +156,8 @@ class Call < ApplicationRecord
   end
 
   def event_payload
-    {
+    payload = {
       id: id,
-      provider_call_id: provider_call_id,
-      provider: provider,
       direction: direction,
       status: display_status,
       duration_seconds: duration_seconds,
@@ -150,6 +168,10 @@ class Call < ApplicationRecord
       started_at: started_at&.to_i,
       ended_at: ended_at
     }
+
+    return payload.merge(call_reference: provider_call_id, provider: public_provider) if livekit?
+
+    payload.merge(provider_call_id: provider_call_id, provider: provider)
   end
 
   def number_payload
@@ -160,8 +182,7 @@ class Call < ApplicationRecord
   end
 
   def voice_payload
-    {
-      livekit_room_name: livekit_room_name,
+    payload = {
       voice_number_id: meta&.fetch('voice_number_id', nil),
       voice_provider_connection_id: meta&.fetch('voice_provider_connection_id', nil),
       test_call: test_call?,
@@ -172,5 +193,8 @@ class Call < ApplicationRecord
       recording_url: recording_url,
       transcript: transcript
     }
+
+    payload[:room_name] = livekit_room_name if livekit?
+    payload
   end
 end

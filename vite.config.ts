@@ -26,6 +26,50 @@ import yaml from '@rollup/plugin-yaml';
 
 const isLibraryMode = process.env.BUILD_MODE === 'library';
 const isTestMode = process.env.TEST === 'true';
+const PUBLIC_BRAND_NAME = 'Kozmopath';
+const UPSTREAM_PRODUCT_NAME = ['Chat', 'woot'].join('');
+const VOICE_TRANSPORT_NAME = ['Live', 'Kit'].join('');
+
+const replaceLocaleBranding = (value: unknown): unknown => {
+  if (typeof value === 'string') {
+    const upstreamDomain = UPSTREAM_PRODUCT_NAME.toLowerCase();
+    return value
+      .replace(
+        new RegExp(
+          `(?:app\\.|www\\.)?${upstreamDomain}\\.com|${upstreamDomain}\\.help`,
+          'gi'
+        ),
+        'kozmopath.com'
+      )
+      .replace(
+        new RegExp(VOICE_TRANSPORT_NAME, 'gi'),
+        `${PUBLIC_BRAND_NAME} Voice`
+      )
+      .replace(new RegExp(UPSTREAM_PRODUCT_NAME, 'gi'), PUBLIC_BRAND_NAME);
+  }
+
+  if (Array.isArray(value)) return value.map(replaceLocaleBranding);
+  if (!value || typeof value !== 'object') return value;
+
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => key !== 'UPDATE_CHATWOOT')
+      .map(([key, item]) => [key, replaceLocaleBranding(item)])
+  );
+};
+
+const localeBrandingPlugin = () => ({
+  name: 'kozmopath-locale-branding',
+  enforce: 'pre' as const,
+  transform(code: string, id: string) {
+    const filePath = id.split('?', 1)[0];
+    if (!filePath.includes('/i18n/locale/') || !filePath.endsWith('.json')) {
+      return null;
+    }
+
+    return JSON.stringify(replaceLocaleBranding(JSON.parse(code)));
+  },
+});
 
 const vueOptions = {
   template: {
@@ -35,12 +79,12 @@ const vueOptions = {
   },
 };
 
-let plugins = [ruby(), vue(vueOptions), yaml()];
+let plugins = [localeBrandingPlugin(), ruby(), vue(vueOptions), yaml()];
 
 if (isLibraryMode) {
   plugins = [];
 } else if (isTestMode) {
-  plugins = [vue(vueOptions), yaml()];
+  plugins = [localeBrandingPlugin(), vue(vueOptions), yaml()];
 }
 
 export default defineConfig({
@@ -53,6 +97,7 @@ export default defineConfig({
     },
   },
   build: {
+    sourcemap: false,
     rollupOptions: {
       output: {
         // [NOTE] when not in library mode, no new keys will be addedd or overwritten

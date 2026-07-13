@@ -85,7 +85,7 @@ class Internal::Voice::CallsController < Internal::Voice::BaseController
     Voice::ConversationHandoffState.mark_requested!(@call)
     Voice::CallMessageBuilder.new(@call).update_status!(status: @call.status)
     Voice::CallBroadcaster.safe_call_status_changed(@call)
-    render json: Voice::CallSerializer.new(@call).payload
+    render json: Voice::CallSerializer.new(@call, internal: true).payload
   end
 
   def end
@@ -98,7 +98,7 @@ class Internal::Voice::CallsController < Internal::Voice::BaseController
       end_reason: reason,
       timing: improvement_budget_timing(reason)
     )
-    render json: Voice::CallSerializer.new(@call).payload
+    render json: Voice::CallSerializer.new(@call, internal: true).payload
   end
 
   private
@@ -163,7 +163,7 @@ class Internal::Voice::CallsController < Internal::Voice::BaseController
       'test_handoff_reason' => params[:reason].to_s
     )
     @call.update!(meta: meta)
-    render json: Voice::CallSerializer.new(@call).payload.merge(
+    render json: Voice::CallSerializer.new(@call, internal: true).payload.merge(
       tool_status: 'ok',
       terminal_action: 'handoff',
       test_mode: true,
@@ -228,7 +228,7 @@ class Internal::Voice::CallsController < Internal::Voice::BaseController
       )
     end
     Voice::CallBroadcaster.safe_call_status_changed(@call)
-    render json: Voice::CallSerializer.new(@call).payload
+    render json: Voice::CallSerializer.new(@call, internal: true).payload
   end
 
   def ensure_runtime_action_allowed

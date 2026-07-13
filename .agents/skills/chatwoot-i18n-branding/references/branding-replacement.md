@@ -16,14 +16,22 @@ Use the UI-layer helper documented in `AGENTS.md`:
 
 ## What the helper does
 
-`useBranding.js` exports `replaceInstallationName`, which:
+`useBranding.js` exports `replacePublicBranding` and
+`replaceTranslatedBranding`, while `useBranding()` exposes the existing
+`replaceInstallationName` UI helper. Together they:
 
-- returns the original text when there is no installation name
-- replaces exact `Chatwoot` occurrences with `globalConfig.value.installationName`
+- return the original text when there is no installation name
+- replace product-name occurrences regardless of case with the configured installation name
+- replace upstream public domains with the configured brand host
+- replace the voice transport provider name with `<installation name> Voice`
+- support both raw `window.globalConfig` keys and the camel-cased Vuex global config
 
 ## When to apply it
 
-Apply `replaceInstallationName` in the UI layer when a user-facing string contains `Chatwoot` and should adapt to branded or self-hosted installs.
+Apply `replaceInstallationName` in a component when hardcoded public product,
+domain, or voice-provider copy should adapt to the installation. Use
+`replaceTranslatedBranding` as Vue I18n's `postTranslation` hook so community
+locale values are branded without editing non-English source files.
 
 Prefer this helper over hardcoded branded copy.
 
@@ -33,4 +41,6 @@ Check the spec file for current expected behavior, including:
 
 - multiple replacements in one string
 - no-op behavior when branding config is absent
-- case-sensitive replacement of `Chatwoot`
+- case-insensitive product replacement
+- public domain replacement using `BRAND_URL`
+- voice-provider replacement using the installation name

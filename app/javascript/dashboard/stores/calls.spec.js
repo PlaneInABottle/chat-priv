@@ -26,9 +26,11 @@ describe('calls store', () => {
       expect(TwilioVoiceClient.endClientCall).not.toHaveBeenCalled();
     });
 
-    it('does not call TwilioVoiceClient for LiveKit calls', () => {
+    it('does not call TwilioVoiceClient for Kozmopath Voice calls', () => {
       const store = useCallsStore();
-      store.calls = [{ callSid: 'lk-1', provider: 'livekit', isActive: true }];
+      store.calls = [
+        { callSid: 'lk-1', provider: 'kozmopath_voice', isActive: true },
+      ];
       store.clearActiveCall();
       expect(TwilioVoiceClient.endClientCall).not.toHaveBeenCalled();
       expect(cleanupWhatsappSession).not.toHaveBeenCalled();
@@ -54,8 +56,8 @@ describe('calls store', () => {
     it('removes the active call from state', () => {
       const store = useCallsStore();
       store.calls = [
-        { callSid: 'lk-1', provider: 'livekit', isActive: true },
-        { callSid: 'lk-2', provider: 'livekit', isActive: false },
+        { callSid: 'lk-1', provider: 'kozmopath_voice', isActive: true },
+        { callSid: 'lk-2', provider: 'kozmopath_voice', isActive: false },
       ];
       store.clearActiveCall();
       expect(store.calls).toHaveLength(1);
@@ -64,7 +66,9 @@ describe('calls store', () => {
 
     it('is safe when no calls are active', () => {
       const store = useCallsStore();
-      store.calls = [{ callSid: 'lk-1', provider: 'livekit', isActive: false }];
+      store.calls = [
+        { callSid: 'lk-1', provider: 'kozmopath_voice', isActive: false },
+      ];
       store.clearActiveCall();
       expect(store.calls).toHaveLength(1);
       expect(TwilioVoiceClient.endClientCall).not.toHaveBeenCalled();
@@ -76,12 +80,12 @@ describe('calls store', () => {
       const store = useCallsStore();
       store.addCall({
         callSid: 'lk-1',
-        provider: 'livekit',
+        provider: 'kozmopath_voice',
         startedAt: '2026-06-29T20:51:35Z',
       });
       store.addCall({
         callSid: 'lk-1',
-        provider: 'livekit',
+        provider: 'kozmopath_voice',
         status: 'ringing',
       });
 
@@ -111,7 +115,7 @@ describe('calls store', () => {
         },
         {
           callSid: 'lk-1',
-          provider: 'livekit',
+          provider: 'kozmopath_voice',
           isActive: true,
           conversationId: 1,
         },
