@@ -7,16 +7,16 @@ class AiAgents::EvaluationCaseGenerationJob < ApplicationJob
   queue_as :low
 
   def perform(generation)
-    return unless claim(generation)
+    claim_id = claim(generation)
+    return unless claim_id
 
     scenarios = AiAgents::EvaluationCaseGenerator.new(
       ai_agent: generation.ai_agent,
       initiated_by: generation.initiated_by
     ).call(limit: generation.requested_count)
-    created_count = create_cases(generation, scenarios)
-    generation.update!(status: :completed, created_count: created_count, completed_at: Time.current)
+    complete_generation(generation, scenarios, claim_id)
   rescue StandardError => e
-    fail_generation(generation, e)
+    fail_generation(generation, e, claim_id)
   end
 
   private
@@ -25,13 +25,34 @@ class AiAgents::EvaluationCaseGenerationJob < ApplicationJob
     generation.with_lock do
       next false unless generation.pending? || stale_running?(generation)
 
-      generation.update!(status: :running, started_at: Time.current, completed_at: nil, error_message: nil)
-      true
+      claim_id = SecureRandom.uuid
+      generation.update!(
+        status: :running,
+        claim_id: claim_id,
+        started_at: Time.current,
+        completed_at: nil,
+        error_message: nil
+      )
+      claim_id
     end
   end
 
   def stale_running?(generation)
     generation.running? && generation.started_at.present? && generation.started_at < CLAIM_TIMEOUT.ago
+  end
+
+  def complete_generation(generation, scenarios, claim_id)
+    generation.with_lock do
+      next unless current_claim?(generation, claim_id)
+
+      created_count = create_cases(generation, scenarios)
+      generation.update!(
+        status: :completed,
+        claim_id: nil,
+        created_count: created_count,
+        completed_at: Time.current
+      )
+    end
   end
 
   def create_cases(generation, scenarios)
@@ -50,14 +71,23 @@ class AiAgents::EvaluationCaseGenerationJob < ApplicationJob
     ai_agent.evaluation_cases.maximum(:position).to_i + 1
   end
 
-  def fail_generation(generation, error)
-    if generation&.persisted?
+  def fail_generation(generation, error, claim_id)
+    if generation&.persisted? && claim_id
       generation.with_lock do
-        if generation.pending? || generation.running?
-          generation.update!(status: :failed, error_message: USER_FACING_FAILURE, completed_at: Time.current)
-        end
+        next unless current_claim?(generation, claim_id)
+
+        generation.update!(
+          status: :failed,
+          claim_id: nil,
+          error_message: USER_FACING_FAILURE,
+          completed_at: Time.current
+        )
       end
     end
     Rails.logger.error("[AiAgents::EvaluationCaseGenerationJob] #{error.class}: #{error.message}")
+  end
+
+  def current_claim?(generation, claim_id)
+    generation.running? && generation.claim_id == claim_id
   end
 end

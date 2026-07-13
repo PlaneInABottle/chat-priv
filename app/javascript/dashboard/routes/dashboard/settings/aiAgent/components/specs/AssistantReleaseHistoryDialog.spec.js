@@ -17,8 +17,11 @@ const mockDialogClose = vi.hoisted(() => vi.fn());
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
-    t: (key, params = {}) =>
-      params.version ? `${key}:${params.version}` : key,
+    t: (key, params = {}) => {
+      if (params.version) return `${key}:${params.version}`;
+      if (params.name) return `${key}:${params.name}`;
+      return key;
+    },
   }),
 }));
 
@@ -162,6 +165,51 @@ describe('AssistantReleaseHistoryDialog', () => {
 
     expect(mockVoiceApi.getAgentReleases).toHaveBeenCalledWith(42);
     expect(mockTextApi.getReleases).not.toHaveBeenCalled();
+  });
+
+  it('shows a knowledge difference when source content changed without a rename', async () => {
+    mockTextApi.getRelease.mockImplementation((assistantId, releaseId) =>
+      Promise.resolve({
+        data: {
+          ...(releaseId === 12 ? releases[0] : releases[1]),
+          snapshot: {
+            prompt: 'Same instructions',
+            knowledge_sources: [
+              {
+                id: 7,
+                name: 'Returns policy',
+                source_type: 'manual',
+                content:
+                  releaseId === 12
+                    ? 'Returns are accepted within 30 days.'
+                    : 'Returns are accepted within 14 days.',
+              },
+            ],
+          },
+        },
+      })
+    );
+    const wrapper = mountComponent();
+
+    await wrapper.vm.open();
+    await flushPromises();
+    const originalVersionButton = wrapper
+      .findAll('button[type="button"]')
+      .find(button =>
+        button.text().includes('AI_ASSISTANT.RELEASE_HISTORY.VERSION:1')
+      );
+    await originalVersionButton.trigger('click');
+    await flushPromises();
+
+    expect(wrapper.text()).toContain(
+      'AI_ASSISTANT.RELEASE_HISTORY.FIELDS.KNOWLEDGE'
+    );
+    expect(wrapper.text()).toContain(
+      'AI_ASSISTANT.RELEASE_HISTORY.KNOWLEDGE_CONTENT_CHANGED:Returns policy'
+    );
+    expect(wrapper.text()).not.toContain(
+      'AI_ASSISTANT.RELEASE_HISTORY.NO_DIFFERENCES'
+    );
   });
 
   it('keeps version history usable when the live comparison cannot load', async () => {

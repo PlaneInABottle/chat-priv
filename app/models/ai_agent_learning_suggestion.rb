@@ -16,6 +16,7 @@
 #  updated_at            :datetime         not null
 #  account_id            :bigint           not null
 #  ai_agent_id           :bigint           not null
+#  claim_id              :string
 #  conversation_id       :bigint
 #  reviewed_by_id        :bigint
 #  source_message_id     :bigint

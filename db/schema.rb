@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_07_12_160000) do
+ActiveRecord::Schema[7.1].define(version: 2026_07_13_120000) do
   # These extensions should be enabled to support this database
   enable_extension "pg_stat_statements"
   enable_extension "pg_trgm"
@@ -172,6 +172,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_12_160000) do
     t.datetime "completed_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "claim_id"
     t.index ["account_id"], name: "index_ai_agent_evaluation_generations_on_account_id"
     t.index ["ai_agent_id"], name: "index_ai_agent_evaluation_generations_on_ai_agent_id"
     t.index ["ai_agent_id"], name: "index_ai_evaluation_generations_on_active_agent", unique: true, where: "(status = ANY (ARRAY[0, 1]))"
@@ -210,6 +211,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_12_160000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.jsonb "knowledge_snapshot", default: [], null: false
+    t.string "claim_id"
     t.index ["account_id"], name: "index_ai_agent_evaluation_runs_on_account_id"
     t.index ["ai_agent_id", "created_at"], name: "index_ai_agent_evaluation_runs_on_ai_agent_id_and_created_at"
     t.index ["ai_agent_id"], name: "index_ai_agent_evaluation_runs_on_ai_agent_id"
@@ -237,6 +239,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_12_160000) do
     t.string "destination", default: "instructions", null: false
     t.string "source_name"
     t.bigint "ai_knowledge_source_id"
+    t.string "claim_id"
     t.index ["account_id"], name: "index_ai_agent_learning_suggestions_on_account_id"
     t.index ["ai_agent_id", "source_message_id"], name: "index_ai_learning_suggestions_on_agent_and_message", unique: true, where: "(source_message_id IS NOT NULL)"
     t.index ["ai_agent_id", "status", "created_at"], name: "index_ai_learning_suggestions_on_agent_status_created"

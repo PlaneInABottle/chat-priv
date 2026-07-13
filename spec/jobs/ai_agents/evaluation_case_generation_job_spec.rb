@@ -28,7 +28,7 @@ RSpec.describe AiAgents::EvaluationCaseGenerationJob do
 
     described_class.perform_now(generation)
 
-    expect(generation.reload).to have_attributes(status: 'completed', created_count: 2)
+    expect(generation.reload).to have_attributes(status: 'completed', claim_id: nil, created_count: 2)
     expect(generation.ai_agent.evaluation_cases.order(:position).pluck(:name, :position)).to eq(
       [['Unknown delivery date', 1], ['Human request', 2]]
     )
@@ -59,5 +59,43 @@ RSpec.describe AiAgents::EvaluationCaseGenerationJob do
 
     expect(generator).to have_received(:call).once
     expect(generation.reload).to be_completed
+  end
+
+  it 'does not create scenarios after another worker reclaims the generation' do
+    scenarios = [
+      {
+        name: 'Human request',
+        customer_message: 'I want to speak with a person.',
+        success_criteria: 'Offer human handoff.'
+      }
+    ]
+    replacement_claim = nil
+    allow(generator).to receive(:call) do
+      generation.update!(started_at: 20.minutes.ago)
+      replacement_claim = described_class.new.send(:claim, generation)
+      scenarios
+    end
+
+    described_class.perform_now(generation)
+
+    expect(generation.ai_agent.evaluation_cases).to be_empty
+    expect(generation.reload).to have_attributes(status: 'running', claim_id: replacement_claim)
+  end
+
+  it 'does not mark a reclaimed generation as failed' do
+    replacement_claim = nil
+    allow(generator).to receive(:call) do
+      generation.update!(started_at: 20.minutes.ago)
+      replacement_claim = described_class.new.send(:claim, generation)
+      raise AiAgents::EvaluationCaseGenerator::InvalidResponse, 'old worker failed'
+    end
+
+    described_class.perform_now(generation)
+
+    expect(generation.reload).to have_attributes(
+      status: 'running',
+      claim_id: replacement_claim,
+      error_message: nil
+    )
   end
 end

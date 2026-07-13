@@ -37,7 +37,7 @@ class AiAgents::WebsiteImportJob < ApplicationJob
 
       started_at = Time.current
       website_import.update!(status: :running, stage: :crawling, started_at: started_at, error_code: nil, error_message: nil)
-      started_at
+      website_import.reload.started_at
     end
   end
 

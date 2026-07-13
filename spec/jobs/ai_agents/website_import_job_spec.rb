@@ -51,6 +51,17 @@ RSpec.describe AiAgents::WebsiteImportJob do
     )
   end
 
+  it 'continues with the timestamp persisted by the database' do
+    website_import
+    precise_now = Time.at(1_800_000_000, Rational(123_456_789, 1_000)).utc
+    allow(Time).to receive(:current).and_return(precise_now)
+
+    described_class.perform_now(website_import.id)
+
+    expect(website_import.reload).to be_applied
+    expect(website_import.started_at.nsec).to eq(123_456_000)
+  end
+
   it 'keeps the proposal ready when the customer changed the draft' do
     website_import
     ai_agent.update!(prompt: "#{ai_agent.prompt}\nCustomer edit")
