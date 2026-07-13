@@ -170,10 +170,28 @@ describe('AiAgentNew.vue', () => {
 
     wrapper.vm.previousStep();
     wrapper.vm.form.name = 'Renamed support bot';
+    wrapper.vm.form.goal = 'sales';
     wrapper.vm.nextStep();
 
     expect(wrapper.vm.form.instructions).toBe(
       'Keep my carefully edited instructions.'
+    );
+  });
+
+  it('rebuilds untouched generated instructions when the goal changes', () => {
+    const { wrapper } = mountComponent();
+    wrapper.vm.form.name = 'Store assistant';
+    wrapper.vm.nextStep();
+    expect(wrapper.vm.form.instructions).toBe(
+      'AI_ASSISTANT.CREATE.GOAL_INSTRUCTIONS.SUPPORT'
+    );
+
+    wrapper.vm.previousStep();
+    wrapper.vm.form.goal = 'sales';
+    wrapper.vm.nextStep();
+
+    expect(wrapper.vm.form.instructions).toBe(
+      'AI_ASSISTANT.CREATE.GOAL_INSTRUCTIONS.SALES'
     );
   });
 });

@@ -6,7 +6,8 @@ class AiAgents::LearningSuggestionJob < ApplicationJob
   queue_as :low
 
   def perform(suggestion)
-    return unless claim(suggestion)
+    claim_id = claim(suggestion)
+    return unless claim_id
 
     result = AiAgents::LearningSuggestionGenerator.new(
       ai_agent: suggestion.ai_agent,
@@ -15,9 +16,9 @@ class AiAgents::LearningSuggestionJob < ApplicationJob
       customer_message: suggestion.customer_message,
       human_answer: suggestion.human_answer
     )
-    persist_result(suggestion, result)
+    persist_result(suggestion, result, claim_id)
   rescue StandardError => e
-    fail_suggestion(suggestion, e)
+    fail_suggestion(suggestion, e, claim_id)
   end
 
   private
@@ -26,8 +27,9 @@ class AiAgents::LearningSuggestionJob < ApplicationJob
     suggestion.with_lock do
       next false unless suggestion.pending? || stale_analysis?(suggestion)
 
-      suggestion.update!(status: :analyzing, error_message: nil)
-      true
+      claim_id = SecureRandom.uuid
+      suggestion.update!(status: :analyzing, claim_id: claim_id, error_message: nil)
+      claim_id
     end
   end
 
@@ -35,13 +37,14 @@ class AiAgents::LearningSuggestionJob < ApplicationJob
     suggestion.analyzing? && suggestion.updated_at < CLAIM_TIMEOUT.ago
   end
 
-  def persist_result(suggestion, result)
+  def persist_result(suggestion, result, claim_id)
     suggestion.with_lock do
-      next unless suggestion.analyzing?
+      next unless current_claim?(suggestion, claim_id)
 
       if result.useful
         suggestion.update!(
           status: :ready,
+          claim_id: nil,
           destination: result.destination,
           target_section: result.target_section,
           source_name: result.source_name,
@@ -49,17 +52,23 @@ class AiAgents::LearningSuggestionJob < ApplicationJob
           reason: result.reason
         )
       else
-        suggestion.update!(status: :not_recommended, reason: result.reason)
+        suggestion.update!(status: :not_recommended, claim_id: nil, reason: result.reason)
       end
     end
   end
 
-  def fail_suggestion(suggestion, error)
-    if suggestion&.persisted?
+  def fail_suggestion(suggestion, error, claim_id)
+    if suggestion&.persisted? && claim_id
       suggestion.with_lock do
-        suggestion.update!(status: :failed, error_message: error.message.truncate(500)) if suggestion.analyzing?
+        next unless current_claim?(suggestion, claim_id)
+
+        suggestion.update!(status: :failed, claim_id: nil, error_message: error.message.truncate(500))
       end
     end
     Rails.logger.error("[AiAgents::LearningSuggestionJob] #{error.class}: #{error.message}")
+  end
+
+  def current_claim?(suggestion, claim_id)
+    suggestion.analyzing? && suggestion.claim_id == claim_id
   end
 end

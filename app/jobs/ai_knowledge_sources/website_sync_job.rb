@@ -31,7 +31,7 @@ class AiKnowledgeSources::WebsiteSyncJob < ApplicationJob
         last_sync_started_at: started_at,
         sync_error: nil
       )
-      { url: source.website_url, started_at: started_at }
+      { url: source.website_url, started_at: source.reload.last_sync_started_at }
     end
   end
 

@@ -37,6 +37,18 @@ RSpec.describe AiKnowledgeSources::WebsiteSyncJob do
     expect(source.last_synced_at).to be_present
   end
 
+  it 'continues with the timestamp persisted by the database' do
+    source
+    precise_now = Time.at(1_800_000_000, Rational(123_456_789, 1_000)).utc
+    allow(Time).to receive(:current).and_return(precise_now)
+    allow(crawler).to receive(:perform).and_return(crawl_result)
+
+    described_class.perform_now(source.id)
+
+    expect(source.reload).to be_sync_ready
+    expect(source.last_sync_started_at.nsec).to eq(123_456_000)
+  end
+
   it 'updates freshness without changing updated_at when website content is unchanged' do
     compiled_content = "# Example policies\nSource: https://example.com/\nReturns are accepted within 14 days."
     source.update!(content: compiled_content, source_urls: ['https://example.com/'], sync_status: :pending, last_synced_at: 2.days.ago)

@@ -81,8 +81,39 @@ const releasePrompt = computed(() => {
 });
 
 const snapshotValue = (snapshot, key) => snapshot?.[key]?.toString() || '';
-const knowledgeNames = snapshot =>
-  (snapshot?.knowledge_sources || []).map(source => source.name).join('\n');
+const knowledgeSources = snapshot => snapshot?.knowledge_sources || [];
+const knowledgeSignature = snapshot =>
+  JSON.stringify(
+    knowledgeSources(snapshot)
+      .map(source => [
+        source.name || '',
+        source.source_type || '',
+        source.content || '',
+      ])
+      .sort((first, second) =>
+        JSON.stringify(first).localeCompare(JSON.stringify(second))
+      )
+  );
+const matchingKnowledgeSource = (source, comparisonSources) =>
+  comparisonSources.find(item => item.id && item.id === source.id) ||
+  comparisonSources.find(item => item.name === source.name);
+const knowledgeValue = (snapshot, comparisonSnapshot) => {
+  const comparisonSources = knowledgeSources(comparisonSnapshot);
+  return knowledgeSources(snapshot)
+    .map(source => {
+      const comparison = matchingKnowledgeSource(source, comparisonSources);
+      const contentChanged =
+        comparison &&
+        (source.content !== comparison.content ||
+          source.source_type !== comparison.source_type);
+      return contentChanged
+        ? t('AI_ASSISTANT.RELEASE_HISTORY.KNOWLEDGE_CONTENT_CHANGED', {
+            name: source.name,
+          })
+        : source.name;
+    })
+    .join('\n');
+};
 
 const inlineDiff = (value, comparison) => {
   let prefixLength = 0;
@@ -143,6 +174,10 @@ const comparisonRows = computed(() => {
 
   const viewed = selectedRelease.value.snapshot || {};
   const live = activeRelease.value.snapshot || {};
+  const knowledgeChanged =
+    knowledgeSignature(viewed) !== knowledgeSignature(live);
+  const viewedKnowledge = knowledgeValue(viewed, live);
+  const liveKnowledge = knowledgeValue(live, viewed);
   const fields =
     props.assistantType === 'voice'
       ? [
@@ -166,7 +201,7 @@ const comparisonRows = computed(() => {
             snapshotValue(viewed, 'voice'),
             snapshotValue(live, 'voice'),
           ],
-          ['KNOWLEDGE', knowledgeNames(viewed), knowledgeNames(live)],
+          ['KNOWLEDGE', viewedKnowledge, liveKnowledge, knowledgeChanged],
         ]
       : [
           [
@@ -174,11 +209,14 @@ const comparisonRows = computed(() => {
             snapshotValue(viewed, 'prompt'),
             snapshotValue(live, 'prompt'),
           ],
-          ['KNOWLEDGE', knowledgeNames(viewed), knowledgeNames(live)],
+          ['KNOWLEDGE', viewedKnowledge, liveKnowledge, knowledgeChanged],
         ];
 
   return fields
-    .filter(([, viewedValue, liveValue]) => viewedValue !== liveValue)
+    .filter(
+      ([, viewedValue, liveValue, explicitlyChanged]) =>
+        explicitlyChanged || viewedValue !== liveValue
+    )
     .map(([key, viewedValue, liveValue]) => ({
       key,
       viewedValue,

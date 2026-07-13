@@ -183,6 +183,7 @@
       "VIEWED": "Viewed version",
       "CURRENT_LIVE": "Current live version",
       "EMPTY_VALUE": "Not set",
+      "KNOWLEDGE_CONTENT_CHANGED": "{name} (content changed)",
       "NO_DIFFERENCES": "This version has the same customer-facing settings as the live version.",
       "FIELDS": {
         "GREETING": "Greeting",

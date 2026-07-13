@@ -51,7 +51,7 @@ RSpec.describe AiAgents::EvaluationRunner do
         ]
       )
     )
-    expect(run.reload).to have_attributes(status: 'completed', passed_count: 1)
+    expect(run.reload).to have_attributes(status: 'completed', claim_id: nil, passed_count: 1)
     expect(result.reload).to have_attributes(
       status: 'completed',
       passed: true,
@@ -123,5 +123,25 @@ RSpec.describe AiAgents::EvaluationRunner do
     expect(AiAgents::Orchestrator).to have_received(:new).once
     expect(result.reload.assistant_response).to eq('Already complete')
     expect(run.reload).to have_attributes(status: 'completed', passed_count: 2)
+  end
+
+  it 'stops before judging or writing when another worker reclaims the run' do
+    orchestrator = instance_double(AiAgents::Orchestrator)
+    replacement_claim = nil
+    allow(AiAgents::Orchestrator).to receive(:new).and_return(orchestrator)
+    allow(orchestrator).to receive(:perform) do
+      run.update!(started_at: 20.minutes.ago)
+      replacement_claim = described_class.new(run: run).send(:claim_run)
+      {
+        assistant_message: { 'content' => 'An answer from the old worker.' },
+        tool_events: []
+      }
+    end
+    expect(AiAgents::EvaluationJudge).not_to receive(:new)
+
+    described_class.new(run: run).perform
+
+    expect(result.reload).to be_pending
+    expect(run.reload).to have_attributes(status: 'running', claim_id: replacement_claim)
   end
 end

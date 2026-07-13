@@ -19,7 +19,7 @@ const uiFlags = useMapGetter('aiAgent/getUIFlags');
 const inboxes = useMapGetter('inboxes/getInboxes');
 
 const currentStep = ref(0);
-const hasBuiltInstructions = ref(false);
+const generatedInstructions = ref('');
 const form = ref({
   name: '',
   goal: 'support',
@@ -78,10 +78,10 @@ const languageOptions = computed(() => [
 ]);
 
 const buildInstructions = () => {
-  form.value.instructions =
+  generatedInstructions.value =
     goalOptions.value.find(option => option.value === form.value.goal)
       ?.instructions || '';
-  hasBuiltInstructions.value = true;
+  form.value.instructions = generatedInstructions.value;
 };
 
 const validateStep = () => {
@@ -100,8 +100,10 @@ const validateStep = () => {
 
 const nextStep = () => {
   if (!validateStep()) return;
-  if (currentStep.value === 0 && !hasBuiltInstructions.value)
-    buildInstructions();
+  const instructionsAreGenerated =
+    !form.value.instructions.trim() ||
+    form.value.instructions === generatedInstructions.value;
+  if (currentStep.value === 0 && instructionsAreGenerated) buildInstructions();
   currentStep.value += 1;
 };
 
