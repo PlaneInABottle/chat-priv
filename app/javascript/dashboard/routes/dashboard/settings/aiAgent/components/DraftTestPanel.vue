@@ -131,6 +131,7 @@ defineExpose({
             @click="emit('toggleFocus')"
           />
           <Button
+            v-tooltip="t('AI_AGENT.TEST_CONVERSATIONS.NEW')"
             icon="i-lucide-message-square-plus"
             size="sm"
             variant="outline"

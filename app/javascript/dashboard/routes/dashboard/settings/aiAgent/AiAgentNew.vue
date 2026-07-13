@@ -23,7 +23,7 @@ const hasBuiltInstructions = ref(false);
 const form = ref({
   name: '',
   goal: 'support',
-  language: 'tr',
+  language: 'same_as_customer',
   tone: 'friendly',
   businessContext: '',
   boundaries: '',
@@ -40,10 +40,26 @@ const steps = computed(() => [
 ]);
 
 const goalOptions = computed(() => [
-  { value: 'support', label: t('AI_ASSISTANT.CREATE.GOALS.SUPPORT') },
-  { value: 'sales', label: t('AI_ASSISTANT.CREATE.GOALS.SALES') },
-  { value: 'orders', label: t('AI_ASSISTANT.CREATE.GOALS.ORDERS') },
-  { value: 'custom', label: t('AI_ASSISTANT.CREATE.GOALS.CUSTOM') },
+  {
+    value: 'support',
+    label: t('AI_ASSISTANT.CREATE.GOALS.SUPPORT'),
+    instructions: t('AI_ASSISTANT.CREATE.GOAL_INSTRUCTIONS.SUPPORT'),
+  },
+  {
+    value: 'sales',
+    label: t('AI_ASSISTANT.CREATE.GOALS.SALES'),
+    instructions: t('AI_ASSISTANT.CREATE.GOAL_INSTRUCTIONS.SALES'),
+  },
+  {
+    value: 'orders',
+    label: t('AI_ASSISTANT.CREATE.GOALS.ORDERS'),
+    instructions: t('AI_ASSISTANT.CREATE.GOAL_INSTRUCTIONS.ORDERS'),
+  },
+  {
+    value: 'custom',
+    label: t('AI_ASSISTANT.CREATE.GOALS.CUSTOM'),
+    instructions: t('AI_ASSISTANT.CREATE.GOAL_INSTRUCTIONS.CUSTOM'),
+  },
 ]);
 
 const toneOptions = computed(() => [
@@ -53,33 +69,18 @@ const toneOptions = computed(() => [
 ]);
 
 const languageOptions = computed(() => [
+  {
+    value: 'same_as_customer',
+    label: t('AI_ASSISTANT.CREATE.LANGUAGES.SAME_AS_CUSTOMER'),
+  },
   { value: 'tr', label: t('AI_ASSISTANT.CREATE.LANGUAGES.TR') },
   { value: 'en', label: t('AI_ASSISTANT.CREATE.LANGUAGES.EN') },
 ]);
 
 const buildInstructions = () => {
-  const goal = goalOptions.value.find(
-    option => option.value === form.value.goal
-  )?.label;
-  const tone = toneOptions.value.find(
-    option => option.value === form.value.tone
-  )?.label;
-  const lines = [
-    `Role: You are ${form.value.name}, a customer-facing support assistant.`,
-    `Primary goal: ${goal}.`,
-    `Response language: ${form.value.language === 'tr' ? 'Turkish' : 'English'}.`,
-    `Tone: ${tone}.`,
-  ];
-  if (form.value.businessContext.trim()) {
-    lines.push(`Business context: ${form.value.businessContext.trim()}`);
-  }
-  if (form.value.boundaries.trim()) {
-    lines.push(`Boundaries: ${form.value.boundaries.trim()}`);
-  }
-  lines.push(
-    'If a customer asks for a person or the request needs human judgment, hand the conversation to a human.'
-  );
-  form.value.instructions = lines.join('\n\n');
+  form.value.instructions =
+    goalOptions.value.find(option => option.value === form.value.goal)
+      ?.instructions || '';
   hasBuiltInstructions.value = true;
 };
 
@@ -188,7 +189,7 @@ const handleCancel = () => {
     <template #body>
       <div class="mx-auto flex w-full max-w-2xl flex-col gap-8">
         <ol
-          class="grid grid-cols-4 gap-2"
+          class="m-0 grid list-none grid-cols-4 gap-2 p-0"
           :aria-label="t('AI_ASSISTANT.CREATE.PROGRESS')"
         >
           <li v-for="(step, index) in steps" :key="step" class="min-w-0">
@@ -221,6 +222,8 @@ const handleCancel = () => {
             </div>
             <Input
               v-model="form.name"
+              name="assistant-name"
+              autocomplete="off"
               :label="t('AI_AGENTS.NEW.NAME_LABEL')"
               :placeholder="t('AI_AGENTS.NEW.NAME_PLACEHOLDER')"
               @input="errorMessage = ''"
@@ -234,7 +237,12 @@ const handleCancel = () => {
                 :key="option.value"
                 class="flex cursor-pointer items-center gap-3 rounded-lg border border-n-weak p-3"
               >
-                <input v-model="form.goal" type="radio" :value="option.value" />
+                <input
+                  v-model="form.goal"
+                  name="assistant-goal"
+                  type="radio"
+                  :value="option.value"
+                />
                 <span class="text-sm text-n-slate-12">{{ option.label }}</span>
               </label>
             </fieldset>
@@ -245,6 +253,7 @@ const handleCancel = () => {
                 {{ t('AI_ASSISTANT.CREATE.LANGUAGE') }}
                 <select
                   v-model="form.language"
+                  name="assistant-language"
                   class="h-10 rounded-lg border border-n-weak bg-n-alpha-1 px-3 font-normal"
                 >
                   <option
@@ -262,6 +271,7 @@ const handleCancel = () => {
                 {{ t('AI_ASSISTANT.CREATE.TONE') }}
                 <select
                   v-model="form.tone"
+                  name="assistant-tone"
                   class="h-10 rounded-lg border border-n-weak bg-n-alpha-1 px-3 font-normal"
                 >
                   <option
@@ -291,6 +301,8 @@ const handleCancel = () => {
               {{ t('AI_ASSISTANT.CREATE.BUSINESS_CONTEXT') }}
               <textarea
                 v-model="form.businessContext"
+                name="assistant-business-context"
+                autocomplete="off"
                 rows="3"
                 class="rounded-lg border border-n-weak bg-n-alpha-1 p-3 font-normal"
               />
@@ -301,6 +313,8 @@ const handleCancel = () => {
               {{ t('AI_ASSISTANT.CREATE.BOUNDARIES') }}
               <textarea
                 v-model="form.boundaries"
+                name="assistant-boundaries"
+                autocomplete="off"
                 rows="3"
                 class="rounded-lg border border-n-weak bg-n-alpha-1 p-3 font-normal"
               />
@@ -320,6 +334,8 @@ const handleCancel = () => {
               {{ t('AI_ASSISTANT.CREATE.INSTRUCTIONS_LABEL') }}
               <textarea
                 v-model="form.instructions"
+                name="assistant-tasks"
+                autocomplete="off"
                 rows="12"
                 maxlength="50000"
                 class="rounded-lg border border-n-weak bg-n-alpha-1 p-3 font-mono text-sm font-normal leading-6"
@@ -362,7 +378,7 @@ const handleCancel = () => {
               </p>
             </div>
             <dl
-              class="grid grid-cols-[140px_minmax(0,1fr)] gap-x-4 gap-y-3 rounded-lg border border-n-weak p-4 text-sm"
+              class="grid grid-cols-1 gap-x-4 gap-y-2 rounded-lg border border-n-weak p-4 text-sm sm:grid-cols-[140px_minmax(0,1fr)] sm:gap-y-3"
             >
               <dt class="text-n-slate-11">{{ t('AI_ASSISTANT.LIST.NAME') }}</dt>
               <dd class="m-0 text-n-slate-12">{{ form.name }}</dd>
@@ -371,6 +387,21 @@ const handleCancel = () => {
               </dt>
               <dd class="m-0 text-n-slate-12">
                 {{ goalOptions.find(item => item.value === form.goal)?.label }}
+              </dd>
+              <dt class="text-n-slate-11">
+                {{ t('AI_ASSISTANT.CREATE.LANGUAGE') }}
+              </dt>
+              <dd class="m-0 text-n-slate-12">
+                {{
+                  languageOptions.find(item => item.value === form.language)
+                    ?.label
+                }}
+              </dd>
+              <dt class="text-n-slate-11">
+                {{ t('AI_ASSISTANT.CREATE.TONE') }}
+              </dt>
+              <dd class="m-0 text-n-slate-12">
+                {{ toneOptions.find(item => item.value === form.tone)?.label }}
               </dd>
               <dt class="text-n-slate-11">
                 {{ t('AI_ASSISTANT.LIST.INBOXES') }}
@@ -393,7 +424,7 @@ const handleCancel = () => {
             {{ errorMessage }}
           </p>
           <div
-            class="flex flex-wrap items-center justify-between gap-3 border-t border-n-weak pt-5"
+            class="flex flex-wrap items-center justify-between gap-3 border-t border-n-weak pl-10 pt-5 sm:pl-0"
           >
             <Button
               type="button"
@@ -419,7 +450,7 @@ const handleCancel = () => {
               type="submit"
               icon="i-lucide-message-circle-more"
               :is-loading="uiFlags.isCreating"
-              :label="t('AI_ASSISTANT.CREATE.CREATE_AND_TEST')"
+              :label="t('AI_ASSISTANT.CREATE.CREATE_DRAFT')"
             />
           </div>
         </form>

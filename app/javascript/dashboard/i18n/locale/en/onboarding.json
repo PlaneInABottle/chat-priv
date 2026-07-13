@@ -57,7 +57,7 @@
       },
       "FALLBACK": "We could not read the website, but your starter draft is ready. You can add business details in the instruction editor.",
       "DRAFT_READY": "Starter draft ready",
-      "DRAFT_READY_HELP": "Review the instructions, connect an inbox, and test the assistant before publishing.",
+      "DRAFT_READY_HELP": "Review the instructions, connect an inbox, and publish when ready. You can test the draft at any time.",
       "REVIEW_STARTER": "Review starter draft now",
       "REVIEW": "Review assistant"
     }

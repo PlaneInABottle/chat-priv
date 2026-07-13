@@ -52,9 +52,11 @@ describe('KnowledgeSourceSelector', () => {
     await wrapper.vm.openPicker();
     await wrapper.vm.$nextTick();
 
-    expect(wrapper.get('input[type="search"]').attributes('aria-label')).toBe(
-      'AI_KNOWLEDGE.SELECTOR.SEARCH'
-    );
+    expect(wrapper.get('input[type="search"]').attributes()).toMatchObject({
+      'aria-label': 'AI_KNOWLEDGE.SELECTOR.SEARCH',
+      name: 'knowledge-source-search',
+    });
+    expect(wrapper.text()).toContain('AI_KNOWLEDGE.ACTIONS.MANAGE');
     const pendingInput = wrapper.get('[data-testid="knowledge-source-1"]');
     const readyInput = wrapper.get('[data-testid="knowledge-source-2"]');
     expect(pendingInput.attributes('disabled')).toBeDefined();

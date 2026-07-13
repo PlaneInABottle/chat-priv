@@ -121,7 +121,7 @@ onMounted(loadSources);
           icon="i-lucide-library"
           variant="ghost"
           color="slate"
-          :aria-label="t('AI_KNOWLEDGE.ACTIONS.MANAGE')"
+          :label="t('AI_KNOWLEDGE.ACTIONS.MANAGE')"
           @click="openLibrary"
         />
       </div>
@@ -210,6 +210,7 @@ onMounted(loadSources);
         <input
           v-model="searchQuery"
           type="search"
+          name="knowledge-source-search"
           autocomplete="off"
           :aria-label="t('AI_KNOWLEDGE.SELECTOR.SEARCH')"
           :placeholder="t('AI_KNOWLEDGE.SELECTOR.SEARCH')"

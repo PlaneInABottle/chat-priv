@@ -107,6 +107,30 @@ describe('AiAgentNew.vue', () => {
     expect(wrapper.find('[role="alert"]').text()).toBe('Name already exists');
   });
 
+  it('defaults to matching the customer and builds only task guidance', () => {
+    const { wrapper } = mountComponent();
+
+    expect(wrapper.vm.form.language).toBe('same_as_customer');
+    wrapper.vm.form.name = 'Support bot';
+    wrapper.vm.nextStep();
+
+    expect(wrapper.vm.form.instructions).toBe(
+      'AI_ASSISTANT.CREATE.GOAL_INSTRUCTIONS.SUPPORT'
+    );
+    expect(wrapper.vm.form.instructions).not.toContain('Role:');
+    expect(wrapper.vm.form.instructions).not.toContain('Tone:');
+    expect(wrapper.vm.form.instructions).not.toContain('human');
+    const document = wrapper.vm.buildInstructionDocument();
+    expect(document.profile.language).toBe('same_as_customer');
+    expect(document.sections.identity).toContain('Support bot');
+    expect(document.sections.tasks).toBe(
+      'AI_ASSISTANT.CREATE.GOAL_INSTRUCTIONS.SUPPORT'
+    );
+    expect(document.sections.handoff).toContain(
+      'hand the conversation to a human'
+    );
+  });
+
   it('creates structured instructions and opens the instructions workspace', async () => {
     const { wrapper, createAction } = mountComponent({ id: 42 });
 

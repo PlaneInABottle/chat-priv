@@ -21,6 +21,13 @@ const mountComponent = (props = {}) => {
       isDisabled: false,
       ...props,
     },
+    global: {
+      directives: {
+        dompurifyHtml: (element, binding) => {
+          element.innerHTML = binding.value;
+        },
+      },
+    },
   });
 };
 
@@ -158,5 +165,34 @@ describe('TestConversationChatPanel.vue', () => {
     );
     expect(wrapper.text()).toContain('Returns and exchanges');
     expect(wrapper.text()).toContain('Custom order policy');
+  });
+
+  it('renders assistant markdown using the shared message formatter', () => {
+    const wrapper = mountComponent({
+      conversation: {
+        ...conversation,
+        messages: [
+          {
+            id: 'answer-markdown',
+            role: 'assistant',
+            content:
+              '**Recommended**\n\n- First option\n- [Product page](https://example.com/product)',
+          },
+        ],
+        messages_count: 1,
+      },
+    });
+
+    const content = wrapper.get('[data-testid="assistant-message-content"]');
+    expect(content.get('strong').text()).toBe('Recommended');
+    expect(content.findAll('li').map(item => item.text())).toEqual([
+      'First option',
+      'Product page',
+    ]);
+    expect(content.get('a').attributes()).toMatchObject({
+      href: 'https://example.com/product',
+      target: '_blank',
+      rel: 'noreferrer noopener nofollow',
+    });
   });
 });

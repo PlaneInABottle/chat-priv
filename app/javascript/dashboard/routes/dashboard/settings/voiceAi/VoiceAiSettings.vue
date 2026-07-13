@@ -1178,7 +1178,10 @@ onBeforeUnmount(() => {
                   {{ t('VOICE_AI.AGENTS.EDITOR_DESCRIPTION') }}
                 </p>
               </div>
-              <div v-if="editingVoiceAgentId" class="flex flex-wrap gap-2">
+              <div
+                v-if="editingVoiceAgentId"
+                class="flex flex-wrap justify-end gap-2"
+              >
                 <Button
                   v-if="hasPublishedVoiceRelease"
                   icon="i-lucide-history"
