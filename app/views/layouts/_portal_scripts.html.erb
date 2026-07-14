@@ -94,9 +94,21 @@ html.light {
   };
 </script>
 <% if @portal.channel_web_widget.present? && !@is_plain_layout_enabled %>
-<script>
-  window.chatwootSettings = window.chatwootSettings || {};
-  window.chatwootSettings.locale = '<%= @locale %>';
-</script>
-<%= @portal.channel_web_widget.web_widget_script.html_safe %>
+<%= javascript_tag do %>
+  window.kozmopathSettings = window.kozmopathSettings || {};
+  window.kozmopathSettings.locale = <%= raw json_escape(@locale.to_json) %>;
+  (function(d,t) {
+    var BASE_URL=<%= raw json_escape(ENV.fetch('FRONTEND_URL', '').to_json) %>;
+    var g=d.createElement(t),s=d.getElementsByTagName(t)[0];
+    g.src=BASE_URL+"/packs/js/sdk.js";
+    g.async = true;
+    s.parentNode.insertBefore(g,s);
+    g.onload=function(){
+      window.kozmopathSDK.run({
+        websiteToken: <%= raw json_escape(@portal.channel_web_widget.website_token.to_json) %>,
+        baseUrl: BASE_URL
+      })
+    }
+  })(document,"script");
+<% end %>
 <% end %>

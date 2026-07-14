@@ -38,7 +38,7 @@ class Api::V1::Accounts::ConversationsController < Api::V1::Accounts::BaseContro
 
   def create
     ActiveRecord::Base.transaction do
-      @conversation = ConversationBuilder.new(params: params, contact_inbox: @contact_inbox).perform
+      @conversation = ConversationBuilder.new(params: conversation_create_params, contact_inbox: @contact_inbox).perform
       Messages::MessageBuilder.new(Current.user, @conversation, params[:message]).perform if params[:message].present?
     end
   end
@@ -48,7 +48,7 @@ class Api::V1::Accounts::ConversationsController < Api::V1::Accounts::BaseContro
   end
 
   def filter
-    result = ::Conversations::FilterService.new(params.permit!, current_user, current_account).perform
+    result = ::Conversations::FilterService.new(conversation_filter_params, current_user, current_account).perform
     @conversations = result[:conversations]
     @conversations_count = result[:count]
   rescue CustomExceptions::CustomFilter::InvalidAttribute,
@@ -147,9 +147,10 @@ class Api::V1::Accounts::ConversationsController < Api::V1::Accounts::BaseContro
     params.permit(:priority)
   end
 
-  def attachment_params
-    params.permit(:page)
-  end
+  def conversation_create_params = params.permit(:assignee_id, :snoozed_until, :status, :team_id, additional_attributes: {}, custom_attributes: {})
+  def conversation_filter_params = params.permit(:page, payload: FilterService::CONDITION_PARAM_KEYS)
+
+  def attachment_params = params.permit(:page)
 
   def update_last_seen_on_conversation(last_seen_at, update_assignee)
     updates = { agent_last_seen_at: last_seen_at }

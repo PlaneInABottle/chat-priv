@@ -109,6 +109,7 @@ RSpec.describe 'Platform Agent Bot API', type: :request do
 
     context 'when it is an authenticated platform app' do
       let(:platform_app) { create(:platform_app) }
+      let(:target_account) { create(:account) }
 
       it 'creates a new agent bot' do
         post '/platform/api/v1/agent_bots/', params: { name: 'test' },
@@ -118,6 +119,25 @@ RSpec.describe 'Platform Agent Bot API', type: :request do
         data = response.parsed_body
         expect(data['name']).to eq('test')
         expect(platform_app.platform_app_permissibles.first.permissible_id).to eq data['id']
+      end
+
+      it 'rejects an account-scoped bot when the account is not permissible' do
+        expect do
+          post '/platform/api/v1/agent_bots/', params: { name: 'test', account_id: target_account.id },
+                                               headers: { api_access_token: platform_app.access_token.token }, as: :json
+        end.not_to change(AgentBot, :count)
+
+        expect(response).to have_http_status(:unauthorized)
+      end
+
+      it 'creates an account-scoped bot when the account is permissible' do
+        create(:platform_app_permissible, platform_app: platform_app, permissible: target_account)
+
+        post '/platform/api/v1/agent_bots/', params: { name: 'test', account_id: target_account.id },
+                                             headers: { api_access_token: platform_app.access_token.token }, as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(AgentBot.find(response.parsed_body['id']).account).to eq(target_account)
       end
     end
   end
@@ -139,6 +159,7 @@ RSpec.describe 'Platform Agent Bot API', type: :request do
 
     context 'when it is an authenticated platform app' do
       let(:platform_app) { create(:platform_app) }
+      let(:target_account) { create(:account) }
 
       it 'returns unauthorized when its not a permissible object' do
         patch "/platform/api/v1/agent_bots/#{agent_bot.id}", params: { name: 'test' },
@@ -154,6 +175,31 @@ RSpec.describe 'Platform Agent Bot API', type: :request do
         expect(response).to have_http_status(:success)
         data = response.parsed_body
         expect(data['name']).to eq('test123')
+      end
+
+      it 'rejects assigning the bot to a non-permissible account' do
+        create(:platform_app_permissible, platform_app: platform_app, permissible: agent_bot)
+
+        patch "/platform/api/v1/agent_bots/#{agent_bot.id}",
+              params: { account_id: target_account.id },
+              headers: { api_access_token: platform_app.access_token.token },
+              as: :json
+
+        expect(response).to have_http_status(:unauthorized)
+        expect(agent_bot.reload.account).not_to eq(target_account)
+      end
+
+      it 'assigns the bot to a permissible account' do
+        create(:platform_app_permissible, platform_app: platform_app, permissible: agent_bot)
+        create(:platform_app_permissible, platform_app: platform_app, permissible: target_account)
+
+        patch "/platform/api/v1/agent_bots/#{agent_bot.id}",
+              params: { account_id: target_account.id },
+              headers: { api_access_token: platform_app.access_token.token },
+              as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(agent_bot.reload.account).to eq(target_account)
       end
 
       it 'updates avatar' do

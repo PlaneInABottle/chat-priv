@@ -102,6 +102,16 @@ RSpec.describe 'Profile API', type: :request do
         expect(agent.name).to eq('test')
       end
 
+      it 'does not treat account selection as a profile attribute' do
+        put '/api/v1/profile',
+            params: { profile: { name: 'test', account_id: account.id } },
+            headers: agent.create_new_auth_token,
+            as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(agent.reload.name).to eq('test')
+      end
+
       it 'updates custom attributes' do
         put '/api/v1/profile',
             params: { profile: { phone_number: '+123456789' } },
@@ -312,6 +322,26 @@ RSpec.describe 'Profile API', type: :request do
             as: :json
 
         expect(response).to have_http_status(:success)
+      end
+
+      it 'does not allow selecting an account the user does not belong to' do
+        other_account = create(:account)
+
+        put '/api/v1/profile/set_active_account',
+            params: { profile: { account_id: other_account.id } },
+            headers: agent.create_new_auth_token,
+            as: :json
+
+        expect(response).to have_http_status(:not_found)
+      end
+
+      it 'rejects malformed account identifiers' do
+        put '/api/v1/profile/set_active_account',
+            params: { profile: { account_id: '1 OR 1=1' } },
+            headers: agent.create_new_auth_token,
+            as: :json
+
+        expect(response).to have_http_status(:not_found)
       end
     end
   end

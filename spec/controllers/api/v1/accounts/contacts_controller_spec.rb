@@ -261,17 +261,19 @@ RSpec.describe 'Contacts API', type: :request do
       end
 
       it 'enqueues a contact export job with payload' do
-        expect(Account::ContactsExportJob).to receive(:perform_later).with(account.id, admin.id, nil,
-                                                                           {
-                                                                             :payload => [ActionController::Parameters.new(email_filter).permit!],
-                                                                             :label => nil
-                                                                           }).once
+        allow(Account::ContactsExportJob).to receive(:perform_later)
 
         post "/api/v1/accounts/#{account.id}/contacts/export",
              headers: admin.create_new_auth_token,
              params: { payload: [email_filter] }
 
         expect(response).to have_http_status(:success)
+        expect(Account::ContactsExportJob).to have_received(:perform_later).with(
+          account.id,
+          admin.id,
+          nil,
+          { payload: [ActionController::Parameters.new(email_filter).permit!], label: nil }
+        ).once
       end
     end
   end
