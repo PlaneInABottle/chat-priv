@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { useAlert, useTrack } from 'dashboard/composables';
@@ -10,18 +10,8 @@ import Avatar from 'dashboard/components-next/avatar/Avatar.vue';
 import Icon from 'dashboard/components-next/icon/Icon.vue';
 import Spinner from 'dashboard/components-next/spinner/Spinner.vue';
 import OnboardingLayout from './OnboardingLayout.vue';
-import OnboardingSection from './OnboardingSection.vue';
-import OnboardingFormRow from './OnboardingFormRow.vue';
-import OnboardingFormSelect from './OnboardingFormSelect.vue';
 import AiAgentOnboardingAPI from 'dashboard/api/aiAgentOnboarding';
-import {
-  AI_PURPOSE_OPTIONS,
-  AI_TONE_OPTIONS,
-  COMPANY_SIZE_OPTIONS,
-  INDUSTRY_OPTIONS,
-  REFERRAL_SOURCE_OPTIONS,
-  USER_ROLE_OPTIONS,
-} from './constants';
+import { AI_TONE_OPTIONS } from './constants';
 
 const { t, locale: i18nLocale } = useI18n();
 const router = useRouter();
@@ -29,22 +19,34 @@ const store = useStore();
 const { accountId, currentAccount } = useAccount();
 const currentUser = useMapGetter('getCurrentUser');
 
-const userRole = ref('');
+const STEPS = ['language', 'website', 'tone', 'review'];
+const QUESTION_STEP_COUNT = STEPS.length;
+
 const website = ref('');
 const locale = ref('');
 const timezone = ref('');
 const companySize = ref('');
 const industry = ref('');
-const referralSource = ref('');
-const aiPurpose = ref('support');
 const aiTone = ref('friendly');
+const currentStepIndex = ref(0);
+const transitionDirection = ref('forward');
+const returnToReview = ref(false);
 const isSubmitting = ref(false);
 const websiteError = ref('');
+const websiteInputRef = ref(null);
+const stepHeadingRef = ref(null);
+const enrichmentTimedOut = ref(false);
+const initialWebsite = ref('');
+const hasInitialSnapshot = ref(false);
 
 const userName = computed(() => currentUser.value?.name || '');
-const userEmail = computed(() => currentUser.value?.email || '');
 const accountName = computed(() => currentAccount.value?.name || '');
-const enrichmentTimedOut = ref(false);
+const currentStep = computed(() => STEPS[currentStepIndex.value]);
+const questionStep = computed(() => currentStepIndex.value + 1);
+const canGoBack = computed(() => currentStepIndex.value > 0);
+const transitionName = computed(() =>
+  transitionDirection.value === 'backward' ? 'step-backward' : 'step-forward'
+);
 const isEnriching = computed(
   () =>
     !enrichmentTimedOut.value &&
@@ -53,93 +55,73 @@ const isEnriching = computed(
 const companyLogo = computed(() => {
   const logos = currentAccount.value?.custom_attributes?.brand_info?.logos;
   if (!logos?.length) return '';
-  const square = logos.find(l => l.resolution?.aspect_ratio === 1);
+  const square = logos.find(logo => logo.resolution?.aspect_ratio === 1);
   return (square || logos[0])?.url || '';
 });
 
-const languageOptions = computed(() => {
-  return [
-    { value: 'tr', label: t('ONBOARDING_NEXT.LANGUAGES.TR') },
-    { value: 'en', label: t('ONBOARDING_NEXT.LANGUAGES.EN') },
-  ];
-});
+const languageOptions = computed(() => [
+  {
+    value: 'tr',
+    label: t('ONBOARDING_NEXT.LANGUAGES.TR'),
+    description: t('ONBOARDING_NEXT.LANGUAGE.OPTIONS.TR'),
+  },
+  {
+    value: 'en',
+    label: t('ONBOARDING_NEXT.LANGUAGES.EN'),
+    description: t('ONBOARDING_NEXT.LANGUAGE.OPTIONS.EN'),
+  },
+]);
 
-const optionTranslationKey = value =>
-  value
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, '_')
-    .replace(/^_|_$/g, '');
-
-const localizedOptions = (options, group) =>
-  options.map(option => ({
+const toneOptions = computed(() => {
+  const copy = {
+    friendly: {
+      label: t('ONBOARDING_NEXT.TONE.OPTIONS.FRIENDLY.TITLE'),
+      description: t('ONBOARDING_NEXT.TONE.OPTIONS.FRIENDLY.DESCRIPTION'),
+    },
+    professional: {
+      label: t('ONBOARDING_NEXT.TONE.OPTIONS.PROFESSIONAL.TITLE'),
+      description: t('ONBOARDING_NEXT.TONE.OPTIONS.PROFESSIONAL.DESCRIPTION'),
+    },
+    concise: {
+      label: t('ONBOARDING_NEXT.TONE.OPTIONS.CONCISE.TITLE'),
+      description: t('ONBOARDING_NEXT.TONE.OPTIONS.CONCISE.DESCRIPTION'),
+    },
+  };
+  return AI_TONE_OPTIONS.map(option => ({
     ...option,
-    label: t(
-      `ONBOARDING_NEXT.OPTION_LABELS.${group}.${optionTranslationKey(option.value)}`
-    ),
+    ...copy[option.value],
   }));
-
-const userRoleOptions = computed(() =>
-  localizedOptions(USER_ROLE_OPTIONS, 'ROLES')
-);
-const industryOptions = computed(() =>
-  localizedOptions(INDUSTRY_OPTIONS, 'INDUSTRIES')
-);
-const referralSourceOptions = computed(() =>
-  localizedOptions(REFERRAL_SOURCE_OPTIONS, 'REFERRALS')
-);
-
-const timezoneOptions = computed(() => {
-  try {
-    return Intl.supportedValuesOf('timeZone').map(tz => ({
-      value: tz,
-      label: tz.replace(/_/g, ' '),
-    }));
-  } catch {
-    return [];
-  }
 });
 
-const aiPurposeOptions = computed(() =>
-  AI_PURPOSE_OPTIONS.map(value => ({
-    value,
-    label: t(`ONBOARDING_NEXT.AI_PURPOSE_OPTIONS.${value.toUpperCase()}`),
-  }))
+const selectedToneLabel = computed(
+  () =>
+    toneOptions.value.find(option => option.value === aiTone.value)?.label || ''
+);
+const selectedLanguageLabel = computed(
+  () =>
+    languageOptions.value.find(option => option.value === locale.value)
+      ?.label || ''
 );
 
-const aiToneOptions = computed(() =>
-  AI_TONE_OPTIONS.map(value => ({
-    value,
-    label: t(`ONBOARDING_NEXT.AI_TONE_OPTIONS.${value.toUpperCase()}`),
-  }))
-);
+const primaryLabel = computed(() => {
+  if (currentStep.value === 'review') {
+    return t('ONBOARDING_NEXT.REVIEW.CREATE');
+  }
+  return t('ONBOARDING_NEXT.CONTINUE');
+});
 
 const detectBestLocale = () => {
   const accountLocale = currentAccount.value?.locale;
   return ['tr', 'en'].includes(accountLocale) ? accountLocale : 'tr';
 };
 
-// Snapshot of auto-populated values to detect user edits at submit time
-const initialValues = ref({});
-
-const snapshotInitialValues = () => {
-  initialValues.value = {
-    website: website.value,
-    company_size: companySize.value,
-    industry: industry.value,
-  };
-};
-
-// Idempotent: only fills empty fields, so late-arriving enrichment data
-// populates untouched fields without clobbering user edits.
 const populateFormFields = () => {
   const account = currentAccount.value;
   const attrs = account?.custom_attributes || {};
   const brandInfo = attrs.brand_info;
 
   if (!locale.value) locale.value = detectBestLocale();
-  if (!website.value) {
-    website.value = attrs.website || brandInfo?.domain || '';
-  }
+  if (!website.value) website.value = attrs.website || brandInfo?.domain || '';
   if (!timezone.value) {
     timezone.value =
       attrs.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || '';
@@ -149,9 +131,113 @@ const populateFormFields = () => {
     industry.value =
       attrs.industry || brandInfo?.industries?.[0]?.industry || '';
   }
-  if (!referralSource.value) referralSource.value = attrs.referral_source || '';
 
-  snapshotInitialValues();
+  if (!hasInitialSnapshot.value) {
+    initialWebsite.value = website.value;
+    hasInitialSnapshot.value = true;
+  }
+};
+
+const focusCurrentStep = async () => {
+  await nextTick();
+  stepHeadingRef.value?.focus();
+};
+
+const goToStep = async step => {
+  const targetIndex = STEPS.indexOf(step);
+  if (targetIndex < 0 || targetIndex === currentStepIndex.value) return;
+
+  transitionDirection.value =
+    targetIndex < currentStepIndex.value ? 'backward' : 'forward';
+  currentStepIndex.value = targetIndex;
+  await focusCurrentStep();
+};
+
+const goForward = () => {
+  if (
+    returnToReview.value &&
+    ['language', 'website', 'tone'].includes(currentStep.value)
+  ) {
+    returnToReview.value = false;
+    goToStep('review');
+    return;
+  }
+
+  const nextStep = STEPS[currentStepIndex.value + 1];
+  if (nextStep) goToStep(nextStep);
+};
+
+const goBack = () => {
+  if (returnToReview.value) {
+    returnToReview.value = false;
+    goToStep('review');
+    return;
+  }
+
+  const previousStep = STEPS[currentStepIndex.value - 1];
+  if (previousStep) goToStep(previousStep);
+};
+
+const editStep = step => {
+  returnToReview.value = true;
+  goToStep(step);
+};
+
+const handleSubmit = async () => {
+  isSubmitting.value = true;
+  websiteError.value = '';
+  try {
+    const accountAttributes = {
+      locale: locale.value,
+      website: website.value,
+      timezone: timezone.value,
+    };
+    if (industry.value) accountAttributes.industry = industry.value;
+    if (companySize.value) {
+      accountAttributes.company_size = companySize.value;
+    }
+
+    const { data } = await AiAgentOnboardingAPI.create({
+      account: accountAttributes,
+      assistant: {
+        tone: aiTone.value,
+      },
+    });
+
+    useTrack(ONBOARDING_EVENTS.ACCOUNT_DETAILS_COMPLETED, {
+      has_enriched_data: Boolean(
+        currentAccount.value?.custom_attributes?.brand_info
+      ),
+      website_changed: website.value !== initialWebsite.value,
+      tone: aiTone.value,
+    });
+
+    store.commit('RESET_ONBOARDING', accountId.value);
+    router.push({
+      name: 'ai_agent_instructions',
+      params: { id: data.ai_agent.id, accountId: accountId.value },
+    });
+  } catch (error) {
+    if (error.response?.data?.code === 'invalid_website') {
+      websiteError.value = t('ONBOARDING_NEXT.WEBSITE_ERROR');
+      returnToReview.value = true;
+      await goToStep('website');
+      await nextTick();
+      websiteInputRef.value?.focus();
+    } else {
+      useAlert(t('ONBOARDING_NEXT.ERROR'));
+    }
+  } finally {
+    isSubmitting.value = false;
+  }
+};
+
+const handlePrimaryAction = () => {
+  if (currentStep.value === 'review') {
+    handleSubmit();
+    return;
+  }
+  goForward();
 };
 
 let enrichmentTimer = null;
@@ -174,8 +260,8 @@ onUnmounted(() => {
   if (enrichmentTimer) clearTimeout(enrichmentTimer);
 });
 
-watch(isEnriching, newVal => {
-  if (newVal) {
+watch(isEnriching, value => {
+  if (value) {
     startEnrichmentTimer();
   } else {
     if (enrichmentTimer) clearTimeout(enrichmentTimer);
@@ -183,72 +269,10 @@ watch(isEnriching, newVal => {
   }
 });
 
-// Re-populate when account data arrives after mount, or when brand_info
-// appears after enrichment. populateFormFields is idempotent so this is safe.
 watch(
   () => currentAccount.value?.custom_attributes,
   () => populateFormFields()
 );
-
-const handleSubmit = async () => {
-  // Block submit while enrichment is still running so users can't bypass
-  // the form with empty values — the controller would otherwise clear
-  // onboarding_step and persist incomplete data.
-  if (isEnriching.value) return;
-
-  isSubmitting.value = true;
-  websiteError.value = '';
-  try {
-    const { data } = await AiAgentOnboardingAPI.create({
-      account: {
-        locale: locale.value,
-        website: website.value,
-        industry: industry.value,
-        company_size: companySize.value,
-        timezone: timezone.value,
-        referral_source: referralSource.value,
-        user_role: userRole.value,
-      },
-      assistant: {
-        purpose: aiPurpose.value,
-        tone: aiTone.value,
-      },
-    });
-    const init = initialValues.value;
-    const enrichableFields = {
-      website: website.value,
-      company_size: companySize.value,
-      industry: industry.value,
-    };
-
-    useTrack(ONBOARDING_EVENTS.ACCOUNT_DETAILS_COMPLETED, {
-      has_enriched_data: Boolean(
-        currentAccount.value?.custom_attributes?.brand_info
-      ),
-      fields_changed: Object.entries(enrichableFields)
-        .filter(([key, val]) => val !== init[key])
-        .map(([key]) => key),
-      user_role: userRole.value,
-      company_size: companySize.value,
-      industry: industry.value,
-      referral_source: referralSource.value,
-    });
-
-    store.commit('RESET_ONBOARDING', accountId.value);
-    router.push({
-      name: 'ai_agent_instructions',
-      params: { id: data.ai_agent.id, accountId: accountId.value },
-    });
-  } catch (error) {
-    if (error.response?.data?.code === 'invalid_website') {
-      websiteError.value = t('ONBOARDING_NEXT.WEBSITE_ERROR');
-    } else {
-      useAlert(t('ONBOARDING_NEXT.ERROR'));
-    }
-  } finally {
-    isSubmitting.value = false;
-  }
-};
 
 watch(locale, value => {
   if (['tr', 'en'].includes(value)) i18nLocale.value = value;
@@ -256,177 +280,310 @@ watch(locale, value => {
 </script>
 
 <template>
-  <form @submit.prevent="handleSubmit">
+  <form class="min-h-dvh" @submit.prevent="handlePrimaryAction">
     <OnboardingLayout
-      :greeting="t('ONBOARDING_NEXT.GREETING', { name: userName })"
-      :subtitle="t('ONBOARDING_NEXT.SUBTITLE')"
-      :continue-label="t('ONBOARDING_NEXT.CONTINUE')"
+      show-progress
+      :current-step="questionStep"
+      :total-steps="QUESTION_STEP_COUNT"
+      :progress-label="
+        t('ONBOARDING_NEXT.PROGRESS', {
+          current: questionStep,
+          total: QUESTION_STEP_COUNT,
+        })
+      "
+      :primary-label="primaryLabel"
+      :back-label="t('ONBOARDING_NEXT.BACK')"
+      :show-back="canGoBack"
       :is-loading="isSubmitting"
-      :disabled="isEnriching"
+      @back="goBack"
     >
-      <OnboardingSection
-        :title="t('ONBOARDING_NEXT.YOUR_DETAILS')"
-        icon="i-lucide-user"
-      >
-        <div class="flex items-center gap-2 px-3 py-3">
-          <Avatar :name="userName" :size="16" rounded-full />
-          <span class="text-sm font-medium text-n-slate-12">
-            {{ userName }}
-          </span>
-        </div>
-        <OnboardingFormRow
-          :title="t('ONBOARDING_NEXT.FIELDS.EMAIL')"
-          icon="i-lucide-mail"
-        >
-          <div class="flex items-center justify-end gap-1.5">
-            <span class="text-sm text-n-slate-12">{{ userEmail }}</span>
-            <Icon
-              v-tooltip="t('ONBOARDING_NEXT.EMAIL_VERIFIED')"
-              icon="i-lucide-circle-check"
-              class="size-4 text-n-teal-11 flex-shrink-0"
-            />
-          </div>
-        </OnboardingFormRow>
-        <OnboardingFormRow
-          :title="t('ONBOARDING_NEXT.FIELDS.YOUR_ROLE')"
-          icon="i-lucide-user"
-        >
-          <OnboardingFormSelect
-            v-model="userRole"
-            :options="userRoleOptions"
-            :placeholder="t('ONBOARDING_NEXT.PLACEHOLDERS.SELECT_ROLE')"
-          />
-        </OnboardingFormRow>
-      </OnboardingSection>
-
-      <OnboardingSection
-        :title="t('ONBOARDING_NEXT.COMPANY_DETAILS')"
-        icon="i-lucide-briefcase-business"
-      >
-        <div
-          v-if="isEnriching"
-          class="flex items-center justify-center gap-3 py-8"
-        >
-          <Spinner :size="16" class="text-n-blue-10" />
-          <span class="text-sm text-n-slate-11">
-            {{ t('ONBOARDING_NEXT.SETTING_UP') }}
-          </span>
-        </div>
-        <template v-else>
-          <div class="flex items-center gap-2 px-3 py-3">
-            <img
-              v-if="companyLogo"
-              :src="companyLogo"
-              :alt="accountName"
-              class="size-4 object-contain"
-            />
-            <span class="text-sm font-medium text-n-slate-12">
-              {{ accountName }}
-            </span>
-          </div>
-          <OnboardingFormRow
-            :title="t('ONBOARDING_NEXT.FIELDS.WEBSITE')"
-            icon="i-lucide-globe"
-          >
-            <div class="flex min-w-0 flex-col items-end gap-1">
-              <input
-                v-model="website"
-                type="text"
-                inputmode="url"
-                name="website"
-                autocomplete="url"
-                spellcheck="false"
-                :placeholder="t('ONBOARDING_NEXT.PLACEHOLDERS.ENTER_WEBSITE')"
-                class="h-8 min-w-0 w-full border-0 bg-transparent px-1 text-end text-sm text-n-slate-12 outline-none placeholder:text-n-slate-9 focus:ring-0 sm:w-64"
-                @input="websiteError = ''"
+      <Transition :name="transitionName" mode="out-in">
+        <section :key="currentStep" class="outline-none">
+          <template v-if="currentStep === 'language'">
+            <div class="flex items-center gap-3">
+              <Avatar
+                :name="accountName"
+                :src="companyLogo"
+                :size="44"
+                rounded-full
               />
-              <span v-if="websiteError" class="text-xs text-n-ruby-11">
-                {{ websiteError }}
-              </span>
+              <div class="min-w-0">
+                <p class="m-0 text-xs font-medium text-n-slate-10">
+                  {{ accountName }}
+                </p>
+                <p class="m-0 truncate text-sm text-n-slate-12">
+                  {{ t('ONBOARDING_NEXT.WELCOME.ACCOUNT_READY') }}
+                </p>
+              </div>
             </div>
-          </OnboardingFormRow>
-          <OnboardingFormRow
-            :title="t('ONBOARDING_NEXT.FIELDS.LANGUAGE')"
-            icon="i-lucide-languages"
-          >
-            <OnboardingFormSelect v-model="locale" :options="languageOptions" />
-          </OnboardingFormRow>
-          <OnboardingFormRow
-            :title="t('ONBOARDING_NEXT.FIELDS.TIMEZONE')"
-            icon="i-lucide-clock"
-          >
-            <OnboardingFormSelect
-              v-model="timezone"
-              :options="timezoneOptions"
-              :placeholder="t('ONBOARDING_NEXT.PLACEHOLDERS.SELECT_TIMEZONE')"
-            />
-          </OnboardingFormRow>
-          <OnboardingFormRow
-            :title="t('ONBOARDING_NEXT.FIELDS.INDUSTRY')"
-            icon="i-lucide-factory"
-          >
-            <OnboardingFormSelect
-              v-model="industry"
-              :options="industryOptions"
-              :placeholder="t('ONBOARDING_NEXT.PLACEHOLDERS.SELECT_INDUSTRY')"
-            />
-          </OnboardingFormRow>
-          <OnboardingFormRow
-            :title="t('ONBOARDING_NEXT.FIELDS.COMPANY_SIZE')"
-            icon="i-lucide-users"
-          >
-            <OnboardingFormSelect
-              v-model="companySize"
-              :options="COMPANY_SIZE_OPTIONS"
-              :placeholder="
-                t('ONBOARDING_NEXT.PLACEHOLDERS.SELECT_COMPANY_SIZE')
-              "
-            />
-          </OnboardingFormRow>
-          <OnboardingFormRow
-            :title="t('ONBOARDING_NEXT.FIELDS.REFERRAL_SOURCE')"
-            icon="i-lucide-megaphone"
-          >
-            <OnboardingFormSelect
-              v-model="referralSource"
-              :options="referralSourceOptions"
-              :placeholder="
-                t('ONBOARDING_NEXT.PLACEHOLDERS.SELECT_REFERRAL_SOURCE')
-              "
-            />
-          </OnboardingFormRow>
-        </template>
-      </OnboardingSection>
 
-      <OnboardingSection
-        :title="t('ONBOARDING_NEXT.ASSISTANT_DETAILS')"
-        icon="i-lucide-bot"
-      >
-        <OnboardingFormRow
-          :title="t('ONBOARDING_NEXT.FIELDS.AI_PURPOSE')"
-          icon="i-lucide-goal"
-        >
-          <OnboardingFormSelect
-            v-model="aiPurpose"
-            :options="aiPurposeOptions"
-          />
-        </OnboardingFormRow>
-        <OnboardingFormRow
-          :title="t('ONBOARDING_NEXT.FIELDS.AI_TONE')"
-          icon="i-lucide-message-circle"
-        >
-          <OnboardingFormSelect v-model="aiTone" :options="aiToneOptions" />
-        </OnboardingFormRow>
-        <div class="flex items-start gap-3 border-t border-n-weak px-3 py-3">
-          <Icon
-            icon="i-lucide-shield-check"
-            class="mt-0.5 size-4 flex-shrink-0 text-n-teal-11"
-          />
-          <p class="m-0 text-xs leading-5 text-n-slate-11">
-            {{ t('ONBOARDING_NEXT.ASSISTANT_DRAFT_HELP') }}
-          </p>
-        </div>
-      </OnboardingSection>
+            <div class="mt-8">
+              <h1
+                id="language-step-title"
+                ref="stepHeadingRef"
+                tabindex="-1"
+                class="text-xl font-semibold text-n-slate-12 outline-none sm:text-2xl"
+              >
+                {{ t('ONBOARDING_NEXT.LANGUAGE.TITLE') }}
+              </h1>
+              <p class="mt-2 max-w-lg text-sm leading-6 text-n-slate-11">
+                {{
+                  t('ONBOARDING_NEXT.LANGUAGE.DESCRIPTION', { name: userName })
+                }}
+              </p>
+            </div>
+
+            <fieldset aria-labelledby="language-step-title" class="mt-6">
+              <legend class="sr-only">
+                {{ t('ONBOARDING_NEXT.LANGUAGE.TITLE') }}
+              </legend>
+              <div class="grid gap-3 sm:grid-cols-2">
+                <label
+                  v-for="option in languageOptions"
+                  :key="option.value"
+                  class="flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors focus-within:ring-2 focus-within:ring-n-brand/20"
+                  :class="
+                    locale === option.value
+                      ? 'border-n-brand bg-n-brand/5'
+                      : 'border-n-weak bg-n-alpha-1 hover:border-n-strong'
+                  "
+                >
+                  <span class="min-w-0 flex-1">
+                    <span class="block text-sm font-medium text-n-slate-12">
+                      {{ option.label }}
+                    </span>
+                    <span class="mt-1 block text-xs leading-5 text-n-slate-10">
+                      {{ option.description }}
+                    </span>
+                  </span>
+                  <input
+                    v-model="locale"
+                    type="radio"
+                    name="language"
+                    :value="option.value"
+                    class="mt-1 size-4 flex-shrink-0 border-n-strong text-n-brand focus:ring-n-brand"
+                  />
+                </label>
+              </div>
+            </fieldset>
+
+            <div
+              class="mt-7 flex items-start gap-3 border-t border-n-weak pt-5"
+            >
+              <Icon
+                icon="i-lucide-shield-check"
+                class="mt-0.5 size-5 flex-shrink-0 text-n-teal-11"
+              />
+              <p class="m-0 text-sm leading-6 text-n-slate-11">
+                {{ t('ONBOARDING_NEXT.WELCOME.DRAFT_NOTE') }}
+              </p>
+            </div>
+          </template>
+
+          <template v-else-if="currentStep === 'website'">
+            <h1
+              ref="stepHeadingRef"
+              tabindex="-1"
+              class="text-xl font-semibold text-n-slate-12 outline-none sm:text-2xl"
+            >
+              {{ t('ONBOARDING_NEXT.WEBSITE.TITLE') }}
+            </h1>
+            <p class="mt-2 text-sm leading-6 text-n-slate-11">
+              {{ t('ONBOARDING_NEXT.WEBSITE.DESCRIPTION') }}
+            </p>
+
+            <div
+              v-if="isEnriching"
+              class="mt-5 flex items-center gap-2 text-sm text-n-slate-10"
+              role="status"
+            >
+              <Spinner :size="14" class="text-n-blue-10" />
+              <span>{{ t('ONBOARDING_NEXT.WEBSITE.ENRICHING') }}</span>
+            </div>
+
+            <label class="mt-7 block text-sm font-medium text-n-slate-12">
+              <span class="flex items-center justify-between gap-3">
+                <span>{{ t('ONBOARDING_NEXT.WEBSITE.LABEL') }}</span>
+                <span class="text-xs font-normal text-n-slate-9">
+                  {{ t('ONBOARDING_NEXT.OPTIONAL') }}
+                </span>
+              </span>
+              <span class="relative mt-2 block">
+                <Icon
+                  icon="i-lucide-globe-2"
+                  class="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-n-slate-9"
+                />
+                <input
+                  ref="websiteInputRef"
+                  v-model="website"
+                  type="text"
+                  inputmode="url"
+                  name="website"
+                  autocomplete="url"
+                  spellcheck="false"
+                  :placeholder="t('ONBOARDING_NEXT.WEBSITE.PLACEHOLDER')"
+                  class="!mb-0 h-11 w-full rounded-lg border border-n-weak bg-n-alpha-1 !ps-10 !pe-3 text-sm text-n-slate-12 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-n-brand"
+                  :aria-invalid="Boolean(websiteError)"
+                  :aria-describedby="websiteError ? 'website-error' : undefined"
+                  @input="websiteError = ''"
+                />
+              </span>
+            </label>
+            <p
+              v-if="websiteError"
+              id="website-error"
+              class="mt-2 text-sm text-n-ruby-11"
+            >
+              {{ websiteError }}
+            </p>
+            <p class="mt-3 text-xs leading-5 text-n-slate-10">
+              {{ t('ONBOARDING_NEXT.WEBSITE.HELP') }}
+            </p>
+          </template>
+
+          <fieldset v-else-if="currentStep === 'tone'">
+            <legend class="w-full">
+              <span
+                ref="stepHeadingRef"
+                tabindex="-1"
+                class="block text-xl font-semibold text-n-slate-12 outline-none sm:text-2xl"
+              >
+                {{ t('ONBOARDING_NEXT.TONE.TITLE') }}
+              </span>
+              <span class="mt-2 block text-sm leading-6 text-n-slate-11">
+                {{ t('ONBOARDING_NEXT.TONE.DESCRIPTION') }}
+              </span>
+            </legend>
+
+            <div class="mt-6 grid gap-3">
+              <label
+                v-for="option in toneOptions"
+                :key="option.value"
+                class="relative flex cursor-pointer items-center gap-4 rounded-lg border p-4 transition-colors focus-within:ring-2 focus-within:ring-n-brand/20"
+                :class="
+                  aiTone === option.value
+                    ? 'border-n-brand bg-n-brand/5'
+                    : 'border-n-weak bg-n-alpha-1 hover:border-n-strong'
+                "
+              >
+                <span
+                  class="flex size-9 flex-shrink-0 items-center justify-center rounded-md bg-n-alpha-2 text-n-slate-11"
+                >
+                  <Icon :icon="option.icon" class="size-4" />
+                </span>
+                <span class="min-w-0 flex-1">
+                  <span class="block text-sm font-medium text-n-slate-12">
+                    {{ option.label }}
+                  </span>
+                  <span class="mt-1 block text-xs leading-5 text-n-slate-10">
+                    {{ option.description }}
+                  </span>
+                </span>
+                <input
+                  v-model="aiTone"
+                  type="radio"
+                  name="tone"
+                  :value="option.value"
+                  class="size-4 flex-shrink-0 border-n-strong text-n-brand focus:ring-n-brand"
+                />
+              </label>
+            </div>
+          </fieldset>
+
+          <template v-else>
+            <h1
+              ref="stepHeadingRef"
+              tabindex="-1"
+              class="text-xl font-semibold text-n-slate-12 outline-none sm:text-2xl"
+            >
+              {{ t('ONBOARDING_NEXT.REVIEW.TITLE') }}
+            </h1>
+            <p class="mt-2 text-sm leading-6 text-n-slate-11">
+              {{ t('ONBOARDING_NEXT.REVIEW.DESCRIPTION') }}
+            </p>
+
+            <dl class="mt-6 divide-y divide-n-weak border-y border-n-weak">
+              <div class="flex items-center gap-4 py-4">
+                <dt class="w-28 flex-shrink-0 text-sm text-n-slate-10">
+                  {{ t('ONBOARDING_NEXT.REVIEW.WEBSITE') }}
+                </dt>
+                <dd class="m-0 min-w-0 flex-1 truncate text-sm text-n-slate-12">
+                  {{ website || t('ONBOARDING_NEXT.REVIEW.NO_WEBSITE') }}
+                </dd>
+                <button
+                  type="button"
+                  class="text-sm font-medium text-n-brand hover:underline"
+                  @click="editStep('website')"
+                >
+                  {{ t('ONBOARDING_NEXT.REVIEW.EDIT') }}
+                </button>
+              </div>
+              <div class="flex items-center gap-4 py-4">
+                <dt class="w-28 flex-shrink-0 text-sm text-n-slate-10">
+                  {{ t('ONBOARDING_NEXT.REVIEW.TONE') }}
+                </dt>
+                <dd class="m-0 min-w-0 flex-1 text-sm text-n-slate-12">
+                  {{ selectedToneLabel }}
+                </dd>
+                <button
+                  type="button"
+                  class="text-sm font-medium text-n-brand hover:underline"
+                  @click="editStep('tone')"
+                >
+                  {{ t('ONBOARDING_NEXT.REVIEW.EDIT') }}
+                </button>
+              </div>
+              <div class="flex items-center gap-4 py-4">
+                <dt class="w-28 flex-shrink-0 text-sm text-n-slate-10">
+                  {{ t('ONBOARDING_NEXT.REVIEW.LANGUAGE') }}
+                </dt>
+                <dd class="m-0 min-w-0 flex-1 text-sm text-n-slate-12">
+                  {{ selectedLanguageLabel }}
+                </dd>
+                <button
+                  type="button"
+                  class="text-sm font-medium text-n-brand hover:underline"
+                  @click="editStep('language')"
+                >
+                  {{ t('ONBOARDING_NEXT.REVIEW.EDIT') }}
+                </button>
+              </div>
+            </dl>
+          </template>
+        </section>
+      </Transition>
     </OnboardingLayout>
   </form>
 </template>
+
+<style scoped>
+.step-forward-enter-active,
+.step-forward-leave-active,
+.step-backward-enter-active,
+.step-backward-leave-active {
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.step-forward-enter-from,
+.step-backward-leave-to {
+  opacity: 0;
+  transform: translateX(12px);
+}
+
+.step-forward-leave-to,
+.step-backward-enter-from {
+  opacity: 0;
+  transform: translateX(-12px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .step-forward-enter-active,
+  .step-forward-leave-active,
+  .step-backward-enter-active,
+  .step-backward-leave-active {
+    transition: none;
+  }
+}
+</style>

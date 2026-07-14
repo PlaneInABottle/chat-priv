@@ -103,6 +103,9 @@ describe('InstructionWorkspace', () => {
     expect(wrapper.vm.compiledInstructions).toContain(
       '## Rules and boundaries\n\nNever invent prices.'
     );
+    expect(
+      wrapper.get('[data-testid="all-instructions-content"]').classes()
+    ).not.toContain('overflow-y-auto');
     expect(wrapper.text()).toContain(
       'AI_ASSISTANT.INSTRUCTIONS.SECTIONS.ALL.TITLE'
     );
@@ -147,6 +150,7 @@ describe('InstructionWorkspace', () => {
     const wrapper = mountComponent();
     const testPanel = wrapper.findComponent({ name: 'DraftTestPanel' });
 
+    expect(testPanel.classes()).toContain('min-[1360px]:top-20');
     expect(wrapper.vm.isTestFocused).toBe(false);
     await testPanel.vm.$emit('toggleFocus');
 

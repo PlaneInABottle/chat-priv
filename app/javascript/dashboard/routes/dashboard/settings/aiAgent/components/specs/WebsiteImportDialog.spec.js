@@ -262,4 +262,19 @@ describe('WebsiteImportDialog', () => {
       'AI_ASSISTANT.WEBSITE_IMPORT.ERROR.DRAFT_CHANGED'
     );
   });
+
+  it('explains when the assistant already uses the knowledge source limit', async () => {
+    mockApi.applyImport.mockRejectedValue({
+      response: { data: { code: 'knowledge_source_limit' } },
+    });
+    const wrapper = mountComponent();
+    await wrapper.vm.open();
+    await flushPromises();
+
+    await wrapper.vm.applyImport();
+
+    expect(mockUseAlert).toHaveBeenCalledWith(
+      'AI_ASSISTANT.WEBSITE_IMPORT.ERROR.KNOWLEDGE_SOURCE_LIMIT'
+    );
+  });
 });

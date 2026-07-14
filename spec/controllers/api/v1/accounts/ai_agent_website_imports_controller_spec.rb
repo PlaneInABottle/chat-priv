@@ -108,6 +108,35 @@ RSpec.describe 'AI agent website imports API', type: :request do
     expect(ai_agent.knowledge_sources.first).to have_attributes(source_type: 'website', sync_status: 'ready')
   end
 
+  it 'returns a validation response when website knowledge would exceed the source limit' do
+    sources = create_list(:ai_knowledge_source, AiKnowledgeSources::AssignmentSync::MAX_SOURCES, account: account)
+    AiKnowledgeSources::AssignmentSync.new(assistant: ai_agent, source_ids: sources.map(&:id)).perform
+    website_import = create(
+      :ai_agent_website_import,
+      account: account,
+      ai_agent: ai_agent,
+      requested_by: admin,
+      status: :ready,
+      stage: :complete,
+      proposed_knowledge_content: "# Example\nVerified website facts.",
+      base_draft_fingerprint: ai_agent.draft_fingerprint
+    )
+
+    post "#{base_url}/#{website_import.id}/apply",
+         params: {
+           section_keys: [],
+           attach_knowledge: true,
+           expected_draft_fingerprint: ai_agent.draft_fingerprint
+         },
+         headers: headers,
+         as: :json
+
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body).to include('code' => 'knowledge_source_limit')
+    expect(website_import.reload).to be_ready
+    expect(ai_agent.reload.knowledge_source_ids).to match_array(sources.map(&:id))
+  end
+
   it 'returns a conflict when the draft changed after preview generation' do
     website_import = create(
       :ai_agent_website_import,

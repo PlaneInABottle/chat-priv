@@ -1,38 +1,12 @@
 # frozen_string_literal: true
 
 class AiAgents::OnboardingDraftBuilder
-  PURPOSES = %w[support sales support_and_sales orders].freeze
   TONES = %w[friendly professional concise].freeze
-  PURPOSE_LABELS = {
-    'en' => {
-      'support' => 'customer support',
-      'sales' => 'sales guidance',
-      'support_and_sales' => 'customer support and sales guidance',
-      'orders' => 'order support'
-    },
-    'tr' => {
-      'support' => 'müşteri destek',
-      'sales' => 'satış danışmanı',
-      'support_and_sales' => 'müşteri destek ve satış danışmanı',
-      'orders' => 'sipariş destek'
-    }
-  }.freeze
-  PURPOSE_TASKS = {
-    'en' => {
-      'support' => 'Answer customer questions, explain available help, and guide customers toward the appropriate next step.',
-      'sales' => 'Explain products and services, help customers compare suitable options, and guide interested customers toward the next sales step.',
-      'support_and_sales' => 'Answer support questions, explain products and services, help customers compare options, ' \
-                             'and guide them toward the appropriate next step.',
-      'orders' => 'Help with general order, delivery, return, and exchange questions while requesting only the information needed for the next step.'
-    },
-    'tr' => {
-      'support' => 'Müşteri sorularını yanıtla, sunulan desteği açıkla ve müşteriyi uygun sonraki adıma yönlendir.',
-      'sales' => 'Ürün ve hizmetleri açıkla, müşterilerin uygun seçenekleri karşılaştırmasına yardımcı ol ' \
-                 've ilgilenen müşteriyi sonraki satış adımına yönlendir.',
-      'support_and_sales' => 'Destek sorularını yanıtla, ürün ve hizmetleri açıkla, müşterilerin seçenekleri ' \
-                             'karşılaştırmasına yardımcı ol ve uygun sonraki adıma yönlendir.',
-      'orders' => 'Yalnızca sonraki adım için gereken bilgileri isteyerek genel sipariş, teslimat, iade ve değişim sorularında yardımcı ol.'
-    }
+  GENERAL_TASK = {
+    'en' => 'Help across product selection, sales, support, orders, delivery, returns, and exchanges, ' \
+            'then guide customers toward the appropriate next step.',
+    'tr' => 'Ürün seçimi, satış, destek, sipariş, teslimat, iade ve değişim konularında yardımcı ol ' \
+            've müşteriyi uygun sonraki adıma yönlendir.'
   }.freeze
 
   def initialize(account:, answers:)
@@ -67,10 +41,6 @@ class AiAgents::OnboardingDraftBuilder
 
   attr_reader :account, :answers
 
-  def purpose
-    PURPOSES.include?(answers['purpose']) ? answers['purpose'] : 'support'
-  end
-
   def tone
     return 'friendly' if answers['tone'] == 'warm'
 
@@ -99,7 +69,7 @@ class AiAgents::OnboardingDraftBuilder
   end
 
   def tasks
-    primary_task = PURPOSE_TASKS.dig(content_language, purpose)
+    primary_task = GENERAL_TASK.fetch(content_language)
     return <<~TASKS.strip if content_language == 'tr'
       - #{primary_task}
       - Konuşmanın başında müşterinin amacını ve ihtiyacını belirle.
@@ -125,11 +95,11 @@ class AiAgents::OnboardingDraftBuilder
 
   def identity
     if content_language == 'tr'
-      return "Sen, #{account.name} adına müşterilerle iletişim kuran #{PURPOSE_LABELS.dig('tr', purpose)} asistanısın. " \
+      return "Sen, #{account.name} adına müşterilerle iletişim kuran müşteri asistanısın. " \
              'Amacın müşterinin ihtiyacını doğru anlamak, doğrulanmış şirket bilgileriyle yardımcı olmak ve net bir sonraki adım sunmaktır.'
     end
 
-    "You are #{account.name}'s customer-facing #{PURPOSE_LABELS.dig('en', purpose)} assistant. " \
+    "You are #{account.name}'s customer-facing assistant. " \
       'Understand the customer’s need, provide grounded help using verified company information, and offer a clear next step.'
   end
 
@@ -191,7 +161,6 @@ class AiAgents::OnboardingDraftBuilder
   def setup_profile
     {
       'source' => 'account_onboarding',
-      'purpose' => purpose,
       'tone' => tone,
       'language' => answers['language'],
       'website' => answers['website']

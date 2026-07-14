@@ -16,7 +16,7 @@ RSpec.describe 'AI agent onboarding API', type: :request do
         referral_source: 'google',
         user_role: 'founder'
       },
-      assistant: { purpose: 'support_and_sales', tone: 'warm' }
+      assistant: { tone: 'warm' }
     }
   end
 

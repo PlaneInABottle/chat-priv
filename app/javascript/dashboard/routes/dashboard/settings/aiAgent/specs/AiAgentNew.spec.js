@@ -18,7 +18,7 @@ vi.mock('dashboard/composables', () => ({
 }));
 
 vi.mock('vue-i18n', () => ({
-  useI18n: () => ({ t: key => key }),
+  useI18n: () => ({ t: key => key, locale: { value: 'en' } }),
 }));
 
 const InputStub = {
@@ -202,6 +202,23 @@ describe('AiAgentNew.vue', () => {
 
     const document = wrapper.vm.buildInstructionDocument();
     expect(document.locale).toBe('en');
+    expect(document.sections.tasks).toBe(
+      'Answer customer questions and guide customers to the appropriate next step.'
+    );
+    expect(document.sections.handoff).toContain(
+      'hand the conversation to a human'
+    );
+  });
+
+  it('keeps same-as-customer replies while using the UI language for generated guidance', () => {
+    const { wrapper } = mountComponent();
+    wrapper.vm.form.name = 'Support bot';
+    wrapper.vm.form.language = 'same_as_customer';
+    wrapper.vm.nextStep();
+
+    const document = wrapper.vm.buildInstructionDocument();
+    expect(document.locale).toBe('en');
+    expect(document.profile.language).toBe('same_as_customer');
     expect(document.sections.tasks).toBe(
       'Answer customer questions and guide customers to the appropriate next step.'
     );

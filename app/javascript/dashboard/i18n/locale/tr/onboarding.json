@@ -1,98 +1,63 @@
 {
   "ONBOARDING_NEXT": {
-    "GREETING": "Merhaba {name}!",
-    "SUBTITLE": "İlk asistanınızı hazırlamak için bilgileri gözden geçirin",
-    "YOUR_DETAILS": "Bilgileriniz",
-    "COMPANY_DETAILS": "Şirket bilgileri",
-    "ASSISTANT_DETAILS": "Yapay zeka asistanınız",
-    "ASSISTANT_DRAFT_HELP": "İnceleyip test edebileceğiniz özel bir taslak oluşturacağız. Bir gelen kutusu bağlayıp yayınlayana kadar müşterilere yanıt vermez.",
+    "APP_LABEL": "Asistan kurulumu",
     "LANGUAGES": {
       "TR": "Türkçe",
-      "EN": "İngilizce"
+      "EN": "English"
     },
-    "WEBSITE_ERROR": "example.com gibi herkese açık bir şirket web sitesi girin.",
-    "AI_PURPOSE_OPTIONS": {
-      "SUPPORT": "Müşteri sorularını yanıtla",
-      "SALES": "Müşterilerin seçim ve satın alma sürecine yardımcı ol",
-      "SUPPORT_AND_SALES": "Müşterileri destekle ve satışa yardımcı ol",
-      "ORDERS": "Sipariş ve teslimat konularında yardımcı ol"
+    "PROGRESS": "{total} adımın {current}. adımı",
+    "OPTIONAL": "İsteğe bağlı",
+    "BACK": "Geri",
+    "CONTINUE": "Devam et",
+    "WELCOME": {
+      "ACCOUNT_READY": "Çalışma alanınız hazır",
+      "DRAFT_NOTE": "Yayınlamadan önce inceleyip değiştirebileceğiniz özel bir başlangıç taslağı oluşturacağız."
     },
-    "AI_TONE_OPTIONS": {
-      "FRIENDLY": "Samimi",
-      "PROFESSIONAL": "Profesyonel",
-      "CONCISE": "Öz"
-    },
-    "OPTION_LABELS": {
-      "ROLES": {
-        "FOUNDER": "Kurucu/CEO",
-        "PRODUCT_MANAGER": "Ürün yöneticisi",
-        "ENGINEERING": "Mühendislik",
-        "SUPPORT_LEAD": "Destek yöneticisi",
-        "MARKETING": "Pazarlama",
-        "SALES": "Satış",
-        "OTHER": "Diğer"
-      },
-      "REFERRALS": {
-        "GOOGLE": "Google",
-        "REDDIT": "Reddit",
-        "TWITTER": "Twitter/X",
-        "LINKEDIN": "LinkedIn",
-        "FRIEND": "Arkadaş/İş arkadaşı",
-        "BLOG": "Blog/Makale",
-        "GITHUB": "GitHub",
-        "OTHER": "Diğer"
-      },
-      "INDUSTRIES": {
-        "AEROSPACE_DEFENSE": "Havacılık ve savunma",
-        "AGRICULTURE_FOOD": "Tarım ve gıda",
-        "AUTOMOTIVE_TRANSPORTATION": "Otomotiv ve ulaşım",
-        "CHEMICALS_MATERIALS": "Kimya ve malzeme",
-        "CONSTRUCTION_BUILT_ENVIRONMENT": "İnşaat ve yapı sektörü",
-        "CONSUMER_PACKAGED_GOODS_CPG": "Hızlı tüketim ürünleri (CPG)",
-        "EDUCATION": "Eğitim",
-        "ENTERTAINMENT": "Eğlence",
-        "FINANCE": "Finans",
-        "GOVERNMENT_NONPROFIT": "Kamu ve kâr amacı gütmeyen kuruluşlar",
-        "HEALTHCARE": "Sağlık",
-        "HOSPITALITY_TOURISM": "Konaklama ve turizm",
-        "INDUSTRIAL_ENERGY": "Sanayi ve enerji",
-        "LEGAL_COMPLIANCE": "Hukuk ve uyumluluk",
-        "LIFESTYLE_LEISURE": "Yaşam tarzı ve serbest zaman",
-        "LOGISTICS_SUPPLY_CHAIN": "Lojistik ve tedarik zinciri",
-        "LUXURY_FASHION": "Lüks ve moda",
-        "NEWS_MEDIA": "Haber ve medya",
-        "PROFESSIONAL_SERVICES_AGENCIES": "Profesyonel hizmetler ve ajanslar",
-        "REAL_ESTATE_PROPTECH": "Gayrimenkul ve PropTech",
-        "RETAIL_E_COMMERCE": "Perakende ve e-ticaret",
-        "SPORTS": "Spor",
-        "TECHNOLOGY": "Teknoloji",
-        "TELECOMMUNICATIONS": "Telekomünikasyon",
-        "OTHER": "Diğer"
+    "LANGUAGE": {
+      "TITLE": "Asistanınız hangi dilde yanıt versin?",
+      "DESCRIPTION": "Hoş geldiniz, {name}. Kurulumun geri kalanını ve asistanın başlangıç talimatlarını bu dilde hazırlayacağız.",
+      "OPTIONS": {
+        "TR": "Kuruluma Türkçe devam et ve asistan yanıtlarını Türkçe hazırla.",
+        "EN": "Continue setup in English and prepare the assistant to reply in English."
       }
     },
-    "FIELDS": {
-      "EMAIL": "E-Posta",
-      "YOUR_ROLE": "Rolünüz",
+    "WEBSITE": {
+      "TITLE": "İşletmeniz hakkında nereden bilgi alalım?",
+      "DESCRIPTION": "Şirketinizin web sitesini ekleyin; işletme bilgilerini ve talimat önerilerini arka planda hazırlayalım.",
+      "LABEL": "Şirket web sitesi",
+      "PLACEHOLDER": "www.ornek.com",
+      "HELP": "Ana sayfayı ve ilgili en fazla dokuz sayfayı okuruz. Siz incelemeden hiçbir öneri taslağı değiştirmez.",
+      "ENRICHING": "Çalışma alanınızdaki mevcut şirket bilgilerini kontrol ediyoruz. Bu alanı düzenlemeye devam edebilirsiniz."
+    },
+    "TONE": {
+      "TITLE": "Müşterilerle nasıl konuşsun?",
+      "DESCRIPTION": "Bu seçim varsayılan üslubu belirler. Asistan yine de müşteriye ve duruma uyum sağlar.",
+      "OPTIONS": {
+        "FRIENDLY": {
+          "TITLE": "Samimi",
+          "DESCRIPTION": "Yaklaşılabilir, yardımsever ve doğal."
+        },
+        "PROFESSIONAL": {
+          "TITLE": "Profesyonel",
+          "DESCRIPTION": "Açık, ölçülü ve kurumsal."
+        },
+        "CONCISE": {
+          "TITLE": "Öz",
+          "DESCRIPTION": "Gereksiz ayrıntı olmadan doğrudan yanıtlar."
+        }
+      }
+    },
+    "REVIEW": {
+      "TITLE": "Taslağınız oluşturulmaya hazır",
+      "DESCRIPTION": "Başlangıç seçimlerinizi gözden geçirin. Sonraki ekranda hiçbir şey yayınlanmadan önce tüm talimatları düzenleyebilirsiniz.",
       "WEBSITE": "Web sitesi",
+      "TONE": "Üslup",
       "LANGUAGE": "Dil",
-      "TIMEZONE": "Zaman dilimi",
-      "COMPANY_SIZE": "Şirket büyüklüğü",
-      "INDUSTRY": "Sektör",
-      "REFERRAL_SOURCE": "Bizi nereden buldunuz?",
-      "AI_PURPOSE": "Temel amaç",
-      "AI_TONE": "Üslup"
+      "NO_WEBSITE": "Daha sonra ekle",
+      "EDIT": "Düzenle",
+      "CREATE": "Taslak oluştur"
     },
-    "PLACEHOLDERS": {
-      "SELECT_ROLE": "Rolünüzü seçin",
-      "ENTER_WEBSITE": "www.example.com",
-      "SELECT_TIMEZONE": "Zaman Dilimini Seçin",
-      "SELECT_COMPANY_SIZE": "Şirket büyüklüğünü seçin",
-      "SELECT_INDUSTRY": "Sektör seçin",
-      "SELECT_REFERRAL_SOURCE": "Kaynak seçin"
-    },
-    "EMAIL_VERIFIED": "E-posta doğrulandı",
-    "SETTING_UP": "Hesabınız hazırlanıyor...",
-    "CONTINUE": "Devam et",
+    "WEBSITE_ERROR": "ornek.com gibi herkese açık bir şirket web sitesi girin.",
     "ERROR": "Asistanınız oluşturulamadı. Lütfen tekrar deneyin."
   }
 }

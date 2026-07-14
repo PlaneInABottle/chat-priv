@@ -220,10 +220,13 @@ const updateSection = value => {
       />
 
       <section
-        class="min-h-[44rem] min-w-0 flex-col md:h-[calc(100dvh-15rem)] md:min-h-[36rem] md:max-h-[64rem] md:overflow-hidden"
+        class="min-w-0 flex-col"
         :class="[
           mobileView === 'test' ? 'hidden min-[1360px]:flex' : 'flex',
           isTestFocused ? 'min-[1360px]:hidden' : '',
+          selectedSection === 'all'
+            ? 'min-h-[44rem]'
+            : 'min-h-[44rem] md:h-[calc(100dvh-15rem)] md:min-h-[36rem] md:max-h-[64rem] md:overflow-hidden',
         ]"
       >
         <label class="mb-4 flex flex-col gap-1 text-sm font-medium md:hidden">
@@ -253,7 +256,8 @@ const updateSection = value => {
 
         <div
           v-if="selectedSection === 'all'"
-          class="min-h-0 flex-1 overflow-y-auto py-5 pr-1"
+          data-testid="all-instructions-content"
+          class="py-5 pr-1"
         >
           <div
             v-if="compiledInstructions"
@@ -367,7 +371,7 @@ const updateSection = value => {
 
       <DraftTestPanel
         ref="draftTestPanel"
-        class="min-[1360px]:sticky min-[1360px]:top-4"
+        class="min-[1360px]:sticky min-[1360px]:top-20"
         :class="
           mobileView === 'edit'
             ? 'hidden min-[1360px]:flex'
