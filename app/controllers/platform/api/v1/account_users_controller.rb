@@ -8,7 +8,8 @@ class Platform::Api::V1::AccountUsersController < PlatformController
 
   def create
     @account_user = @resource.account_users.find_or_initialize_by(user_id: account_user_params[:user_id])
-    @account_user.update!(account_user_params)
+    @account_user.role = requested_role if requested_role
+    @account_user.save!
     render json: @account_user
   end
 
@@ -24,6 +25,14 @@ class Platform::Api::V1::AccountUsersController < PlatformController
   end
 
   def account_user_params
-    params.permit(:user_id, :role)
+    params.permit(:user_id)
+  end
+
+  def requested_role
+    role = params[:role]
+    return if role.blank?
+    return role if AccountUser.roles.key?(role)
+
+    raise ActionController::BadRequest, 'Invalid account user role'
   end
 end

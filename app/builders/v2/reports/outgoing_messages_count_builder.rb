@@ -8,7 +8,13 @@ class V2::Reports::OutgoingMessagesCountBuilder
   end
 
   def build
-    send("build_by_#{params[:group_by]}")
+    case params[:group_by]
+    when 'agent' then build_by_agent
+    when 'team' then build_by_team
+    when 'inbox' then build_by_inbox
+    when 'label' then build_by_label
+    else raise ArgumentError, "Unsupported group: #{params[:group_by]}"
+    end
   end
 
   private

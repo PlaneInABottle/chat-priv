@@ -6,6 +6,7 @@ class FilterService
   include CustomExceptions::CustomFilter
 
   ATTRIBUTE_MODEL = 'conversation_attribute'.freeze
+  CONDITION_PARAM_KEYS = (%i[attribute_key attribute_model custom_attribute_type filter_operator query_operator values] + [{ values: [] }]).freeze
   ATTRIBUTE_TYPES = {
     date: 'date', text: 'text', number: 'numeric', link: 'text', list: 'text', checkbox: 'boolean'
   }.with_indifferent_access
@@ -182,7 +183,8 @@ class FilterService
     @params[:payload].each_with_index do |query_hash, current_index|
       @query_string += " #{build_condition_query(model_filters, query_hash, current_index).strip}"
     end
-    base_relation.where(@query_string, @filter_values.with_indifferent_access)
+    sanitized_query = ActiveRecord::Base.sanitize_sql_array([@query_string, @filter_values.with_indifferent_access])
+    base_relation.where(Arel.sql(sanitized_query))
   end
 
   def validate_query_operator

@@ -12,7 +12,7 @@ class Api::V1::Accounts::AgentsController < Api::V1::Accounts::BaseController
     builder = AgentBuilder.new(
       email: new_agent_params['email'],
       name: new_agent_params['name'],
-      role: new_agent_params['role'],
+      role: requested_role || :agent,
       availability: new_agent_params['availability'],
       auto_offline: new_agent_params['auto_offline'],
       inviter: current_user,
@@ -24,7 +24,10 @@ class Api::V1::Accounts::AgentsController < Api::V1::Accounts::BaseController
 
   def update
     @agent.update!(agent_params.slice(:name).compact)
-    @agent.current_account_user.update!(agent_params.slice(*account_user_attributes).compact)
+    account_user = @agent.current_account_user
+    account_user.assign_attributes(agent_params.slice(*account_user_attributes).compact)
+    account_user.role = requested_role if requested_role
+    account_user.save!
   end
 
   def destroy
@@ -68,11 +71,11 @@ class Api::V1::Accounts::AgentsController < Api::V1::Accounts::BaseController
   end
 
   def account_user_attributes
-    [:role, :availability, :auto_offline]
+    [:availability, :auto_offline]
   end
 
   def allowed_agent_params
-    [:name, :email, :role, :availability, :auto_offline]
+    [:name, :email, :availability, :auto_offline]
   end
 
   def agent_params
@@ -80,7 +83,15 @@ class Api::V1::Accounts::AgentsController < Api::V1::Accounts::BaseController
   end
 
   def new_agent_params
-    params.require(:agent).permit(:email, :name, :role, :availability, :auto_offline)
+    params.require(:agent).permit(:email, :name, :availability, :auto_offline)
+  end
+
+  def requested_role
+    role = params.dig(:agent, :role)
+    return if role.blank?
+    return role if AccountUser.roles.key?(role)
+
+    raise ActionController::BadRequest, 'Invalid agent role'
   end
 
   def agents

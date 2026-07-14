@@ -65,14 +65,14 @@ class Channel::WebWidget < ApplicationRecord
     "
     <script>
       (function(d,t) {
-        var BASE_URL=\"#{ENV.fetch('FRONTEND_URL', '')}\";
+        var BASE_URL=#{ENV.fetch('FRONTEND_URL', '').to_json};
         var g=d.createElement(t),s=d.getElementsByTagName(t)[0];
         g.src=BASE_URL+\"/packs/js/sdk.js\";
         g.async = true;
         s.parentNode.insertBefore(g,s);
         g.onload=function(){
           window.kozmopathSDK.run({
-            websiteToken: '#{website_token}',
+            websiteToken: #{website_token.to_json},
             baseUrl: BASE_URL
           })
         }

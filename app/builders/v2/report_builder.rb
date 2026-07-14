@@ -6,6 +6,11 @@ class V2::ReportBuilder
 
   DEFAULT_GROUP_BY = 'day'.freeze
   AGENT_RESULTS_PER_PAGE = 25
+  CONVERSATION_METRICS = %w[
+    conversations_count incoming_messages_count outgoing_messages_count
+    avg_first_response_time avg_resolution_time reply_time
+  ].freeze
+  AUTOMATION_METRICS = %w[resolutions_count bot_resolutions_count bot_handoffs_count].freeze
 
   def initialize(account, params)
     @account = account
@@ -16,7 +21,8 @@ class V2::ReportBuilder
   end
 
   def timeseries
-    return send(params[:metric]) if metric_valid?
+    return conversation_timeseries if CONVERSATION_METRICS.include?(params[:metric])
+    return automation_timeseries if AUTOMATION_METRICS.include?(params[:metric])
 
     Rails.logger.error "ReportBuilder: Invalid metric - #{params[:metric]}"
     {}
@@ -72,16 +78,23 @@ class V2::ReportBuilder
 
   private
 
-  def metric_valid?
-    %w[conversations_count
-       incoming_messages_count
-       outgoing_messages_count
-       avg_first_response_time
-       avg_resolution_time reply_time
-       resolutions_count
-       bot_resolutions_count
-       bot_handoffs_count
-       reply_time].include?(params[:metric])
+  def conversation_timeseries
+    case params[:metric]
+    when 'conversations_count' then conversations_count
+    when 'incoming_messages_count' then incoming_messages_count
+    when 'outgoing_messages_count' then outgoing_messages_count
+    when 'avg_first_response_time' then avg_first_response_time
+    when 'avg_resolution_time' then avg_resolution_time
+    when 'reply_time' then reply_time
+    end
+  end
+
+  def automation_timeseries
+    case params[:metric]
+    when 'resolutions_count' then resolutions_count
+    when 'bot_resolutions_count' then bot_resolutions_count
+    when 'bot_handoffs_count' then bot_handoffs_count
+    end
   end
 
   def inbox

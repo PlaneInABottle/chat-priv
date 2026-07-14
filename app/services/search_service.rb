@@ -36,10 +36,7 @@ class SearchService
                                          .where("cast(conversations.display_id as text) ILIKE :search OR contacts.name ILIKE :search OR contacts.email
                             ILIKE :search OR contacts.phone_number ILIKE :search OR contacts.identifier ILIKE :search", search: "%#{search_query}%")
 
-    if current_account.feature_enabled?('advanced_search')
-      conversations_query = apply_time_filter(conversations_query,
-                                              'conversations.last_activity_at')
-    end
+    conversations_query = apply_time_filter(conversations_query, :last_activity_at) if current_account.feature_enabled?('advanced_search')
 
     @conversations = conversations_query.order('conversations.created_at DESC')
                                         .page(params[:page])
@@ -113,7 +110,7 @@ class SearchService
   def apply_message_filters(query)
     return query unless current_account.feature_enabled?('advanced_search')
 
-    query = apply_time_filter(query, 'messages.created_at')
+    query = apply_time_filter(query, :created_at)
     query = apply_sender_filter(query)
     apply_inbox_id_filter(query)
   end
@@ -167,7 +164,7 @@ class SearchService
       ILIKE :search OR identifier ILIKE :search", search: "%#{search_query}%"
     )
 
-    contacts_query = apply_time_filter(contacts_query, 'last_activity_at') if current_account.feature_enabled?('advanced_search')
+    contacts_query = apply_time_filter(contacts_query, :last_activity_at) if current_account.feature_enabled?('advanced_search')
 
     @contacts = contacts_query.resolved_contacts(
       use_crm_v2: current_account.feature_enabled?('crm_v2')
@@ -176,7 +173,7 @@ class SearchService
 
   def filter_articles
     articles_query = current_account.articles.text_search(search_query)
-    articles_query = apply_time_filter(articles_query, 'updated_at') if current_account.feature_enabled?('advanced_search')
+    articles_query = apply_time_filter(articles_query, :updated_at) if current_account.feature_enabled?('advanced_search')
 
     @articles = articles_query.page(params[:page]).per(15)
   end
@@ -184,8 +181,9 @@ class SearchService
   def apply_time_filter(query, column_name)
     return query if params[:since].blank? && params[:until].blank?
 
-    query = query.where("#{column_name} >= ?", cap_since_time(params[:since])) if params[:since].present?
-    query = query.where("#{column_name} <= ?", cap_until_time(params[:until])) if params[:until].present?
+    column = query.klass.arel_table[column_name]
+    query = query.where(column.gteq(cap_since_time(params[:since]))) if params[:since].present?
+    query = query.where(column.lteq(cap_until_time(params[:until]))) if params[:until].present?
     query
   end
 

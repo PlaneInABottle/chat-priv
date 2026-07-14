@@ -10,7 +10,7 @@ class Api::V1::ProfilesController < Api::BaseController
       @user.update!(password_params.except(:current_password))
     end
 
-    @user.assign_attributes(profile_params)
+    @user.assign_attributes(profile_update_params)
     @user.custom_attributes.merge!(custom_attributes_params)
     @user.save!
   end
@@ -21,15 +21,15 @@ class Api::V1::ProfilesController < Api::BaseController
   end
 
   def auto_offline
-    @user.account_users.find_by!(account_id: auto_offline_params[:account_id]).update!(auto_offline: auto_offline_params[:auto_offline] || false)
+    current_account_user.update!(auto_offline: auto_offline_params[:auto_offline] || false)
   end
 
   def availability
-    @user.account_users.find_by!(account_id: availability_params[:account_id]).update!(availability: availability_params[:availability])
+    current_account_user.update!(availability: availability_params[:availability])
   end
 
   def set_active_account
-    @user.account_users.find_by(account_id: profile_params[:account_id]).update(active_at: Time.now.utc)
+    current_account_user.update!(active_at: Time.current)
     head :ok
   end
 
@@ -50,23 +50,30 @@ class Api::V1::ProfilesController < Api::BaseController
   end
 
   def availability_params
-    params.require(:profile).permit(:account_id, :availability)
+    params.require(:profile).permit(:availability)
   end
 
   def auto_offline_params
-    params.require(:profile).permit(:account_id, :auto_offline)
+    params.require(:profile).permit(:auto_offline)
   end
 
-  def profile_params
+  def profile_update_params
     params.require(:profile).permit(
       :email,
       :name,
       :display_name,
       :avatar,
       :message_signature,
-      :account_id,
       ui_settings: {}
     )
+  end
+
+  def current_account_user
+    @current_account_user ||= @user.account_users.find_by!(account_id: requested_account_id)
+  end
+
+  def requested_account_id
+    Integer(params.require(:profile)[:account_id], exception: false)
   end
 
   def custom_attributes_params

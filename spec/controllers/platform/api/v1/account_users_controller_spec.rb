@@ -63,6 +63,20 @@ RSpec.describe 'Platform Account Users API', type: :request do
         data = response.parsed_body
         expect(data['role']).to eq('administrator')
       end
+
+      it 'rejects an invalid account user role' do
+        user = create(:user)
+        create(:platform_app_permissible, platform_app: platform_app, permissible: account)
+
+        expect do
+          post "/platform/api/v1/accounts/#{account.id}/account_users",
+               params: { user_id: user.id, role: 'owner' },
+               headers: { api_access_token: platform_app.access_token.token },
+               as: :json
+        end.not_to change(AccountUser, :count)
+
+        expect(response).to have_http_status(:bad_request)
+      end
     end
   end
 

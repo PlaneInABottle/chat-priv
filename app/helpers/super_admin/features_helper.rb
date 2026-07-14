@@ -6,11 +6,14 @@ module SuperAdmin::FeaturesHelper
   def self.plan_details
     plan = ChatwootHub.pricing_plan
     quantity = ChatwootHub.pricing_plan_quantity
+    helpers = ActionController::Base.helpers
+    plan_name = helpers.content_tag(:span, plan, class: 'font-semibold')
 
     if plan == 'premium'
-      "You are currently on the <span class='font-semibold'>#{plan}</span> plan with <span class='font-semibold'>#{quantity} agents</span>."
+      agent_count = helpers.content_tag(:span, "#{quantity} agents", class: 'font-semibold')
+      helpers.safe_join(['You are currently on the ', plan_name, ' plan with ', agent_count, '.'])
     else
-      "You are currently on the <span class='font-semibold'>#{plan}</span> edition plan."
+      helpers.safe_join(['You are currently on the ', plan_name, ' edition plan.'])
     end
   end
 end

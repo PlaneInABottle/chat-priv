@@ -18,8 +18,8 @@ class ConversationBuilder
   end
 
   def conversation_params
-    additional_attributes = params[:additional_attributes]&.permit! || {}
-    custom_attributes = params[:custom_attributes]&.permit! || {}
+    additional_attributes = params[:additional_attributes] || {}
+    custom_attributes = params[:custom_attributes] || {}
     status = params[:status].present? ? { status: params[:status] } : {}
 
     # TODO: temporary fallback for the old bot status in conversation, we will remove after couple of releases

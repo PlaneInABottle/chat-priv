@@ -43,8 +43,9 @@ class Api::V1::Accounts::ContactsController < Api::V1::Accounts::BaseController
   end
 
   def export
-    column_names = params['column_names']
-    filter_params = { :payload => params.permit!['payload'], :label => params.permit!['label'] }
+    permitted_params = contact_filter_params
+    column_names = permitted_params[:column_names]
+    filter_params = { payload: permitted_params[:payload], label: permitted_params[:label] }
     Account::ContactsExportJob.perform_later(Current.account.id, Current.user.id, column_names, filter_params)
     head :ok, message: I18n.t('errors.contacts.export.success')
   end
@@ -60,7 +61,7 @@ class Api::V1::Accounts::ContactsController < Api::V1::Accounts::BaseController
   def show; end
 
   def filter
-    result = ::Contacts::FilterService.new(Current.account, Current.user, params.permit!).perform
+    result = ::Contacts::FilterService.new(Current.account, Current.user, contact_filter_params).perform
     contacts = result[:contacts]
     @contacts_count = result[:count]
     @contacts = fetch_contacts(contacts)
@@ -173,6 +174,8 @@ class Api::V1::Accounts::ContactsController < Api::V1::Accounts::BaseController
   def permitted_params
     params.permit(:name, :identifier, :email, :phone_number, :avatar, :blocked, :avatar_url, additional_attributes: {}, custom_attributes: {})
   end
+
+  def contact_filter_params = params.permit(:page, :label, column_names: [], payload: FilterService::CONDITION_PARAM_KEYS)
 
   def contact_custom_attributes
     return @contact.custom_attributes.merge(permitted_params[:custom_attributes]) if permitted_params[:custom_attributes]

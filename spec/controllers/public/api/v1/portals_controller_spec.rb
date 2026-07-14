@@ -25,6 +25,19 @@ RSpec.describe Public::Api::V1::PortalsController, type: :request do
       expect(response).to have_http_status(:success)
     end
 
+    it 'renders the widget bootstrap with JSON-escaped configuration' do
+      channel = create(:channel_widget, account: account)
+      portal.update!(channel_web_widget: channel)
+      malicious_token = '";</script><script>alert(1)</script>'
+      channel.update!(website_token: malicious_token)
+
+      get "/hc/#{portal.slug}/en"
+
+      expect(response).to have_http_status(:success)
+      expect(response.body).not_to include(malicious_token)
+      expect(response.body).to include('\u003c/script\u003e')
+    end
+
     it 'Throws unauthorised error for unknown domain' do
       portal.update(custom_domain: 'www.something.com')
 

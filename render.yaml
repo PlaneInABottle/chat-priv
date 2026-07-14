@@ -46,6 +46,8 @@ services:
         value: kozmopath-voice-agent
       - key: VOICE_AGENT_INTERNAL_TOKEN
         sync: false
+      - key: SLACK_SIGNING_SECRET
+        sync: false
       # Inbound email configuration for conversation continuity (SendGrid)
       - key: RAILS_INBOUND_EMAIL_SERVICE
         value: sendgrid

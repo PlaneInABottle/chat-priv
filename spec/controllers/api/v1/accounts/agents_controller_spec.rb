@@ -140,6 +140,16 @@ RSpec.describe 'Agents API', type: :request do
         expect(response_data['auto_offline']).to be(false)
         expect(other_agent.account_users.first.role).to eq('administrator')
       end
+
+      it 'rejects an invalid agent role' do
+        put "/api/v1/accounts/#{account.id}/agents/#{other_agent.id}",
+            params: { role: 'owner' },
+            headers: admin.create_new_auth_token,
+            as: :json
+
+        expect(response).to have_http_status(:bad_request)
+        expect(other_agent.account_users.first.reload.role).to eq('agent')
+      end
     end
   end
 
@@ -176,6 +186,17 @@ RSpec.describe 'Agents API', type: :request do
         expect(response).to conform_schema(200)
         expect(response.parsed_body['email']).to eq(params[:email])
         expect(account.users.last.name).to eq('NewUser')
+      end
+
+      it 'rejects an invalid agent role' do
+        expect do
+          post "/api/v1/accounts/#{account.id}/agents",
+               params: params.merge(role: 'owner'),
+               headers: admin.create_new_auth_token,
+               as: :json
+        end.not_to change(AccountUser, :count)
+
+        expect(response).to have_http_status(:bad_request)
       end
     end
   end
