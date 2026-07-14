@@ -10,6 +10,8 @@ class Api::V1::Accounts::AiAgentOnboardingController < Api::V1::Accounts::BaseCo
     render json: result.to_h
   rescue AiAgents::WebsiteCrawler::InvalidWebsite => e
     render json: { error: e.message, code: 'invalid_website' }, status: :unprocessable_entity
+  rescue AiAgents::OnboardingWebsiteVerifier::RateLimited => e
+    render json: { code: 'website_verification_rate_limited', retry_after: e.retry_after }, status: :too_many_requests
   rescue SafeFetch::Error
     render json: { error: 'Website could not be reached.', code: 'website_unreachable' }, status: :unprocessable_entity
   end

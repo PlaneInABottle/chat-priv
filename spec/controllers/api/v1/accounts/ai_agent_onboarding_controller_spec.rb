@@ -50,6 +50,17 @@ RSpec.describe 'AI agent onboarding API', type: :request do
     expect(response.parsed_body).to include('code' => 'website_unreachable')
   end
 
+  it 'returns the retry interval when website verification is rate limited' do
+    allow(AiAgents::OnboardingWebsiteVerifier).to receive(:new).and_raise(
+      AiAgents::OnboardingWebsiteVerifier::RateLimited.new(23)
+    )
+
+    post "#{base_url}/verify_website", params: { website_url: 'example.com' }, headers: headers, as: :json
+
+    expect(response).to have_http_status(:too_many_requests)
+    expect(response.parsed_body).to include('code' => 'website_verification_rate_limited', 'retry_after' => 23)
+  end
+
   it 'creates a private fallback assistant and starts website analysis' do
     expect do
       post base_url, params: params, headers: headers, as: :json

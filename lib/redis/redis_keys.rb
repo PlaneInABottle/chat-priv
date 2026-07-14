@@ -100,6 +100,7 @@ module Redis::RedisKeys
 
   ## Account Onboarding
   ACCOUNT_ONBOARDING_ENRICHMENT = 'ONBOARDING_ENRICHMENT::%<account_id>d'.freeze
+  AI_AGENT_ONBOARDING_WEBSITE_VERIFICATION = 'AI_AGENT_ONBOARDING::%<account_id>d::WEBSITE_VERIFICATION'.freeze
   HELP_CENTER_GENERATION = 'HELP_CENTER_GENERATION::%<id>s'.freeze
 
   ## Account Email Rate Limiting
