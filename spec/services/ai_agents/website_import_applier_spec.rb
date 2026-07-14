@@ -31,7 +31,9 @@ RSpec.describe AiAgents::WebsiteImportApplier do
       proposed_sections: {
         'business_context' => 'Generated context',
         'rules' => 'Generated rules'
-      }
+      },
+      proposed_knowledge_content: "# Example\nSource: https://example.com/\nVerified company details.",
+      source_urls: ['https://example.com/']
     )
   end
 
@@ -50,7 +52,12 @@ RSpec.describe AiAgents::WebsiteImportApplier do
       'handoff' => 'Always hand off when asked.'
     )
     expect(ai_agent.config.dig('tools', 'enabled')).to eq(['human_handoff'])
-    expect(website_import.reload).to have_attributes(status: 'applied', proposed_sections: {})
+    expect(website_import.reload).to have_attributes(
+      status: 'applied',
+      base_document: nil,
+      proposed_sections: {},
+      proposed_knowledge_content: nil
+    )
   end
 
   it 'preserves a legacy prompt when structured instructions do not exist' do
@@ -93,18 +100,87 @@ RSpec.describe AiAgents::WebsiteImportApplier do
     end.to raise_error(described_class::Conflict)
   end
 
-  it 'rejects an application when the import mode changes' do
-    website_import.update!(mode: :preview)
+  it 'saves local instruction edits and selected suggestions atomically' do
+    local_document = document.deep_dup
+    local_document['sections']['identity'] = 'Customer-edited identity'
+
+    described_class.new(
+      website_import: website_import,
+      section_keys: ['rules'],
+      current_document: local_document,
+      expected_draft_fingerprint: ai_agent.draft_fingerprint
+    ).perform
+
+    expect(ai_agent.reload.config.dig('instructions', 'sections')).to include(
+      'identity' => 'Customer-edited identity',
+      'business_context' => 'Existing context',
+      'rules' => 'Generated rules'
+    )
+  end
+
+  it 'creates and assigns website knowledge only when explicitly selected' do
+    expect do
+      described_class.new(
+        website_import: website_import,
+        section_keys: [],
+        attach_knowledge: true,
+        expected_draft_fingerprint: ai_agent.draft_fingerprint
+      ).perform
+    end.to change(AiKnowledgeSource, :count).by(1)
+
+    source = account.ai_knowledge_sources.last
+    expect(source).to have_attributes(
+      source_type: 'website',
+      website_url: 'https://example.com/',
+      sync_status: 'ready'
+    )
+    expect(source.content).to include('Verified company details')
+    expect(ai_agent.reload.knowledge_source_ids).to contain_exactly(source.id)
+    expect(website_import.reload.ai_knowledge_source_id).to eq(source.id)
+  end
+
+  it 'rejects a website knowledge assignment above the assistant source limit' do
+    sources = create_list(:ai_knowledge_source, AiKnowledgeSources::AssignmentSync::MAX_SOURCES, account: account)
+    AiKnowledgeSources::AssignmentSync.new(assistant: ai_agent, source_ids: sources.map(&:id)).perform
 
     expect do
       described_class.new(
         website_import: website_import,
-        section_keys: ['business_context'],
-        expected_draft_fingerprint: ai_agent.draft_fingerprint,
-        required_mode: :initial
+        section_keys: [],
+        attach_knowledge: true,
+        expected_draft_fingerprint: ai_agent.draft_fingerprint
       ).perform
-    end.to raise_error(described_class::Conflict)
+    end.to raise_error(described_class::InvalidSelection, /up to 20/) { |error| expect(error.code).to eq('knowledge_source_limit') }
 
-    expect(website_import.reload).to have_attributes(status: 'ready', stage: 'complete')
+    expect(website_import.reload).to be_ready
+    expect(ai_agent.reload.knowledge_source_ids).to match_array(sources.map(&:id))
+    expect(account.ai_knowledge_sources.where(website_url: 'https://example.com/')).not_to exist
+  end
+
+  it 'requires a fresh analysis for rows without a comparison baseline' do
+    website_import.update!(base_document: nil)
+
+    expect do
+      described_class.new(
+        website_import: website_import,
+        section_keys: ['rules'],
+        expected_draft_fingerprint: ai_agent.draft_fingerprint
+      ).perform
+    end.to raise_error(described_class::InvalidSelection, /run again/)
+  end
+
+  it 'rejects a selected section that has no generated proposal' do
+    website_import.update!(proposed_sections: {})
+
+    expect do
+      described_class.new(
+        website_import: website_import,
+        section_keys: ['rules'],
+        expected_draft_fingerprint: ai_agent.draft_fingerprint
+      ).perform
+    end.to raise_error(described_class::InvalidSelection, /available suggestion/)
+
+    expect(website_import.reload).to be_ready
+    expect(ai_agent.reload.config.dig('instructions', 'sections', 'rules')).to eq('Existing rules')
   end
 end

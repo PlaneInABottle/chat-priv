@@ -18,7 +18,7 @@ vi.mock('dashboard/composables', () => ({
 }));
 
 vi.mock('vue-i18n', () => ({
-  useI18n: () => ({ t: key => key }),
+  useI18n: () => ({ t: key => key, locale: { value: 'en' } }),
 }));
 
 const InputStub = {
@@ -107,28 +107,32 @@ describe('AiAgentNew.vue', () => {
     expect(wrapper.find('[role="alert"]').text()).toBe('Name already exists');
   });
 
-  it('defaults to matching the customer and builds only task guidance', () => {
+  it('defaults to Turkish and builds Turkish task guidance', () => {
     const { wrapper } = mountComponent();
 
-    expect(wrapper.vm.form.language).toBe('same_as_customer');
+    expect(wrapper.vm.form.language).toBe('tr');
     wrapper.vm.form.name = 'Support bot';
     wrapper.vm.nextStep();
 
-    expect(wrapper.vm.form.instructions).toBe(
-      'AI_ASSISTANT.CREATE.GOAL_INSTRUCTIONS.SUPPORT'
+    expect(wrapper.vm.form.instructions).toContain(
+      'Ürün seçimi, satış, destek, sipariş, teslimat, iade ve değişim'
+    );
+    expect(wrapper.vm.form.instructions).toContain(
+      'Konuşmanın başında müşterinin amacını'
+    );
+    expect(wrapper.vm.form.boundaries).toContain(
+      'Ürün, fiyat, stok, kampanya, politika, teslimat tarihi veya taahhüt uydurma'
     );
     expect(wrapper.vm.form.instructions).not.toContain('Role:');
     expect(wrapper.vm.form.instructions).not.toContain('Tone:');
     expect(wrapper.vm.form.instructions).not.toContain('human');
     const document = wrapper.vm.buildInstructionDocument();
-    expect(document.profile.language).toBe('same_as_customer');
+    expect(document.locale).toBe('tr');
+    expect(document.profile.language).toBe('tr');
     expect(document.sections.identity).toContain('Support bot');
-    expect(document.sections.tasks).toBe(
-      'AI_ASSISTANT.CREATE.GOAL_INSTRUCTIONS.SUPPORT'
-    );
-    expect(document.sections.handoff).toContain(
-      'hand the conversation to a human'
-    );
+    expect(document.sections.tasks).toContain('uygun sonraki adıma yönlendir');
+    expect(document.sections.rules).toContain('tahmin yürütmek yerine');
+    expect(document.sections.handoff).toContain('bir insana aktar');
   });
 
   it('creates structured instructions and opens the instructions workspace', async () => {
@@ -146,7 +150,7 @@ describe('AiAgentNew.vue', () => {
       expect.objectContaining({
         config: expect.objectContaining({
           instructions: expect.objectContaining({
-            version: 3,
+            version: 4,
             sections: expect.objectContaining({
               tasks: 'Help customers choose a product.',
               rules: 'Never invent prices.',
@@ -170,7 +174,6 @@ describe('AiAgentNew.vue', () => {
 
     wrapper.vm.previousStep();
     wrapper.vm.form.name = 'Renamed support bot';
-    wrapper.vm.form.goal = 'sales';
     wrapper.vm.nextStep();
 
     expect(wrapper.vm.form.instructions).toBe(
@@ -178,20 +181,71 @@ describe('AiAgentNew.vue', () => {
     );
   });
 
-  it('rebuilds untouched generated instructions when the goal changes', () => {
+  it('rebuilds untouched generated instructions when the language changes', () => {
     const { wrapper } = mountComponent();
     wrapper.vm.form.name = 'Store assistant';
     wrapper.vm.nextStep();
-    expect(wrapper.vm.form.instructions).toBe(
-      'AI_ASSISTANT.CREATE.GOAL_INSTRUCTIONS.SUPPORT'
-    );
+    expect(wrapper.vm.form.instructions).toContain('Ürün seçimi, satış');
 
     wrapper.vm.previousStep();
-    wrapper.vm.form.goal = 'sales';
+    wrapper.vm.form.language = 'en';
     wrapper.vm.nextStep();
 
-    expect(wrapper.vm.form.instructions).toBe(
-      'AI_ASSISTANT.CREATE.GOAL_INSTRUCTIONS.SALES'
+    expect(wrapper.vm.form.instructions).toContain(
+      'Help with product selection, sales, support'
     );
+    expect(wrapper.vm.form.boundaries).toContain(
+      'Do not invent products, prices, stock'
+    );
+  });
+
+  it('builds English instructions when English is selected', () => {
+    const { wrapper } = mountComponent();
+    wrapper.vm.form.name = 'Support bot';
+    wrapper.vm.form.language = 'en';
+    wrapper.vm.nextStep();
+
+    const document = wrapper.vm.buildInstructionDocument();
+    expect(document.locale).toBe('en');
+    expect(document.sections.tasks).toContain(
+      'Help with product selection, sales, support'
+    );
+    expect(document.sections.rules).toContain('Do not invent products');
+    expect(document.sections.handoff).toContain(
+      'hand the conversation to a human'
+    );
+  });
+
+  it('keeps same-as-customer replies while using the UI language for generated guidance', () => {
+    const { wrapper } = mountComponent();
+    wrapper.vm.form.name = 'Support bot';
+    wrapper.vm.form.language = 'same_as_customer';
+    wrapper.vm.nextStep();
+
+    const document = wrapper.vm.buildInstructionDocument();
+    expect(document.locale).toBe('en');
+    expect(document.profile.language).toBe('same_as_customer');
+    expect(document.sections.tasks).toContain(
+      'Help with product selection, sales, support'
+    );
+    expect(document.sections.handoff).toContain(
+      'hand the conversation to a human'
+    );
+  });
+
+  it('preserves edited boundaries while refreshing untouched tasks', () => {
+    const { wrapper } = mountComponent();
+    wrapper.vm.form.name = 'Support bot';
+    wrapper.vm.nextStep();
+    wrapper.vm.form.boundaries = 'Keep this custom safety rule.';
+
+    wrapper.vm.previousStep();
+    wrapper.vm.form.language = 'en';
+    wrapper.vm.nextStep();
+
+    expect(wrapper.vm.form.instructions).toContain(
+      'Help with product selection, sales, support'
+    );
+    expect(wrapper.vm.form.boundaries).toBe('Keep this custom safety rule.');
   });
 });

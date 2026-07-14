@@ -181,8 +181,8 @@ Rails.application.routes.draw do
               end
             end
           end
-          resource :ai_agent_onboarding, only: [:show, :create], controller: 'ai_agent_onboarding' do
-            post :complete
+          resource :ai_agent_onboarding, only: [:create], controller: 'ai_agent_onboarding' do
+            post :verify_website
           end
           resources :ai_knowledge_sources, only: [:index, :show, :create, :update, :destroy] do
             post :sync, on: :member

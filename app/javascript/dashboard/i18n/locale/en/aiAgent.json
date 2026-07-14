@@ -140,8 +140,8 @@
     "READINESS": {
       "TITLE": "Finish setup",
       "DESCRIPTION": "Complete the remaining required items before publishing.",
-      "INSTRUCTIONS": "Instructions added",
-      "INBOX": "Inbox connected"
+      "INSTRUCTIONS": "Add instructions",
+      "INBOX": "Connect an inbox"
     },
     "ACTIONS": {
       "PUBLISH": "Publish assistant",
@@ -362,15 +362,24 @@
     "WEBSITE_IMPORT": {
       "ENTRY_TITLE": "Business knowledge",
       "ENTRY_HELP": "Bring stable company facts and policies into this draft from your website.",
-      "OPEN": "Import from website",
-      "SAVE_FIRST": "Save or discard instruction changes before importing from a website.",
       "TITLE": "Import business knowledge",
-      "DESCRIPTION": "We read the home page and up to four relevant pages. Nothing changes until you review and apply selected sections.",
+      "DESCRIPTION": "We read the home page and up to nine relevant pages. Nothing changes until you review your choices.",
       "URL_LABEL": "Company website",
       "URL_PLACEHOLDER": "https://example.com",
       "ANALYZE": "Analyze website",
       "START_OVER": "Start another analysis",
       "PROGRESS_HELP": "You can close this window. The analysis continues in the background.",
+      "STATUS_RUNNING_HELP": "We are reading {website}. Your draft will not change without your review.",
+      "READY_TITLE": "Website analysis ready ({count} suggestions)",
+      "READY_KNOWLEDGE_TITLE": "Website knowledge is ready to review",
+      "READY_NO_CHANGES_TITLE": "No reusable website changes found",
+      "READY_TO_REVIEW": "Website suggestions are ready to review.",
+      "STATUS_READY_HELP": "Review instruction suggestions from {pages} pages and optionally add the website to Shared Knowledge.",
+      "STATUS_READY_NO_CHANGES_HELP": "Try another website or continue editing this assistant manually.",
+      "FAILED_TITLE": "Website analysis needs attention",
+      "STATUS_FAILED_HELP": "Try the website again or continue editing the assistant manually.",
+      "REVIEW": "Review suggestions",
+      "DISMISS": "Dismiss",
       "STAGE": {
         "QUEUED": "Waiting to analyze the website…",
         "CRAWLING": "Reading key website pages…",
@@ -378,14 +387,19 @@
         "APPLYING": "Applying selected suggestions…",
         "COMPLETE": "Analysis complete"
       },
-      "REVIEW_HELP": "Select only the suggestions you want. Existing language, tone, human handoff, examples, and additional instructions are not changed.",
+      "REVIEW_HELP": "Choose whether to keep your current text or use the website suggestion in each section. Unsaved edits are included when you apply.",
       "SOURCES": "Sources reviewed",
       "CURRENT": "Current draft",
       "SUGGESTED": "Website suggestion",
+      "KEEP_CURRENT": "Keep current",
+      "USE_SUGGESTION": "Use suggestion",
+      "EDITED_SINCE_ANALYSIS": "You edited this section after the analysis started. Your text is kept by default.",
       "EMPTY": "No instruction in this section",
       "NO_CHANGES": "The website did not produce any new instruction suggestions.",
-      "APPLY_SELECTED": "Apply selected sections",
-      "APPLIED": "Website suggestions added to the saved draft",
+      "ATTACH_KNOWLEDGE": "Add this website to Shared Knowledge",
+      "ATTACH_KNOWLEDGE_HELP": "Attach the full reviewed content from {pages} pages ({characters} characters) so this assistant can search it after you publish.",
+      "APPLY_SELECTED": "Apply choices",
+      "APPLIED": "Website choices saved to the draft",
       "TRY_AGAIN": "Try another website",
       "CANCEL": "Close",
       "ERROR": {
@@ -401,8 +415,11 @@
         "GENERATION_FAILED": "We read the website but could not prepare suggestions. Try again later.",
         "ANALYSIS_FAILED": "Website analysis did not finish. Try again or add the business details manually.",
         "DRAFT_CHANGED": "The saved instructions changed after this analysis started. Run the website analysis again to compare against the latest draft.",
+        "REVIEW_CONTEXT_MISSING": "This older analysis does not contain a safe comparison baseline. Start a new analysis to review it.",
+        "KNOWLEDGE_SOURCE_LIMIT": "This assistant already uses the maximum of 20 Shared Knowledge sources. Remove one before adding this website.",
         "INVALID_SELECTION": "Select at least one available suggestion.",
-        "RESTART": "This analysis could not be discarded. Please try again."
+        "RESTART": "This analysis could not be discarded. Please try again.",
+        "DISMISS": "The website suggestions could not be dismissed. Please try again."
       }
     },
     "INSTRUCTIONS": {
@@ -498,7 +515,6 @@
           "NATURAL": "Natural",
           "FRIENDLY": "Friendly",
           "PROFESSIONAL": "Professional",
-          "WARM": "Warm",
           "CONCISE": "Concise"
         },
         "FORMALITY": {
@@ -521,26 +537,13 @@
         "INBOXES": "Inboxes",
         "REVIEW": "Review"
       },
-      "BASICS_TITLE": "What should this assistant do?",
-      "BASICS_HELP": "Choose a clear purpose. You can refine the instructions before testing.",
-      "GOAL_LABEL": "Primary goal",
-      "GOALS": {
-        "SUPPORT": "Answer customer questions",
-        "SALES": "Help customers choose products",
-        "ORDERS": "Help with orders and delivery",
-        "CUSTOM": "A custom support workflow"
-      },
+      "BASICS_TITLE": "Name your assistant",
+      "BASICS_HELP": "Choose its response language and default tone. You can refine every instruction on the next step.",
       "LANGUAGE": "Response language",
       "LANGUAGES": {
         "SAME_AS_CUSTOMER": "Match each customer",
         "TR": "Turkish",
         "EN": "English"
-      },
-      "GOAL_INSTRUCTIONS": {
-        "SUPPORT": "Answer customer questions and guide customers to the appropriate next step.",
-        "SALES": "Help customers understand and compare suitable products, then guide them to the next sales step.",
-        "ORDERS": "Help with general order, delivery, return, and exchange questions while requesting only the information needed for the next step.",
-        "CUSTOM": "Follow the business-specific support workflow described in these instructions."
       },
       "TONE": "Tone",
       "TONES": {
@@ -552,7 +555,7 @@
       "INSTRUCTIONS_HELP": "Add business context and boundaries, then edit the suggested conversation flow in plain language.",
       "BUSINESS_CONTEXT": "What should it know about your business?",
       "BOUNDARIES": "What should it avoid or leave to a person?",
-      "REBUILD": "Reset suggested flow",
+      "REBUILD": "Reset suggested guidance",
       "INSTRUCTIONS_LABEL": "Tasks and conversation flow",
       "INSTRUCTIONS_REQUIRED": "Add instructions before continuing.",
       "INBOXES_TITLE": "Where should it answer?",

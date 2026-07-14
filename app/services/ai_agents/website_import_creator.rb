@@ -13,11 +13,10 @@ class AiAgents::WebsiteImportCreator
     end
   end
 
-  def initialize(ai_agent:, website_url:, requested_by:, mode: :preview)
+  def initialize(ai_agent:, website_url:, requested_by:)
     @ai_agent = ai_agent
     @website_url = website_url
     @requested_by = requested_by
-    @mode = mode
   end
 
   def perform
@@ -31,7 +30,7 @@ class AiAgents::WebsiteImportCreator
 
   private
 
-  attr_reader :ai_agent, :website_url, :requested_by, :mode
+  attr_reader :ai_agent, :website_url, :requested_by
 
   def create_import(normalized_url)
     ai_agent.account.with_lock do
@@ -58,10 +57,10 @@ class AiAgents::WebsiteImportCreator
       account: ai_agent.account,
       requested_by: requested_by,
       website_url: normalized_url,
-      mode: mode,
       status: :pending,
       stage: :queued,
-      base_draft_fingerprint: ai_agent.draft_fingerprint
+      base_draft_fingerprint: ai_agent.draft_fingerprint,
+      base_document: current_document
     )
   end
 
@@ -73,6 +72,9 @@ class AiAgents::WebsiteImportCreator
     website_import.update!(
       status: :failed,
       stage: :complete,
+      base_document: nil,
+      proposed_sections: {},
+      proposed_knowledge_content: nil,
       error_code: 'stale_import',
       error_message: 'Website analysis did not finish. Start it again to retry.',
       completed_at: Time.current
@@ -82,9 +84,16 @@ class AiAgents::WebsiteImportCreator
   def reusable_ready_import(normalized_url)
     ai_agent.website_imports.ready.find_by(
       website_url: normalized_url,
-      mode: mode,
-      base_draft_fingerprint: ai_agent.draft_fingerprint
+      base_draft_fingerprint: ai_agent.draft_fingerprint,
+      base_document: current_document
     )
+  end
+
+  def current_document
+    instructions = ai_agent.config.to_h['instructions']
+    return AiAgents::InstructionDocument.new(instructions).normalized if instructions.present?
+
+    AiAgents::InstructionDocument.from_legacy(ai_agent.prompt)
   end
 
   def enforce_rate_limit!
@@ -109,7 +118,14 @@ class AiAgents::WebsiteImportCreator
 
   def dismiss_ready_imports
     ai_agent.website_imports.ready.find_each do |website_import|
-      website_import.update!(status: :dismissed, stage: :complete, proposed_sections: {}, completed_at: Time.current)
+      website_import.update!(
+        status: :dismissed,
+        stage: :complete,
+        base_document: nil,
+        proposed_sections: {},
+        proposed_knowledge_content: nil,
+        completed_at: Time.current
+      )
     end
   end
 end

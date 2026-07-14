@@ -4,10 +4,13 @@ FactoryBot.define do
     ai_agent { association :ai_agent, account: account }
     requested_by { association :user, account: account }
     website_url { 'https://example.com/' }
-    mode { :preview }
     status { :pending }
     stage { :queued }
     base_draft_fingerprint { ai_agent.draft_fingerprint }
+    base_document do
+      instructions = ai_agent.config.to_h['instructions']
+      instructions.presence || AiAgents::InstructionDocument.from_legacy(ai_agent.prompt)
+    end
 
     trait :ready do
       status { :ready }

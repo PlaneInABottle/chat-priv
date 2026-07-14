@@ -1,34 +1,67 @@
 {
   "ONBOARDING_NEXT": {
-    "GREETING": "Hello {name}!",
-    "SUBTITLE": "Please review the following details",
-    "YOUR_DETAILS": "Your details",
-    "COMPANY_DETAILS": "Company details",
-    "FIELDS": {
-      "EMAIL": "E-Posta",
-      "YOUR_ROLE": "Your Role",
-      "WEBSITE": "Website",
-      "LANGUAGE": "Dil",
-      "TIMEZONE": "Zaman dilimi",
-      "COMPANY_SIZE": "Company Size",
-      "INDUSTRY": "Industry",
-      "REFERRAL_SOURCE": "Where did you find us?"
+    "APP_LABEL": "Asistan kurulumu",
+    "LANGUAGES": {
+      "TR": "Türkçe",
+      "EN": "English"
     },
-    "PLACEHOLDERS": {
-      "SELECT_ROLE": "Select your role",
-      "ENTER_WEBSITE": "www.example.com",
-      "SELECT_LANGUAGE": "Select language",
-      "SELECT_TIMEZONE": "Zaman Dilimini Seçin",
-      "SELECT_COMPANY_SIZE": "Select company size",
-      "SELECT_INDUSTRY": "Select industry",
-      "SELECT_REFERRAL_SOURCE": "Select source"
-    },
-    "EMAIL_VERIFIED": "Email verified",
-    "SETTING_UP": "Setting up your account...",
+    "PROGRESS": "{total} adımın {current}. adımı",
+    "OPTIONAL": "İsteğe bağlı",
+    "BACK": "Geri",
     "CONTINUE": "Devam et",
-    "SAVING": "Kaydediliyor...",
-    "VALIDATION_ERROR": "Please fill in all required fields",
-    "SUCCESS": "Details saved successfully",
-    "ERROR": "Could not save details. Please try again."
+    "WELCOME": {
+      "ACCOUNT_READY": "Çalışma alanınız hazır"
+    },
+    "LANGUAGE": {
+      "TITLE": "Asistanınız hangi dilde yanıt versin?",
+      "DESCRIPTION": "Hoş geldiniz, {name}. Kurulumun geri kalanını ve asistanın başlangıç talimatlarını bu dilde hazırlayacağız.",
+      "OPTIONS": {
+        "TR": "Kuruluma Türkçe devam et ve asistan yanıtlarını Türkçe hazırla.",
+        "EN": "Continue setup in English and prepare the assistant to reply in English."
+      }
+    },
+    "WEBSITE": {
+      "TITLE": "İşletmeniz hakkında nereden bilgi alalım?",
+      "DESCRIPTION": "Şirketinizin web sitesini ekleyin; işletme bilgilerini ve talimat önerilerini arka planda hazırlayalım.",
+      "LABEL": "Şirket web sitesi",
+      "PLACEHOLDER": "www.ornek.com",
+      "HELP": "Ana sayfayı ve ilgili en fazla dokuz sayfayı okuruz. Siz incelemeden hiçbir öneri taslağı değiştirmez.",
+      "ENRICHING": "Çalışma alanınızdaki mevcut şirket bilgilerini kontrol ediyoruz. Bu alanı düzenlemeye devam edebilirsiniz.",
+      "VERIFY": "Kontrol et ve devam et",
+      "INVALID": "ornek.com gibi herkese açık bir şirket web sitesi girin.",
+      "UNREACHABLE": "Bu web sitesini açamadık. Adresi kontrol edin veya web sitesi olmadan devam edin.",
+      "REVERIFY": "Web sitesi kontrolünün süresi doldu veya adres değişti. Devam etmek için tekrar kontrol edin.",
+      "CONTINUE_WITHOUT": "Web sitesi olmadan devam et"
+    },
+    "TONE": {
+      "TITLE": "Müşterilerle nasıl konuşsun?",
+      "DESCRIPTION": "Bu seçim varsayılan üslubu belirler. Asistan yine de müşteriye ve duruma uyum sağlar.",
+      "OPTIONS": {
+        "FRIENDLY": {
+          "TITLE": "Samimi",
+          "DESCRIPTION": "Yaklaşılabilir, yardımsever ve doğal."
+        },
+        "PROFESSIONAL": {
+          "TITLE": "Profesyonel",
+          "DESCRIPTION": "Açık, ölçülü ve kurumsal."
+        },
+        "CONCISE": {
+          "TITLE": "Öz",
+          "DESCRIPTION": "Gereksiz ayrıntı olmadan doğrudan yanıtlar."
+        }
+      }
+    },
+    "REVIEW": {
+      "TITLE": "Taslağınız oluşturulmaya hazır",
+      "DESCRIPTION": "Başlangıç seçimlerinizi gözden geçirin. Sonraki ekranda tüm talimatları düzenleyebilirsiniz.",
+      "WEBSITE": "Web sitesi",
+      "TONE": "Üslup",
+      "LANGUAGE": "Dil",
+      "NO_WEBSITE": "Daha sonra ekle",
+      "WEBSITE_CONFIRMATION": "Bu web sitesinin işletmenize ait olduğunu kontrol edin.",
+      "EDIT": "Düzenle",
+      "CREATE": "Taslak oluştur"
+    },
+    "ERROR": "Asistanınız oluşturulamadı. Lütfen tekrar deneyin."
   }
 }

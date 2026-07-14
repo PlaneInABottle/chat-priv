@@ -6,8 +6,8 @@ class AiAgentOnboardingAPI extends ApiClient {
     super('ai_agent_onboarding', { accountScoped: true });
   }
 
-  complete() {
-    return axios.post(`${this.url}/complete`);
+  verifyWebsite(data) {
+    return axios.post(`${this.url}/verify_website`, data);
   }
 }
 

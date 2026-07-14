@@ -2,11 +2,7 @@ import { shallowMount } from '@vue/test-utils';
 
 import InstructionWorkspace from '../InstructionWorkspace.vue';
 
-const mockUseAlert = vi.hoisted(() => vi.fn());
-
-vi.mock('dashboard/composables', () => ({
-  useAlert: mockUseAlert,
-}));
+const refreshCredits = vi.fn();
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
@@ -15,7 +11,8 @@ vi.mock('vue-i18n', () => ({
 }));
 
 const instructions = {
-  version: 3,
+  version: 4,
+  locale: 'en',
   profile: {
     language: 'same_as_customer',
     tone: 'natural',
@@ -43,7 +40,18 @@ const mountComponent = () =>
     global: {
       stubs: {
         Button: true,
-        DraftTestPanel: true,
+        DraftTestPanel: {
+          name: 'DraftTestPanel',
+          template: '<div />',
+          props: [
+            'aiAgentId',
+            'draftInstructions',
+            'isDraft',
+            'isDisabled',
+            'isFocused',
+          ],
+          methods: { refreshCredits },
+        },
         Editor: {
           name: 'Editor',
           template: '<div />',
@@ -67,6 +75,10 @@ const mountComponent = () =>
   });
 
 describe('InstructionWorkspace', () => {
+  beforeEach(() => {
+    refreshCredits.mockClear();
+  });
+
   it('uses fixed navigation and removes heading controls from section bodies', async () => {
     const wrapper = mountComponent();
     const navigator = wrapper.findComponent({
@@ -84,6 +96,10 @@ describe('InstructionWorkspace', () => {
       'clamp(10rem, calc(100dvh - 37rem), 28rem)'
     );
     expect(editor.props('ariaLabel')).toContain('RULES.TITLE');
+    expect(editor.classes()).toContain('[&_.ProseMirror]:text-[0.9375rem]');
+    expect(editor.classes()).toContain('[&_.ProseMirror]:leading-6');
+    expect(editor.classes()).toContain('[&_.ProseMirror_p]:!text-[0.9375rem]');
+    expect(editor.classes()).toContain('[&_.ProseMirror_p]:!leading-6');
     expect(
       wrapper.get('[data-testid="instruction-section-content"]').classes()
     ).toContain('overflow-y-auto');
@@ -104,6 +120,9 @@ describe('InstructionWorkspace', () => {
     expect(wrapper.vm.compiledInstructions).toContain(
       '## Rules and boundaries\n\nNever invent prices.'
     );
+    expect(
+      wrapper.get('[data-testid="all-instructions-content"]').classes()
+    ).not.toContain('overflow-y-auto');
     expect(wrapper.text()).toContain(
       'AI_ASSISTANT.INSTRUCTIONS.SECTIONS.ALL.TITLE'
     );
@@ -122,6 +141,14 @@ describe('InstructionWorkspace', () => {
     expect(handoffItem.statusLabel).toBe(
       'AI_ASSISTANT.INSTRUCTIONS.HANDOFF_DEFAULT_STATUS'
     );
+  });
+
+  it('can refresh the visible improvement credit summary', async () => {
+    const wrapper = mountComponent();
+
+    await wrapper.vm.refreshCredits();
+
+    expect(refreshCredits).toHaveBeenCalledOnce();
   });
 
   it('updates only the selected fixed section', async () => {
@@ -148,25 +175,11 @@ describe('InstructionWorkspace', () => {
     const wrapper = mountComponent();
     const testPanel = wrapper.findComponent({ name: 'DraftTestPanel' });
 
+    expect(testPanel.classes()).toContain('min-[1360px]:top-20');
     expect(wrapper.vm.isTestFocused).toBe(false);
     await testPanel.vm.$emit('toggleFocus');
 
     expect(wrapper.vm.isTestFocused).toBe(true);
     expect(testPanel.props('isFocused')).toBe(true);
-  });
-
-  it('explains why website import cannot start with unsaved changes', async () => {
-    const wrapper = mountComponent();
-    const importButton = wrapper
-      .findAllComponents({ name: 'Button' })
-      .find(button =>
-        button.props('label')?.includes('AI_ASSISTANT.WEBSITE_IMPORT.OPEN')
-      );
-
-    expect(importButton.vm.$attrs.disabled).toBeUndefined();
-    await importButton.vm.$emit('click');
-    expect(mockUseAlert).toHaveBeenCalledWith(
-      'AI_ASSISTANT.WEBSITE_IMPORT.SAVE_FIRST'
-    );
   });
 });

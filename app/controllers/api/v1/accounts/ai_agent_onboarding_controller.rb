@@ -2,8 +2,16 @@ class Api::V1::Accounts::AiAgentOnboardingController < Api::V1::Accounts::BaseCo
   before_action :check_authorization
   before_action :ensure_ai_agent_enabled
 
-  def show
-    load_onboarding_state
+  def verify_website
+    result = AiAgents::OnboardingWebsiteVerifier.new(
+      account: Current.account,
+      website_url: params[:website_url]
+    ).perform
+    render json: result.to_h
+  rescue AiAgents::WebsiteCrawler::InvalidWebsite => e
+    render json: { error: e.message, code: 'invalid_website' }, status: :unprocessable_entity
+  rescue SafeFetch::Error
+    render json: { error: 'Website could not be reached.', code: 'website_unreachable' }, status: :unprocessable_entity
   end
 
   def create
@@ -24,44 +32,17 @@ class Api::V1::Accounts::AiAgentOnboardingController < Api::V1::Accounts::BaseCo
     render json: { error: e.message }, status: :conflict
   end
 
-  def complete
-    load_onboarding_state
-    return render json: { error: 'No onboarding assistant was found.' }, status: :not_found unless @ai_agent
-
-    preserve_unfinished_import_for_review
-    Current.account.custom_attributes.delete('onboarding_step')
-    Current.account.save!
-    render json: { ai_agent_id: @ai_agent.id }
-  end
-
   private
 
   def check_authorization
-    authorize(AiAgent, action_name == 'create' ? :create? : :show?)
-  end
-
-  def load_onboarding_state
-    @ai_agent = Current.account.ai_agents
-                       .where("config -> 'setup_profile' ->> 'source' = ?", 'account_onboarding')
-                       .order(:id)
-                       .first
-    @website_import = @ai_agent&.website_imports&.latest_first&.first
-  end
-
-  def preserve_unfinished_import_for_review
-    return unless @website_import&.mode_initial?
-
-    @website_import.with_lock do
-      @website_import.reload
-      @website_import.update!(mode: :preview) if @website_import.pending? || @website_import.running? || @website_import.ready?
-    end
+    authorize(AiAgent, :create?)
   end
 
   def account_params
-    params.require(:account).permit(:locale, :website, :industry, :company_size, :timezone, :referral_source, :user_role).to_h
+    params.require(:account).permit(:locale, :website, :website_verification_token, :industry).to_h
   end
 
   def assistant_params
-    params.require(:assistant).permit(:purpose, :tone).to_h
+    params.require(:assistant).permit(:tone).to_h
   end
 end

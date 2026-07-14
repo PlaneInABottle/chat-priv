@@ -20,6 +20,7 @@ import AssistantStatusBadge from './components/AssistantStatusBadge.vue';
 import ReadinessChecklist from './components/ReadinessChecklist.vue';
 import AssistantReleaseHistoryDialog from './components/AssistantReleaseHistoryDialog.vue';
 import KnowledgeSourceSelector from './components/KnowledgeSourceSelector.vue';
+import WebsiteImportStatus from './components/WebsiteImportStatus.vue';
 import ResponsiveTabNavigation from '../components/ResponsiveTabNavigation.vue';
 import {
   hasInstructionContent,
@@ -81,7 +82,9 @@ const accountWebsite = computed(
 const isSaving = ref(false);
 const isDetailLoading = ref(true);
 const releaseHistoryRef = ref(null);
+const instructionWorkspaceRef = ref(null);
 const inboxError = ref('');
+const websiteSuggestionCount = ref(0);
 const activeTab = computed(() => {
   if (route.name === 'ai_agent_test') return 'test';
   if (route.name === 'ai_agent_knowledge') return 'knowledge';
@@ -154,7 +157,11 @@ const isFormDirty = computed(
 );
 
 const tabs = computed(() => [
-  { label: t('AI_AGENT.TABS.INSTRUCTIONS'), value: 'instructions' },
+  {
+    label: t('AI_AGENT.TABS.INSTRUCTIONS'),
+    value: 'instructions',
+    count: websiteSuggestionCount.value,
+  },
   { label: t('AI_AGENT.TABS.KNOWLEDGE'), value: 'knowledge' },
   { label: t('AI_AGENT.TABS.CONNECTIONS'), value: 'connections' },
   { label: t('AI_AGENT.TABS.TEST_HISTORY'), value: 'test' },
@@ -599,8 +606,35 @@ const refreshAfterLearningApplied = ({ preserveInstructions = false } = {}) => {
 };
 
 const refreshAfterWebsiteImport = async () => {
+  const persistedKnowledgeIds = normalizeKnowledgeSourceIds(
+    aiAgent.value?.knowledge_source_ids
+  );
+  const localKnowledgeIds = normalizeKnowledgeSourceIds(
+    formState.value.knowledge_source_ids
+  );
+  const preserveKnowledgeDraft = isKnowledgeDirty.value;
   await store.dispatch('aiAgent/refresh', agentId.value);
   formState.value.instructions = instructionDocumentForAgent(aiAgent.value);
+  const refreshedKnowledgeIds = normalizeKnowledgeSourceIds(
+    aiAgent.value?.knowledge_source_ids
+  );
+  if (!preserveKnowledgeDraft) {
+    formState.value.knowledge_source_ids = refreshedKnowledgeIds;
+  } else {
+    const locallyRemovedIds = persistedKnowledgeIds.filter(
+      id => !localKnowledgeIds.includes(id)
+    );
+    const locallyAddedIds = localKnowledgeIds.filter(
+      id => !persistedKnowledgeIds.includes(id)
+    );
+    formState.value.knowledge_source_ids = normalizeKnowledgeSourceIds([
+      ...refreshedKnowledgeIds.filter(id => !locallyRemovedIds.includes(id)),
+      ...locallyAddedIds,
+    ]);
+  }
+
+  await nextTick();
+  await instructionWorkspaceRef.value?.refreshCredits?.();
 };
 
 const handlePause = async () => {
@@ -753,16 +787,23 @@ watch(agentId, async (newAgentId, oldAgentId) => {
             />
           </div>
         </div>
+        <WebsiteImportStatus
+          :ai-agent-id="agentId"
+          :default-website="accountWebsite"
+          :current-document="formState.instructions"
+          :expected-draft-fingerprint="aiAgent?.draft_fingerprint"
+          @applied="refreshAfterWebsiteImport"
+          @ready-count-changed="websiteSuggestionCount = $event"
+        />
         <InstructionWorkspace
           v-if="activeTab === 'instructions'"
+          ref="instructionWorkspaceRef"
           v-model="formState.instructions"
           :ai-agent-id="agentId"
           :is-dirty="isInstructionsDirty"
           :is-disabled="!hasInstructionContent(formState.instructions)"
-          :default-website="accountWebsite"
           @configure-handoff="configureHandoff"
           @tested="refreshAfterDraftTest"
-          @website-import-applied="refreshAfterWebsiteImport"
         />
         <div v-if="activeTab === 'knowledge'">
           <KnowledgeSourceSelector v-model="formState.knowledge_source_ids" />

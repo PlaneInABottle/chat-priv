@@ -1,38 +1,12 @@
 # frozen_string_literal: true
 
 class AiAgents::OnboardingDraftBuilder
-  PURPOSES = %w[support sales support_and_sales orders].freeze
-  TONES = %w[friendly professional warm concise].freeze
-  PURPOSE_LABELS = {
-    'en' => {
-      'support' => 'customer support',
-      'sales' => 'sales guidance',
-      'support_and_sales' => 'customer support and sales guidance',
-      'orders' => 'order support'
-    },
-    'tr' => {
-      'support' => 'müşteri destek',
-      'sales' => 'satış danışmanı',
-      'support_and_sales' => 'müşteri destek ve satış danışmanı',
-      'orders' => 'sipariş destek'
-    }
-  }.freeze
-  PURPOSE_TASKS = {
-    'en' => {
-      'support' => 'Answer customer questions, explain available help, and guide customers toward the appropriate next step.',
-      'sales' => 'Explain products and services, help customers compare suitable options, and guide interested customers toward the next sales step.',
-      'support_and_sales' => 'Answer support questions, explain products and services, help customers compare options, ' \
-                             'and guide them toward the appropriate next step.',
-      'orders' => 'Help with general order, delivery, return, and exchange questions while requesting only the information needed for the next step.'
-    },
-    'tr' => {
-      'support' => 'Müşteri sorularını yanıtla, sunulan desteği açıkla ve müşteriyi uygun sonraki adıma yönlendir.',
-      'sales' => 'Ürün ve hizmetleri açıkla, müşterilerin uygun seçenekleri karşılaştırmasına yardımcı ol ' \
-                 've ilgilenen müşteriyi sonraki satış adımına yönlendir.',
-      'support_and_sales' => 'Destek sorularını yanıtla, ürün ve hizmetleri açıkla, müşterilerin seçenekleri ' \
-                             'karşılaştırmasına yardımcı ol ve uygun sonraki adıma yönlendir.',
-      'orders' => 'Yalnızca sonraki adım için gereken bilgileri isteyerek genel sipariş, teslimat, iade ve değişim sorularında yardımcı ol.'
-    }
+  TONES = %w[friendly professional concise].freeze
+  GENERAL_TASK = {
+    'en' => 'Help across product selection, sales, support, orders, delivery, returns, and exchanges, ' \
+            'then guide customers toward the appropriate next step.',
+    'tr' => 'Ürün seçimi, satış, destek, sipariş, teslimat, iade ve değişim konularında yardımcı ol ' \
+            've müşteriyi uygun sonraki adıma yönlendir.'
   }.freeze
 
   def initialize(account:, answers:)
@@ -57,6 +31,7 @@ class AiAgents::OnboardingDraftBuilder
   def instruction_document
     AiAgents::InstructionDocument.new(
       'version' => AiAgents::InstructionDocument::VERSION,
+      'locale' => content_language,
       'profile' => profile,
       'sections' => sections
     ).normalized
@@ -65,10 +40,6 @@ class AiAgents::OnboardingDraftBuilder
   private
 
   attr_reader :account, :answers
-
-  def purpose
-    PURPOSES.include?(answers['purpose']) ? answers['purpose'] : 'support'
-  end
 
   def tone
     TONES.include?(answers['tone']) ? answers['tone'] : 'friendly'
@@ -87,12 +58,33 @@ class AiAgents::OnboardingDraftBuilder
     {
       'identity' => identity,
       'business_context' => business_context,
-      'tasks' => PURPOSE_TASKS.dig(content_language, purpose),
+      'tasks' => tasks,
       'rules' => rules,
       'handoff' => handoff,
       'examples' => '',
       'additional' => ''
     }
+  end
+
+  def tasks
+    primary_task = GENERAL_TASK.fetch(content_language)
+    return <<~TASKS.strip if content_language == 'tr'
+      - #{primary_task}
+      - Konuşmanın başında müşterinin amacını ve ihtiyacını belirle.
+      - Ürün veya hizmet seçimi gerekiyorsa kullanım amacı, gerekli özellikler, ölçü veya diğer karar bilgilerini sırayla netleştir.
+      - Doğrulanmış seçenekleri kısa ve karşılaştırılabilir biçimde sun; önerinin neden uygun olduğunu açıkla.
+      - Politika, sipariş veya teslimat sorularında yalnızca mevcut bilgiye dayan ve müşteriye izleyebileceği sonraki adımı belirt.
+      - Sorun çözüldüğünde kısa bir özet ver ve başka bir konuda yardıma ihtiyaç olup olmadığını sor.
+    TASKS
+
+    <<~TASKS.strip
+      - #{primary_task}
+      - Establish the customer's goal and need at the beginning of the conversation.
+      - For product or service selection, clarify intended use, required features, measurements, and other decision details in a logical order.
+      - Present verified options in a concise, comparable format and explain why a recommendation fits.
+      - For policy, order, or delivery questions, rely only on available information and state the next action the customer can take.
+      - When the request is resolved, give a brief summary and ask whether anything else is needed.
+    TASKS
   end
 
   def content_language
@@ -101,12 +93,12 @@ class AiAgents::OnboardingDraftBuilder
 
   def identity
     if content_language == 'tr'
-      return "Sen, #{account.name} şirketinin müşterilerle iletişim kuran #{PURPOSE_LABELS.dig('tr', purpose)} asistanısın. " \
-             'Yalnızca doğrulanmış şirket bilgilerine dayanarak yardımcı ol.'
+      return "Sen, #{account.name} adına müşterilerle iletişim kuran müşteri asistanısın. " \
+             'Amacın müşterinin ihtiyacını doğru anlamak, doğrulanmış şirket bilgileriyle yardımcı olmak ve net bir sonraki adım sunmaktır.'
     end
 
-    "You are #{account.name}'s customer-facing #{PURPOSE_LABELS.dig('en', purpose)} assistant. " \
-      'Provide grounded help using verified company information.'
+    "You are #{account.name}'s customer-facing assistant. " \
+      'Understand the customer’s need, provide grounded help using verified company information, and offer a clear next step.'
   end
 
   def business_context
@@ -121,19 +113,31 @@ class AiAgents::OnboardingDraftBuilder
     details.join("\n")
   end
 
+  # rubocop:disable Metrics/MethodLength
   def rules
     return <<~RULES.strip if content_language == 'tr'
-      Yalnızca doğrulanmış şirket bilgilerini kullan. Ürün, fiyat, stok, politika, teslimat tarihi veya taahhüt uydurma.
-      Bilgi mevcut olmadığında bunu açıkça belirt ve tahmin etmek yerine insan desteği teklif et.
-      Yapılandırılmış bir araç doğrulamadıkça sipariş, iade, rezervasyon veya hesap değişikliğinin tamamlandığını söyleme.
+      - Yanıt vermeden önce müşterinin asıl ihtiyacını belirle; eksik bilgi varsa aynı anda yalnızca gerekli ve anlaşılır soruları sor.
+      - Yalnızca talimatlarda, bağlı bilgi kaynaklarında veya araç sonuçlarında doğrulanan şirket bilgilerini kullan.
+      - Ürün, fiyat, stok, kampanya, politika, teslimat tarihi veya taahhüt uydurma. Bilgi yoksa bunu açıkça söyle.
+      - Müşterinin ihtiyacına uygun seçenekleri gerekçesiyle açıkla; emin olmadığın bir ürünü kesin öneri gibi sunma.
+      - Yanıtı kolay taranır tut, müşterinin sorusunu gereksiz yere tekrarlama ve konuşmayı net bir sonraki adımla ilerlet.
+      - Yapılandırılmış bir araç doğrulamadıkça sipariş, iade, rezervasyon, ödeme veya hesap değişikliğinin tamamlandığını söyleme.
+      - Ödeme bilgisi, parola veya gereksiz kişisel veri isteme. Müşterinin paylaştığı hassas bilgileri yanıtta tekrar etme.
+      - Talep kapsam dışındaysa, bilgi çelişkiliyse veya güvenli bir yanıt veremiyorsan tahmin yürütmek yerine insan desteğine aktar.
     RULES
 
     <<~RULES.strip
-      Use only verified company information. Do not invent products, prices, stock, policies, delivery dates, or commitments.
-      Clearly acknowledge when information is unavailable and offer human support instead of guessing.
-      Never claim that an order, refund, booking, or account change was completed unless a configured tool confirms it.
+      - Identify the customer's real need before answering. Ask only the clear, necessary follow-up questions when details are missing.
+      - Use only company information verified by these instructions, connected knowledge, or tool results.
+      - Do not invent products, prices, stock, campaigns, policies, delivery dates, or commitments. Say clearly when information is unavailable.
+      - Explain suitable options with a reason. Do not present an uncertain product match as a definitive recommendation.
+      - Keep answers easy to scan, avoid repeating the question, and move the conversation toward a clear next step.
+      - Never claim an order, refund, booking, payment, or account change was completed unless a configured tool confirms it.
+      - Do not request passwords, payment credentials, or unnecessary personal data. Do not repeat sensitive details back to the customer.
+      - Transfer to human support instead of guessing when a request is out of scope, information conflicts, or a safe answer is not possible.
     RULES
   end
+  # rubocop:enable Metrics/MethodLength
 
   def handoff
     if content_language == 'tr'
@@ -153,12 +157,6 @@ class AiAgents::OnboardingDraftBuilder
   end
 
   def setup_profile
-    {
-      'source' => 'account_onboarding',
-      'purpose' => purpose,
-      'tone' => tone,
-      'language' => answers['language'],
-      'website' => answers['website']
-    }
+    { 'source' => 'account_onboarding' }
   end
 end

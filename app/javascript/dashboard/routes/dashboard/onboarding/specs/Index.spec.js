@@ -1,17 +1,29 @@
-import { flushPromises, shallowMount } from '@vue/test-utils';
+import { flushPromises, mount } from '@vue/test-utils';
+import { ref } from 'vue';
 
 import Index from '../Index.vue';
 
 const mocks = vi.hoisted(() => ({
-  get: vi.fn(),
-  complete: vi.fn(),
+  create: vi.fn(),
+  verifyWebsite: vi.fn(),
   push: vi.fn(),
   commit: vi.fn(),
+  dispatch: vi.fn(),
   alert: vi.fn(),
 }));
 
+const activeLocale = ref('en');
+const currentAccount = ref({
+  name: 'Example',
+  locale: 'tr',
+  custom_attributes: { onboarding_step: 'account_details' },
+});
+
 vi.mock('vue-i18n', () => ({
-  useI18n: () => ({ t: key => key }),
+  useI18n: () => ({
+    t: (key, params) => (params ? `${key}:${JSON.stringify(params)}` : key),
+    locale: activeLocale,
+  }),
 }));
 
 vi.mock('vue-router', () => ({
@@ -26,19 +38,7 @@ vi.mock('dashboard/composables', () => ({
 vi.mock('dashboard/composables/useAccount', () => ({
   useAccount: () => ({
     accountId: { value: 1 },
-    currentAccount: {
-      value: {
-        name: 'Example',
-        locale: 'en',
-        custom_attributes: { onboarding_step: 'ai_assistant' },
-      },
-    },
-  }),
-}));
-
-vi.mock('dashboard/composables/useConfig', () => ({
-  useConfig: () => ({
-    enabledLanguages: [{ iso_639_1_code: 'en', name: 'English' }],
+    currentAccount,
   }),
 }));
 
@@ -46,46 +46,298 @@ vi.mock('dashboard/composables/store', () => ({
   useMapGetter: () => ({
     value: { name: 'Owner', email: 'owner@example.com' },
   }),
-  useStore: () => ({ commit: mocks.commit }),
+  useStore: () => ({ commit: mocks.commit, dispatch: mocks.dispatch }),
 }));
 
 vi.mock('dashboard/api/aiAgentOnboarding', () => ({
-  default: {
-    get: mocks.get,
-    create: vi.fn(),
-    complete: mocks.complete,
-  },
+  default: { create: mocks.create, verifyWebsite: mocks.verifyWebsite },
 }));
+
+const mountComponent = () =>
+  mount(Index, {
+    global: {
+      stubs: {
+        Avatar: true,
+        Icon: true,
+        Spinner: true,
+        Transition: {
+          template: '<div><slot /></div>',
+        },
+        NextButton: {
+          props: [
+            'type',
+            'label',
+            'disabled',
+            'isLoading',
+            'icon',
+            'variant',
+            'color',
+          ],
+          emits: ['click'],
+          template:
+            '<button :type="type" :disabled="disabled" @click="$emit(\'click\')">{{ label }}<slot /></button>',
+        },
+      },
+    },
+  });
+
+const clickPrimary = async wrapper => {
+  await wrapper.get('form').trigger('submit');
+  await flushPromises();
+};
 
 describe('AI assistant onboarding', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.get.mockResolvedValue({
+    activeLocale.value = 'en';
+    currentAccount.value = {
+      name: 'Example',
+      locale: 'tr',
+      custom_attributes: { onboarding_step: 'account_details' },
+    };
+    mocks.create.mockResolvedValue({ data: { ai_agent: { id: 42 } } });
+    mocks.dispatch.mockResolvedValue();
+    mocks.verifyWebsite.mockResolvedValue({
       data: {
-        status: 'running',
-        stage: 'crawling',
-        ai_agent: { id: 42 },
-        website_import: { id: 7 },
+        website_url: 'https://example.com/',
+        hostname: 'example.com',
+        title: 'Example Store',
+        verification_token: 'signed-token',
       },
     });
-    mocks.complete.mockResolvedValue({ data: { ai_agent_id: 42 } });
   });
 
-  it('lets the customer review the starter draft while analysis continues', async () => {
-    const wrapper = shallowMount(Index);
+  it('asks for language first instead of showing the full questionnaire', async () => {
+    const wrapper = mountComponent();
     await flushPromises();
 
-    const reviewButton = wrapper.get(
-      'button[label="ONBOARDING_NEXT.BUILDING.REVIEW_STARTER"]'
+    expect(wrapper.vm.currentStep).toBe('language');
+    expect(wrapper.find('input[name="website"]').exists()).toBe(false);
+    expect(wrapper.find('[role="progressbar"]').exists()).toBe(true);
+    expect(wrapper.vm.locale).toBe('tr');
+    expect(activeLocale.value).toBe('tr');
+
+    await clickPrimary(wrapper);
+
+    expect(wrapper.vm.currentStep).toBe('website');
+    expect(wrapper.get('input[name="website"]').attributes('readonly')).toBe(
+      undefined
     );
-    await reviewButton.trigger('click');
+  });
+
+  it('shows one decision at a time and preserves answers when going back', async () => {
+    const wrapper = mountComponent();
     await flushPromises();
 
-    expect(mocks.complete).toHaveBeenCalledOnce();
+    await clickPrimary(wrapper);
+    await wrapper.get('input[name="website"]').setValue('example.com');
+    await clickPrimary(wrapper);
+
+    expect(wrapper.vm.currentStep).toBe('tone');
+    expect(wrapper.find('input[name="website"]').exists()).toBe(false);
+    await wrapper.get('[data-testid="onboarding-back"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.vm.currentStep).toBe('website');
+    expect(wrapper.vm.website).toBe('https://example.com/');
+  });
+
+  it('switches the whole onboarding interface from the first language choice', async () => {
+    const wrapper = mountComponent();
+    await flushPromises();
+
+    await wrapper.get('input[name="language"][value="en"]').setValue();
+
+    expect(wrapper.vm.locale).toBe('en');
+    expect(activeLocale.value).toBe('en');
+  });
+
+  it('reviews choices and lets the customer jump back to edit one', async () => {
+    const wrapper = mountComponent();
+    await flushPromises();
+
+    await wrapper.vm.goToStep('website');
+    wrapper.vm.website = 'https://example.com/';
+    wrapper.vm.verifiedWebsite = {
+      website_url: 'https://example.com/',
+      hostname: 'example.com',
+      title: 'Example Store',
+      verification_token: 'signed-token',
+    };
+    wrapper.vm.aiTone = 'professional';
+    await wrapper.vm.goToStep('review');
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('example.com');
+    expect(wrapper.text()).toContain(
+      'ONBOARDING_NEXT.TONE.OPTIONS.PROFESSIONAL.TITLE'
+    );
+    expect(
+      wrapper
+        .findAll('button')
+        .filter(button => button.text().includes('ONBOARDING_NEXT.REVIEW.EDIT'))
+    ).toHaveLength(3);
+
+    const [websiteEdit] = wrapper
+      .findAll('button')
+      .filter(button => button.text().includes('ONBOARDING_NEXT.REVIEW.EDIT'));
+    await websiteEdit.trigger('click');
+    await flushPromises();
+
+    expect(wrapper.vm.currentStep).toBe('website');
+    expect(wrapper.get('input[name="website"]').element.value).toBe(
+      'https://example.com/'
+    );
+  });
+
+  it('creates the draft only from review and omits retired questionnaire answers', async () => {
+    const wrapper = mountComponent();
+    await flushPromises();
+
+    wrapper.vm.website = 'https://example.com/';
+    wrapper.vm.verifiedWebsite = {
+      website_url: 'https://example.com/',
+      hostname: 'example.com',
+      title: 'Example Store',
+      verification_token: 'signed-token',
+    };
+    wrapper.vm.aiTone = 'concise';
+    await wrapper.vm.goToStep('review');
+    await clickPrimary(wrapper);
+
+    expect(mocks.create).toHaveBeenCalledWith({
+      account: expect.objectContaining({
+        locale: 'tr',
+        website: 'https://example.com/',
+        website_verification_token: 'signed-token',
+      }),
+      assistant: {
+        tone: 'concise',
+      },
+    });
+    const request = mocks.create.mock.calls[0][0];
+    expect(request.account).not.toHaveProperty('user_role');
+    expect(request.account).not.toHaveProperty('referral_source');
+    expect(request.account).not.toHaveProperty('timezone');
+    expect(request.account).not.toHaveProperty('company_size');
     expect(mocks.commit).toHaveBeenCalledWith('RESET_ONBOARDING', 1);
+    expect(mocks.dispatch).toHaveBeenCalledWith('accounts/get', {
+      silent: true,
+    });
     expect(mocks.push).toHaveBeenCalledWith({
       name: 'ai_agent_instructions',
       params: { id: 42, accountId: 1 },
     });
+  });
+
+  it('navigates to the created draft when the account refresh fails', async () => {
+    mocks.dispatch.mockRejectedValueOnce(new Error('Account refresh failed'));
+    const wrapper = mountComponent();
+    await flushPromises();
+
+    await wrapper.vm.goToStep('review');
+    await clickPrimary(wrapper);
+
+    expect(mocks.create).toHaveBeenCalledOnce();
+    expect(mocks.push).toHaveBeenCalledWith({
+      name: 'ai_agent_instructions',
+      params: { id: 42, accountId: 1 },
+    });
+    expect(mocks.alert).not.toHaveBeenCalled();
+  });
+
+  it('returns directly to review after changing the language from review', async () => {
+    const wrapper = mountComponent();
+    await flushPromises();
+
+    await wrapper.vm.goToStep('review');
+    await flushPromises();
+    const editButtons = wrapper
+      .findAll('button')
+      .filter(button => button.text().includes('ONBOARDING_NEXT.REVIEW.EDIT'));
+    await editButtons.at(-1).trigger('click');
+    await flushPromises();
+
+    expect(wrapper.vm.currentStep).toBe('language');
+    await wrapper.get('input[name="language"][value="en"]').setValue();
+    await clickPrimary(wrapper);
+
+    expect(wrapper.vm.currentStep).toBe('review');
+    expect(wrapper.vm.locale).toBe('en');
+  });
+
+  it('rejects random website text before making a request', async () => {
+    const wrapper = mountComponent();
+    await flushPromises();
+
+    await wrapper.vm.goToStep('website');
+    wrapper.vm.website = 'randomvalue';
+    await clickPrimary(wrapper);
+
+    expect(wrapper.vm.currentStep).toBe('website');
+    expect(wrapper.vm.websiteError).toBe('ONBOARDING_NEXT.WEBSITE.INVALID');
+    expect(mocks.verifyWebsite).not.toHaveBeenCalled();
+  });
+
+  it('offers to continue without a website when the homepage is unreachable', async () => {
+    mocks.verifyWebsite.mockRejectedValue({
+      response: { data: { code: 'website_unreachable' } },
+    });
+    const wrapper = mountComponent();
+    await flushPromises();
+
+    await wrapper.vm.goToStep('website');
+    wrapper.vm.website = 'example.com';
+    await clickPrimary(wrapper);
+
+    expect(wrapper.vm.websiteError).toBe('ONBOARDING_NEXT.WEBSITE.UNREACHABLE');
+    const skipButton = wrapper
+      .findAll('button')
+      .find(button =>
+        button.text().includes('ONBOARDING_NEXT.WEBSITE.CONTINUE_WITHOUT')
+      );
+    await skipButton.trigger('click');
+
+    expect(wrapper.vm.currentStep).toBe('tone');
+    expect(wrapper.vm.website).toBe('');
+  });
+
+  it('allows setup to progress while optional account enrichment runs', async () => {
+    currentAccount.value = {
+      name: 'Example',
+      locale: 'tr',
+      custom_attributes: { onboarding_step: 'enrichment' },
+    };
+    const wrapper = mountComponent();
+    await flushPromises();
+
+    expect(wrapper.vm.isEnriching).toBe(true);
+    await clickPrimary(wrapper);
+
+    expect(wrapper.vm.currentStep).toBe('website');
+    expect(wrapper.text()).toContain('ONBOARDING_NEXT.WEBSITE.ENRICHING');
+    expect(
+      wrapper.get('[data-testid="onboarding-primary"]').attributes('disabled')
+    ).toBeUndefined();
+  });
+
+  it('does not restore an enriched website after the customer clears it', async () => {
+    const wrapper = mountComponent();
+    await flushPromises();
+    await wrapper.vm.goToStep('website');
+    const input = wrapper.get('input[name="website"]');
+
+    await input.setValue('temporary.example');
+    await input.setValue('');
+    currentAccount.value = {
+      ...currentAccount.value,
+      custom_attributes: {
+        onboarding_step: 'complete',
+        website: 'https://enriched.example/',
+      },
+    };
+    await flushPromises();
+
+    expect(wrapper.vm.website).toBe('');
   });
 });

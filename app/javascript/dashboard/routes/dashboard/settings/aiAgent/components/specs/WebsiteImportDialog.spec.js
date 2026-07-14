@@ -38,12 +38,12 @@ const readyImport = {
   status: 'ready',
   stage: 'complete',
   website_url: 'https://example.com/',
-  changed_sections: ['business_context'],
   proposed_sections: { business_context: 'Suggested facts' },
-  current_document: { sections: { business_context: 'Saved facts' } },
-  current_draft_fingerprint: 'current-fingerprint',
-  base_draft_fingerprint: 'base-fingerprint',
-  draft_changed: false,
+  base_document: { sections: { business_context: 'Saved facts' } },
+  has_review_context: true,
+  knowledge_available: true,
+  knowledge_character_count: 2400,
+  source_count: 1,
   source_urls: ['https://example.com/about'],
 };
 
@@ -56,10 +56,27 @@ const DialogStub = {
   },
 };
 
-const mountComponent = () =>
+const currentDocument = {
+  version: 4,
+  locale: 'en',
+  profile: {},
+  sections: { business_context: 'Saved facts' },
+};
+
+const mountComponent = (document = currentDocument) =>
   mount(WebsiteImportDialog, {
-    props: { aiAgentId: 42, defaultWebsite: 'https://example.com/' },
+    props: {
+      aiAgentId: 42,
+      defaultWebsite: 'https://example.com/',
+      currentDocument: document,
+      expectedDraftFingerprint: 'loaded-fingerprint',
+    },
     global: {
+      directives: {
+        dompurifyHtml: (element, binding) => {
+          element.innerHTML = binding.value;
+        },
+      },
       stubs: {
         Dialog: DialogStub,
         Button: {
@@ -89,7 +106,11 @@ describe('WebsiteImportDialog', () => {
     mockApi.dismiss.mockResolvedValue({ data: {} });
   });
 
-  it('compares suggestions with the saved server document and shows sources', async () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('compares suggestions with the current local document and shows sources', async () => {
     const wrapper = mountComponent();
 
     await wrapper.vm.open();
@@ -102,7 +123,29 @@ describe('WebsiteImportDialog', () => {
     );
   });
 
-  it('applies against the import base fingerprint', async () => {
+  it('renders point-by-point suggestions as a readable list', async () => {
+    mockApi.get.mockResolvedValue({
+      data: [
+        {
+          ...readyImport,
+          proposed_sections: {
+            business_context: '- Verified fact one\n- Verified fact two',
+          },
+        },
+      ],
+    });
+    const wrapper = mountComponent();
+
+    await wrapper.vm.open();
+    await flushPromises();
+
+    expect(wrapper.findAll('.prose li').map(item => item.text())).toEqual([
+      'Verified fact one',
+      'Verified fact two',
+    ]);
+  });
+
+  it('saves local edits, selected suggestions, and website knowledge together', async () => {
     const wrapper = mountComponent();
     await wrapper.vm.open();
     await flushPromises();
@@ -111,9 +154,27 @@ describe('WebsiteImportDialog', () => {
 
     expect(mockApi.applyImport).toHaveBeenCalledWith(7, {
       section_keys: ['business_context'],
-      expected_draft_fingerprint: 'base-fingerprint',
+      current_document: currentDocument,
+      attach_knowledge: true,
+      expected_draft_fingerprint: 'loaded-fingerprint',
     });
     expect(wrapper.emitted('applied')).toHaveLength(1);
+  });
+
+  it('keeps a section edited after analysis unless the customer chooses the suggestion', async () => {
+    const editedDocument = {
+      ...currentDocument,
+      sections: { business_context: 'My unsaved edit' },
+    };
+    const wrapper = mountComponent(editedDocument);
+    await wrapper.vm.open();
+    await flushPromises();
+
+    expect(wrapper.vm.sectionChoices.business_context).toBe('current');
+    expect(wrapper.text()).toContain('My unsaved edit');
+    expect(wrapper.text()).toContain(
+      'AI_ASSISTANT.WEBSITE_IMPORT.EDITED_SINCE_ANALYSIS'
+    );
   });
 
   it('shows a customer-safe failure instead of the backend exception', async () => {
@@ -158,9 +219,26 @@ describe('WebsiteImportDialog', () => {
     ).toBeDefined();
   });
 
+  it('keeps the website field focus ring visible and aligned with its action', async () => {
+    mockApi.get.mockResolvedValue({ data: [] });
+    const wrapper = mountComponent();
+    await wrapper.vm.open();
+    await flushPromises();
+
+    const input = wrapper.get('input[name="website_url"]');
+    const label = input.element.closest('label');
+    const scrollBody = input.element.closest('.overflow-y-auto');
+
+    expect(input.classes()).toContain('!mb-0');
+    expect(input.classes()).toContain('focus-visible:ring-inset');
+    expect(label.classList).toContain('flex-col');
+    expect(scrollBody.classList).toContain('px-1');
+    expect(scrollBody.classList).not.toContain('min-h-72');
+  });
+
   it('discards an unusable ready preview before starting over', async () => {
     mockApi.get.mockResolvedValue({
-      data: [{ ...readyImport, changed_sections: [], proposed_sections: {} }],
+      data: [{ ...readyImport, proposed_sections: {} }],
     });
     const wrapper = mountComponent();
     await wrapper.vm.open();
@@ -170,5 +248,137 @@ describe('WebsiteImportDialog', () => {
 
     expect(mockApi.dismiss).toHaveBeenCalledWith(7);
     expect(wrapper.vm.websiteImport).toBeNull();
+  });
+
+  it('requires a new analysis when the saved draft changed during review', async () => {
+    mockApi.applyImport.mockRejectedValue({
+      response: { data: { code: 'draft_changed' } },
+    });
+    const wrapper = mountComponent();
+    await wrapper.vm.open();
+    await flushPromises();
+
+    await wrapper.vm.applyImport();
+
+    expect(wrapper.vm.canApply).toBe(false);
+    expect(wrapper.vm.canRestart).toBe(true);
+    expect(wrapper.text()).toContain(
+      'AI_ASSISTANT.WEBSITE_IMPORT.ERROR.DRAFT_CHANGED'
+    );
+  });
+
+  it('explains when the assistant already uses the knowledge source limit', async () => {
+    mockApi.applyImport.mockRejectedValue({
+      response: { data: { code: 'knowledge_source_limit' } },
+    });
+    const wrapper = mountComponent();
+    await wrapper.vm.open();
+    await flushPromises();
+
+    await wrapper.vm.applyImport();
+
+    expect(mockUseAlert).toHaveBeenCalledWith(
+      'AI_ASSISTANT.WEBSITE_IMPORT.ERROR.KNOWLEDGE_SOURCE_LIMIT'
+    );
+  });
+
+  it('does not resume dialog polling when a create request finishes after close', async () => {
+    vi.useFakeTimers();
+    let resolveCreate;
+    mockApi.get.mockResolvedValue({ data: [] });
+    mockApi.create.mockReturnValue(
+      new Promise(resolve => {
+        resolveCreate = resolve;
+      })
+    );
+    const wrapper = mountComponent();
+    await wrapper.vm.open();
+    await flushPromises();
+
+    wrapper.vm.websiteUrl = 'https://example.com/';
+    const request = wrapper.vm.startImport();
+    wrapper.vm.handleClose();
+    resolveCreate({ data: { ...readyImport, status: 'pending' } });
+    await request;
+    await flushPromises();
+    await vi.advanceTimersByTimeAsync(2000);
+
+    expect(mockApi.show).not.toHaveBeenCalled();
+    expect(wrapper.emitted('stateChanged').at(-1)).toEqual([
+      expect.objectContaining({ status: 'pending' }),
+    ]);
+  });
+
+  it('does not emit or poll when a create request finishes after unmount', async () => {
+    vi.useFakeTimers();
+    let resolveCreate;
+    mockApi.get.mockResolvedValue({ data: [] });
+    mockApi.create.mockReturnValue(
+      new Promise(resolve => {
+        resolveCreate = resolve;
+      })
+    );
+    const wrapper = mountComponent();
+    await wrapper.vm.open();
+    await flushPromises();
+
+    wrapper.vm.websiteUrl = 'https://example.com/';
+    const request = wrapper.vm.startImport();
+    wrapper.unmount();
+    resolveCreate({ data: { ...readyImport, status: 'pending' } });
+    await request;
+    await flushPromises();
+    await vi.advanceTimersByTimeAsync(2000);
+
+    expect(mockApi.show).not.toHaveBeenCalled();
+    expect(wrapper.emitted('stateChanged')).toBeUndefined();
+  });
+
+  it('ignores a create response after switching away and back', async () => {
+    let resolveCreate;
+    mockApi.get.mockResolvedValue({ data: [] });
+    mockApi.create.mockReturnValue(
+      new Promise(resolve => {
+        resolveCreate = resolve;
+      })
+    );
+    const wrapper = mountComponent();
+    await wrapper.vm.open();
+    await flushPromises();
+
+    wrapper.vm.websiteUrl = 'https://example.com/';
+    const request = wrapper.vm.startImport();
+    await wrapper.setProps({ aiAgentId: 43 });
+    await wrapper.setProps({ aiAgentId: 42 });
+    resolveCreate({ data: { ...readyImport, status: 'pending' } });
+    await request;
+    await flushPromises();
+
+    expect(wrapper.emitted('stateChanged')).toBeUndefined();
+    expect(wrapper.vm.websiteImport).toBeNull();
+  });
+
+  it('ignores an apply response after switching to another assistant', async () => {
+    let resolveApply;
+    mockApi.applyImport.mockReturnValue(
+      new Promise(resolve => {
+        resolveApply = resolve;
+      })
+    );
+    const wrapper = mountComponent();
+    await wrapper.vm.open();
+    await flushPromises();
+
+    const request = wrapper.vm.applyImport();
+    await wrapper.setProps({ aiAgentId: 43 });
+    resolveApply({ data: {} });
+    await request;
+    await flushPromises();
+
+    expect(wrapper.emitted('applied')).toBeUndefined();
+    expect(wrapper.emitted('stateChanged')).toBeUndefined();
+    expect(mockUseAlert).not.toHaveBeenCalledWith(
+      'AI_ASSISTANT.WEBSITE_IMPORT.APPLIED'
+    );
   });
 });

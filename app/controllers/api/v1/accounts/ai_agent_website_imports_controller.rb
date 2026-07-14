@@ -15,8 +15,7 @@ class Api::V1::Accounts::AiAgentWebsiteImportsController < Api::V1::Accounts::Ba
     @website_import = AiAgents::WebsiteImportCreator.new(
       ai_agent: @ai_agent,
       website_url: params[:website_url],
-      requested_by: Current.user,
-      mode: :preview
+      requested_by: Current.user
     ).perform
     render :show, status: :accepted
   rescue AiAgents::WebsiteCrawler::InvalidWebsite => e
@@ -30,21 +29,30 @@ class Api::V1::Accounts::AiAgentWebsiteImportsController < Api::V1::Accounts::Ba
   def apply
     AiAgents::WebsiteImportApplier.new(
       website_import: @website_import,
-      section_keys: params[:section_keys],
-      expected_draft_fingerprint: params[:expected_draft_fingerprint]
+      section_keys: apply_params[:section_keys],
+      expected_draft_fingerprint: apply_params[:expected_draft_fingerprint],
+      current_document: apply_params[:current_document]&.to_h,
+      attach_knowledge: apply_params[:attach_knowledge]
     ).perform
     render :show
   rescue AiAgents::WebsiteImportApplier::Conflict => e
     render json: { error: e.message, code: 'draft_changed' }, status: :conflict
   rescue AiAgents::WebsiteImportApplier::InvalidSelection => e
-    render json: { error: e.message, code: 'invalid_selection' }, status: :unprocessable_entity
+    render json: { error: e.message, code: e.code }, status: :unprocessable_entity
   end
 
   def dismiss
     dismissed = @website_import.with_lock do
       next false unless @website_import.ready?
 
-      @website_import.update!(status: :dismissed, stage: :complete, proposed_sections: {}, completed_at: Time.current)
+      @website_import.update!(
+        status: :dismissed,
+        stage: :complete,
+        base_document: nil,
+        proposed_sections: {},
+        proposed_knowledge_content: nil,
+        completed_at: Time.current
+      )
       true
     end
     return render json: { code: 'invalid_selection' }, status: :unprocessable_entity unless dismissed
@@ -71,5 +79,9 @@ class Api::V1::Accounts::AiAgentWebsiteImportsController < Api::V1::Accounts::Ba
 
   def set_website_import
     @website_import = @ai_agent.website_imports.find(params[:id])
+  end
+
+  def apply_params
+    params.permit(:expected_draft_fingerprint, :attach_knowledge, section_keys: [], current_document: {})
   end
 end

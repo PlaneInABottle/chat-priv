@@ -51,7 +51,8 @@ const props = defineProps({
   width: {
     type: String,
     default: 'lg',
-    validator: value => ['3xl', '2xl', 'xl', 'lg', 'md', 'sm'].includes(value),
+    validator: value =>
+      ['4xl', '3xl', '2xl', 'xl', 'lg', 'md', 'sm'].includes(value),
   },
   position: {
     type: String,
@@ -74,6 +75,7 @@ const slots = useSlots();
 
 const maxWidthClass = computed(() => {
   const classesMap = {
+    '4xl': 'max-w-4xl',
     '3xl': 'max-w-3xl',
     '2xl': 'max-w-2xl',
     xl: 'max-w-xl',

@@ -1,0 +1,95 @@
+# frozen_string_literal: true
+
+require 'ipaddr'
+require 'public_suffix'
+
+class AiAgents::OnboardingWebsiteVerifier
+  Result = Data.define(:website_url, :hostname, :title, :verification_token)
+
+  TOKEN_LIFETIME = 30.minutes
+  TOKEN_PURPOSE = 'ai_agent_onboarding_website'
+
+  def self.verified_url!(account:, website_url:, verification_token:)
+    normalized_url = AiAgents::WebsiteCrawler.normalize_url(website_url)
+    payload = verifier.verify(verification_token.to_s, purpose: TOKEN_PURPOSE)
+    valid_account = payload['account_id'] == account.id
+    valid_url = ActiveSupport::SecurityUtils.secure_compare(payload['website_url'], normalized_url)
+    return normalized_url if valid_account && valid_url
+
+    raise AiAgents::WebsiteCrawler::InvalidWebsite, 'Website verification does not match this account.'
+  rescue ActiveSupport::MessageVerifier::InvalidSignature
+    raise AiAgents::WebsiteCrawler::InvalidWebsite, 'Website verification is missing or expired.'
+  end
+
+  def initialize(account:, website_url:)
+    @account = account
+    @website_url = website_url
+  end
+
+  def perform
+    normalized_url = AiAgents::WebsiteCrawler.normalize_url(website_url)
+    hostname = URI.parse(normalized_url).host.downcase
+    validate_public_domain!(hostname)
+    document = fetch_homepage(normalized_url)
+
+    Result.new(
+      website_url: normalized_url,
+      hostname: hostname.delete_prefix('www.'),
+      title: page_title(document),
+      verification_token: self.class.send(:issue_token, account: account, website_url: normalized_url)
+    )
+  end
+
+  private
+
+  attr_reader :account, :website_url
+
+  def self.issue_token(account:, website_url:)
+    verifier.generate(
+      { 'account_id' => account.id, 'website_url' => website_url },
+      expires_in: TOKEN_LIFETIME,
+      purpose: TOKEN_PURPOSE
+    )
+  end
+
+  def self.verifier
+    Rails.application.message_verifier(TOKEN_PURPOSE)
+  end
+
+  private_class_method :issue_token, :verifier
+
+  def validate_public_domain!(hostname)
+    raise AiAgents::WebsiteCrawler::InvalidWebsite, 'Website must use a public domain.' if ip_address?(hostname)
+    return if PublicSuffix.valid?(hostname)
+
+    raise AiAgents::WebsiteCrawler::InvalidWebsite, 'Website must use a public domain.'
+  end
+
+  def ip_address?(hostname)
+    IPAddr.new(hostname)
+    true
+  rescue IPAddr::InvalidAddressError
+    false
+  end
+
+  def fetch_homepage(url)
+    html = nil
+    SafeFetch.fetch(
+      url,
+      max_bytes: AiAgents::WebsiteCrawler::MAX_PAGE_BYTES,
+      open_timeout: 2,
+      read_timeout: 5,
+      headers: { 'User-Agent' => 'Kozmopath-AI-Onboarding/1.0' },
+      allowed_content_type_prefixes: [],
+      allowed_content_types: ['text/html']
+    ) { |result| html = result.tempfile.read }
+    Nokogiri::HTML(html)
+  end
+
+  def page_title(document)
+    title = document.at_css('meta[property="og:site_name"]')&.[]('content').presence ||
+            document.at_css('meta[property="og:title"]')&.[]('content').presence ||
+            document.at_css('title')&.text.to_s.strip.presence
+    title.to_s.gsub(/\s+/, ' ').strip.truncate(120, omission: '')
+  end
+end

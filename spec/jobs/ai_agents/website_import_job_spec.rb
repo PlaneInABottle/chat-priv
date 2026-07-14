@@ -6,7 +6,7 @@ RSpec.describe AiAgents::WebsiteImportJob do
   let(:attributes) do
     AiAgents::OnboardingDraftBuilder.new(
       account: account,
-      answers: { purpose: 'support', tone: 'friendly', website: 'https://example.com/' }
+      answers: { tone: 'friendly', website: 'https://example.com/' }
     ).agent_attributes
   end
   let(:ai_agent) { create(:ai_agent, account: account, **attributes) }
@@ -16,14 +16,14 @@ RSpec.describe AiAgents::WebsiteImportJob do
       account: account,
       ai_agent: ai_agent,
       requested_by: user,
-      mode: :initial,
       base_draft_fingerprint: ai_agent.draft_fingerprint
     )
   end
   let(:crawl_result) do
     AiAgents::WebsiteCrawler::Result.new(
       pages: [{ url: 'https://example.com/', title: 'Example', text: 'Example sells custom screens.' }],
-      source_urls: ['https://example.com/']
+      source_urls: ['https://example.com/'],
+      knowledge_content: "# Example\nSource: https://example.com/\nExample sells custom screens."
     )
   end
   let(:generated_result) do
@@ -32,22 +32,29 @@ RSpec.describe AiAgents::WebsiteImportJob do
     )
   end
 
+  let(:generator) { instance_double(AiAgents::WebsiteInstructionGenerator, call: generated_result) }
+
   before do
     crawler = instance_double(AiAgents::WebsiteCrawler, perform: crawl_result)
-    generator = instance_double(AiAgents::WebsiteInstructionGenerator, call: generated_result)
     allow(AiAgents::WebsiteCrawler).to receive(:new).and_return(crawler)
     allow(AiAgents::WebsiteInstructionGenerator).to receive(:new).and_return(generator)
   end
 
-  it 'applies an initial import when the fallback draft is unchanged' do
+  it 'keeps generated instructions and knowledge ready for explicit review' do
     described_class.perform_now(website_import.id)
 
-    expect(ai_agent.reload.config.dig('instructions', 'sections', 'business_context')).to eq('Example sells custom screens.')
+    expect(ai_agent.reload.config.dig('instructions', 'sections', 'business_context')).not_to eq('Example sells custom screens.')
     expect(website_import.reload).to have_attributes(
-      status: 'applied',
+      status: 'ready',
       stage: 'complete',
       source_urls: ['https://example.com/'],
-      proposed_sections: {}
+      proposed_sections: { 'business_context' => 'Example sells custom screens.' },
+      proposed_knowledge_content: "# Example\nSource: https://example.com/\nExample sells custom screens."
+    )
+    expect(AiAgents::WebsiteInstructionGenerator).to have_received(:new)
+    expect(generator).to have_received(:call).with(
+      pages: crawl_result.pages,
+      business_context: { company_name: account.name }
     )
   end
 
@@ -58,7 +65,7 @@ RSpec.describe AiAgents::WebsiteImportJob do
 
     described_class.perform_now(website_import.id)
 
-    expect(website_import.reload).to be_applied
+    expect(website_import.reload).to be_ready
     expect(website_import.started_at.nsec).to eq(123_456_000)
   end
 
@@ -69,19 +76,6 @@ RSpec.describe AiAgents::WebsiteImportJob do
     described_class.perform_now(website_import.id)
 
     expect(website_import.reload).to have_attributes(
-      status: 'ready',
-      proposed_sections: { 'business_context' => 'Example sells custom screens.' }
-    )
-  end
-
-  it 'keeps the proposal ready when onboarding changed the import to preview mode' do
-    website_import.update!(mode: :preview)
-
-    described_class.perform_now(website_import.id)
-
-    expect(ai_agent.reload.config.dig('instructions', 'sections', 'business_context')).not_to eq('Example sells custom screens.')
-    expect(website_import.reload).to have_attributes(
-      mode: 'preview',
       status: 'ready',
       proposed_sections: { 'business_context' => 'Example sells custom screens.' }
     )

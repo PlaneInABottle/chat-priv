@@ -9,6 +9,7 @@ vi.mock('dashboard/api/aiImprovementUsage', () => ({ default: mockApi }));
 vi.mock('dashboard/composables', () => ({ useAlert: mockUseAlert }));
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
+    locale: { value: 'tr' },
     t: (key, params = {}) =>
       params.remaining === undefined
         ? key
@@ -37,6 +38,7 @@ describe('ImprovementCreditsSummary', () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain('7/10/');
+    expect(wrapper.text()).toContain('1 Ağu 2026');
     expect(wrapper.get('[role="progressbar"]').attributes()).toMatchObject({
       'aria-valuenow': '3',
       'aria-valuemax': '10',
@@ -47,6 +49,9 @@ describe('ImprovementCreditsSummary', () => {
     expect(
       wrapper.get('[role="progressbar"] > div').attributes('style')
     ).toContain('width: 30%');
+    expect(wrapper.get('[role="progressbar"]').classes()).toEqual(
+      expect.arrayContaining(['border', 'border-n-strong', 'bg-n-alpha-2'])
+    );
     expect(wrapper.emitted('loaded')).toEqual([[usage]]);
   });
 

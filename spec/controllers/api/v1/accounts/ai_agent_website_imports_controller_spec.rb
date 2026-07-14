@@ -24,7 +24,7 @@ RSpec.describe 'AI agent website imports API', type: :request do
     end.to change(AiAgentWebsiteImport, :count).by(1).and have_enqueued_job(AiAgents::WebsiteImportJob)
 
     expect(response).to have_http_status(:accepted)
-    expect(response.parsed_body).to include('mode' => 'preview', 'status' => 'pending')
+    expect(response.parsed_body).to include('status' => 'pending', 'has_review_context' => true)
   end
 
   it 'returns a structured rate-limit response' do
@@ -53,7 +53,7 @@ RSpec.describe 'AI agent website imports API', type: :request do
     expect(response).to have_http_status(:success)
     expect(response.parsed_body).to include('error_code' => 'website_unreachable')
     expect(response.parsed_body).not_to have_key('error_message')
-    expect(response.parsed_body.dig('current_document', 'sections', 'business_context')).to eq('Current facts')
+    expect(response.parsed_body.dig('base_document', 'sections', 'business_context')).to eq('Current facts')
   end
 
   it 'returns recent imports newest first so the editor can resume analysis' do
@@ -71,9 +71,8 @@ RSpec.describe 'AI agent website imports API', type: :request do
 
     expect(response).to have_http_status(:success)
     expect(response.parsed_body.pluck('id')).to eq([newer.id, older.id])
-    expect(response.parsed_body.first['changed_sections']).to eq(%w[identity rules])
-    expect(response.parsed_body.first).to have_key('current_document')
-    expect(response.parsed_body.second).not_to have_key('current_document')
+    expect(response.parsed_body.first).to have_key('base_document')
+    expect(response.parsed_body.second).not_to have_key('base_document')
   end
 
   it 'applies only selected sections to the saved draft' do
@@ -88,12 +87,15 @@ RSpec.describe 'AI agent website imports API', type: :request do
         'business_context' => 'New facts',
         'rules' => 'Never promise stock.'
       },
+      proposed_knowledge_content: "# Example\nVerified website facts.",
       base_draft_fingerprint: ai_agent.draft_fingerprint
     )
 
     post "#{base_url}/#{website_import.id}/apply",
          params: {
            section_keys: ['rules'],
+           current_document: ai_agent.config['instructions'],
+           attach_knowledge: true,
            expected_draft_fingerprint: ai_agent.draft_fingerprint
          },
          headers: headers,
@@ -103,6 +105,36 @@ RSpec.describe 'AI agent website imports API', type: :request do
     sections = ai_agent.reload.config.dig('instructions', 'sections')
     expect(sections).to include('business_context' => 'Current facts', 'rules' => 'Never promise stock.')
     expect(ai_agent.config.dig('tools', 'enabled')).to include('human_handoff')
+    expect(ai_agent.knowledge_sources.first).to have_attributes(source_type: 'website', sync_status: 'ready')
+  end
+
+  it 'returns a validation response when website knowledge would exceed the source limit' do
+    sources = create_list(:ai_knowledge_source, AiKnowledgeSources::AssignmentSync::MAX_SOURCES, account: account)
+    AiKnowledgeSources::AssignmentSync.new(assistant: ai_agent, source_ids: sources.map(&:id)).perform
+    website_import = create(
+      :ai_agent_website_import,
+      account: account,
+      ai_agent: ai_agent,
+      requested_by: admin,
+      status: :ready,
+      stage: :complete,
+      proposed_knowledge_content: "# Example\nVerified website facts.",
+      base_draft_fingerprint: ai_agent.draft_fingerprint
+    )
+
+    post "#{base_url}/#{website_import.id}/apply",
+         params: {
+           section_keys: [],
+           attach_knowledge: true,
+           expected_draft_fingerprint: ai_agent.draft_fingerprint
+         },
+         headers: headers,
+         as: :json
+
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body).to include('code' => 'knowledge_source_limit')
+    expect(website_import.reload).to be_ready
+    expect(ai_agent.reload.knowledge_source_ids).to match_array(sources.map(&:id))
   end
 
   it 'returns a conflict when the draft changed after preview generation' do

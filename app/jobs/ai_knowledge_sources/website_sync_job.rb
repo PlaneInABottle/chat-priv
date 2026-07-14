@@ -11,7 +11,7 @@ class AiKnowledgeSources::WebsiteSyncJob < ApplicationJob
     return unless sync_claim
 
     crawl_result = AiAgents::WebsiteCrawler.new(sync_claim[:url]).perform
-    content = compiled_content(crawl_result.pages)
+    content = crawl_result.knowledge_content
     raise AiAgents::WebsiteCrawler::InvalidWebsite, 'Website did not contain readable content.' if content.blank?
 
     complete_sync(source, content, crawl_result.source_urls, sync_claim)
@@ -37,16 +37,6 @@ class AiKnowledgeSources::WebsiteSyncJob < ApplicationJob
 
   def stale_sync?(source)
     source.sync_syncing? && source.last_sync_started_at.present? && source.last_sync_started_at < CLAIM_TIMEOUT.ago
-  end
-
-  def compiled_content(pages)
-    Array(pages).filter_map do |page|
-      text = page[:text].to_s.strip
-      next if text.blank?
-
-      title = page[:title].to_s.strip.presence || page[:url]
-      "# #{title}\nSource: #{page[:url]}\n#{text}"
-    end.join("\n\n")
   end
 
   def complete_sync(source, content, source_urls, sync_claim)

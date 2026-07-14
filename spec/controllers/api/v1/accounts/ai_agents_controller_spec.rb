@@ -146,7 +146,7 @@ RSpec.describe 'Ai Agents API', type: :request do
         get "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}", headers: admin.create_new_auth_token, as: :json
 
         instructions = response.parsed_body.dig('config', 'instructions')
-        expect(instructions['version']).to eq(3)
+        expect(instructions['version']).to eq(4)
         expect(instructions.dig('sections', 'additional')).to eq('Existing live instructions')
         expect(ai_agent.reload.config).not_to have_key('instructions')
       end
@@ -439,7 +439,7 @@ RSpec.describe 'Ai Agents API', type: :request do
 
         expect(response).to have_http_status(:success)
         ai_agent.reload
-        expect(ai_agent.config.dig('instructions', 'version')).to eq(3)
+        expect(ai_agent.config.dig('instructions', 'version')).to eq(4)
         expect(ai_agent.prompt).to include('## Language and tone')
         expect(ai_agent.prompt).to include("## Rules and boundaries\n\nNever invent a price.")
         expect(ai_agent.prompt).not_to include('CRITICAL')

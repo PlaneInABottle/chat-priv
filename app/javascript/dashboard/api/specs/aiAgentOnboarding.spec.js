@@ -6,6 +6,7 @@ describe('#AiAgentOnboardingAPI', () => {
     expect(aiAgentOnboardingAPI).toBeInstanceOf(ApiClient);
     expect(aiAgentOnboardingAPI).toHaveProperty('get');
     expect(aiAgentOnboardingAPI).toHaveProperty('create');
-    expect(aiAgentOnboardingAPI).toHaveProperty('complete');
+    expect(aiAgentOnboardingAPI).toHaveProperty('verifyWebsite');
+    expect(aiAgentOnboardingAPI).not.toHaveProperty('complete');
   });
 });

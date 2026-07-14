@@ -1,6 +1,6 @@
 {
   "GENERAL": {
-    "SHOWING_RESULTS": "Showing {firstIndex}-{lastIndex} of {totalCount} items",
+    "SHOWING_RESULTS": "{totalCount} kayıttan {firstIndex}-{lastIndex} arası gösteriliyor",
     "PHONE_INPUT": {
       "PLACEHOLDER": "Ara",
       "EMPTY_STATE": "Kayıt bulunamadı"
@@ -10,7 +10,8 @@
     "BETA_DESCRIPTION": "Bu özellik beta aşamasındadır ve geliştirdikçe değişiklik gösterebilir.",
     "ACCEPT": "Kabul et",
     "DISCARD": "Yoksay",
-    "PREFERRED": "Preferred"
+    "SKIP_TO_CONTENT": "Ana içeriğe geç",
+    "PREFERRED": "Tercih edilen"
   },
   "CHOICE_TOGGLE": {
     "YES": "Evet",

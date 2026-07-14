@@ -1,14 +1,12 @@
 <script setup>
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useAlert } from 'dashboard/composables';
 
 import Button from 'dashboard/components-next/button/Button.vue';
 import Editor from 'dashboard/components-next/Editor/Editor.vue';
 import { useMessageFormatter } from 'shared/composables/useMessageFormatter';
 import DraftTestPanel from './DraftTestPanel.vue';
 import InstructionSectionNavigator from './InstructionSectionNavigator.vue';
-import WebsiteImportDialog from './WebsiteImportDialog.vue';
 import {
   INSTRUCTION_SECTION_KEYS,
   compileInstructionDocument,
@@ -20,22 +18,15 @@ const props = defineProps({
   aiAgentId: { type: Number, required: true },
   isDirty: { type: Boolean, default: false },
   isDisabled: { type: Boolean, default: false },
-  defaultWebsite: { type: String, default: '' },
 });
 
-const emit = defineEmits([
-  'update:modelValue',
-  'configureHandoff',
-  'tested',
-  'websiteImportApplied',
-]);
+const emit = defineEmits(['update:modelValue', 'configureHandoff', 'tested']);
 
 const { t } = useI18n();
 const { formatMessage } = useMessageFormatter();
 const mobileView = ref('edit');
 const isTestFocused = ref(false);
 const selectedSection = ref('profile');
-const websiteImportDialog = ref(null);
 const draftTestPanel = ref(null);
 
 const profileOptions = computed(() => ({
@@ -53,7 +44,6 @@ const profileOptions = computed(() => ({
     ['natural', t('AI_ASSISTANT.INSTRUCTIONS.PROFILE.TONE.NATURAL')],
     ['friendly', t('AI_ASSISTANT.INSTRUCTIONS.PROFILE.TONE.FRIENDLY')],
     ['professional', t('AI_ASSISTANT.INSTRUCTIONS.PROFILE.TONE.PROFESSIONAL')],
-    ['warm', t('AI_ASSISTANT.INSTRUCTIONS.PROFILE.TONE.WARM')],
     ['concise', t('AI_ASSISTANT.INSTRUCTIONS.PROFILE.TONE.CONCISE')],
   ],
   formality: [
@@ -140,6 +130,10 @@ const isOverLimit = computed(() => totalLength.value > 50000);
 const compiledInstructions = computed(() =>
   compileInstructionDocument(props.modelValue)
 );
+
+defineExpose({
+  refreshCredits: () => draftTestPanel.value?.refreshCredits?.(),
+});
 const formattedInstructions = computed(() =>
   formatMessage(compiledInstructions.value, false, false, false)
 );
@@ -161,6 +155,9 @@ const updateDocument = changes => {
 const updateProfile = (key, value) => {
   updateDocument({
     profile: { ...props.modelValue.profile, [key]: value },
+    ...(key === 'language' && ['tr', 'en'].includes(value)
+      ? { locale: value }
+      : {}),
   });
 };
 
@@ -172,38 +169,10 @@ const updateSection = value => {
     },
   });
 };
-
-const openWebsiteImport = () => {
-  if (props.isDirty) {
-    useAlert(t('AI_ASSISTANT.WEBSITE_IMPORT.SAVE_FIRST'));
-    return;
-  }
-
-  websiteImportDialog.value.open();
-};
-
-const refreshImprovementUsage = () => draftTestPanel.value?.refreshCredits?.();
 </script>
 
 <template>
   <div class="min-w-0">
-    <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h2 class="m-0 text-base font-semibold text-n-slate-12">
-          {{ t('AI_ASSISTANT.WEBSITE_IMPORT.ENTRY_TITLE') }}
-        </h2>
-        <p class="mb-0 mt-1 text-sm text-n-slate-10">
-          {{ t('AI_ASSISTANT.WEBSITE_IMPORT.ENTRY_HELP') }}
-        </p>
-      </div>
-      <Button
-        icon="i-lucide-globe-2"
-        variant="outline"
-        color="slate"
-        :label="t('AI_ASSISTANT.WEBSITE_IMPORT.OPEN')"
-        @click="openWebsiteImport"
-      />
-    </div>
     <div
       class="mb-5 grid grid-cols-2 rounded-lg bg-n-alpha-black2 p-1 min-[1360px]:hidden"
     >
@@ -255,10 +224,13 @@ const refreshImprovementUsage = () => draftTestPanel.value?.refreshCredits?.();
       />
 
       <section
-        class="min-h-[44rem] min-w-0 flex-col md:h-[calc(100dvh-15rem)] md:min-h-[36rem] md:max-h-[64rem] md:overflow-hidden"
+        class="min-w-0 flex-col"
         :class="[
           mobileView === 'test' ? 'hidden min-[1360px]:flex' : 'flex',
           isTestFocused ? 'min-[1360px]:hidden' : '',
+          selectedSection === 'all'
+            ? 'min-h-[44rem]'
+            : 'min-h-[44rem] md:h-[calc(100dvh-15rem)] md:min-h-[36rem] md:max-h-[64rem] md:overflow-hidden',
         ]"
       >
         <label class="mb-4 flex flex-col gap-1 text-sm font-medium md:hidden">
@@ -288,7 +260,8 @@ const refreshImprovementUsage = () => draftTestPanel.value?.refreshCredits?.();
 
         <div
           v-if="selectedSection === 'all'"
-          class="min-h-0 flex-1 overflow-y-auto py-5 pr-1"
+          data-testid="all-instructions-content"
+          class="py-5 pr-1"
         >
           <div
             v-if="compiledInstructions"
@@ -335,6 +308,7 @@ const refreshImprovementUsage = () => draftTestPanel.value?.refreshCredits?.();
         >
           <Editor
             :key="selectedSection"
+            class="[&_.ProseMirror]:text-[0.9375rem] [&_.ProseMirror]:leading-6 [&_.ProseMirror_li]:!text-[0.9375rem] [&_.ProseMirror_li]:!leading-6 [&_.ProseMirror_p]:!text-[0.9375rem] [&_.ProseMirror_p]:!leading-6"
             :model-value="modelValue.sections[selectedSection] || ''"
             :editor-key="`ai-agent-instructions-${selectedSection}`"
             :aria-label="selectedItem.title"
@@ -401,7 +375,7 @@ const refreshImprovementUsage = () => draftTestPanel.value?.refreshCredits?.();
 
       <DraftTestPanel
         ref="draftTestPanel"
-        class="min-[1360px]:sticky min-[1360px]:top-4"
+        class="min-[1360px]:sticky min-[1360px]:top-20"
         :class="
           mobileView === 'edit'
             ? 'hidden min-[1360px]:flex'
@@ -416,13 +390,5 @@ const refreshImprovementUsage = () => draftTestPanel.value?.refreshCredits?.();
         @toggle-focus="isTestFocused = !isTestFocused"
       />
     </div>
-
-    <WebsiteImportDialog
-      ref="websiteImportDialog"
-      :ai-agent-id="aiAgentId"
-      :default-website="defaultWebsite"
-      @applied="emit('websiteImportApplied')"
-      @usage-changed="refreshImprovementUsage"
-    />
   </div>
 </template>
