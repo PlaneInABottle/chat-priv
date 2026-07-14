@@ -4,7 +4,15 @@ class AiAgents::WebsiteImportApplier
   MAX_INSTRUCTION_LENGTH = 50_000
 
   class Conflict < StandardError; end
-  class InvalidSelection < StandardError; end
+
+  class InvalidSelection < StandardError
+    attr_reader :code
+
+    def initialize(message, code: 'invalid_selection')
+      @code = code
+      super(message)
+    end
+  end
 
   def initialize(website_import:, section_keys:, expected_draft_fingerprint:, current_document: nil, attach_knowledge: false)
     @website_import = website_import
@@ -76,13 +84,24 @@ class AiAgents::WebsiteImportApplier
   end
 
   def update_agent(document, compiled_prompt, knowledge_source)
+    source_ids = knowledge_source ? ai_agent.knowledge_source_ids | [knowledge_source.id] : nil
+    validate_knowledge_source_limit!(source_ids)
+
     config = ai_agent.config.to_h.deep_stringify_keys
     config['instructions'] = document
     ai_agent.update!(config: config, prompt: compiled_prompt)
     return unless knowledge_source
 
-    source_ids = ai_agent.knowledge_source_ids | [knowledge_source.id]
     AiKnowledgeSources::AssignmentSync.new(assistant: ai_agent, source_ids: source_ids).perform
+  end
+
+  def validate_knowledge_source_limit!(source_ids)
+    return if source_ids.blank? || source_ids.length <= AiKnowledgeSources::AssignmentSync::MAX_SOURCES
+
+    raise InvalidSelection.new(
+      "An assistant can use up to #{AiKnowledgeSources::AssignmentSync::MAX_SOURCES} knowledge sources.",
+      code: 'knowledge_source_limit'
+    )
   end
 
   def upsert_knowledge_source

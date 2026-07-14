@@ -93,6 +93,7 @@ const errorKeys = {
   generation_failed: 'GENERATION_FAILED',
   analysis_failed: 'ANALYSIS_FAILED',
   draft_changed: 'DRAFT_CHANGED',
+  knowledge_source_limit: 'KNOWLEDGE_SOURCE_LIMIT',
   invalid_selection: 'INVALID_SELECTION',
 };
 

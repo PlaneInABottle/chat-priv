@@ -38,7 +38,7 @@ class Api::V1::Accounts::AiAgentWebsiteImportsController < Api::V1::Accounts::Ba
   rescue AiAgents::WebsiteImportApplier::Conflict => e
     render json: { error: e.message, code: 'draft_changed' }, status: :conflict
   rescue AiAgents::WebsiteImportApplier::InvalidSelection => e
-    render json: { error: e.message, code: 'invalid_selection' }, status: :unprocessable_entity
+    render json: { error: e.message, code: e.code }, status: :unprocessable_entity
   end
 
   def dismiss

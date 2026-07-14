@@ -13,7 +13,7 @@ RSpec.describe AiAgents::OnboardingCreator do
       user_role: 'owner'
     }
   end
-  let(:assistant_attributes) { { purpose: 'support_and_sales', tone: 'warm' } }
+  let(:assistant_attributes) { { tone: 'warm' } }
 
   it 'creates a disabled fallback draft and queues website enrichment', :aggregate_failures do
     result = nil
@@ -32,7 +32,9 @@ RSpec.describe AiAgents::OnboardingCreator do
     expect(result.ai_agent.config.dig('tools', 'enabled')).to include('human_handoff')
     expect(result.ai_agent.config.dig('instructions', 'sections', 'identity')).to be_present
     expect(result.ai_agent.config.dig('instructions', 'sections', 'business_context')).to include('E-commerce')
+    expect(result.ai_agent.config.dig('instructions', 'sections', 'tasks')).to include('orders, delivery, returns, and exchanges')
     expect(result.ai_agent.config.dig('instructions', 'profile', 'tone')).to eq('friendly')
+    expect(result.ai_agent.config['setup_profile']).not_to have_key('purpose')
     expect(result.website_import).to have_attributes(website_url: 'https://example.com/')
     expect(result.website_import.base_document).to eq(result.ai_agent.config['instructions'])
     expect(account.reload.custom_attributes['onboarding_step']).to be_nil

@@ -139,6 +139,24 @@ RSpec.describe AiAgents::WebsiteImportApplier do
     expect(website_import.reload.ai_knowledge_source_id).to eq(source.id)
   end
 
+  it 'rejects a website knowledge assignment above the assistant source limit' do
+    sources = create_list(:ai_knowledge_source, AiKnowledgeSources::AssignmentSync::MAX_SOURCES, account: account)
+    AiKnowledgeSources::AssignmentSync.new(assistant: ai_agent, source_ids: sources.map(&:id)).perform
+
+    expect do
+      described_class.new(
+        website_import: website_import,
+        section_keys: [],
+        attach_knowledge: true,
+        expected_draft_fingerprint: ai_agent.draft_fingerprint
+      ).perform
+    end.to raise_error(described_class::InvalidSelection, /up to 20/) { |error| expect(error.code).to eq('knowledge_source_limit') }
+
+    expect(website_import.reload).to be_ready
+    expect(ai_agent.reload.knowledge_source_ids).to match_array(sources.map(&:id))
+    expect(account.ai_knowledge_sources.where(website_url: 'https://example.com/')).not_to exist
+  end
+
   it 'requires a fresh analysis for rows without a comparison baseline' do
     website_import.update!(base_document: nil)
 

@@ -31,6 +31,6 @@ class Api::V1::Accounts::AiAgentOnboardingController < Api::V1::Accounts::BaseCo
   end
 
   def assistant_params
-    params.require(:assistant).permit(:purpose, :tone).to_h
+    params.require(:assistant).permit(:tone).to_h
   end
 end

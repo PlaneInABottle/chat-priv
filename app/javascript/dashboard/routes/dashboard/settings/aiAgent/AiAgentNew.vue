@@ -12,7 +12,7 @@ import Input from 'dashboard/components-next/input/Input.vue';
 import { createDefaultInstructionDocument } from './helpers/instructionDocument';
 
 const store = useStore();
-const { t } = useI18n();
+const { t, locale: uiLocale } = useI18n();
 const router = useRouter();
 
 const uiFlags = useMapGetter('aiAgent/getUIFlags');
@@ -61,9 +61,13 @@ const steps = computed(() => [
   t('AI_ASSISTANT.CREATE.STEPS.REVIEW'),
 ]);
 
-const instructionLanguage = computed(() =>
-  form.value.language === 'en' ? 'en' : 'tr'
-);
+const instructionLanguage = computed(() => {
+  if (['tr', 'en'].includes(form.value.language)) {
+    return form.value.language;
+  }
+
+  return uiLocale.value?.toLowerCase().startsWith('tr') ? 'tr' : 'en';
+});
 
 const goalOptions = computed(() => [
   {

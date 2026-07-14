@@ -566,6 +566,7 @@
         "ANALYSIS_FAILED": "Web sitesi incelemesi tamamlanamadı.",
         "DRAFT_CHANGED": "Kaydedilen talimatlar değişti. Güncel taslağı karşılaştırmak için yeniden inceleme başlatın.",
         "REVIEW_CONTEXT_MISSING": "Bu eski inceleme güvenli bir karşılaştırma içermiyor. Yeniden inceleme başlatın.",
+        "KNOWLEDGE_SOURCE_LIMIT": "Bu asistan en fazla 20 Paylaşılan Bilgi kaynağı kullanıyor. Bu web sitesini eklemeden önce bir kaynağı kaldırın.",
         "INVALID_SELECTION": "En az bir öneri veya Paylaşılan Bilgi seçeneği belirleyin.",
         "RESTART": "Bu inceleme kapatılamadı. Lütfen tekrar deneyin.",
         "DISMISS": "Web sitesi önerileri kapatılamadı. Lütfen tekrar deneyin."
