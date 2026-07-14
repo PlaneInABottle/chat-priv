@@ -9,6 +9,7 @@
 #  completed_at               :datetime
 #  error_code                 :string
 #  error_message              :text
+#  mode                       :integer          default(0), not null
 #  proposed_knowledge_content :text
 #  proposed_sections          :jsonb            not null
 #  source_urls                :jsonb            not null

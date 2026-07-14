@@ -8,6 +8,17 @@ class AiAgents::OnboardingWebsiteVerifier
 
   TOKEN_LIFETIME = 30.minutes
   TOKEN_PURPOSE = 'ai_agent_onboarding_website'
+  RATE_LIMIT = 5
+  RATE_LIMIT_WINDOW = 1.minute
+
+  class RateLimited < StandardError
+    attr_reader :retry_after
+
+    def initialize(retry_after)
+      @retry_after = retry_after
+      super('Website verification is temporarily unavailable. Please try again later.')
+    end
+  end
 
   def self.verified_url!(account:, website_url:, verification_token:)
     normalized_url = AiAgents::WebsiteCrawler.normalize_url(website_url)
@@ -27,6 +38,7 @@ class AiAgents::OnboardingWebsiteVerifier
   end
 
   def perform
+    enforce_rate_limit!
     normalized_url = AiAgents::WebsiteCrawler.normalize_url(website_url)
     hostname = URI.parse(normalized_url).host.downcase
     validate_public_domain!(hostname)
@@ -43,6 +55,19 @@ class AiAgents::OnboardingWebsiteVerifier
   private
 
   attr_reader :account, :website_url
+
+  def enforce_rate_limit!
+    count = Redis::Alfred.incr(rate_limit_key)
+    Redis::Alfred.expire(rate_limit_key, RATE_LIMIT_WINDOW.to_i) if count == 1
+    return if count <= RATE_LIMIT
+
+    retry_after = Redis::Alfred.ttl(rate_limit_key).to_i.clamp(1, RATE_LIMIT_WINDOW.to_i)
+    raise RateLimited, retry_after
+  end
+
+  def rate_limit_key
+    format(Redis::Alfred::AI_AGENT_ONBOARDING_WEBSITE_VERIFICATION, account_id: account.id)
+  end
 
   def self.issue_token(account:, website_url:)
     verifier.generate(
