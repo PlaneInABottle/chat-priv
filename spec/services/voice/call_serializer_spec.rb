@@ -25,62 +25,72 @@ RSpec.describe Voice::CallSerializer do
     )
   end
 
-  it 'returns conversation-safe transcript, tool summary, and recording metadata' do
-    release = create(:voice_agent_release, account: account, voice_agent: voice_agent, revision: 4)
-    call.update!(voice_agent_release_id: release.id)
-    create_transcript_segment!
-    create_tool_event!
-    call.update!(
-      summary: {
-        'text' => 'Customer gave buyer@example.com and +905551112233',
-        'generated_at' => '2026-07-12T10:00:00Z',
-        'source' => 'ai_agent_llm',
-        'model' => 'hidden-model'
-      }
-    )
-    recording = create_completed_recording!
-    storage_config = instance_double(Voice::Recordings::StorageConfig)
-    allow(Voice::Recordings::StorageConfig).to receive(:new).and_return(storage_config)
-    allow(storage_config).to receive(:signed_url).with(recording).and_return('https://recording.example/test.mp4')
+  context 'with conversation artifacts' do
+    let(:release) { create(:voice_agent_release, account: account, voice_agent: voice_agent, revision: 4) }
+    let(:recording) { create_completed_recording! }
+    let(:payload) { described_class.new(call).payload }
 
-    payload = described_class.new(call).payload
+    before do
+      call.update!(
+        voice_agent_release_id: release.id,
+        summary: {
+          'text' => 'Customer gave buyer@example.com and +905551112233',
+          'generated_at' => '2026-07-12T10:00:00Z',
+          'source' => 'ai_agent_llm',
+          'model' => 'hidden-model'
+        }
+      )
+      create_transcript_segment!
+      create_tool_event!
+      storage_config = instance_double(Voice::Recordings::StorageConfig)
+      allow(Voice::Recordings::StorageConfig).to receive(:new).and_return(storage_config)
+      allow(storage_config).to receive(:signed_url).with(recording).and_return('https://recording.example/test.mp4')
+    end
 
-    expect(payload).to include(
-      id: call.id,
-      provider: 'kozmopath_voice',
-      call_reference: 'room-serializer',
-      room_name: 'room-serializer',
-      voice_agent_id: voice_agent.id,
-      voice_agent_name: voice_agent.name,
-      voice_agent_release_id: release.id,
-      voice_agent_revision: 4,
-      ai_status: 'active'
-    )
-    expect(payload).not_to have_key(:provider_call_id)
-    expect(payload).not_to have_key(:livekit_room_name)
-    expect(payload[:transcript_segments].first).to include(
-      role: 'caller',
-      source: 'livekit_agent',
-      text: 'Merhaba',
-      confidence: 0.91
-    )
-    expect(payload[:tool_event_summaries].first).to include(
-      tool: 'ikas_catalog_search',
-      status: 'executed',
-      duration_ms: 42
-    )
-    expect(payload).not_to have_key(:tool_events)
-    expect(payload[:recording]).to include(
-      id: recording.id,
-      status: 'completed',
-      duration_seconds: 12,
-      url: 'https://recording.example/test.mp4'
-    )
-    expect(payload[:recording_url]).to eq('https://recording.example/test.mp4')
-    expect(payload[:summary]).to eq(
-      'text' => 'Customer gave [email redacted] and [phone redacted]',
-      'generated_at' => '2026-07-12T10:00:00Z'
-    )
+    it 'returns public identity fields without private provider fields' do
+      expect(payload).to include(
+        id: call.id,
+        provider: 'kozmopath_voice',
+        call_reference: 'room-serializer',
+        room_name: 'room-serializer',
+        voice_agent_id: voice_agent.id,
+        voice_agent_name: voice_agent.name,
+        voice_agent_release_id: release.id,
+        voice_agent_revision: 4,
+        ai_status: 'active'
+      )
+      expect(payload).not_to have_key(:provider_call_id)
+      expect(payload).not_to have_key(:livekit_room_name)
+    end
+
+    it 'returns conversation-safe transcript and tool summaries' do
+      expect(payload[:transcript_segments].first).to include(
+        role: 'caller',
+        source: 'livekit_agent',
+        text: 'Merhaba',
+        confidence: 0.91
+      )
+      expect(payload[:tool_event_summaries].first).to include(
+        tool: 'ikas_catalog_search',
+        status: 'executed',
+        duration_ms: 42
+      )
+      expect(payload).not_to have_key(:tool_events)
+    end
+
+    it 'returns recording metadata and a redacted summary' do
+      expect(payload[:recording]).to include(
+        id: recording.id,
+        status: 'completed',
+        duration_seconds: 12,
+        url: 'https://recording.example/test.mp4'
+      )
+      expect(payload[:recording_url]).to eq('https://recording.example/test.mp4')
+      expect(payload[:summary]).to eq(
+        'text' => 'Customer gave [email redacted] and [phone redacted]',
+        'generated_at' => '2026-07-12T10:00:00Z'
+      )
+    end
   end
 
   it 'preserves the private worker contract for internal callers' do

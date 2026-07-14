@@ -139,15 +139,24 @@ class Call < ApplicationRecord
     data = sanitized['data'] || sanitized[:data]
     return sanitized unless data.is_a?(Hash)
 
-    call_reference = data.delete('call_sid') || data.delete(:call_sid) || provider_call_id
-    room_name = data.delete('livekit_room_name') || data.delete(:livekit_room_name) || livekit_room_name
-    data['call_reference'] = call_reference
-    data['call_source'] = public_provider
-    data['room_name'] = room_name if room_name.present?
+    sanitize_public_voice_data!(data)
     sanitized
   end
 
   private
+
+  def sanitize_public_voice_data!(data)
+    call_reference = delete_public_content_value(data, 'call_sid') || provider_call_id
+    room_name = delete_public_content_value(data, 'livekit_room_name') || livekit_room_name
+
+    data['call_reference'] = call_reference
+    data['call_source'] = public_provider
+    data['room_name'] = room_name if room_name.present?
+  end
+
+  def delete_public_content_value(data, key)
+    data.delete(key) || data.delete(key.to_sym)
+  end
 
   def inbox_channel_phone_number
     return unless inbox.channel.respond_to?(:phone_number)
