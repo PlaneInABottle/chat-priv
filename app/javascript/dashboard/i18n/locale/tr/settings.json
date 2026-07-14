@@ -294,6 +294,8 @@
   },
   "SIDEBAR": {
     "NO_ITEMS": "No items",
+    "OPEN_NAVIGATION": "Gezinmeyi aç",
+    "CLOSE_NAVIGATION": "Gezinmeyi kapat",
     "CURRENTLY_VIEWING_ACCOUNT": "Şu an görüntülüyor:",
     "SWITCH": "Değiştir",
     "INBOX_VIEW": "Inbox View",
@@ -321,9 +323,14 @@
     "HOME": "Anasayfa",
     "AGENTS": "Kullanıcılar",
     "AGENT_BOTS": "Botlar",
+    "AI_SETUP": "Yapay zeka kurulumu",
+    "AI_ASISTAN": "Yapay zeka asistanları",
+    "SHARED_KNOWLEDGE": "Paylaşılan Bilgi",
+    "VOICE_AI": "Sesli asistanlar",
     "AUDIT_LOGS": "Denetim Kayıtları",
     "INBOXES": "Gelen kutuları",
     "NOTIFICATIONS": "Bildirimler",
+    "NOTIFICATIONS_BELL_LABEL": "Bildirimler",
     "CANNED_RESPONSES": "Hazır Yanıtlar",
     "INTEGRATIONS": "Entegrasyonlar",
     "PROFILE_SETTINGS": "Profil ayarları",
@@ -378,7 +385,9 @@
       "INFO_SHORT": "Automatically mark offline when you aren't using the app."
     },
     "DOCS": "Dokümantasyonu oku",
-    "SECURITY": "Güvenlik"
+    "SECURITY": "Güvenlik",
+    "CAPTAIN_AI": "Captain",
+    "CONVERSATION_WORKFLOW": "Konuşma iş akışı"
   },
   "BILLING_SETTINGS": {
     "TITLE": "Fatura",

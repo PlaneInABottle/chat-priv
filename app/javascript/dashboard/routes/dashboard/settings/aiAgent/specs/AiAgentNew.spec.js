@@ -107,28 +107,27 @@ describe('AiAgentNew.vue', () => {
     expect(wrapper.find('[role="alert"]').text()).toBe('Name already exists');
   });
 
-  it('defaults to matching the customer and builds only task guidance', () => {
+  it('defaults to Turkish and builds Turkish task guidance', () => {
     const { wrapper } = mountComponent();
 
-    expect(wrapper.vm.form.language).toBe('same_as_customer');
+    expect(wrapper.vm.form.language).toBe('tr');
     wrapper.vm.form.name = 'Support bot';
     wrapper.vm.nextStep();
 
     expect(wrapper.vm.form.instructions).toBe(
-      'AI_ASSISTANT.CREATE.GOAL_INSTRUCTIONS.SUPPORT'
+      'Müşteri sorularını yanıtla ve müşteriyi uygun sonraki adıma yönlendir.'
     );
     expect(wrapper.vm.form.instructions).not.toContain('Role:');
     expect(wrapper.vm.form.instructions).not.toContain('Tone:');
     expect(wrapper.vm.form.instructions).not.toContain('human');
     const document = wrapper.vm.buildInstructionDocument();
-    expect(document.profile.language).toBe('same_as_customer');
+    expect(document.locale).toBe('tr');
+    expect(document.profile.language).toBe('tr');
     expect(document.sections.identity).toContain('Support bot');
     expect(document.sections.tasks).toBe(
-      'AI_ASSISTANT.CREATE.GOAL_INSTRUCTIONS.SUPPORT'
+      'Müşteri sorularını yanıtla ve müşteriyi uygun sonraki adıma yönlendir.'
     );
-    expect(document.sections.handoff).toContain(
-      'hand the conversation to a human'
-    );
+    expect(document.sections.handoff).toContain('bir insana aktar');
   });
 
   it('creates structured instructions and opens the instructions workspace', async () => {
@@ -146,7 +145,7 @@ describe('AiAgentNew.vue', () => {
       expect.objectContaining({
         config: expect.objectContaining({
           instructions: expect.objectContaining({
-            version: 3,
+            version: 4,
             sections: expect.objectContaining({
               tasks: 'Help customers choose a product.',
               rules: 'Never invent prices.',
@@ -183,7 +182,7 @@ describe('AiAgentNew.vue', () => {
     wrapper.vm.form.name = 'Store assistant';
     wrapper.vm.nextStep();
     expect(wrapper.vm.form.instructions).toBe(
-      'AI_ASSISTANT.CREATE.GOAL_INSTRUCTIONS.SUPPORT'
+      'Müşteri sorularını yanıtla ve müşteriyi uygun sonraki adıma yönlendir.'
     );
 
     wrapper.vm.previousStep();
@@ -191,7 +190,23 @@ describe('AiAgentNew.vue', () => {
     wrapper.vm.nextStep();
 
     expect(wrapper.vm.form.instructions).toBe(
-      'AI_ASSISTANT.CREATE.GOAL_INSTRUCTIONS.SALES'
+      'Müşterilerin uygun ürünleri anlamasına ve karşılaştırmasına yardımcı ol, ardından sonraki satış adımına yönlendir.'
+    );
+  });
+
+  it('builds English instructions when English is selected', () => {
+    const { wrapper } = mountComponent();
+    wrapper.vm.form.name = 'Support bot';
+    wrapper.vm.form.language = 'en';
+    wrapper.vm.nextStep();
+
+    const document = wrapper.vm.buildInstructionDocument();
+    expect(document.locale).toBe('en');
+    expect(document.sections.tasks).toBe(
+      'Answer customer questions and guide customers to the appropriate next step.'
+    );
+    expect(document.sections.handoff).toContain(
+      'hand the conversation to a human'
     );
   });
 });

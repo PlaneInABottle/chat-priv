@@ -34,7 +34,7 @@ class AiAgents::InstructionDocumentMigrator
 
       data = section.deep_stringify_keys
       source_key = data['key'].to_s
-      key = AiAgents::InstructionDocument::SECTION_TITLES.key?(source_key) ? source_key : legacy_section_key(source_key)
+      key = AiAgents::InstructionDocument::SECTION_ORDER.include?(source_key) ? source_key : legacy_section_key(source_key)
       content = legacy_content_to_markdown(data['content'])
 
       key ? append_section(result, key, content) : append_legacy_custom_section(result, data, content)

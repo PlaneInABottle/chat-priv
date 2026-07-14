@@ -9,10 +9,13 @@ defineProps({
   compact: { type: Boolean, default: false },
 });
 const emit = defineEmits(['loaded']);
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const usage = ref(null);
 const isLoading = ref(false);
-const numberFormatter = new Intl.NumberFormat();
+
+const formatterLocale = computed(() =>
+  locale.value === 'tr' ? 'tr-TR' : locale.value
+);
 
 const summaryLabel = computed(() => {
   if (!usage.value) return '';
@@ -20,9 +23,10 @@ const summaryLabel = computed(() => {
     return t('AI_ASSISTANT.IMPROVEMENT_CREDITS.UNLIMITED');
   }
 
-  const resetDate = new Intl.DateTimeFormat(undefined, {
+  const resetDate = new Intl.DateTimeFormat(formatterLocale.value, {
     dateStyle: 'medium',
   }).format(new Date(usage.value.reset_at));
+  const numberFormatter = new Intl.NumberFormat(formatterLocale.value);
   return t('AI_ASSISTANT.IMPROVEMENT_CREDITS.SUMMARY', {
     remaining: numberFormatter.format(usage.value.remaining_credits),
     limit: numberFormatter.format(usage.value.limit_credits),
@@ -98,7 +102,7 @@ defineExpose({ refresh: load });
     </p>
     <div
       v-if="usage && !usage.unlimited"
-      class="h-1.5 w-full overflow-hidden rounded-full bg-n-alpha-3"
+      class="h-2 w-full overflow-hidden rounded-full border border-n-strong bg-n-alpha-2"
       role="progressbar"
       :aria-label="summaryLabel"
       :aria-valuenow="committedCredits"

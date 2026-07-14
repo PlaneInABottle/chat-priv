@@ -15,7 +15,7 @@ RSpec.describe AiAgents::OnboardingCreator do
   end
   let(:assistant_attributes) { { purpose: 'support_and_sales', tone: 'warm' } }
 
-  it 'creates a disabled fallback draft and queues website enrichment' do
+  it 'creates a disabled fallback draft and queues website enrichment', :aggregate_failures do
     result = nil
     expect do
       result = described_class.new(
@@ -32,8 +32,10 @@ RSpec.describe AiAgents::OnboardingCreator do
     expect(result.ai_agent.config.dig('tools', 'enabled')).to include('human_handoff')
     expect(result.ai_agent.config.dig('instructions', 'sections', 'identity')).to be_present
     expect(result.ai_agent.config.dig('instructions', 'sections', 'business_context')).to include('E-commerce')
-    expect(result.website_import).to have_attributes(mode: 'initial', website_url: 'https://example.com/')
-    expect(account.reload.custom_attributes['onboarding_step']).to eq('ai_assistant')
+    expect(result.ai_agent.config.dig('instructions', 'profile', 'tone')).to eq('friendly')
+    expect(result.website_import).to have_attributes(website_url: 'https://example.com/')
+    expect(result.website_import.base_document).to eq(result.ai_agent.config['instructions'])
+    expect(account.reload.custom_attributes['onboarding_step']).to be_nil
   end
 
   it 'creates the fallback without an import when the website is blank' do
@@ -72,7 +74,21 @@ RSpec.describe AiAgents::OnboardingCreator do
     ).perform
 
     expect(result.ai_agent.name).to eq("#{account.name} Asistanı")
-    expect(result.ai_agent.config.dig('instructions', 'sections', 'identity')).to include('Yalnızca doğrulanmış')
+    expect(result.ai_agent.config.dig('instructions', 'locale')).to eq('tr')
+    expect(result.ai_agent.config.dig('instructions', 'sections', 'identity')).to include('müşterinin ihtiyacını')
     expect(result.ai_agent.config.dig('instructions', 'sections', 'handoff')).to include('bir insana aktar')
+    expect(result.ai_agent.prompt).to include('## Dil ve üslup', '## Kurallar ve sınırlar')
+  end
+
+  it 'defaults unsupported or omitted onboarding languages to Turkish' do
+    result = described_class.new(
+      account: account,
+      user: user,
+      account_attributes: account_attributes.except(:locale).merge(website: ''),
+      assistant_attributes: assistant_attributes
+    ).perform
+
+    expect(account.reload.locale).to eq('tr')
+    expect(result.ai_agent.config.dig('instructions', 'locale')).to eq('tr')
   end
 end

@@ -1,46 +1,50 @@
 # frozen_string_literal: true
 
 class AiAgents::WebsiteImportApplier
+  MAX_INSTRUCTION_LENGTH = 50_000
+
   class Conflict < StandardError; end
   class InvalidSelection < StandardError; end
 
-  def initialize(website_import:, section_keys:, expected_draft_fingerprint:, required_mode: nil)
+  def initialize(website_import:, section_keys:, expected_draft_fingerprint:, current_document: nil, attach_knowledge: false)
     @website_import = website_import
     @section_keys = Array(section_keys).map(&:to_s).uniq
     @expected_draft_fingerprint = expected_draft_fingerprint.to_s
-    @required_mode = required_mode&.to_s
+    @current_document = current_document
+    @attach_knowledge = ActiveModel::Type::Boolean.new.cast(attach_knowledge)
   end
 
   def perform
-    website_import.with_lock do
-      raise InvalidSelection, 'Website import is not ready to apply.' unless website_import.ready?
-      raise Conflict, 'Website import mode changed before it could be applied.' unless required_mode_matches?
+    ActiveRecord::Base.transaction do
+      account.lock!
+      ai_agent.lock!
+      website_import.lock!
+      validate_import!
 
-      ai_agent.with_lock do
-        raise Conflict, 'Assistant instructions changed after this preview was opened.' unless fingerprint_matches?
+      document = normalized_current_document
+      document['sections'].merge!(selected_proposals)
+      compiled_prompt = AiAgents::InstructionDocument.new(document).compile
+      raise InvalidSelection, 'Assistant instructions are too long.' if compiled_prompt.length > MAX_INSTRUCTION_LENGTH
 
-        selected_sections = selected_proposals
-        raise InvalidSelection, 'Select at least one proposed section.' if selected_sections.empty?
-
-        website_import.update!(stage: :applying)
-        update_agent(selected_sections)
-        website_import.update!(
-          status: :applied,
-          stage: :complete,
-          proposed_sections: {},
-          applied_at: Time.current,
-          completed_at: Time.current
-        )
-      end
+      knowledge_source = upsert_knowledge_source if attach_knowledge
+      update_agent(document, compiled_prompt, knowledge_source)
+      complete_import(knowledge_source)
     end
     ai_agent
   end
 
   private
 
-  attr_reader :website_import, :section_keys, :expected_draft_fingerprint, :required_mode
+  attr_reader :website_import, :section_keys, :expected_draft_fingerprint, :current_document, :attach_knowledge
 
-  delegate :ai_agent, to: :website_import
+  delegate :ai_agent, :account, to: :website_import
+
+  def validate_import!
+    raise InvalidSelection, 'Website import is not ready to apply.' unless website_import.ready?
+    raise InvalidSelection, 'This website analysis must be run again before it can be reviewed.' if website_import.base_document.blank?
+    raise Conflict, 'Assistant instructions changed after this preview was opened.' unless fingerprint_matches?
+    raise InvalidSelection, 'Select at least one suggestion or add the website to Shared Knowledge.' if section_keys.empty? && !attach_knowledge
+  end
 
   def fingerprint_matches?
     expected_draft_fingerprint.present? &&
@@ -48,28 +52,74 @@ class AiAgents::WebsiteImportApplier
       ai_agent.draft_fingerprint == expected_draft_fingerprint
   end
 
-  def required_mode_matches?
-    required_mode.blank? || website_import.mode == required_mode
-  end
-
   def selected_proposals
-    allowed_keys = section_keys & AiAgentWebsiteImport::APPLYABLE_SECTIONS
+    unknown_keys = section_keys - AiAgentWebsiteImport::APPLYABLE_SECTIONS
+    raise InvalidSelection, 'Website import included an unsupported section.' if unknown_keys.any?
+
     proposals = website_import.proposed_sections.to_h.deep_stringify_keys
-    allowed_keys.filter_map do |key|
+    section_keys.filter_map do |key|
       value = proposals[key].to_s.strip
       [key, value] if value.present?
     end.to_h
   end
 
-  def update_agent(selected_sections)
+  def normalized_current_document
+    source = current_document.presence || persisted_document
+    AiAgents::InstructionDocument.new(source).normalized
+  end
+
+  def persisted_document
+    instructions = ai_agent.config.to_h['instructions']
+    return instructions if instructions.present?
+
+    AiAgents::InstructionDocument.from_legacy(ai_agent.prompt)
+  end
+
+  def update_agent(document, compiled_prompt, knowledge_source)
     config = ai_agent.config.to_h.deep_stringify_keys
-    document = if config['instructions'].present?
-                 AiAgents::InstructionDocument.new(config['instructions']).normalized
-               else
-                 AiAgents::InstructionDocument.from_legacy(ai_agent.prompt)
-               end
-    document['sections'].merge!(selected_sections)
     config['instructions'] = document
-    ai_agent.update!(config: config, prompt: AiAgents::InstructionDocument.new(document).compile)
+    ai_agent.update!(config: config, prompt: compiled_prompt)
+    return unless knowledge_source
+
+    source_ids = ai_agent.knowledge_source_ids | [knowledge_source.id]
+    AiKnowledgeSources::AssignmentSync.new(assistant: ai_agent, source_ids: source_ids).perform
+  end
+
+  def upsert_knowledge_source
+    content = website_import.proposed_knowledge_content.to_s.strip
+    raise InvalidSelection, 'Website analysis did not produce reusable knowledge.' if content.blank?
+
+    source = account.ai_knowledge_sources.find_or_initialize_by(
+      source_type: 'website',
+      website_url: website_import.website_url
+    )
+    source.assign_attributes(
+      name: source.name.presence || knowledge_source_name,
+      content: content,
+      source_urls: website_import.source_urls,
+      sync_status: :ready,
+      sync_error: nil,
+      last_synced_at: Time.current
+    )
+    source.save!
+    source
+  end
+
+  def knowledge_source_name
+    host = URI.parse(website_import.website_url).host.to_s.delete_prefix('www.')
+    "#{host} website".truncate(120)
+  end
+
+  def complete_import(knowledge_source)
+    website_import.update!(
+      status: :applied,
+      stage: :complete,
+      ai_knowledge_source: knowledge_source,
+      base_document: nil,
+      proposed_sections: {},
+      proposed_knowledge_content: nil,
+      applied_at: Time.current,
+      completed_at: Time.current
+    )
   end
 end

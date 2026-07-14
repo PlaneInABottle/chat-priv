@@ -12,9 +12,7 @@ class AiAgents::WebsiteImportJob < ApplicationJob
     return unless advance_to_generation(website_import, claim_started_at, crawl_result.source_urls)
 
     generated = generate_instructions(website_import, crawl_result)
-    return unless complete_import(website_import, claim_started_at, generated.sections)
-
-    apply_initial_import(website_import)
+    complete_import(website_import, claim_started_at, generated.sections, crawl_result.knowledge_content)
   rescue StandardError => e
     fail_import(website_import, e, claim_started_at)
   end
@@ -50,11 +48,17 @@ class AiAgents::WebsiteImportJob < ApplicationJob
     end
   end
 
-  def complete_import(website_import, claim_started_at, proposed_sections)
+  def complete_import(website_import, claim_started_at, proposed_sections, proposed_knowledge_content)
     website_import.with_lock do
       next false unless current_claim?(website_import, claim_started_at)
 
-      website_import.update!(status: :ready, stage: :complete, proposed_sections: proposed_sections, completed_at: Time.current)
+      website_import.update!(
+        status: :ready,
+        stage: :complete,
+        proposed_sections: proposed_sections,
+        proposed_knowledge_content: proposed_knowledge_content,
+        completed_at: Time.current
+      )
       true
     end
   end
@@ -69,17 +73,6 @@ class AiAgents::WebsiteImportJob < ApplicationJob
     setup_profile.merge(account_attributes)
   end
 
-  def apply_initial_import(website_import)
-    AiAgents::WebsiteImportApplier.new(
-      website_import: website_import,
-      section_keys: website_import.proposed_sections.keys,
-      expected_draft_fingerprint: website_import.base_draft_fingerprint,
-      required_mode: :initial
-    ).perform
-  rescue AiAgents::WebsiteImportApplier::Conflict, AiAgents::WebsiteImportApplier::InvalidSelection
-    nil
-  end
-
   def fail_import(website_import, error, claim_started_at)
     return unless website_import&.persisted? && claim_started_at
 
@@ -89,6 +82,9 @@ class AiAgents::WebsiteImportJob < ApplicationJob
       website_import.update!(
         status: :failed,
         stage: :complete,
+        base_document: nil,
+        proposed_sections: {},
+        proposed_knowledge_content: nil,
         error_code: error.class.name,
         error_message: error.message.to_s.truncate(500),
         completed_at: Time.current

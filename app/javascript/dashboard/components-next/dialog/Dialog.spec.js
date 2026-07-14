@@ -53,6 +53,14 @@ const mountDialogWithSlots = options =>
   });
 
 describe('Dialog.vue', () => {
+  it('supports extra-wide review dialogs', async () => {
+    const wrapper = mountDialog({ width: '4xl' });
+
+    await wrapper.vm.open();
+
+    expect(wrapper.find('dialog').classes()).toContain('max-w-4xl');
+  });
+
   const originalShowModal = HTMLDialogElement.prototype.showModal;
   const originalClose = HTMLDialogElement.prototype.close;
   const originalOffsetParent = Object.getOwnPropertyDescriptor(

@@ -6,7 +6,7 @@ RSpec.describe AiAgents::WebsiteCrawler do
     allow(Resolv).to receive(:getaddresses).with('example.com').and_return(['93.184.216.34'])
   end
 
-  it 'extracts the homepage and up to four relevant same-site pages' do
+  it 'extracts the homepage and diverse relevant same-site pages for instructions and knowledge' do
     homepage = <<~HTML
       <html><head><title>Example Store</title></head><body>
         <nav>Repeated navigation <a href="/about">About us</a><a href="/products">Products</a></nav>
@@ -27,11 +27,12 @@ RSpec.describe AiAgents::WebsiteCrawler do
 
     result = described_class.new('example.com').perform
 
-    expect(result.pages.length).to eq(5)
+    expect(result.pages.length).to eq(6)
     expect(result.source_urls.first).to eq('https://example.com/')
     expect(result.pages.first[:text]).to include('Comfort for every room', 'custom window products')
     expect(result.pages.first[:text]).not_to include('Repeated navigation')
     expect(result.source_urls).not_to include('https://example.com/blog', 'https://other.example.org/about')
+    expect(result.knowledge_content).to include('# Example Store', 'Source: https://example.com/')
   end
 
   it 'rejects non-http website values' do

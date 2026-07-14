@@ -23,40 +23,79 @@ export const INSTRUCTION_SECTION_KEYS = [
 ];
 
 export const INSTRUCTION_SECTION_TITLES = {
-  identity: 'Identity and purpose',
-  business_context: 'Business context',
-  tasks: 'Tasks and conversation flow',
-  rules: 'Rules and boundaries',
-  handoff: 'Human handoff',
-  examples: 'Example conversations',
-  additional: 'Additional instructions',
+  en: {
+    identity: 'Identity and purpose',
+    business_context: 'Business context',
+    tasks: 'Tasks and conversation flow',
+    rules: 'Rules and boundaries',
+    handoff: 'Human handoff',
+    examples: 'Example conversations',
+    additional: 'Additional instructions',
+  },
+  tr: {
+    identity: 'Kimlik ve amaç',
+    business_context: 'İşletme bilgileri',
+    tasks: 'Görevler ve konuşma akışı',
+    rules: 'Kurallar ve sınırlar',
+    handoff: 'İnsan desteğine aktarım',
+    examples: 'Örnek konuşmalar',
+    additional: 'Ek talimatlar',
+  },
 };
 
 const PROFILE_FIELD_NAMES = {
-  language: 'Reply language',
-  tone: 'Tone',
-  formality: 'Formality',
-  response_length: 'Response length',
+  en: {
+    language: 'Reply language',
+    tone: 'Tone',
+    formality: 'Formality',
+    response_length: 'Response length',
+  },
+  tr: {
+    language: 'Yanıt dili',
+    tone: 'Üslup',
+    formality: 'Resmiyet',
+    response_length: 'Yanıt uzunluğu',
+  },
 };
 
 const PROFILE_PROMPT_LABELS = {
-  language: {
-    same_as_customer: "Use the customer's language",
-    tr: 'Turkish',
-    en: 'English',
+  en: {
+    language: {
+      same_as_customer: "Use the customer's language",
+      tr: 'Turkish',
+      en: 'English',
+    },
+    tone: {
+      natural: 'Natural',
+      friendly: 'Friendly',
+      professional: 'Professional',
+      concise: 'Concise',
+    },
+    formality: { balanced: 'Balanced', casual: 'Casual', formal: 'Formal' },
+    response_length: {
+      balanced: 'Balanced',
+      short: 'Short',
+      detailed: 'Detailed',
+    },
   },
-  tone: {
-    natural: 'Natural',
-    friendly: 'Friendly',
-    professional: 'Professional',
-    warm: 'Warm',
-    concise: 'Concise',
-  },
-  formality: { balanced: 'Balanced', casual: 'Casual', formal: 'Formal' },
-  response_length: {
-    balanced: 'Balanced',
-    short: 'Short',
-    detailed: 'Detailed',
+  tr: {
+    language: {
+      same_as_customer: 'Müşterinin dilini kullan',
+      tr: 'Türkçe',
+      en: 'İngilizce',
+    },
+    tone: {
+      natural: 'Doğal',
+      friendly: 'Samimi',
+      professional: 'Profesyonel',
+      concise: 'Öz',
+    },
+    formality: { balanced: 'Dengeli', casual: 'Gündelik', formal: 'Resmi' },
+    response_length: {
+      balanced: 'Dengeli',
+      short: 'Kısa',
+      detailed: 'Ayrıntılı',
+    },
   },
 };
 
@@ -65,8 +104,16 @@ const normalizeText = value => String(value || '').trim();
 const emptySections = () =>
   Object.fromEntries(INSTRUCTION_SECTION_KEYS.map(key => [key, '']));
 
-export const createDefaultInstructionDocument = () => ({
-  version: 3,
+const supportedLocale = value => (['tr', 'en'].includes(value) ? value : null);
+
+const instructionLocale = source =>
+  supportedLocale(source?.locale) ||
+  supportedLocale(source?.profile?.language) ||
+  (Number(source?.version) >= 4 ? 'tr' : 'en');
+
+export const createDefaultInstructionDocument = (locale = 'tr') => ({
+  version: 4,
+  locale: supportedLocale(locale) || 'tr',
   profile: { ...NEW_ASSISTANT_PROFILE_DEFAULTS },
   sections: emptySections(),
 });
@@ -77,10 +124,14 @@ export const normalizeInstructionDocument = document => {
   const sections = source.sections || {};
 
   return {
-    version: 3,
+    version: 4,
+    locale: document ? instructionLocale(source) : 'tr',
     profile: {
       language: profile.language || PROFILE_DEFAULTS.language,
-      tone: profile.tone || PROFILE_DEFAULTS.tone,
+      tone:
+        profile.tone === 'warm'
+          ? 'friendly'
+          : profile.tone || PROFILE_DEFAULTS.tone,
       formality: profile.formality || PROFILE_DEFAULTS.formality,
       response_length:
         profile.response_length || PROFILE_DEFAULTS.response_length,
@@ -96,7 +147,8 @@ export const instructionDocumentForAgent = agent => {
   if (savedDocument) return normalizeInstructionDocument(savedDocument);
 
   return {
-    version: 3,
+    version: 4,
+    locale: 'en',
     profile: { ...PROFILE_DEFAULTS },
     sections: { ...emptySections(), additional: normalizeText(agent?.prompt) },
   };
@@ -115,18 +167,21 @@ export const hasInstructionContent = document => {
 
 export const compileInstructionDocument = document => {
   const normalized = normalizeInstructionDocument(document);
-  const profileLines = Object.entries(PROFILE_PROMPT_LABELS)
+  const locale = normalized.locale;
+  const profileLines = Object.entries(PROFILE_PROMPT_LABELS[locale])
     .map(([key, labels]) => {
       const label = labels[normalized.profile[key]];
-      return label ? `- ${PROFILE_FIELD_NAMES[key]}: ${label}` : '';
+      return label ? `- ${PROFILE_FIELD_NAMES[locale][key]}: ${label}` : '';
     })
     .filter(Boolean);
   const profilePrompt = profileLines.length
-    ? `## Language and tone\n${profileLines.join('\n')}`
+    ? `## ${locale === 'tr' ? 'Dil ve üslup' : 'Language and tone'}\n${profileLines.join('\n')}`
     : '';
   const sectionPrompts = INSTRUCTION_SECTION_KEYS.map(key => {
     const content = normalizeText(normalized.sections[key]);
-    return content ? `## ${INSTRUCTION_SECTION_TITLES[key]}\n\n${content}` : '';
+    return content
+      ? `## ${INSTRUCTION_SECTION_TITLES[locale][key]}\n\n${content}`
+      : '';
   }).filter(Boolean);
 
   return [profilePrompt, ...sectionPrompts].filter(Boolean).join('\n\n');

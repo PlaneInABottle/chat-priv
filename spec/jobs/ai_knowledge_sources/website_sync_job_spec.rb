@@ -15,7 +15,8 @@ RSpec.describe AiKnowledgeSources::WebsiteSyncJob do
   let(:crawl_result) do
     AiAgents::WebsiteCrawler::Result.new(
       pages: pages,
-      source_urls: ['https://example.com/']
+      source_urls: ['https://example.com/'],
+      knowledge_content: "# Example policies\nSource: https://example.com/\nReturns are accepted within 14 days."
     )
   end
 

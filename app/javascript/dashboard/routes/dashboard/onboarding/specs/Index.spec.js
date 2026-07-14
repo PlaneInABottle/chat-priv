@@ -1,17 +1,19 @@
-import { flushPromises, shallowMount } from '@vue/test-utils';
+import { flushPromises, mount } from '@vue/test-utils';
+import { ref } from 'vue';
 
 import Index from '../Index.vue';
 
 const mocks = vi.hoisted(() => ({
-  get: vi.fn(),
-  complete: vi.fn(),
+  create: vi.fn(),
   push: vi.fn(),
   commit: vi.fn(),
   alert: vi.fn(),
 }));
 
+const activeLocale = ref('en');
+
 vi.mock('vue-i18n', () => ({
-  useI18n: () => ({ t: key => key }),
+  useI18n: () => ({ t: key => key, locale: activeLocale }),
 }));
 
 vi.mock('vue-router', () => ({
@@ -29,16 +31,10 @@ vi.mock('dashboard/composables/useAccount', () => ({
     currentAccount: {
       value: {
         name: 'Example',
-        locale: 'en',
-        custom_attributes: { onboarding_step: 'ai_assistant' },
+        locale: 'tr',
+        custom_attributes: { onboarding_step: 'account_details' },
       },
     },
-  }),
-}));
-
-vi.mock('dashboard/composables/useConfig', () => ({
-  useConfig: () => ({
-    enabledLanguages: [{ iso_639_1_code: 'en', name: 'English' }],
   }),
 }));
 
@@ -50,42 +46,99 @@ vi.mock('dashboard/composables/store', () => ({
 }));
 
 vi.mock('dashboard/api/aiAgentOnboarding', () => ({
-  default: {
-    get: mocks.get,
-    create: vi.fn(),
-    complete: mocks.complete,
-  },
+  default: { create: mocks.create },
 }));
+
+const mountComponent = () =>
+  mount(Index, {
+    global: {
+      stubs: {
+        Avatar: true,
+        Icon: true,
+        Spinner: true,
+        OnboardingLayout: {
+          template: '<div><slot /></div>',
+          props: [
+            'greeting',
+            'subtitle',
+            'continueLabel',
+            'isLoading',
+            'disabled',
+          ],
+        },
+        OnboardingSection: { template: '<section><slot /></section>' },
+        OnboardingFormRow: { template: '<div><slot /></div>' },
+        OnboardingFormSelect: {
+          template: '<select />',
+          props: ['modelValue', 'options', 'placeholder', 'hasError'],
+        },
+      },
+    },
+  });
 
 describe('AI assistant onboarding', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.get.mockResolvedValue({
-      data: {
-        status: 'running',
-        stage: 'crawling',
-        ai_agent: { id: 42 },
-        website_import: { id: 7 },
-      },
-    });
-    mocks.complete.mockResolvedValue({ data: { ai_agent_id: 42 } });
+    activeLocale.value = 'en';
+    mocks.create.mockResolvedValue({ data: { ai_agent: { id: 42 } } });
   });
 
-  it('lets the customer review the starter draft while analysis continues', async () => {
-    const wrapper = shallowMount(Index);
+  it('defaults to Turkish and keeps the website directly editable', async () => {
+    const wrapper = mountComponent();
     await flushPromises();
 
-    const reviewButton = wrapper.get(
-      'button[label="ONBOARDING_NEXT.BUILDING.REVIEW_STARTER"]'
+    expect(wrapper.vm.locale).toBe('tr');
+    expect(activeLocale.value).toBe('tr');
+    expect(
+      wrapper.get('input[name="website"]').attributes('readonly')
+    ).toBeUndefined();
+  });
+
+  it('switches the onboarding interface when English is selected', async () => {
+    const wrapper = mountComponent();
+    await flushPromises();
+
+    wrapper.vm.locale = 'en';
+    await wrapper.vm.$nextTick();
+
+    expect(activeLocale.value).toBe('en');
+  });
+
+  it('routes directly to the instruction editor after creating the draft', async () => {
+    const wrapper = mountComponent();
+    await flushPromises();
+
+    wrapper.vm.website = 'example.com';
+    await wrapper.vm.handleSubmit();
+    await flushPromises();
+
+    expect(mocks.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        account: expect.objectContaining({
+          locale: 'tr',
+          website: 'example.com',
+        }),
+      })
     );
-    await reviewButton.trigger('click');
-    await flushPromises();
-
-    expect(mocks.complete).toHaveBeenCalledOnce();
     expect(mocks.commit).toHaveBeenCalledWith('RESET_ONBOARDING', 1);
     expect(mocks.push).toHaveBeenCalledWith({
       name: 'ai_agent_instructions',
       params: { id: 42, accountId: 1 },
     });
+  });
+
+  it('shows invalid website feedback next to the editable field', async () => {
+    mocks.create.mockRejectedValue({
+      response: { data: { code: 'invalid_website' } },
+    });
+    const wrapper = mountComponent();
+    await flushPromises();
+
+    wrapper.vm.website = 'not a website';
+    await wrapper.vm.handleSubmit();
+    await flushPromises();
+
+    expect(wrapper.vm.websiteError).toBe('ONBOARDING_NEXT.WEBSITE_ERROR');
+    expect(wrapper.text()).toContain('ONBOARDING_NEXT.WEBSITE_ERROR');
   });
 });

@@ -8,11 +8,17 @@ RSpec.describe AiAgents::InstructionDocument do
         'sections' => { 'rules' => 'Never invent prices.', 'unknown' => 'Ignored' }
       ).normalized
 
-      expect(document).to include('version' => 3)
+      expect(document).to include('version' => 4, 'locale' => 'tr')
       expect(document.dig('profile', 'language')).to eq('tr')
       expect(document.dig('profile', 'formality')).to eq('not_set')
       expect(document.dig('sections', 'rules')).to eq('Never invent prices.')
       expect(document['sections']).not_to have_key('unknown')
+    end
+
+    it 'collapses the legacy warm tone into friendly' do
+      document = described_class.new('profile' => { 'tone' => 'warm' }).normalized
+
+      expect(document.dig('profile', 'tone')).to eq('friendly')
     end
 
     it 'converts version one sections without preserving fake priority metadata' do
@@ -76,10 +82,10 @@ RSpec.describe AiAgents::InstructionDocument do
         }
       ).compile
 
-      expect(prompt).to include('Reply language: Turkish', 'Tone: Professional', 'Response length: Short')
-      expect(prompt).not_to include('Formality:', 'CRITICAL')
-      expect(prompt).to include("## Rules and boundaries\n\n- Never invent prices.")
-      expect(prompt).not_to include('## Identity and purpose')
+      expect(prompt).to include('Yanıt dili: Türkçe', 'Üslup: Profesyonel', 'Yanıt uzunluğu: Kısa')
+      expect(prompt).not_to include('Resmiyet:', 'CRITICAL')
+      expect(prompt).to include("## Kurallar ve sınırlar\n\n- Never invent prices.")
+      expect(prompt).not_to include('## Kimlik ve amaç')
     end
   end
 
@@ -87,9 +93,16 @@ RSpec.describe AiAgents::InstructionDocument do
     it 'preserves the existing prompt under additional instructions' do
       document = described_class.from_legacy("Existing <rules>\nSecond line")
 
-      expect(document).to include('version' => 3)
+      expect(document).to include('version' => 4, 'locale' => 'en')
       expect(document['profile'].values).to all(eq('not_set'))
       expect(document.dig('sections', 'additional')).to eq("Existing <rules>\nSecond line")
     end
+  end
+
+  it 'keeps version three documents without a language in English' do
+    document = described_class.new('version' => 3, 'sections' => { 'rules' => 'Keep this.' }).normalized
+
+    expect(document['locale']).to eq('en')
+    expect(described_class.new(document).compile).to include('## Rules and boundaries')
   end
 end

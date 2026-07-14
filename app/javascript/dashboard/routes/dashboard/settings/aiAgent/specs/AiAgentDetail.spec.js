@@ -212,6 +212,17 @@ const mountComponent = options => {
           template: '<div class="instruction-workspace" />',
           props: ['modelValue', 'aiAgentId', 'isDirty', 'isDisabled'],
         },
+        WebsiteImportStatus: {
+          name: 'WebsiteImportStatus',
+          template: '<div class="website-import-status" />',
+          props: [
+            'aiAgentId',
+            'defaultWebsite',
+            'currentDocument',
+            'expectedDraftFingerprint',
+          ],
+          emits: ['applied', 'readyCountChanged'],
+        },
         ImproveWorkspace: {
           name: 'ImproveWorkspace',
           template:
@@ -548,6 +559,23 @@ describe('AiAgentDetail.vue', () => {
       'Keep this unsaved instruction.'
     );
     expect(wrapper.vm.formState.knowledge_source_ids).toEqual([77]);
+  });
+
+  it('preserves local knowledge edits when a website import adds a source', async () => {
+    const { wrapper, actionMocks, store } = mountComponent({
+      aiAgentRecord: buildAiAgent({ knowledge_source_ids: [1, 2] }),
+    });
+    await flushPromises();
+    wrapper.vm.formState.knowledge_source_ids = [2, 3];
+    actionMocks.refresh.mockImplementationOnce(async () => {
+      const refreshed = buildAiAgent({ knowledge_source_ids: [1, 2, 4] });
+      store.commit('SET_AI_AGENT_RECORD', refreshed);
+      return refreshed;
+    });
+
+    await wrapper.vm.refreshAfterWebsiteImport();
+
+    expect(wrapper.vm.formState.knowledge_source_ids).toEqual([2, 3, 4]);
   });
 
   it('preserves unsaved edits when pausing the live assistant', async () => {
