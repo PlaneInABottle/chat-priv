@@ -70,6 +70,15 @@ RSpec.describe AiAgents::WebsiteInstructionGenerator do
     expect(result.sections['tasks']).to eq("- Explain the product range.\n- Guide customers to support.")
   end
 
+  it 'asks the model for point-by-point website guidance' do
+    expect(described_class::SYSTEM_PROMPT).to include(
+      'business_context: a JSON array',
+      'tasks: a JSON array',
+      'rules: a JSON array',
+      'Never combine a full workflow into one dense paragraph.'
+    )
+  end
+
   it 'accepts section keys returned directly at the top level' do
     allow(adapter).to receive(:perform).and_return(
       assistant_text: {
@@ -89,6 +98,28 @@ RSpec.describe AiAgents::WebsiteInstructionGenerator do
     ai_agent.update!(
       config: {
         'instructions' => AiAgents::InstructionDocument.new('profile' => { 'language' => 'tr' }).normalized,
+        'tools' => { 'enabled' => ['human_handoff'] }
+      }
+    )
+    allow(adapter).to receive(:perform).and_return(
+      assistant_text: { sections: { identity: 'Örnek şirketini temsil et.' } }.to_json
+    )
+
+    described_class.new(ai_agent: ai_agent, adapter: adapter).call(pages: pages, onboarding_answers: {})
+
+    expect(adapter).to have_received(:perform) do |messages:, **|
+      expect(JSON.parse(messages.first[:content])['target_instruction_language']).to eq('Turkish')
+    end
+  end
+
+  it 'uses the instruction document locale when replies match the customer' do
+    ai_agent.update!(
+      config: {
+        'instructions' => AiAgents::InstructionDocument.new(
+          'version' => 4,
+          'locale' => 'tr',
+          'profile' => { 'language' => 'same_as_customer' }
+        ).normalized,
         'tools' => { 'enabled' => ['human_handoff'] }
       }
     )

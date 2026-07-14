@@ -74,4 +74,4 @@ export const AI_PURPOSE_OPTIONS = [
   'orders',
 ];
 
-export const AI_TONE_OPTIONS = ['friendly', 'professional', 'warm', 'concise'];
+export const AI_TONE_OPTIONS = ['friendly', 'professional', 'concise'];

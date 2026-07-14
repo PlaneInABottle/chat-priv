@@ -275,7 +275,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_18_000000) do
     t.index ["reviewed_by_id"], name: "index_ai_agent_learning_suggestions_on_reviewed_by_id"
     t.index ["source_message_id"], name: "index_ai_agent_learning_suggestions_on_source_message_id"
     t.index ["submitted_by_id"], name: "index_ai_agent_learning_suggestions_on_submitted_by_id"
-    t.check_constraint "destination::text = ANY (ARRAY['instructions'::character varying, 'knowledge'::character varying]::text[])", name: "ai_learning_suggestions_destination_check"
+    t.check_constraint "destination::text = ANY (ARRAY['instructions'::character varying::text, 'knowledge'::character varying::text])", name: "ai_learning_suggestions_destination_check"
   end
 
   create_table "ai_agent_llm_calls", force: :cascade do |t|
@@ -393,7 +393,6 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_18_000000) do
     t.bigint "ai_agent_id", null: false
     t.bigint "requested_by_id"
     t.string "website_url", null: false
-    t.integer "mode", default: 0, null: false
     t.integer "status", default: 0, null: false
     t.integer "stage", default: 0, null: false
     t.jsonb "source_urls", default: [], null: false
@@ -406,9 +405,13 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_18_000000) do
     t.datetime "applied_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.jsonb "base_document"
+    t.text "proposed_knowledge_content"
+    t.bigint "ai_knowledge_source_id"
     t.index ["account_id"], name: "index_ai_agent_website_imports_on_account_id"
     t.index ["ai_agent_id"], name: "index_ai_agent_website_imports_on_ai_agent_id"
     t.index ["ai_agent_id"], name: "index_ai_website_imports_on_active_agent", unique: true, where: "(status = ANY (ARRAY[0, 1]))"
+    t.index ["ai_knowledge_source_id"], name: "index_ai_agent_website_imports_on_ai_knowledge_source_id"
     t.index ["requested_by_id"], name: "index_ai_agent_website_imports_on_requested_by_id"
   end
 
@@ -472,7 +475,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_18_000000) do
     t.index ["account_id"], name: "index_ai_knowledge_source_assignments_on_account_id"
     t.index ["ai_knowledge_source_id"], name: "idx_on_ai_knowledge_source_id_1c19131e3a"
     t.index ["assistant_type", "assistant_id", "ai_knowledge_source_id"], name: "index_ai_knowledge_assignments_on_assistant_and_source", unique: true
-    t.check_constraint "assistant_type::text = ANY (ARRAY['AiAgent'::character varying, 'VoiceAgent'::character varying]::text[])", name: "ai_knowledge_assignments_assistant_type_check"
+    t.check_constraint "assistant_type::text = ANY (ARRAY['AiAgent'::character varying::text, 'VoiceAgent'::character varying::text])", name: "ai_knowledge_assignments_assistant_type_check"
   end
 
   create_table "ai_knowledge_sources", force: :cascade do |t|
@@ -494,7 +497,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_18_000000) do
     t.check_constraint "char_length(name::text) >= 1 AND char_length(name::text) <= 120", name: "ai_knowledge_sources_name_length_check"
     t.check_constraint "source_type::text <> 'website'::text OR website_url IS NOT NULL", name: "ai_knowledge_sources_website_url_check"
     t.check_constraint "source_type::text = 'manual'::text AND char_length(content) >= 1 AND char_length(content) <= 100000 OR source_type::text = 'website'::text AND char_length(content) >= 0 AND char_length(content) <= 100000", name: "ai_knowledge_sources_content_length_check"
-    t.check_constraint "source_type::text = ANY (ARRAY['manual'::character varying, 'website'::character varying]::text[])", name: "ai_knowledge_sources_type_check"
+    t.check_constraint "source_type::text = ANY (ARRAY['manual'::character varying::text, 'website'::character varying::text])", name: "ai_knowledge_sources_type_check"
   end
 
   create_table "applied_slas", force: :cascade do |t|
@@ -2041,6 +2044,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_18_000000) do
   add_foreign_key "ai_agent_usage_events", "messages", on_delete: :nullify
   add_foreign_key "ai_agent_website_imports", "accounts", on_delete: :cascade
   add_foreign_key "ai_agent_website_imports", "ai_agents", on_delete: :cascade
+  add_foreign_key "ai_agent_website_imports", "ai_knowledge_sources", on_delete: :nullify
   add_foreign_key "ai_agent_website_imports", "users", column: "requested_by_id", on_delete: :nullify
   add_foreign_key "ai_agents", "accounts", on_delete: :cascade
   add_foreign_key "ai_agents", "agent_bots", on_delete: :nullify

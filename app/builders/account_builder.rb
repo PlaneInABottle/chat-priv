@@ -46,11 +46,16 @@ class AccountBuilder
   def create_account
     @account = Account.create!(
       name: account_name,
-      locale: I18n.locale,
+      locale: account_locale,
       custom_attributes: { 'onboarding_step' => 'account_details' },
       settings: { 'ai_agent_enabled' => true }
     )
     Current.account = @account
+  end
+
+  def account_locale
+    candidate = (@locale.presence || ENV.fetch('DEFAULT_LOCALE', 'tr')).to_s
+    I18n.available_locales.map(&:to_s).include?(candidate) ? candidate : 'tr'
   end
 
   def create_and_link_user

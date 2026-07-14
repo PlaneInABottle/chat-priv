@@ -1,16 +1,23 @@
 # frozen_string_literal: true
 
 class AiAgents::WebsiteCrawler
-  Result = Data.define(:pages, :source_urls)
+  Result = Data.define(:pages, :source_urls, :knowledge_content)
 
-  MAX_PAGES = 5
+  MAX_PAGES = 10
   MAX_PAGE_BYTES = 3.megabytes
-  MAX_PAGE_CHARACTERS = 8_000
-  MAX_TOTAL_CHARACTERS = 30_000
-  LINK_KEYWORDS = %w[
-    about hakkimizda products urun urunler services hizmet hizmetler faq sss
-    shipping kargo delivery teslimat return returns iade contact iletisim
-  ].freeze
+  MAX_PAGE_CHARACTERS = 10_000
+  MAX_TOTAL_CHARACTERS = 80_000
+  LINK_CATEGORIES = {
+    company: %w[about hakkimizda company kurumsal],
+    catalog: %w[products urun urunler categories category katalog catalog collections collection],
+    services: %w[services hizmet hizmetler solutions cozum cozumler],
+    help: %w[faq sss support destek],
+    delivery: %w[shipping kargo delivery teslimat],
+    returns: %w[return returns exchange iade degisim],
+    policies: %w[policy policies politika warranty garanti payment odeme],
+    contact: %w[contact iletisim]
+  }.freeze
+  LINK_KEYWORDS = LINK_CATEGORIES.values.flatten.freeze
   IGNORED_EXTENSIONS = %w[.jpg .jpeg .png .gif .svg .webp .pdf .zip .mp4 .mp3].freeze
 
   class InvalidWebsite < StandardError; end
@@ -48,7 +55,11 @@ class AiAgents::WebsiteCrawler
     end
 
     extracted_pages = cap_total_content(pages.map { |page| page.except(:document) })
-    Result.new(pages: extracted_pages, source_urls: extracted_pages.pluck(:url))
+    Result.new(
+      pages: extracted_pages,
+      source_urls: extracted_pages.pluck(:url),
+      knowledge_content: compile_knowledge_content(extracted_pages)
+    )
   end
 
   private
@@ -80,7 +91,16 @@ class AiAgents::WebsiteCrawler
     urls = document.css('a[href]').filter_map do |link|
       normalized_link(link['href'])
     end
-    urls.uniq.sort_by { |url| [-link_score(url), url] }.select { |url| link_score(url).positive? }
+    ranked = urls.uniq.sort_by { |url| [-link_score(url), url] }.select { |url| link_score(url).positive? }
+    diverse = []
+    remaining = []
+    seen_categories = Set.new
+    ranked.each do |url|
+      category = link_category(url)
+      target = category && seen_categories.add?(category) ? diverse : remaining
+      target << url
+    end
+    diverse + remaining
   end
 
   def normalized_link(href)
@@ -112,6 +132,11 @@ class AiAgents::WebsiteCrawler
     LINK_KEYWORDS.count { |keyword| value.include?(keyword) }
   end
 
+  def link_category(url)
+    value = url.downcase
+    LINK_CATEGORIES.find { |_category, keywords| keywords.any? { |keyword| value.include?(keyword) } }&.first
+  end
+
   def page_title(document)
     document.at_css('meta[property="og:title"]')&.[]('content').presence || document.at_css('title')&.text.to_s.strip
   end
@@ -137,5 +162,15 @@ class AiAgents::WebsiteCrawler
       remaining -= text.length
       result << page.merge(text: text) if text.present?
     end
+  end
+
+  def compile_knowledge_content(pages)
+    pages.filter_map do |page|
+      text = page[:text].to_s.strip
+      next if text.blank?
+
+      title = page[:title].to_s.strip.presence || page[:url]
+      "# #{title}\nSource: #{page[:url]}\n#{text}"
+    end.join("\n\n").first(AiKnowledgeSource::MAX_CONTENT_LENGTH)
   end
 end

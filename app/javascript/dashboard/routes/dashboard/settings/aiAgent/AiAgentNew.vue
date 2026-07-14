@@ -18,12 +18,34 @@ const router = useRouter();
 const uiFlags = useMapGetter('aiAgent/getUIFlags');
 const inboxes = useMapGetter('inboxes/getInboxes');
 
+const goalInstructionContent = {
+  tr: {
+    support:
+      'Müşteri sorularını yanıtla ve müşteriyi uygun sonraki adıma yönlendir.',
+    sales:
+      'Müşterilerin uygun ürünleri anlamasına ve karşılaştırmasına yardımcı ol, ardından sonraki satış adımına yönlendir.',
+    orders:
+      'Yalnızca sonraki adım için gereken bilgileri isteyerek genel sipariş, teslimat, iade ve değişim sorularında yardımcı ol.',
+    custom: 'Bu talimatlarda açıklanan işletmeye özel destek akışını izle.',
+  },
+  en: {
+    support:
+      'Answer customer questions and guide customers to the appropriate next step.',
+    sales:
+      'Help customers understand and compare suitable products, then guide them to the next sales step.',
+    orders:
+      'Help with general order, delivery, return, and exchange questions while requesting only the information needed for the next step.',
+    custom:
+      'Follow the business-specific support workflow described in these instructions.',
+  },
+};
+
 const currentStep = ref(0);
 const generatedInstructions = ref('');
 const form = ref({
   name: '',
   goal: 'support',
-  language: 'same_as_customer',
+  language: 'tr',
   tone: 'friendly',
   businessContext: '',
   boundaries: '',
@@ -39,26 +61,30 @@ const steps = computed(() => [
   t('AI_ASSISTANT.CREATE.STEPS.REVIEW'),
 ]);
 
+const instructionLanguage = computed(() =>
+  form.value.language === 'en' ? 'en' : 'tr'
+);
+
 const goalOptions = computed(() => [
   {
     value: 'support',
     label: t('AI_ASSISTANT.CREATE.GOALS.SUPPORT'),
-    instructions: t('AI_ASSISTANT.CREATE.GOAL_INSTRUCTIONS.SUPPORT'),
+    instructions: goalInstructionContent[instructionLanguage.value].support,
   },
   {
     value: 'sales',
     label: t('AI_ASSISTANT.CREATE.GOALS.SALES'),
-    instructions: t('AI_ASSISTANT.CREATE.GOAL_INSTRUCTIONS.SALES'),
+    instructions: goalInstructionContent[instructionLanguage.value].sales,
   },
   {
     value: 'orders',
     label: t('AI_ASSISTANT.CREATE.GOALS.ORDERS'),
-    instructions: t('AI_ASSISTANT.CREATE.GOAL_INSTRUCTIONS.ORDERS'),
+    instructions: goalInstructionContent[instructionLanguage.value].orders,
   },
   {
     value: 'custom',
     label: t('AI_ASSISTANT.CREATE.GOALS.CUSTOM'),
-    instructions: t('AI_ASSISTANT.CREATE.GOAL_INSTRUCTIONS.CUSTOM'),
+    instructions: goalInstructionContent[instructionLanguage.value].custom,
   },
 ]);
 
@@ -123,17 +149,23 @@ const toggleInbox = inboxId => {
 };
 
 const buildInstructionDocument = () => {
-  const document = createDefaultInstructionDocument();
+  const language = instructionLanguage.value;
+  const document = createDefaultInstructionDocument(language);
   document.profile.language = form.value.language;
   document.profile.tone = form.value.tone;
 
   const sectionContent = {
-    identity: `You are ${form.value.name}, a customer-facing support assistant.`,
+    identity:
+      language === 'tr'
+        ? `Sen, ${form.value.name} adıyla müşterilere yardımcı olan bir destek asistanısın.`
+        : `You are ${form.value.name}, a customer-facing support assistant.`,
     business_context: form.value.businessContext.trim(),
     tasks: form.value.instructions.trim(),
     rules: form.value.boundaries.trim(),
     handoff:
-      'If a customer asks for a person or the request needs human judgment, hand the conversation to a human.',
+      language === 'tr'
+        ? 'Müşteri bir insanla görüşmek istediğinde veya talep insan değerlendirmesi gerektirdiğinde konuşmayı bir insana aktar.'
+        : 'If a customer asks for a person or the request needs human judgment, hand the conversation to a human.',
   };
 
   document.sections = { ...document.sections, ...sectionContent };

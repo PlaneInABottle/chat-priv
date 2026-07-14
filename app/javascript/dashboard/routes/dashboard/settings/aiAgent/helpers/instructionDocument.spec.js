@@ -12,7 +12,8 @@ describe('instructionDocument', () => {
     const document = createDefaultInstructionDocument();
 
     expect(document).toMatchObject({
-      version: 3,
+      version: 4,
+      locale: 'tr',
       profile: { tone: 'natural' },
     });
     expect(document.sections).toMatchObject({
@@ -45,9 +46,18 @@ describe('instructionDocument', () => {
       sections: { identity: '**Help**', unknown: 'Ignore' },
     });
 
-    expect(document.version).toBe(3);
+    expect(document.version).toBe(4);
+    expect(document.locale).toBe('tr');
     expect(document.sections.identity).toBe('**Help**');
     expect(document.sections).not.toHaveProperty('unknown');
+  });
+
+  it('collapses the legacy warm tone into friendly', () => {
+    const document = normalizeInstructionDocument({
+      profile: { tone: 'warm' },
+    });
+
+    expect(document.profile.tone).toBe('friendly');
   });
 
   it('detects section content and compiles only configured sections', () => {
@@ -61,8 +71,20 @@ describe('instructionDocument', () => {
     const prompt = compileInstructionDocument(document);
 
     expect(hasInstructionContent(document)).toBe(true);
-    expect(prompt).toContain('## Rules and boundaries\n\nNever invent prices.');
-    expect(prompt).not.toContain('## Identity and purpose');
+    expect(prompt).toContain('## Kurallar ve sınırlar\n\nNever invent prices.');
+    expect(prompt).not.toContain('## Kimlik ve amaç');
     expect(instructionContentLength(document)).toBe(prompt.length);
+  });
+
+  it('keeps version three documents without a language in English', () => {
+    const document = normalizeInstructionDocument({
+      version: 3,
+      sections: { rules: 'Keep this.' },
+    });
+
+    expect(document.locale).toBe('en');
+    expect(compileInstructionDocument(document)).toContain(
+      '## Rules and boundaries'
+    );
   });
 });

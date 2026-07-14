@@ -28,7 +28,7 @@ RSpec.describe 'AI agent onboarding API', type: :request do
        .and have_enqueued_job(AiAgents::WebsiteImportJob)
 
     expect(response).to have_http_status(:accepted)
-    expect(response.parsed_body).to include('status' => 'pending', 'onboarding_step' => 'ai_assistant')
+    expect(response.parsed_body).to include('status' => 'pending', 'onboarding_step' => nil)
     expect(account.ai_agents.first).not_to be_enabled
     expect(account.ai_agents.first.config.dig('tools', 'enabled')).to include('human_handoff')
   end
@@ -53,26 +53,13 @@ RSpec.describe 'AI agent onboarding API', type: :request do
     expect(response.parsed_body).to include('code' => 'website_import_rate_limited')
   end
 
-  it 'completes onboarding and returns the draft assistant' do
-    post base_url, params: params.deep_merge(account: { website: '' }), headers: headers, as: :json
-    ai_agent_id = response.parsed_body.dig('ai_agent', 'id')
-
-    post "#{base_url}/complete", headers: headers, as: :json
-
-    expect(response).to have_http_status(:success)
-    expect(response.parsed_body['ai_agent_id']).to eq(ai_agent_id)
-    expect(account.reload.onboarding_step).to be_nil
-  end
-
-  it 'keeps an unfinished initial website import as an optional preview' do
+  it 'completes onboarding in the create request and leaves website findings for review' do
     post base_url, params: params, headers: headers, as: :json
-    website_import = account.ai_agent_website_imports.last
 
-    post "#{base_url}/complete", headers: headers, as: :json
-
-    expect(response).to have_http_status(:success)
+    expect(response).to have_http_status(:accepted)
     expect(account.reload.onboarding_step).to be_nil
-    expect(website_import.reload).to have_attributes(mode: 'preview', status: 'pending')
+    expect(account.ai_agent_website_imports.last).to have_attributes(status: 'pending')
+    expect(account.ai_agent_website_imports.last.base_document).to be_present
   end
 
   it 'rejects non-administrators' do

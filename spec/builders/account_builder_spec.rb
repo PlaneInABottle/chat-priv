@@ -62,6 +62,19 @@ RSpec.describe AccountBuilder do
         _user, account = account_builder.perform
         expect(account).to be_ai_agent_enabled
       end
+
+      it 'uses a supplied account locale' do
+        _user, account = described_class.new(
+          account_name: account_name,
+          email: email,
+          user_full_name: user_full_name,
+          user_password: user_password,
+          confirmed: true,
+          locale: 'tr'
+        ).perform
+
+        expect(account.locale).to eq('tr')
+      end
     end
   end
 end

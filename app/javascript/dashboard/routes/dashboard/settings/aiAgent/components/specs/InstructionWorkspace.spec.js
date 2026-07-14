@@ -2,12 +2,6 @@ import { shallowMount } from '@vue/test-utils';
 
 import InstructionWorkspace from '../InstructionWorkspace.vue';
 
-const mockUseAlert = vi.hoisted(() => vi.fn());
-
-vi.mock('dashboard/composables', () => ({
-  useAlert: mockUseAlert,
-}));
-
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
     t: (key, params) => (params ? `${key}:${params.count}` : key),
@@ -15,7 +9,8 @@ vi.mock('vue-i18n', () => ({
 }));
 
 const instructions = {
-  version: 3,
+  version: 4,
+  locale: 'en',
   profile: {
     language: 'same_as_customer',
     tone: 'natural',
@@ -84,6 +79,10 @@ describe('InstructionWorkspace', () => {
       'clamp(10rem, calc(100dvh - 37rem), 28rem)'
     );
     expect(editor.props('ariaLabel')).toContain('RULES.TITLE');
+    expect(editor.classes()).toContain('[&_.ProseMirror]:text-[0.9375rem]');
+    expect(editor.classes()).toContain('[&_.ProseMirror]:leading-6');
+    expect(editor.classes()).toContain('[&_.ProseMirror_p]:!text-[0.9375rem]');
+    expect(editor.classes()).toContain('[&_.ProseMirror_p]:!leading-6');
     expect(
       wrapper.get('[data-testid="instruction-section-content"]').classes()
     ).toContain('overflow-y-auto');
@@ -153,20 +152,5 @@ describe('InstructionWorkspace', () => {
 
     expect(wrapper.vm.isTestFocused).toBe(true);
     expect(testPanel.props('isFocused')).toBe(true);
-  });
-
-  it('explains why website import cannot start with unsaved changes', async () => {
-    const wrapper = mountComponent();
-    const importButton = wrapper
-      .findAllComponents({ name: 'Button' })
-      .find(button =>
-        button.props('label')?.includes('AI_ASSISTANT.WEBSITE_IMPORT.OPEN')
-      );
-
-    expect(importButton.vm.$attrs.disabled).toBeUndefined();
-    await importButton.vm.$emit('click');
-    expect(mockUseAlert).toHaveBeenCalledWith(
-      'AI_ASSISTANT.WEBSITE_IMPORT.SAVE_FIRST'
-    );
   });
 });

@@ -1,4 +1,730 @@
 {
+  "AI_AGENT": {
+    "HEADER": "Yapay zeka asistanı",
+    "DESCRIPTION": "Asistanın nasıl yanıt vereceğini ayarlayın, gelen kutularını bağlayın ve hazır olduğunda yayınlayın.",
+    "LEARN_MORE": "Yapay zeka asistanı hakkında bilgi alın",
+    "BACK": "Geri",
+    "UNSAVED_CHANGES_WARNING": "Kaydedilmemiş değişiklikleriniz var. Ayrılmak istediğinizden emin misiniz?",
+    "SAVE": {
+      "BUTTON": "Değişiklikleri kaydet",
+      "DISCARD": "Değişiklikleri geri al",
+      "SUCCESS": "Asistan ayarları kaydedildi",
+      "ERROR": "Asistan ayarları kaydedilemedi"
+    },
+    "TABS": {
+      "LABEL": "Asistan ayarları görünümü",
+      "INSTRUCTIONS": "Talimatlar",
+      "KNOWLEDGE": "Bilgi kaynakları",
+      "CONNECTIONS": "Bağlantılar",
+      "TEST_HISTORY": "Test",
+      "IMPROVE": "İyileştir"
+    },
+    "NAME": {
+      "LABEL": "Asistan adı",
+      "PLACEHOLDER": "Asistan adını girin…"
+    },
+    "PROMPT": {
+      "LABEL": "Talimatlar",
+      "PLACEHOLDER": "Asistanın nasıl yanıt vermesi gerektiğini açıklayın…",
+      "HELP": "Müşteri konuşmaları için açık ve sade yönlendirmeler yazın.",
+      "REQUIRED_FOR_TESTING": "Bu yapay zeka asistanını test etmeden önce talimat ekleyip değişiklikleri kaydedin."
+    },
+    "ENABLED": {
+      "LABEL": "Yapay zeka asistanını etkinleştir",
+      "HELP": "Etkin olduğunda yapay zeka, kendisine atanan konuşmalara yanıt verir."
+    },
+    "INBOXES": {
+      "LABEL": "Bağlı gelen kutuları",
+      "HELP": "Bu yapay zeka asistanının atanabileceği gelen kutularını seçin",
+      "NONE": "Kullanılabilir gelen kutusu yok",
+      "ASSIGNED_TO": "{owner} tarafından kullanılıyor"
+    },
+    "TOOLS": {
+      "LABEL": "Yetenekler",
+      "HELP": "Asistanın tamamlayabileceği müşteri işlemlerini seçin. İnsan desteğine aktarım her zaman kullanılabilir.",
+      "HUMAN_HANDOFF": {
+        "LABEL": "İnsan desteğine aktarım",
+        "HELP": "Asistan gerektiğinde konuşmayı her zaman ekibinize aktarabilir.",
+        "ALLOWED_LABELS_LABEL": "Aktarım etiketleri (isteğe bağlı)",
+        "ALLOWED_LABELS_PLACEHOLDER": "Etiket seçin",
+        "ALLOWED_LABELS_SEARCH_PLACEHOLDER": "Etiket ara",
+        "ALLOWED_LABELS_EMPTY": "Eşleşen etiket bulunamadı",
+        "ALLOWED_LABELS_HELP": "Bu yönlendirme etiketleri aktarım sırasında konuşmaya eklenebilir. Özel notta değil, konuşma kenar çubuğunda görünür."
+      },
+      "IKAS_LOOKUP_ORDER": {
+        "LABEL": "Sipariş bilgileri",
+        "HELP": "Bağlı ikas mağazanızdan sipariş, ödeme, paket, kargo ve takip bilgilerini sorgulayın.",
+        "CONNECTED": "ikas sipariş sorgulama, sipariş ve kargo soruları için hazır.",
+        "UNAVAILABLE": "ikas sipariş sorgulama kullanılamıyor (durum: {state})."
+      },
+      "IKAS_CATALOG_SEARCH": {
+        "LABEL": "Ürün bilgileri",
+        "HELP": "Ürün, stok, ölçü, renk ve uyumluluk sorularını yanıtlamadan önce bağlı ikas kataloğunuzda arama yapın.",
+        "READY": "ikas kataloğu eşitlendi ve ürün soruları için hazır.",
+        "UNAVAILABLE": "ikas katalog araması kullanılamıyor (bağlantı: {state}, katalog: {catalogStatus})."
+      }
+    },
+    "USAGE_REPORT": {
+      "TITLE": "Yapay zeka kullanımı",
+      "HELP": "Bu hesabın aylık yapay zeka konuşma kullanımı.",
+      "EXHAUSTED_HELP": "Aylık limit sıfırlanana kadar yapay zeka yanıtları duraklatılır. Yeni müşteri mesajları insan temsilcilere yönlendirilir.",
+      "LOADING": "Yükleniyor…",
+      "UNAVAILABLE": "Kullanılamıyor",
+      "DISABLED": "Devre dışı",
+      "DISABLED_HELP": "Yapay zeka asistanı bu hesap için devre dışı.",
+      "UNLIMITED_REMAINING": "Sınırsız",
+      "UNLIMITED_USED": "{used} kullanıldı",
+      "REMAINING": "{count} kaldı",
+      "USED_OF_LIMIT": "{limit} hakkın {used} kadarı kullanıldı",
+      "RESET_AT": "Sıfırlanma tarihi",
+      "REUSE_WINDOW": "Aynı müşteri süresi",
+      "HOURS": "{count} saat",
+      "AI_REPLIES": "Yapay zeka yanıtları",
+      "HANDOFFS": "İnsan desteğine aktarımlar",
+      "COUNTED_CONVERSATIONS": "{count} sayılan konuşma",
+      "TOOL_CALLS": "{count} araç çağrısı",
+      "RECENT_CONVERSATIONS": "Yakın zamanda sayılan konuşmalar",
+      "UNKNOWN_CONTACT": "Bilinmeyen kişi",
+      "CONVERSATION_LABEL": "Konuşma #{id}",
+      "COUNTED_AT": "{time} tarihinde sayıldı",
+      "REUSE_UNTIL": "{time} tarihine kadar yeniden kullanım"
+    },
+    "TEST_CONVERSATIONS": {
+      "TITLE": "Test konuşmaları",
+      "NEW": "Yeni test",
+      "CLEAR_ALL": "Tümünü temizle",
+      "CLEAR_ALL_CONFIRM": "Tüm test konuşmaları silinsin mi? Bu işlem geri alınamaz.",
+      "EMPTY": "Henüz test konuşması yok. Yapay zeka asistanınızı denemek için yeni bir test başlatın.",
+      "EMPTY_CHAT": "Sohbete başlamak için bir test konuşması seçin veya oluşturun.",
+      "DELETE_CONFIRM": "Bu test konuşması silinsin mi?",
+      "DELETE": "Sil",
+      "CANCEL": "İptal",
+      "MESSAGES_COUNT": "{count} mesaj",
+      "MESSAGE_LIMIT_REACHED": "Mesaj sınırına ulaşıldı (en fazla 200 mesaj). Yeni bir test konuşması başlatın.",
+      "TEST_MODE": "TEST MODU",
+      "PLACEHOLDER": "Bir test mesajı yazın…",
+      "SEND": "Gönder",
+      "RESPONSE_WAIT": "Yapay zeka düşünüyor…",
+      "HANDOFF_TITLE": "İnsan desteğine aktarım önizlemesi",
+      "HANDOFF_PREVIEW": "Bu konuşma bir insan temsilciye aktarılırdı.",
+      "INTERNAL_NOTE": "Özel not:",
+      "LABELS_TO_APPLY": "Konuşma etiketleri:",
+      "LABELS_IGNORED": "Kullanılamayan etiketler:",
+      "SOURCES_USED": "Kullanılan kaynaklar",
+      "SAVE_BEFORE_TESTING": "Bu yapay zeka asistanını test etmeden önce değişikliklerinizi kaydedin.",
+      "ADD_PROMPT_BEFORE_TESTING": "Bu yapay zeka asistanını test etmeden önce talimat ekleyip değişikliklerinizi kaydedin.",
+      "ERROR": "Şu anda yanıt oluşturamadım. Lütfen tekrar deneyin."
+    }
+  },
+  "AI_ASSISTANT": {
+    "STATUS": {
+      "ACTIVE": "Etkin",
+      "PAUSED": "Duraklatıldı",
+      "DRAFT": "Taslak"
+    },
+    "LIST": {
+      "NAME": "Asistan",
+      "STATUS": "Durum",
+      "INBOXES": "Gelen kutuları",
+      "UPDATED": "Güncellendi",
+      "ACTIONS": "İşlemler",
+      "DRAFT_UPDATE": "Bekleyen güncelleme",
+      "INBOX_COUNT": "Gelen kutusu yok | {count} gelen kutusu | {count} gelen kutusu"
+    },
+    "USAGE": {
+      "TITLE": "Yapay zeka asistanı kullanımı",
+      "DESCRIPTION": "Hesap genelindeki konuşma kullanımını ve son etkinlikleri inceleyin.",
+      "OPEN": "Kullanımı görüntüle",
+      "BACK": "Asistanlara dön"
+    },
+    "READINESS": {
+      "TITLE": "Kurulumu tamamlayın",
+      "DESCRIPTION": "Yayınlamadan önce kalan zorunlu adımları tamamlayın.",
+      "INSTRUCTIONS": "Talimatlar eklendi",
+      "INBOX": "Gelen kutusu bağlandı"
+    },
+    "RELEASE_HISTORY": {
+      "TITLE": "Sürüm geçmişi",
+      "OPEN": "Sürüm geçmişi",
+      "VERSION": "Sürüm {version}",
+      "LIVE": "Yayında",
+      "CREATED_BY": "{date}, {name}",
+      "SOURCE": {
+        "PUBLISHED": "Yayınlandı",
+        "RESTORED": "Geri yüklendi",
+        "IMPORTED": "Önceki sürümden aktarıldı",
+        "UNKNOWN": "Kaydedilmiş sürüm"
+      },
+      "LOADING": "Sürümler yükleniyor…",
+      "EMPTY": "Henüz yayınlanmış sürüm yok.",
+      "RESTORE": "Geri yükle",
+      "CONFIRM_RESTORE": "Sürümü geri yükle",
+      "RESTORE_WARNING": "Sürüm {version} yeni canlı sürüm olarak geri yüklensin mi?",
+      "RESTORED": "Sürüm geri yüklendi",
+      "LOAD_ERROR": "Sürüm geçmişi yüklenemedi.",
+      "RESTORE_ERROR": "Sürüm geri yüklenemedi.",
+      "COMPARE_HELP": "Yalnızca mevcut canlı sürümden farklı alanlar gösterilir.",
+      "VIEWED": "Görüntülenen sürüm",
+      "CURRENT_LIVE": "Mevcut canlı sürüm",
+      "EMPTY_VALUE": "Ayarlanmadı",
+      "KNOWLEDGE_CONTENT_CHANGED": "{name} (içerik değişti)",
+      "NO_DIFFERENCES": "Bu sürüm, canlı sürümle aynı müşteriye dönük ayarlara sahip.",
+      "FIELDS": {
+        "GREETING": "Karşılama",
+        "INSTRUCTIONS": "Talimatlar",
+        "LANGUAGE": "Dil",
+        "VOICE": "Ses",
+        "KNOWLEDGE": "Paylaşılan Bilgi"
+      }
+    },
+    "ACTIONS": {
+      "PUBLISH": "Asistanı yayınla",
+      "PUBLISH_UPDATE": "Güncellemeyi yayınla",
+      "RESUME": "Asistanı devam ettir",
+      "PAUSE": "Duraklat",
+      "PUBLISHED": "Asistan yayınlandı",
+      "UPDATED": "Asistan güncellemesi yayınlandı",
+      "RESUMED": "Asistan devam ettirildi",
+      "PAUSED": "Asistan duraklatıldı ve yeni müşteri mesajlarına yanıt vermiyor.",
+      "PUBLISH_ERROR": "Yayınlamadan önce kurulum adımlarını tamamlayın."
+    },
+    "RELEASE": {
+      "LIVE": "Sürüm {version} müşterilere yanıt veriyor. Çalışmasını kesmeden taslağı düzenleyebilir ve test edebilirsiniz.",
+      "PENDING": "Sürüm {version} müşterilere yanıt vermeye devam ediyor. Kaydedilen taslak, güncellemeyi yayınlayana kadar kullanıma alınmaz.",
+      "PAUSED": "Sürüm {version} duraklatıldı. Aynı haliyle devam ettirebilir veya kaydedilen taslağı yayınlayabilirsiniz."
+    },
+    "CAPABILITIES": {
+      "HANDOFF": "İnsan desteğine aktarım",
+      "ALWAYS_ON": "Her zaman kullanılabilir"
+    },
+    "INSTRUCTIONS": {
+      "TITLE": "Talimatlar",
+      "DESCRIPTION": "Bu asistanın nasıl konuşacağını, karar vereceğini ve müşteri taleplerini nasıl ele alacağını belirleyin.",
+      "DRAFT_TEST": "Bu taslağı test et",
+      "DRAFT_TEST_HELP": "Buradaki mesajlar, kaydedilmemiş değişiklikler dahil ekrandaki talimatları kullanır.",
+      "FOCUS_TEST": "Test konuşmasını büyüt",
+      "SHOW_EDITOR": "Talimat düzenleyicisini göster",
+      "UNSAVED_DRAFT": "Kaydedilmemiş taslak",
+      "TEST_CONVERSATION": "Test konuşması",
+      "SELECT_TEST": "Bir konuşma seçin",
+      "EDIT_VIEW": "Talimatları düzenle",
+      "TEST_VIEW": "Taslağı test et",
+      "DOCUMENT_PLACEHOLDER": "Asistanın talimatlarını yazın…",
+      "CONFIGURE": "Yapılandır",
+      "HANDOFF_HELP": "Asistan konuşmayı her zaman ekibinize aktarabilir. Aktarım sırasında ekleyebileceği etiketleri yapılandırın.",
+      "CONFIGURED": "Yapılandırıldı",
+      "NOT_CONFIGURED": "Yapılandırılmadı",
+      "HANDOFF_DEFAULT_STATUS": "Varsayılan olarak kullanılabilir",
+      "ALL_SECTIONS_STATUS": "Birleşik önizleme",
+      "ALL_SECTIONS_EMPTY": "Talimatların tamamını burada görmek için bir bölüme yönlendirme ekleyin.",
+      "SECTION_SELECTOR": "Talimat bölümü",
+      "TOTAL_CHAR_COUNT": "Toplam {count} / {limit} karakter",
+      "SECTIONS": {
+        "ALL": {
+          "SHORT_TITLE": "Tüm talimatlar",
+          "TITLE": "Tüm talimatlar",
+          "DESCRIPTION": "Asistanın kullanacağı talimatların tamamını inceleyin. Değişiklik yapmak için bir bölüm seçin."
+        },
+        "PROFILE": {
+          "SHORT_TITLE": "Dil ve üslup",
+          "TITLE": "Dil ve üslup",
+          "DESCRIPTION": "Asistanın varsayılan dilini ve iletişim biçimini seçin."
+        },
+        "IDENTITY": {
+          "SHORT_TITLE": "Kimlik",
+          "TITLE": "Kimlik ve amaç",
+          "DESCRIPTION": "Asistanın kimi temsil ettiğini ve hangi sonuca ulaşması gerektiğini tanımlayın.",
+          "PLACEHOLDER": "Asistanın rolünü, sorumluluklarını ve temel amacını açıklayın…"
+        },
+        "BUSINESS_CONTEXT": {
+          "SHORT_TITLE": "İşletme bilgileri",
+          "TITLE": "İşletme bilgileri",
+          "DESCRIPTION": "Asistanın bilmesi gereken işletme, ürün, politika ve müşteri bağlamını ekleyin.",
+          "PLACEHOLDER": "İşletmenizle ilgili önemli ve kalıcı bilgileri ekleyin…"
+        },
+        "TASKS": {
+          "SHORT_TITLE": "Konuşma akışı",
+          "TITLE": "Görevler ve konuşma akışı",
+          "DESCRIPTION": "Asistanın ne yapacağını ve müşteriyi talepler boyunca nasıl yönlendireceğini açıklayın.",
+          "PLACEHOLDER": "Asistanın izlemesi gereken görevleri ve konuşma akışını açıklayın…"
+        },
+        "RULES": {
+          "SHORT_TITLE": "Kurallar",
+          "TITLE": "Kurallar ve sınırlar",
+          "DESCRIPTION": "Asistanın uyması, kaçınması ve asla iddia etmemesi gereken noktaları belirtin.",
+          "PLACEHOLDER": "Açık kurallar, kısıtlamalar ve sınırlar ekleyin…"
+        },
+        "HANDOFF": {
+          "SHORT_TITLE": "İnsan desteği",
+          "TITLE": "İnsan desteğine aktarım",
+          "DESCRIPTION": "Asistanın ne zaman yanıt vermeyi bırakıp konuşmayı ekibinize aktarması gerektiğini açıklayın.",
+          "PLACEHOLDER": "İnsan desteği gerektiren durumları açıklayın…"
+        },
+        "EXAMPLES": {
+          "SHORT_TITLE": "Örnekler",
+          "TITLE": "Örnek konuşmalar",
+          "DESCRIPTION": "Önemli veya zor müşteri durumları için tercih edilen yanıt örnekleri verin.",
+          "PLACEHOLDER": "Örnek müşteri soruları ve tercih edilen yanıtları ekleyin…"
+        },
+        "ADDITIONAL": {
+          "SHORT_TITLE": "Ek talimatlar",
+          "TITLE": "Ek talimatlar",
+          "DESCRIPTION": "Diğer sabit bölümlere uymayan yönlendirmeleri burada tutun.",
+          "PLACEHOLDER": "Kalan yönlendirmeleri ekleyin…"
+        }
+      },
+      "PROFILE": {
+        "TITLE": "Dil ve üslup",
+        "DESCRIPTION": "Komut yazmadan varsayılan iletişim biçimini ayarlayın.",
+        "NOT_SET": "Burada ayarlanmadı",
+        "LANGUAGE_LABEL": "Yanıt dili",
+        "TONE_LABEL": "Üslup",
+        "FORMALITY_LABEL": "Resmiyet",
+        "RESPONSE_LENGTH_LABEL": "Yanıt uzunluğu",
+        "LANGUAGE": {
+          "SAME_AS_CUSTOMER": "Müşterinin dilini kullan",
+          "TURKISH": "Türkçe",
+          "ENGLISH": "İngilizce"
+        },
+        "TONE": {
+          "NATURAL": "Doğal",
+          "FRIENDLY": "Samimi",
+          "PROFESSIONAL": "Profesyonel",
+          "CONCISE": "Öz"
+        },
+        "FORMALITY": {
+          "BALANCED": "Dengeli",
+          "CASUAL": "Gündelik",
+          "FORMAL": "Resmi"
+        },
+        "RESPONSE_LENGTH": {
+          "BALANCED": "Dengeli",
+          "SHORT": "Kısa",
+          "DETAILED": "Ayrıntılı"
+        }
+      }
+    },
+    "EVALUATIONS": {
+      "TITLE": "Değerlendirme senaryoları",
+      "DESCRIPTION": "Temsili müşteri sorularını kaydedin ve iyi bir yanıtın ne yapması gerektiğini açıklayın. Çalıştırmalar kaydedilmiş taslağı kullanır ve müşterilerle iletişime geçmez.",
+      "ADD": "Senaryo ekle",
+      "EDIT": "Senaryoyu düzenle",
+      "DELETE": "Senaryoyu sil",
+      "LOADING": "Değerlendirme senaryoları yükleniyor…",
+      "SAVED": "Değerlendirme senaryosu kaydedildi",
+      "DELETED": "Değerlendirme senaryosu silindi",
+      "CRITERIA_LABEL": "İyi yanıt: ",
+      "GENERATE": {
+        "ACTION": "Senaryo öner",
+        "STARTED": "Önerilen senaryolar arka planda hazırlanıyor",
+        "SUCCESS": "{count} önerilen senaryo eklendi. Çalıştırmadan önce inceleyin."
+      },
+      "REVIEW": {
+        "NEEDED": "İnceleme gerekli",
+        "APPROVE": "Senaryoyu onayla",
+        "APPROVED": "Değerlendirme senaryosu onaylandı"
+      },
+      "QUALITY": {
+        "TITLE": "Sürüme göre kalite",
+        "DESCRIPTION": "Değerlendirme puanları, ilgili sürümün en son tamamlanan çalıştırmasını kullanır. Canlı etkinlik, her yayınlanmış sürümün yönettiği müşteri konuşmalarını gösterir.",
+        "DRAFT": "Mevcut taslak",
+        "VERSION": "Sürüm {version}",
+        "LIVE": "Yayında",
+        "CURRENT": "Mevcut sürüm",
+        "NOT_PUBLISHED": "Yayınlanmadı",
+        "VERSION_HEADER": "Sürüm",
+        "EVALUATION_HEADER": "Değerlendirme",
+        "CONVERSATIONS": "Konuşmalar",
+        "AI_REPLIES": "Yapay zeka yanıtları",
+        "HANDOFFS": "İnsan desteğine aktarımlar",
+        "NOT_EVALUATED": "Değerlendirilmedi",
+        "NOT_LIVE": "Yayında değil",
+        "NO_ACTIVITY": "Canlı etkinlik yok",
+        "EVALUATION_SCORE": "{total} senaryonun {passed} kadarı geçti (%{rate})",
+        "HANDOFF_VALUE": "{count} (%{rate})"
+      },
+      "RUN": {
+        "ACTION": "İncelenenleri çalıştır",
+        "RUNNING": "Mevcut taslak değerlendiriliyor…",
+        "FAILED": "Değerlendirme çalıştırması tamamlanamadı.",
+        "SUMMARY": "{total} senaryonun {passed} kadarı geçti",
+        "OLDER_DRAFT": "Bu sonuçlar eski bir taslağa ait. Sonuçlara güvenmeden önce senaryoları yeniden çalıştırın."
+      },
+      "FORM": {
+        "ADD_TITLE": "Değerlendirme senaryosu ekle",
+        "EDIT_TITLE": "Değerlendirme senaryosunu düzenle",
+        "NAME": "Senaryo adı",
+        "NAME_PLACEHOLDER": "Örneğin: Teslimat süresi sorusu",
+        "MESSAGE": "Müşteri mesajı",
+        "MESSAGE_PLACEHOLDER": "Mesajı bir müşterinin göndereceği şekilde yazın…",
+        "MESSAGE_HELP": "Ad, sipariş numarası, adres ve diğer kişisel bilgileri kaldırın.",
+        "CRITERIA": "İyi bir yanıt ne yapmalı?",
+        "CRITERIA_PLACEHOLDER": "Örneğin: Teslimatın konuma göre değiştiğini açıklasın ve kesin tarih sözü vermesin.",
+        "CRITERIA_HELP": "Gerekli bilgileri, işlemleri veya sınırları sade bir dille açıklayın.",
+        "CANCEL": "İptal",
+        "SAVE": "Senaryoyu kaydet"
+      },
+      "RESULT": {
+        "NOT_RUN": "Çalıştırılmadı",
+        "PASSED": "Geçti",
+        "FAILED": "İnceleme gerekli",
+        "OLDER_DRAFT": "Eski taslak",
+        "CHANGED": "Çalıştırmadan sonra değişti",
+        "ANSWER": "Asistan yanıtı",
+        "REASON": "Değerlendirme"
+      },
+      "EMPTY": {
+        "TITLE": "Henüz değerlendirme senaryosu yok",
+        "DESCRIPTION": "Doğruluk, üslup veya insan desteğine aktarımın en önemli olduğu müşteri sorularıyla başlayın."
+      },
+      "CONFIRM_DELETE": {
+        "TITLE": "Bu senaryo silinsin mi?",
+        "DESCRIPTION": "Geçmiş çalıştırma sonuçları kendi anlık görüntüsünü korur ancak bu senaryo gelecekteki çalıştırmalara dahil edilmez."
+      },
+      "ERROR": {
+        "LOAD": "Değerlendirme senaryoları yüklenemedi.",
+        "QUALITY": "Sürüm kalitesi yüklenemedi.",
+        "REFRESH": "Değerlendirme çalıştırması yenilenemedi.",
+        "SAVE": "Değerlendirme senaryosu kaydedilemedi.",
+        "DELETE": "Değerlendirme senaryosu silinemedi.",
+        "GENERATE": "Değerlendirme senaryoları önerilemedi.",
+        "REVIEW": "Değerlendirme senaryosu onaylanamadı.",
+        "RUN": "Değerlendirme çalıştırması başlatılamadı."
+      }
+    },
+    "IMPROVE": {
+      "EVALUATIONS": "Değerlendirmeler",
+      "LEARNINGS": "Öğrenimler",
+      "SAVE_DRAFT_FIRST": "Değerlendirmeleri çalıştırmadan veya talimat öğrenimlerini uygulamadan önce talimat değişikliklerini kaydedin ya da geri alın. İncelenen bilgiler Paylaşılan Bilgi'ye yine de kaydedilebilir."
+    },
+    "IMPROVEMENT_CREDITS": {
+      "TITLE": "İyileştirme kredileri",
+      "LOADING": "Kullanım yükleniyor…",
+      "UNLIMITED": "Sınırsız",
+      "SUMMARY": "{limit} kredinin {remaining} kadarı kaldı - {date} tarihinde sıfırlanır",
+      "DESCRIPTION": "Asistan testleri ve iyileştirme araçları tarafından kullanılır. Canlı müşteri konuşmaları ve gerçek çağrılar ayrı limitlere sahiptir.",
+      "LOAD_ERROR": "İyileştirme kredisi kullanımı yüklenemedi."
+    },
+    "LEARNING": {
+      "TITLE": "Öğrenim önerileri",
+      "DESCRIPTION": "İnsan yanıtlarından önerilen tekrar kullanılabilir yönlendirmeleri inceleyin, ardından davranış talimatı veya paylaşılan işletme bilgisi olarak kaydedin.",
+      "LOADING": "Öğrenim önerileri yükleniyor…",
+      "OPEN_CONVERSATION": "Konuşmayı aç",
+      "CUSTOMER_MESSAGE": "Müşteri mesajı",
+      "HUMAN_ANSWER": "İnsan yanıtı",
+      "PROPOSED_INSTRUCTION": "Önerilen talimat",
+      "PROPOSED_KNOWLEDGE": "Önerilen bilgi",
+      "DESTINATION": "Kayıt türü",
+      "SOURCE_NAME": "Bilgi kaynağı adı",
+      "TARGET_SECTION": "Talimat bölümü",
+      "DISMISS": "Kapat",
+      "APPLY_TO_DRAFT": "Talimatlara uygula",
+      "ADD_TO_KNOWLEDGE": "Paylaşılan Bilgi'ye ekle",
+      "APPLIED": "Öğrenim asistan taslağına eklendi",
+      "ADDED_AS_KNOWLEDGE": "Paylaşılan Bilgi'ye eklendi: {name}",
+      "ADDED_AS_INSTRUCTION": "Asistan talimatlarına eklendi",
+      "AUTO_CAPTURE": {
+        "TITLE": "Çözülen aktarımları incele",
+        "DESCRIPTION": "Yapay zeka aktarımı çözüldükten sonra, yeniden kullanılabilir yönlendirme için son herkese açık insan yanıtını analiz edin. Her analiz iyileştirme kredisi kullanır ve siz onaylayana kadar hiçbir şey değişmez.",
+        "ENABLED": "Çözülen aktarımlar artık öğrenimler için incelenecek",
+        "DISABLED": "Otomatik aktarım incelemesi devre dışı bırakıldı"
+      },
+      "DISMISSED": "Öğrenim önerisi kapatıldı",
+      "NO_OPEN": "İncelenecek öneri yok.",
+      "HISTORY": "İncelenen öneriler ({count})",
+      "EMPTY": {
+        "TITLE": "Henüz öğrenim önerisi yok",
+        "DESCRIPTION": "Asistan için önerilen insan yanıtları yönetici incelemesi için burada görünür."
+      },
+      "STATUS": {
+        "PENDING": "Analiz bekliyor",
+        "ANALYZING": "Analiz ediliyor",
+        "READY": "İncelemeye hazır",
+        "APPLIED": "Taslağa eklendi",
+        "DISMISSED": "Kapatıldı",
+        "FAILED": "İnceleme gerekli",
+        "NOT_RECOMMENDED": "Önerilmiyor"
+      },
+      "SECTIONS": {
+        "BUSINESS_CONTEXT": "İşletme bilgileri",
+        "TASKS": "Görevler ve konuşma akışı",
+        "RULES": "Kurallar ve sınırlar",
+        "HANDOFF": "İnsan desteğine aktarım",
+        "ADDITIONAL": "Ek talimatlar"
+      },
+      "DESTINATIONS": {
+        "KNOWLEDGE": "Paylaşılan Bilgi",
+        "INSTRUCTIONS": "Asistan talimatları"
+      },
+      "CONFIRM_DISMISS": {
+        "TITLE": "Bu öneri kapatılsın mı?",
+        "DESCRIPTION": "İncelenen önerilere taşınır ve asistan taslağını değiştirmez."
+      },
+      "ERROR": {
+        "LOAD": "Öğrenim önerileri yüklenemedi.",
+        "APPLY": "Öneri taslağa uygulanamadı.",
+        "DISMISS": "Öneri kapatılamadı."
+      }
+    },
+    "CREATE": {
+      "PROGRESS": "Asistan kurulum ilerlemesi",
+      "STEPS": {
+        "BASICS": "Temel bilgiler",
+        "INSTRUCTIONS": "Talimatlar",
+        "INBOXES": "Gelen kutuları",
+        "REVIEW": "İnceleme"
+      },
+      "BASICS_TITLE": "Bu asistan ne yapmalı?",
+      "BASICS_HELP": "Açık bir amaç seçin. Test etmeden önce talimatları ayrıntılandırabilirsiniz.",
+      "GOAL_LABEL": "Ana amaç",
+      "GOALS": {
+        "SUPPORT": "Müşteri sorularını yanıtla",
+        "SALES": "Müşterilerin ürün seçmesine yardımcı ol",
+        "ORDERS": "Sipariş ve teslimatta yardımcı ol",
+        "CUSTOM": "Özel bir destek akışı"
+      },
+      "LANGUAGE": "Yanıt dili",
+      "LANGUAGES": {
+        "SAME_AS_CUSTOMER": "Her müşterinin dilini kullan",
+        "TR": "Türkçe",
+        "EN": "İngilizce"
+      },
+      "TONE": "Üslup",
+      "TONES": {
+        "FRIENDLY": "Samimi",
+        "PROFESSIONAL": "Profesyonel",
+        "CONCISE": "Öz"
+      },
+      "INSTRUCTIONS_TITLE": "İşletme yönlendirmesi ekleyin",
+      "INSTRUCTIONS_HELP": "İşletme bilgilerini ve sınırları ekleyin, ardından önerilen konuşma akışını sade bir dille düzenleyin.",
+      "BUSINESS_CONTEXT": "İşletmeniz hakkında neleri bilmeli?",
+      "BOUNDARIES": "Nelerden kaçınmalı veya bir insana bırakmalı?",
+      "REBUILD": "Önerilen akışı sıfırla",
+      "INSTRUCTIONS_LABEL": "Görevler ve konuşma akışı",
+      "INSTRUCTIONS_REQUIRED": "Devam etmeden önce talimat ekleyin.",
+      "INBOXES_TITLE": "Nerede yanıt vermeli?",
+      "INBOXES_HELP": "En az bir gelen kutusu bağlayın. Bir gelen kutusu yalnızca bir otomatik asistana ait olabilir.",
+      "INBOX_REQUIRED": "Devam etmeden önce en az bir gelen kutusu seçin.",
+      "REVIEW_TITLE": "Taslağınızı oluşturun",
+      "REVIEW_HELP": "Bu işlem çevrimdışı bir taslak oluşturur. Düzenleyicide inceleyin ve hazır olduğunda yayınlayın.",
+      "BACK": "Geri",
+      "CONTINUE": "Devam et",
+      "CREATE_DRAFT": "Taslak oluştur"
+    },
+    "WEBSITE_IMPORT": {
+      "ENTRY_TITLE": "Web sitesi bilgileri",
+      "ENTRY_HELP": "Web sitenizdeki kalıcı şirket bilgilerini ve politikaları taslağa ekleyin.",
+      "TITLE": "Web sitesinden bilgi al",
+      "DESCRIPTION": "Ana sayfayı ve ilgili en fazla dokuz sayfayı okuruz. Seçimlerinizi inceleyene kadar hiçbir şey değişmez.",
+      "URL_LABEL": "Şirket web sitesi",
+      "URL_PLACEHOLDER": "example.com",
+      "ANALYZE": "Web sitesini incele",
+      "START_OVER": "Yeni inceleme başlat",
+      "PROGRESS_HELP": "Bu pencereyi kapatabilirsiniz. İnceleme arka planda devam eder.",
+      "STATUS_RUNNING_HELP": "{website} okunuyor. İncelemeniz olmadan taslağınız değişmeyecek.",
+      "READY_TITLE": "Web sitesi incelemesi hazır ({count} öneri)",
+      "READY_KNOWLEDGE_TITLE": "Web sitesi bilgileri incelemeye hazır",
+      "READY_TO_REVIEW": "Web sitesi önerileri incelemeye hazır.",
+      "STATUS_READY_HELP": "{pages} sayfadan hazırlanan talimat önerilerini inceleyin ve isterseniz siteyi Paylaşılan Bilgi'ye ekleyin.",
+      "FAILED_TITLE": "Web sitesi incelemesi tamamlanamadı",
+      "STATUS_FAILED_HELP": "Web sitesini yeniden deneyin veya asistanı elle düzenlemeye devam edin.",
+      "REVIEW": "Önerileri incele",
+      "DISMISS": "Kapat",
+      "STAGE": {
+        "QUEUED": "Web sitesi inceleme için bekliyor…",
+        "CRAWLING": "Web sitesindeki önemli sayfalar okunuyor…",
+        "GENERATING": "Talimat önerileri hazırlanıyor…",
+        "APPLYING": "Seçimler uygulanıyor…",
+        "COMPLETE": "İnceleme tamamlandı"
+      },
+      "REVIEW_HELP": "Her bölümde mevcut metninizi korumayı veya web sitesi önerisini kullanmayı seçin. Uyguladığınızda kaydedilmemiş düzenlemeleriniz de kaydedilir.",
+      "SOURCES": "İncelenen kaynaklar",
+      "CURRENT": "Mevcut taslak",
+      "SUGGESTED": "Web sitesi önerisi",
+      "KEEP_CURRENT": "Mevcut metni koru",
+      "USE_SUGGESTION": "Öneriyi kullan",
+      "EDITED_SINCE_ANALYSIS": "Bu bölümü inceleme başladıktan sonra düzenlediniz. Metniniz varsayılan olarak korunur.",
+      "EMPTY": "Bu bölümde talimat yok",
+      "NO_CHANGES": "Web sitesi yeni bir talimat önerisi üretmedi.",
+      "ATTACH_KNOWLEDGE": "Bu web sitesini Paylaşılan Bilgi'ye ekle",
+      "ATTACH_KNOWLEDGE_HELP": "İncelenen {pages} sayfanın tam içeriğini ({characters} karakter) ekleyin. Asistan yayınlandıktan sonra bu bilgilerde arama yapabilir.",
+      "APPLY_SELECTED": "Seçimleri uygula",
+      "APPLIED": "Web sitesi seçimleri taslağa kaydedildi",
+      "TRY_AGAIN": "Yeniden dene",
+      "CANCEL": "Kapat",
+      "ERROR": {
+        "LOAD": "Önceki web sitesi incelemesi yüklenemedi.",
+        "START": "Web sitesi incelenemedi. Adresi kontrol edip tekrar deneyin.",
+        "APPLY": "Seçimler uygulanamadı. Taslağı yenileyip tekrar deneyin.",
+        "CREDITS_EXHAUSTED": "Bu ayın iyileştirme kredileri tükendi. Hizmet yöneticinizle iletişime geçin.",
+        "INVALID_WEBSITE": "example.com gibi herkese açık bir şirket web sitesi girin.",
+        "RATE_LIMITED": "Web sitesi kısa süre önce incelendi. Biraz bekleyip tekrar deneyin.",
+        "TIMED_OUT": "Web sitesi incelemesi çok uzun sürdü. Tekrar deneyin veya bilgileri elle ekleyin.",
+        "TOO_LARGE": "Bu web sitesindeki bir sayfa incelenemeyecek kadar büyük.",
+        "UNREACHABLE": "Web sitesine ulaşılamadı. Adresi kontrol edin veya daha sonra tekrar deneyin.",
+        "GENERATION_FAILED": "Web sitesi okundu ancak öneriler hazırlanamadı.",
+        "ANALYSIS_FAILED": "Web sitesi incelemesi tamamlanamadı.",
+        "DRAFT_CHANGED": "Kaydedilen talimatlar değişti. Güncel taslağı karşılaştırmak için yeniden inceleme başlatın.",
+        "REVIEW_CONTEXT_MISSING": "Bu eski inceleme güvenli bir karşılaştırma içermiyor. Yeniden inceleme başlatın.",
+        "INVALID_SELECTION": "En az bir öneri veya Paylaşılan Bilgi seçeneği belirleyin.",
+        "RESTART": "Bu inceleme kapatılamadı. Lütfen tekrar deneyin.",
+        "DISMISS": "Web sitesi önerileri kapatılamadı. Lütfen tekrar deneyin."
+      }
+    }
+  },
+  "AI_AGENTS": {
+    "HEADER": "Yapay zeka asistanları",
+    "DESCRIPTION": "Müşteri konuşmalarını yanıtlayan asistanları oluşturun ve yönetin.",
+    "ADD": "Yeni asistan",
+    "NEW": {
+      "TITLE": "Yeni yapay zeka asistanı",
+      "NAME_LABEL": "Asistan adı",
+      "NAME_PLACEHOLDER": "Örneğin: Satış Asistanı",
+      "CREATE": "Asistan oluştur",
+      "CANCEL": "İptal",
+      "NAME_REQUIRED": "Ad zorunludur",
+      "SUCCESS": "Yapay zeka asistanı oluşturuldu",
+      "ERROR": "Yapay zeka asistanı oluşturulamadı"
+    },
+    "LIST": {
+      "EMPTY_TITLE": "Henüz yapay zeka asistanı yok",
+      "EMPTY_DESCRIPTION": "Başlamak için ilk yapay zeka asistanınızı oluşturun.",
+      "CREATE_FIRST": "İlk asistanı oluştur"
+    },
+    "ITEM": {
+      "EDIT": "Düzenle",
+      "DELETE": "Sil",
+      "DELETE_CONFIRM": "Bu asistanı silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
+      "INBOXES_COUNT": "{count} gelen kutusu",
+      "DELETE_SUCCESS": "Yapay zeka asistanı silindi",
+      "DELETE_ERROR": "Yapay zeka asistanı silinemedi",
+      "STATUS_ENABLED": "Etkin",
+      "STATUS_DISABLED": "Devre dışı"
+    }
+  },
+  "AI_KNOWLEDGE": {
+    "TITLE": "Paylaşılan Bilgi",
+    "DESCRIPTION": "Metin ve ses asistanlarının kullanabileceği işletme bilgilerini, politikaları ve yanıtları tek yerde yönetin.",
+    "LOADING": "Bilgi kaynakları yükleniyor…",
+    "ACTIONS": {
+      "ADD": "Kaynak ekle",
+      "MANAGE": "Paylaşılan Bilgi",
+      "EDIT": "Kaynağı düzenle",
+      "DELETE": "Kaynağı sil",
+      "SYNC": "Şimdi eşitle",
+      "ADD_AND_SYNC": "Ekle ve eşitle",
+      "SAVE": "Kaynağı kaydet",
+      "CANCEL": "İptal"
+    },
+    "SELECTOR": {
+      "TITLE": "Paylaşılan Bilgi",
+      "DESCRIPTION": "Bu asistanın bir sonraki yayından sonra kullanabileceği kaynakları seçin.",
+      "COUNT": "{limit} kaynağın {count} kadarı seçildi",
+      "CHOOSE": "Kaynak seç",
+      "NONE_SELECTED": "Bu asistan için Paylaşılan Bilgi seçilmedi.",
+      "DIALOG_TITLE": "Paylaşılan Bilgi seç",
+      "DIALOG_DESCRIPTION": "Kitaplıkta arama yapın ve bu asistan için en fazla 20 kaynak seçin.",
+      "SEARCH": "Bilgi kaynaklarında ara",
+      "NO_MATCHES": "Bu aramayla eşleşen bilgi kaynağı yok.",
+      "APPLY": "Seçimi uygula"
+    },
+    "EMPTY": {
+      "TITLE": "Henüz bilgi kaynağı yok",
+      "DESCRIPTION": "Doğrulanmış işletme bilgilerini, politikaları veya sık kullanılan yanıtları bir kez ekleyin ve istediğiniz asistan için seçin."
+    },
+    "COLUMNS": {
+      "SOURCE": "Kaynak",
+      "ASSISTANTS": "Asistanlar",
+      "UPDATED": "Güncellendi",
+      "FRESHNESS": "Güncellik",
+      "ACTIONS": "İşlemler"
+    },
+    "CHARACTERS": "{count} karakter",
+    "ASSISTANT_COUNT": "{count} asistan kullanıyor",
+    "EDITOR": {
+      "CREATE_TITLE": "Bilgi kaynağı ekle",
+      "EDIT_TITLE": "Bilgi kaynağını düzenle",
+      "TYPE": "Kaynak türü",
+      "MANUAL": "İçerik yaz",
+      "WEBSITE": "Web sitesini eşitle",
+      "MANUAL_DESCRIPTION": "Ekibinizin doğrudan yönettiği politikalar, yanıtlar ve bilgiler için uygundur.",
+      "WEBSITE_DESCRIPTION": "Web sitesini okuruz. Daha sonraki bir eşitleme başarısız olursa son başarılı içerik kullanılmaya devam eder.",
+      "NAME": "Kaynak adı",
+      "NAME_PLACEHOLDER": "Örneğin: İade politikası",
+      "WEBSITE_URL": "Web sitesi adresi",
+      "WEBSITE_URL_PLACEHOLDER": "https://example.com/policies",
+      "CONTENT": "Doğrulanmış içerik",
+      "CONTENT_PLACEHOLDER": "Asistanların kullanabileceği bilgileri ve yanıtları ekleyin…",
+      "CHARACTER_LIMIT": "{limit} karakterin {count} kadarı kullanıldı",
+      "SYNCED_CONTENT": "Eşitlenen içerik önizlemesi",
+      "SYNCED_CONTENT_DESCRIPTION": "Bu içerik salt okunurdur. Güncellemek için web sitesini değiştirip yeniden eşitleyin."
+    },
+    "STATUS": {
+      "PENDING": "Eşitleme bekliyor",
+      "SYNCING": "Web sitesi eşitleniyor",
+      "FAILED": "Eşitleme başarısız",
+      "NOT_SYNCED": "Henüz eşitlenmedi",
+      "WAITING_CONTENT": "İlk başarılı eşitlemeden sonra içerik kullanılabilir olur.",
+      "SYNCED_DATE": "{date} tarihinde eşitlendi",
+      "UPDATED_DATE": "{date} tarihinde güncellendi",
+      "LAST_SYNCED_DATE": "Son başarılı eşitleme: {date}"
+    },
+    "DELETE": {
+      "TITLE": "Bilgi kaynağı silinsin mi?",
+      "DESCRIPTION": "{name} kaynağı silinsin ve {count} taslak atamasından kaldırılsın mı? Yayınlanan sürümler mevcut anlık görüntülerini korur."
+    },
+    "SUCCESS": {
+      "SAVED": "Bilgi kaynağı kaydedildi",
+      "SYNC_QUEUED": "Web sitesi eşitlemesi başlatıldı",
+      "DELETED": "Bilgi kaynağı silindi"
+    },
+    "ERROR": {
+      "LOAD": "Paylaşılan Bilgi yüklenemedi.",
+      "SAVE": "Bilgi kaynağı kaydedilemedi.",
+      "SYNC": "Web sitesi eşitlemesi başlatılamadı.",
+      "DELETE": "Bilgi kaynağı silinemedi."
+    }
+  },
+  "AI_SETUP": {
+    "TITLE": "Yapay zeka kurulumu",
+    "DESCRIPTION": "Mesaj ve telefon asistanlarını ayrı adımlarla hazırlayın.",
+    "LOAD_ERROR": "Yapay zeka kurulum ilerlemesi yüklenemedi.",
+    "UNAVAILABLE": "Yapay zeka asistanları bu hesap için etkin değil.",
+    "PROGRESS": "{total} adımın {complete} kadarı tamamlandı",
+    "STATUS": {
+      "NOT_STARTED": "Başlanmadı",
+      "IN_PROGRESS": "Devam ediyor",
+      "READY": "Hazır"
+    },
+    "TEXT": {
+      "TITLE": "Metin yapay zekası",
+      "DESCRIPTION": "İnsan desteğini her zaman kullanılabilir tutarak müşteri mesajlarını yanıtlayın.",
+      "START": "Metin yapay zekasını kur",
+      "CONTINUE": "Metin yapay zekası kurulumuna devam et",
+      "MANAGE": "Metin yapay zekasını yönet",
+      "STEPS": {
+        "ASSISTANT": "Metin asistanı oluşturun",
+        "INSTRUCTIONS": "Dil, üslup ve işletme kurallarını tanımlayın",
+        "INBOX": "Bir müşteri gelen kutusu bağlayın",
+        "TEST": "Bir test konuşması tamamlayın",
+        "ACTIVE": "Asistanı etkinleştirin"
+      }
+    },
+    "VOICE": {
+      "TITLE": "Ses yapay zekası",
+      "DESCRIPTION": "Müşteri çağrılarını ayrı yapılandırılan bir sesli asistanla yanıtlayın.",
+      "START": "Ses yapay zekasını kur",
+      "CONTINUE": "Ses yapay zekası kurulumuna devam et",
+      "MANAGE": "Ses yapay zekasını yönet",
+      "STEPS": {
+        "ASSISTANT": "Sesli asistan oluşturun",
+        "INSTRUCTIONS": "Karşılamayı ve çağrı davranışını ayarlayın",
+        "INBOX": "Bir çağrı gelen kutusu atayın",
+        "TEST": "Tarayıcıda bir test çağrısı tamamlayın",
+        "ACTIVE": "Asistanı etkinleştirin"
+      }
+    }
+  },
   "VOICE_AI": {
     "HEADER": "Voice AI",
     "DESCRIPTION": "Telefon sağlayıcısı bağlamadan önce LiveKit sesli AI MVP ayarlarını yapın ve tarayıcı tabanlı test çağrıları çalıştırın.",

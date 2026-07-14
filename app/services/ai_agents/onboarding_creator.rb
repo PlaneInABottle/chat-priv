@@ -14,15 +14,21 @@ class AiAgents::OnboardingCreator
   end
 
   def perform
+    normalize_locale!
     normalize_website!
     ai_agent = create_fallback_agent
     website_import = create_website_import(ai_agent)
+    complete_onboarding!
     Result.new(ai_agent: ai_agent, website_import: website_import)
   end
 
   private
 
   attr_reader :account, :user, :account_attributes, :assistant_attributes
+
+  def normalize_locale!
+    account_attributes['locale'] = 'tr' unless %w[tr en].include?(account_attributes['locale'])
+  end
 
   def normalize_website!
     return if account_attributes['website'].blank?
@@ -33,7 +39,10 @@ class AiAgents::OnboardingCreator
   def create_fallback_agent
     account.with_lock do
       existing = onboarding_agent
-      next existing if existing
+      if existing
+        persist_account_answers
+        next existing
+      end
       raise ExistingAssistant, 'This account already has a Text AI assistant.' if account.ai_agents.exists?
 
       persist_account_answers
@@ -46,7 +55,6 @@ class AiAgents::OnboardingCreator
     CUSTOM_ATTRIBUTE_KEYS.each do |key|
       account.custom_attributes[key] = account_attributes[key] if account_attributes.key?(key)
     end
-    account.custom_attributes['onboarding_step'] = 'ai_assistant'
     account.save!
   end
 
@@ -67,8 +75,14 @@ class AiAgents::OnboardingCreator
     AiAgents::WebsiteImportCreator.new(
       ai_agent: ai_agent,
       website_url: account_attributes['website'],
-      requested_by: user,
-      mode: :initial
+      requested_by: user
     ).perform
+  end
+
+  def complete_onboarding!
+    account.with_lock do
+      account.custom_attributes.delete('onboarding_step')
+      account.save!
+    end
   end
 end

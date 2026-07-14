@@ -25,7 +25,7 @@ const selectMobileTab = event => {
         @change="selectMobileTab"
       >
         <option v-for="(tab, index) in tabs" :key="tab.value" :value="index">
-          {{ tab.label }}
+          {{ tab.label }}{{ tab.count ? ` (${tab.count})` : '' }}
         </option>
       </select>
     </div>
