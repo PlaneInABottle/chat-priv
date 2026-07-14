@@ -10,8 +10,7 @@
     "BACK": "Geri",
     "CONTINUE": "Devam et",
     "WELCOME": {
-      "ACCOUNT_READY": "Çalışma alanınız hazır",
-      "DRAFT_NOTE": "Yayınlamadan önce inceleyip değiştirebileceğiniz özel bir başlangıç taslağı oluşturacağız."
+      "ACCOUNT_READY": "Çalışma alanınız hazır"
     },
     "LANGUAGE": {
       "TITLE": "Asistanınız hangi dilde yanıt versin?",
@@ -27,7 +26,12 @@
       "LABEL": "Şirket web sitesi",
       "PLACEHOLDER": "www.ornek.com",
       "HELP": "Ana sayfayı ve ilgili en fazla dokuz sayfayı okuruz. Siz incelemeden hiçbir öneri taslağı değiştirmez.",
-      "ENRICHING": "Çalışma alanınızdaki mevcut şirket bilgilerini kontrol ediyoruz. Bu alanı düzenlemeye devam edebilirsiniz."
+      "ENRICHING": "Çalışma alanınızdaki mevcut şirket bilgilerini kontrol ediyoruz. Bu alanı düzenlemeye devam edebilirsiniz.",
+      "VERIFY": "Kontrol et ve devam et",
+      "INVALID": "ornek.com gibi herkese açık bir şirket web sitesi girin.",
+      "UNREACHABLE": "Bu web sitesini açamadık. Adresi kontrol edin veya web sitesi olmadan devam edin.",
+      "REVERIFY": "Web sitesi kontrolünün süresi doldu veya adres değişti. Devam etmek için tekrar kontrol edin.",
+      "CONTINUE_WITHOUT": "Web sitesi olmadan devam et"
     },
     "TONE": {
       "TITLE": "Müşterilerle nasıl konuşsun?",
@@ -49,15 +53,15 @@
     },
     "REVIEW": {
       "TITLE": "Taslağınız oluşturulmaya hazır",
-      "DESCRIPTION": "Başlangıç seçimlerinizi gözden geçirin. Sonraki ekranda hiçbir şey yayınlanmadan önce tüm talimatları düzenleyebilirsiniz.",
+      "DESCRIPTION": "Başlangıç seçimlerinizi gözden geçirin. Sonraki ekranda tüm talimatları düzenleyebilirsiniz.",
       "WEBSITE": "Web sitesi",
       "TONE": "Üslup",
       "LANGUAGE": "Dil",
       "NO_WEBSITE": "Daha sonra ekle",
+      "WEBSITE_CONFIRMATION": "Bu web sitesinin işletmenize ait olduğunu kontrol edin.",
       "EDIT": "Düzenle",
       "CREATE": "Taslak oluştur"
     },
-    "WEBSITE_ERROR": "ornek.com gibi herkese açık bir şirket web sitesi girin.",
     "ERROR": "Asistanınız oluşturulamadı. Lütfen tekrar deneyin."
   }
 }

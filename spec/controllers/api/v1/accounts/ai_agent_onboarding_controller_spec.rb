@@ -11,13 +11,43 @@ RSpec.describe 'AI agent onboarding API', type: :request do
         locale: 'en',
         website: 'example.com',
         industry: 'Retail & E-commerce',
-        company_size: '1-10',
-        timezone: 'Europe/Istanbul',
-        referral_source: 'google',
-        user_role: 'founder'
+        website_verification_token: 'verified-token'
       },
-      assistant: { tone: 'warm' }
+      assistant: { tone: 'friendly' }
     }
+  end
+
+  before do
+    allow(AiAgents::OnboardingWebsiteVerifier).to receive(:verified_url!).and_return('https://example.com/')
+  end
+
+  it 'verifies a reachable public website before onboarding' do
+    allow(Resolv).to receive(:getaddresses).and_call_original
+    allow(Resolv).to receive(:getaddresses).with('example.com').and_return(['93.184.216.34'])
+    stub_request(:get, 'https://example.com/').to_return(
+      status: 200,
+      body: '<html><head><title>Example Store</title></head></html>',
+      headers: { 'Content-Type' => 'text/html' }
+    )
+
+    post "#{base_url}/verify_website", params: { website_url: 'example.com' }, headers: headers, as: :json
+
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body).to include(
+      'website_url' => 'https://example.com/',
+      'hostname' => 'example.com',
+      'title' => 'Example Store'
+    )
+    expect(response.parsed_body['verification_token']).to be_present
+  end
+
+  it 'returns a recoverable error when the website cannot be opened' do
+    allow(AiAgents::OnboardingWebsiteVerifier).to receive(:new).and_raise(SafeFetch::FetchError, 'timeout')
+
+    post "#{base_url}/verify_website", params: { website_url: 'example.com' }, headers: headers, as: :json
+
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body).to include('code' => 'website_unreachable')
   end
 
   it 'creates a private fallback assistant and starts website analysis' do
@@ -41,6 +71,20 @@ RSpec.describe 'AI agent onboarding API', type: :request do
     end.to change(AiAgent, :count).by(1).and not_change(AiAgentWebsiteImport, :count)
 
     expect(response.parsed_body['status']).to eq('fallback')
+  end
+
+  it 'rejects an unverified website without creating an assistant' do
+    allow(AiAgents::OnboardingWebsiteVerifier).to receive(:verified_url!).and_raise(
+      AiAgents::WebsiteCrawler::InvalidWebsite,
+      'Website verification is missing or expired.'
+    )
+
+    expect do
+      post base_url, params: params, headers: headers, as: :json
+    end.not_to change(AiAgent, :count)
+
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body).to include('code' => 'invalid_website')
   end
 
   it 'returns a structured rate limit when a failed onboarding import is retried immediately' do

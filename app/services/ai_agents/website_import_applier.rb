@@ -29,8 +29,10 @@ class AiAgents::WebsiteImportApplier
       website_import.lock!
       validate_import!
 
+      proposals = selected_proposals
+      validate_selected_content!(proposals)
       document = normalized_current_document
-      document['sections'].merge!(selected_proposals)
+      document['sections'].merge!(proposals)
       compiled_prompt = AiAgents::InstructionDocument.new(document).compile
       raise InvalidSelection, 'Assistant instructions are too long.' if compiled_prompt.length > MAX_INSTRUCTION_LENGTH
 
@@ -69,6 +71,12 @@ class AiAgents::WebsiteImportApplier
       value = proposals[key].to_s.strip
       [key, value] if value.present?
     end.to_h
+  end
+
+  def validate_selected_content!(proposals)
+    return if proposals.any? || attach_knowledge
+
+    raise InvalidSelection, 'Select at least one available suggestion.'
   end
 
   def normalized_current_document

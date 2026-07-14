@@ -25,7 +25,7 @@ class AiAgents::WebsiteImportJob < ApplicationJob
       initiated_by: website_import.requested_by
     ).call(
       pages: crawl_result.pages,
-      onboarding_answers: onboarding_answers(website_import.ai_agent)
+      business_context: business_context(website_import.ai_agent)
     )
   end
 
@@ -67,10 +67,11 @@ class AiAgents::WebsiteImportJob < ApplicationJob
     website_import.running? && website_import.started_at == claim_started_at
   end
 
-  def onboarding_answers(ai_agent)
-    setup_profile = ai_agent.config.to_h.deep_stringify_keys['setup_profile'].to_h
-    account_attributes = ai_agent.account.custom_attributes.to_h.slice('website', 'industry', 'company_size', 'user_role')
-    setup_profile.merge(account_attributes)
+  def business_context(ai_agent)
+    {
+      company_name: ai_agent.account.name,
+      industry: ai_agent.account.custom_attributes.to_h['industry'].presence
+    }.compact
   end
 
   def fail_import(website_import, error, claim_started_at)

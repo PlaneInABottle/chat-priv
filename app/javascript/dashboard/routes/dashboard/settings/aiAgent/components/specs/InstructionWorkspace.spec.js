@@ -2,6 +2,8 @@ import { shallowMount } from '@vue/test-utils';
 
 import InstructionWorkspace from '../InstructionWorkspace.vue';
 
+const refreshCredits = vi.fn();
+
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
     t: (key, params) => (params ? `${key}:${params.count}` : key),
@@ -38,7 +40,18 @@ const mountComponent = () =>
     global: {
       stubs: {
         Button: true,
-        DraftTestPanel: true,
+        DraftTestPanel: {
+          name: 'DraftTestPanel',
+          template: '<div />',
+          props: [
+            'aiAgentId',
+            'draftInstructions',
+            'isDraft',
+            'isDisabled',
+            'isFocused',
+          ],
+          methods: { refreshCredits },
+        },
         Editor: {
           name: 'Editor',
           template: '<div />',
@@ -62,6 +75,10 @@ const mountComponent = () =>
   });
 
 describe('InstructionWorkspace', () => {
+  beforeEach(() => {
+    refreshCredits.mockClear();
+  });
+
   it('uses fixed navigation and removes heading controls from section bodies', async () => {
     const wrapper = mountComponent();
     const navigator = wrapper.findComponent({
@@ -124,6 +141,14 @@ describe('InstructionWorkspace', () => {
     expect(handoffItem.statusLabel).toBe(
       'AI_ASSISTANT.INSTRUCTIONS.HANDOFF_DEFAULT_STATUS'
     );
+  });
+
+  it('can refresh the visible improvement credit summary', async () => {
+    const wrapper = mountComponent();
+
+    await wrapper.vm.refreshCredits();
+
+    expect(refreshCredits).toHaveBeenCalledOnce();
   });
 
   it('updates only the selected fixed section', async () => {

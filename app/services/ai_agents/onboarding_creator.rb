@@ -2,7 +2,7 @@
 
 class AiAgents::OnboardingCreator
   Result = Data.define(:ai_agent, :website_import)
-  CUSTOM_ATTRIBUTE_KEYS = %w[website industry company_size timezone referral_source user_role].freeze
+  CUSTOM_ATTRIBUTE_KEYS = %w[website industry].freeze
 
   class ExistingAssistant < StandardError; end
 
@@ -31,9 +31,16 @@ class AiAgents::OnboardingCreator
   end
 
   def normalize_website!
-    return if account_attributes['website'].blank?
+    if account_attributes['website'].blank?
+      account_attributes.delete('website_verification_token')
+      return
+    end
 
-    account_attributes['website'] = AiAgents::WebsiteCrawler.normalize_url(account_attributes['website'])
+    account_attributes['website'] = AiAgents::OnboardingWebsiteVerifier.verified_url!(
+      account: account,
+      website_url: account_attributes['website'],
+      verification_token: account_attributes.delete('website_verification_token')
+    )
   end
 
   def create_fallback_agent

@@ -2,6 +2,18 @@ class Api::V1::Accounts::AiAgentOnboardingController < Api::V1::Accounts::BaseCo
   before_action :check_authorization
   before_action :ensure_ai_agent_enabled
 
+  def verify_website
+    result = AiAgents::OnboardingWebsiteVerifier.new(
+      account: Current.account,
+      website_url: params[:website_url]
+    ).perform
+    render json: result.to_h
+  rescue AiAgents::WebsiteCrawler::InvalidWebsite => e
+    render json: { error: e.message, code: 'invalid_website' }, status: :unprocessable_entity
+  rescue SafeFetch::Error
+    render json: { error: 'Website could not be reached.', code: 'website_unreachable' }, status: :unprocessable_entity
+  end
+
   def create
     result = AiAgents::OnboardingCreator.new(
       account: Current.account,
@@ -27,7 +39,7 @@ class Api::V1::Accounts::AiAgentOnboardingController < Api::V1::Accounts::BaseCo
   end
 
   def account_params
-    params.require(:account).permit(:locale, :website, :industry, :company_size, :timezone, :referral_source, :user_role).to_h
+    params.require(:account).permit(:locale, :website, :website_verification_token, :industry).to_h
   end
 
   def assistant_params

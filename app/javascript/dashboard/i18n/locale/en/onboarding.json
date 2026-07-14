@@ -10,8 +10,7 @@
     "BACK": "Back",
     "CONTINUE": "Continue",
     "WELCOME": {
-      "ACCOUNT_READY": "Your workspace is ready",
-      "DRAFT_NOTE": "We will create a private starting draft that you can review and change before publishing."
+      "ACCOUNT_READY": "Your workspace is ready"
     },
     "LANGUAGE": {
       "TITLE": "Which language should your assistant use?",
@@ -27,7 +26,12 @@
       "LABEL": "Company website",
       "PLACEHOLDER": "www.example.com",
       "HELP": "We read the home page and up to nine relevant pages. You will review every suggestion before it changes the draft.",
-      "ENRICHING": "We are checking the company details already available to your workspace. You can continue editing this field."
+      "ENRICHING": "We are checking the company details already available to your workspace. You can continue editing this field.",
+      "VERIFY": "Check and continue",
+      "INVALID": "Enter a public company website, such as example.com.",
+      "UNREACHABLE": "We could not open that website. Check the address or continue without it.",
+      "REVERIFY": "The website check expired or the address changed. Check it again to continue.",
+      "CONTINUE_WITHOUT": "Continue without a website"
     },
     "TONE": {
       "TITLE": "How should it speak with customers?",
@@ -49,15 +53,15 @@
     },
     "REVIEW": {
       "TITLE": "Ready to create your draft",
-      "DESCRIPTION": "Review the starting choices below. The next screen lets you edit the complete instructions before anything goes live.",
+      "DESCRIPTION": "Review the starting choices below. You can edit the complete instructions on the next screen.",
       "WEBSITE": "Website",
       "TONE": "Tone",
       "LANGUAGE": "Language",
       "NO_WEBSITE": "Add later",
+      "WEBSITE_CONFIRMATION": "Make sure this is your business.",
       "EDIT": "Edit",
       "CREATE": "Create draft"
     },
-    "WEBSITE_ERROR": "Enter a public company website, such as example.com.",
     "ERROR": "Could not create your assistant. Please try again."
   }
 }

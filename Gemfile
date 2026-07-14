@@ -43,6 +43,8 @@ gem 'rack-attack', '>= 6.7.0'
 gem 'down'
 # SSRF-safe URL fetching
 gem 'ssrf_filter', '~> 1.5'
+# Validate registrable public domains entered during assistant setup
+gem 'public_suffix', '~> 7.0'
 # authentication type to fetch and send mail over oauth2.0
 gem 'gmail_xoauth'
 # Lock net-smtp to 0.3.4 to avoid issues with gmail_xoauth2

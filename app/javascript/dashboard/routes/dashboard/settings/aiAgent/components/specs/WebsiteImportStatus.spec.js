@@ -36,12 +36,13 @@ const readyImport = {
   source_count: 3,
 };
 
-const mountComponent = () =>
+const mountComponent = (props = {}) =>
   mount(WebsiteImportStatus, {
     props: {
       aiAgentId: 42,
       currentDocument: { version: 4, sections: {} },
       expectedDraftFingerprint: 'loaded-fingerprint',
+      ...props,
     },
     global: {
       stubs: {
@@ -113,5 +114,51 @@ describe('WebsiteImportStatus', () => {
     expect(mockUseAlert).toHaveBeenCalledWith(
       'AI_ASSISTANT.WEBSITE_IMPORT.ERROR.DISMISS'
     );
+  });
+
+  it('does not show a website with no reusable output as ready knowledge', async () => {
+    mockApi.get.mockResolvedValue({
+      data: [
+        {
+          ...readyImport,
+          proposed_sections: {},
+          knowledge_available: false,
+        },
+      ],
+    });
+    const wrapper = mountComponent();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain(
+      'AI_ASSISTANT.WEBSITE_IMPORT.READY_NO_CHANGES_TITLE'
+    );
+    expect(wrapper.text()).toContain(
+      'AI_ASSISTANT.WEBSITE_IMPORT.STATUS_READY_NO_CHANGES_HELP'
+    );
+    expect(wrapper.text()).toContain('AI_ASSISTANT.WEBSITE_IMPORT.TRY_AGAIN');
+    expect(mockUseAlert).not.toHaveBeenCalled();
+  });
+
+  it('ignores a late response after switching assistants', async () => {
+    let resolveFirstRequest;
+    mockApi.get
+      .mockReturnValueOnce(
+        new Promise(resolve => {
+          resolveFirstRequest = resolve;
+        })
+      )
+      .mockResolvedValueOnce({
+        data: [{ ...readyImport, id: 9, website_url: 'https://new.example/' }],
+      });
+    const wrapper = mountComponent();
+
+    await wrapper.setProps({ aiAgentId: 43 });
+    await flushPromises();
+    expect(wrapper.vm.latestImport.id).toBe(9);
+
+    resolveFirstRequest({ data: [{ ...readyImport, id: 7 }] });
+    await flushPromises();
+
+    expect(wrapper.vm.latestImport.id).toBe(9);
   });
 });

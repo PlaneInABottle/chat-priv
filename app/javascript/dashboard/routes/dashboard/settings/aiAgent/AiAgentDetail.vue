@@ -82,6 +82,7 @@ const accountWebsite = computed(
 const isSaving = ref(false);
 const isDetailLoading = ref(true);
 const releaseHistoryRef = ref(null);
+const instructionWorkspaceRef = ref(null);
 const inboxError = ref('');
 const websiteSuggestionCount = ref(0);
 const activeTab = computed(() => {
@@ -619,19 +620,21 @@ const refreshAfterWebsiteImport = async () => {
   );
   if (!preserveKnowledgeDraft) {
     formState.value.knowledge_source_ids = refreshedKnowledgeIds;
-    return;
+  } else {
+    const locallyRemovedIds = persistedKnowledgeIds.filter(
+      id => !localKnowledgeIds.includes(id)
+    );
+    const locallyAddedIds = localKnowledgeIds.filter(
+      id => !persistedKnowledgeIds.includes(id)
+    );
+    formState.value.knowledge_source_ids = normalizeKnowledgeSourceIds([
+      ...refreshedKnowledgeIds.filter(id => !locallyRemovedIds.includes(id)),
+      ...locallyAddedIds,
+    ]);
   }
 
-  const locallyRemovedIds = persistedKnowledgeIds.filter(
-    id => !localKnowledgeIds.includes(id)
-  );
-  const locallyAddedIds = localKnowledgeIds.filter(
-    id => !persistedKnowledgeIds.includes(id)
-  );
-  formState.value.knowledge_source_ids = normalizeKnowledgeSourceIds([
-    ...refreshedKnowledgeIds.filter(id => !locallyRemovedIds.includes(id)),
-    ...locallyAddedIds,
-  ]);
+  await nextTick();
+  await instructionWorkspaceRef.value?.refreshCredits?.();
 };
 
 const handlePause = async () => {
@@ -794,6 +797,7 @@ watch(agentId, async (newAgentId, oldAgentId) => {
         />
         <InstructionWorkspace
           v-if="activeTab === 'instructions'"
+          ref="instructionWorkspaceRef"
           v-model="formState.instructions"
           :ai-agent-id="agentId"
           :is-dirty="isInstructionsDirty"

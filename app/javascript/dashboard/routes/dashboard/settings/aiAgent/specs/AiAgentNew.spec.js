@@ -114,8 +114,14 @@ describe('AiAgentNew.vue', () => {
     wrapper.vm.form.name = 'Support bot';
     wrapper.vm.nextStep();
 
-    expect(wrapper.vm.form.instructions).toBe(
-      'Müşteri sorularını yanıtla ve müşteriyi uygun sonraki adıma yönlendir.'
+    expect(wrapper.vm.form.instructions).toContain(
+      'Ürün seçimi, satış, destek, sipariş, teslimat, iade ve değişim'
+    );
+    expect(wrapper.vm.form.instructions).toContain(
+      'Konuşmanın başında müşterinin amacını'
+    );
+    expect(wrapper.vm.form.boundaries).toContain(
+      'Ürün, fiyat, stok, kampanya, politika, teslimat tarihi veya taahhüt uydurma'
     );
     expect(wrapper.vm.form.instructions).not.toContain('Role:');
     expect(wrapper.vm.form.instructions).not.toContain('Tone:');
@@ -124,9 +130,8 @@ describe('AiAgentNew.vue', () => {
     expect(document.locale).toBe('tr');
     expect(document.profile.language).toBe('tr');
     expect(document.sections.identity).toContain('Support bot');
-    expect(document.sections.tasks).toBe(
-      'Müşteri sorularını yanıtla ve müşteriyi uygun sonraki adıma yönlendir.'
-    );
+    expect(document.sections.tasks).toContain('uygun sonraki adıma yönlendir');
+    expect(document.sections.rules).toContain('tahmin yürütmek yerine');
     expect(document.sections.handoff).toContain('bir insana aktar');
   });
 
@@ -169,7 +174,6 @@ describe('AiAgentNew.vue', () => {
 
     wrapper.vm.previousStep();
     wrapper.vm.form.name = 'Renamed support bot';
-    wrapper.vm.form.goal = 'sales';
     wrapper.vm.nextStep();
 
     expect(wrapper.vm.form.instructions).toBe(
@@ -177,20 +181,21 @@ describe('AiAgentNew.vue', () => {
     );
   });
 
-  it('rebuilds untouched generated instructions when the goal changes', () => {
+  it('rebuilds untouched generated instructions when the language changes', () => {
     const { wrapper } = mountComponent();
     wrapper.vm.form.name = 'Store assistant';
     wrapper.vm.nextStep();
-    expect(wrapper.vm.form.instructions).toBe(
-      'Müşteri sorularını yanıtla ve müşteriyi uygun sonraki adıma yönlendir.'
-    );
+    expect(wrapper.vm.form.instructions).toContain('Ürün seçimi, satış');
 
     wrapper.vm.previousStep();
-    wrapper.vm.form.goal = 'sales';
+    wrapper.vm.form.language = 'en';
     wrapper.vm.nextStep();
 
-    expect(wrapper.vm.form.instructions).toBe(
-      'Müşterilerin uygun ürünleri anlamasına ve karşılaştırmasına yardımcı ol, ardından sonraki satış adımına yönlendir.'
+    expect(wrapper.vm.form.instructions).toContain(
+      'Help with product selection, sales, support'
+    );
+    expect(wrapper.vm.form.boundaries).toContain(
+      'Do not invent products, prices, stock'
     );
   });
 
@@ -202,9 +207,10 @@ describe('AiAgentNew.vue', () => {
 
     const document = wrapper.vm.buildInstructionDocument();
     expect(document.locale).toBe('en');
-    expect(document.sections.tasks).toBe(
-      'Answer customer questions and guide customers to the appropriate next step.'
+    expect(document.sections.tasks).toContain(
+      'Help with product selection, sales, support'
     );
+    expect(document.sections.rules).toContain('Do not invent products');
     expect(document.sections.handoff).toContain(
       'hand the conversation to a human'
     );
@@ -219,11 +225,27 @@ describe('AiAgentNew.vue', () => {
     const document = wrapper.vm.buildInstructionDocument();
     expect(document.locale).toBe('en');
     expect(document.profile.language).toBe('same_as_customer');
-    expect(document.sections.tasks).toBe(
-      'Answer customer questions and guide customers to the appropriate next step.'
+    expect(document.sections.tasks).toContain(
+      'Help with product selection, sales, support'
     );
     expect(document.sections.handoff).toContain(
       'hand the conversation to a human'
     );
+  });
+
+  it('preserves edited boundaries while refreshing untouched tasks', () => {
+    const { wrapper } = mountComponent();
+    wrapper.vm.form.name = 'Support bot';
+    wrapper.vm.nextStep();
+    wrapper.vm.form.boundaries = 'Keep this custom safety rule.';
+
+    wrapper.vm.previousStep();
+    wrapper.vm.form.language = 'en';
+    wrapper.vm.nextStep();
+
+    expect(wrapper.vm.form.instructions).toContain(
+      'Help with product selection, sales, support'
+    );
+    expect(wrapper.vm.form.boundaries).toBe('Keep this custom safety rule.');
   });
 });
