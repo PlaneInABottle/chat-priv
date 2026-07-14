@@ -80,9 +80,10 @@ RSpec.describe Google::RefreshOauthTokenService do
           }
         )
 
-        expect do
-          described_class.new(channel: google_channel).access_token
-        end.to raise_error(RuntimeError, 'A refresh_token is not available')
+        expected_error = raise_error(OAuth2::Error) do |error|
+          expect(error.response).to eq(error: 'A refresh_token is not available')
+        end
+        expect { described_class.new(channel: google_channel).access_token }.to expected_error
       end
     end
   end
