@@ -2,8 +2,13 @@
 
 set -euo pipefail
 
-if command -v rbenv >/dev/null 2>&1; then
-  eval "$(rbenv init -)"
+if ! command -v rbenv >/dev/null 2>&1; then
+  rbenv_root="${RBENV_ROOT:-${HOME}/.rbenv}"
+
+  if [ -x "${rbenv_root}/bin/rbenv" ]; then
+    export RBENV_ROOT="${rbenv_root}"
+    export PATH="${RBENV_ROOT}/bin:${RBENV_ROOT}/shims:${PATH}"
+  fi
 fi
 
 if [ "$#" -eq 0 ]; then
