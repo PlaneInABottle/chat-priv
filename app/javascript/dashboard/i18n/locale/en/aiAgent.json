@@ -1005,14 +1005,10 @@
     },
     "TRANSCRIPT": {
       "TITLE": "Transcript",
-      "DESCRIPTION": "Live speech turns and AI tool calls appear here during sandbox tests.",
-      "EMPTY": "Transcript turns and tool calls will appear here after the test call begins.",
+      "DESCRIPTION": "Live speech turns and assistant activity appear here during sandbox tests.",
+      "EMPTY": "Transcript turns and assistant activity will appear here after the test call begins.",
       "TRANSCRIPT_COUNT": "Transcript: {count}",
-      "TOOL_COUNT": "Tool calls: {count}",
-      "TOOL_EVENT": "Tool call",
-      "TOOL_DETAILS": "Show arguments and result",
-      "ARGUMENTS": "Arguments",
-      "RESULT": "Result"
+      "TOOL_COUNT": "Actions: {count}"
     }
   }
 }

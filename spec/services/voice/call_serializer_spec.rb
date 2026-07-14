@@ -70,12 +70,14 @@ RSpec.describe Voice::CallSerializer do
         text: 'Merhaba',
         confidence: 0.91
       )
-      expect(payload[:tool_event_summaries].first).to include(
-        tool: 'ikas_catalog_search',
+      expect(payload[:tool_event_summaries].first).to eq(
+        id: call.voice_tool_events.first.id,
+        action: 'catalog_search',
         status: 'executed',
-        duration_ms: 42
+        created_at: call.voice_tool_events.first.created_at.iso8601
       )
       expect(payload).not_to have_key(:tool_events)
+      expect(payload.to_json).not_to include('ikas_catalog_search', 'beyaz perde', '+905551112233')
     end
 
     it 'returns recording metadata and a redacted summary' do
@@ -103,7 +105,7 @@ RSpec.describe Voice::CallSerializer do
     )
   end
 
-  it 'exposes redacted raw tool events only for sandbox test calls' do
+  it 'exposes only tool event summaries for sandbox test calls' do
     call.update!(meta: call.meta.merge('test_call' => true))
     call.voice_tool_events.create!(
       account: account,
@@ -115,11 +117,14 @@ RSpec.describe Voice::CallSerializer do
 
     payload = described_class.new(call).payload
 
-    expect(payload[:tool_events].first).to include(
-      tool: 'request_human_handoff',
-      arguments: { 'reason' => 'caller gave [email redacted] and [phone redacted]' },
-      result: { 'note' => '[phone redacted]' }
+    expect(payload).not_to have_key(:tool_events)
+    expect(payload[:tool_event_summaries].first).to eq(
+      id: call.voice_tool_events.first.id,
+      action: 'human_handoff',
+      status: 'executed',
+      created_at: call.voice_tool_events.first.created_at.iso8601
     )
+    expect(payload.to_json).not_to include('request_human_handoff', 'caller gave', 'test@example.com', '+905551112233')
   end
 
   it 'does not expose a replay URL for non-completed recordings' do

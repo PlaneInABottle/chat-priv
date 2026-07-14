@@ -29,6 +29,7 @@ import KnowledgeSourceSelector from '../aiAgent/components/KnowledgeSourceSelect
 import ResponsiveTabNavigation from '../components/ResponsiveTabNavigation.vue';
 import VoiceCallActivity from './VoiceCallActivity.vue';
 import VoicePublishDialog from './VoicePublishDialog.vue';
+import VoiceToolEventSummary from 'dashboard/components-next/message/VoiceToolEventSummary.vue';
 
 const TERMINAL_CALL_STATUSES = [
   'completed',
@@ -39,9 +40,6 @@ const TERMINAL_CALL_STATUSES = [
 const RECORDING_STATUSES = ['completed', 'active', 'starting', 'failed'];
 const HANDOFF_STATUSES = ['requested', 'accepted', 'none'];
 const PROMPT_CHARACTER_LIMIT = 50000;
-const TOOL_PAYLOAD_CLASS =
-  'm-0 max-h-48 overflow-auto rounded bg-n-solid-1 p-2 whitespace-pre-wrap';
-
 const DEFAULT_AGENT = {
   name: 'Voice Assistant',
   greeting: 'Merhaba, size nasil yardimci olabilirim?',
@@ -298,7 +296,9 @@ const canUseLiveControls = computed(
 const transcriptSegments = computed(
   () => currentCall.value?.transcript_segments || []
 );
-const testToolEvents = computed(() => currentCall.value?.tool_events || []);
+const testToolEvents = computed(
+  () => currentCall.value?.tool_event_summaries || []
+);
 const callAiStatus = computed(() => currentCall.value?.ai_status || '');
 const hasAgentActivity = computed(
   () =>
@@ -961,17 +961,17 @@ const onTranscriptSegment = async data => {
 
 const onStatusChanged = data => {
   if (!currentCall.value || data.call_id !== currentCall.value.id) return;
-  const { transcript_segments, tool_events, ...scalarFields } = data;
+  const { transcript_segments, tool_event_summaries, ...scalarFields } = data;
   currentCall.value = { ...currentCall.value, ...scalarFields };
 };
 
 const onToolEvent = data => {
   if (!currentCall.value || data.call_id !== currentCall.value.id) return;
-  const events = currentCall.value.tool_events || [];
+  const events = currentCall.value.tool_event_summaries || [];
   if (events.some(event => event.id === data.event.id)) return;
   currentCall.value = {
     ...currentCall.value,
-    tool_events: [...events, data.event],
+    tool_event_summaries: [...events, data.event],
   };
 };
 
@@ -980,11 +980,6 @@ const onBeforeUnload = event => {
 
   event.preventDefault();
   event.returnValue = '';
-};
-
-const formatToolPayload = value => {
-  if (!value || Object.keys(value).length === 0) return '{}';
-  return JSON.stringify(value, null, 2);
 };
 
 watch(selectedVoiceAgentId, () => {
@@ -1844,57 +1839,17 @@ onBeforeUnmount(() => {
               <div
                 v-for="item in timelineEvents"
                 :key="item.timelineId"
-                class="rounded-lg border border-n-weak p-3"
                 :class="
                   item.timelineType === 'tool_event'
-                    ? 'bg-n-amber-2'
-                    : 'bg-n-alpha-2'
+                    ? 'flex justify-center'
+                    : 'rounded-lg border border-n-weak bg-n-alpha-2 p-3'
                 "
               >
-                <template v-if="item.timelineType === 'tool_event'">
-                  <div class="mb-2 flex items-center justify-between gap-3">
-                    <div class="flex min-w-0 items-center gap-2">
-                      <span class="text-sm font-medium text-n-slate-12">
-                        {{ t('VOICE_AI.TRANSCRIPT.TOOL_EVENT') }}
-                      </span>
-                      <span class="truncate text-sm text-n-slate-11">
-                        {{ item.tool }}
-                      </span>
-                    </div>
-                    <span class="text-xs text-n-slate-10">
-                      {{ item.status }}
-                    </span>
-                  </div>
-                  <p
-                    v-if="item.error_message"
-                    class="mb-2 text-sm text-n-ruby-11"
-                  >
-                    {{ item.error_message }}
-                  </p>
-                  <details class="text-xs text-n-slate-11">
-                    <summary class="cursor-pointer font-medium text-n-slate-12">
-                      {{ t('VOICE_AI.TRANSCRIPT.TOOL_DETAILS') }}
-                    </summary>
-                    <div class="mt-2 grid grid-cols-1 gap-2 lg:grid-cols-2">
-                      <div>
-                        <p class="m-0 mb-1 font-medium">
-                          {{ t('VOICE_AI.TRANSCRIPT.ARGUMENTS') }}
-                        </p>
-                        <pre :class="TOOL_PAYLOAD_CLASS">{{
-                          formatToolPayload(item.arguments)
-                        }}</pre>
-                      </div>
-                      <div>
-                        <p class="m-0 mb-1 font-medium">
-                          {{ t('VOICE_AI.TRANSCRIPT.RESULT') }}
-                        </p>
-                        <pre :class="TOOL_PAYLOAD_CLASS">{{
-                          formatToolPayload(item.result)
-                        }}</pre>
-                      </div>
-                    </div>
-                  </details>
-                </template>
+                <VoiceToolEventSummary
+                  v-if="item.timelineType === 'tool_event'"
+                  :event="item"
+                  :voice-agent-name="selectedVoiceAgent?.name"
+                />
                 <template v-else>
                   <div class="mb-1 flex items-center gap-3">
                     <span

@@ -107,17 +107,16 @@ RSpec.describe 'Api::V1::Accounts::Voice::Calls', type: :request do
         'voice_agent_id' => voice_agent.id,
         'voice_agent_name' => voice_agent.name
       )
-      expect(response.parsed_body).not_to have_key('provider_call_id')
-      expect(response.parsed_body).not_to have_key('livekit_room_name')
-      expect(response.parsed_body).not_to have_key('tool_events')
+      expect(response.parsed_body.keys).not_to include('provider_call_id', 'livekit_room_name', 'tool_events')
       expect(response.parsed_body['tool_event_summaries'].first).to include(
-        'tool' => 'request_human_handoff',
+        'action' => 'human_handoff',
         'status' => 'executed'
       )
-      expect(response.body).not_to include('private handoff reason', 'private note')
+      expect(response.parsed_body['tool_event_summaries'].first.keys).to match_array(%w[id action status created_at])
+      expect(response.body).not_to include('request_human_handoff', 'private handoff reason', 'private note')
     end
 
-    it 'exposes sanitized voice tool events for sandbox test calls' do
+    it 'does not expose raw voice tool events for sandbox test calls' do
       call.voice_tool_events.create!(
         account: account,
         tool: 'request_human_handoff',
@@ -132,11 +131,13 @@ RSpec.describe 'Api::V1::Accounts::Voice::Calls', type: :request do
           as: :json
 
       expect(response).to have_http_status(:ok)
-      expect(response.parsed_body['tool_events'].first).to include(
-        'tool' => 'request_human_handoff',
-        'status' => 'executed',
-        'arguments' => { 'reason' => 'caller gave [email redacted] and [phone redacted]' }
+      expect(response.parsed_body).not_to have_key('tool_events')
+      expect(response.parsed_body['tool_event_summaries'].first).to include(
+        'action' => 'human_handoff',
+        'status' => 'executed'
       )
+      expect(response.parsed_body['tool_event_summaries'].first.keys).to match_array(%w[id action status created_at])
+      expect(response.body).not_to include('request_human_handoff', 'caller gave', 'test@example.com', '+905551112233', 'private note')
     end
   end
 

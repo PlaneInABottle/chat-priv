@@ -3,6 +3,13 @@ require 'rails_helper'
 RSpec.describe 'Super Admin Voice AI Calls', type: :request do
   let(:super_admin) { create(:super_admin) }
 
+  before do
+    allow(Voice::Livekit::RoomService).to receive(:participant_summary).and_return(
+      'status' => 'skipped',
+      'reason' => 'test_boundary'
+    )
+  end
+
   it 'redirects unauthenticated users' do
     get '/super_admin/voice_ai_calls'
 
@@ -145,5 +152,23 @@ RSpec.describe 'Super Admin Voice AI Calls', type: :request do
     expect(body['redaction']).to include('mode' => 'raw')
     expect(body['transcript_segments'].first['text']).to eq('Email test@example.com telefon +90 555 111 22 33')
     expect(Rails.logger).to have_received(:info).with(/raw voice diagnostics accessed call_id=#{call.id}/)
+  end
+
+  it 'does not expose raw diagnostics to an account user' do
+    account_user = create(:user)
+    call = create(:call, provider: :livekit, status: 'completed', meta: { 'livekit_room_name' => 'room-private-diagnostics' })
+    call.voice_tool_events.create!(
+      account: call.account,
+      tool: 'ikas_catalog_search',
+      status: 'executed',
+      arguments: { query: 'private query' },
+      result: { internal_note: 'private result' }
+    )
+    sign_in(account_user, scope: :user)
+
+    get "/super_admin/voice_ai_calls/#{call.id}/diagnostics.json", params: { raw: true }
+
+    expect(response).to have_http_status(:unauthorized)
+    expect(response.body).not_to include('private query', 'private result')
   end
 end

@@ -120,7 +120,7 @@
       "TOOL_IKAS_LOOKUP_ORDER": "{agent} looked up an ikas order",
       "TOOL_HUMAN_HANDOFF": "{agent} requested human handoff",
       "TOOL_END_CUSTOMER_CALL": "{agent} ended the customer call",
-      "TOOL_USED": "{agent} used {tool}",
+      "TOOL_USED": "{agent} completed an action",
       "TOOL_STARTED": "started",
       "TOOL_EXECUTED": "done",
       "TOOL_ERROR": "failed",
