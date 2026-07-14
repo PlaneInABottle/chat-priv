@@ -119,7 +119,7 @@
       "TOOL_IKAS_LOOKUP_ORDER": "{agent} ikas siparişini sorguladı",
       "TOOL_HUMAN_HANDOFF": "{agent} insan temsilciye aktarma istedi",
       "TOOL_END_CUSTOMER_CALL": "{agent} müşteri aramasını bitirdi",
-      "TOOL_USED": "{agent} {tool} aracını kullandı",
+      "TOOL_USED": "{agent} bir işlemi tamamladı",
       "TOOL_STARTED": "başladı",
       "TOOL_EXECUTED": "tamamlandı",
       "TOOL_ERROR": "başarısız",

@@ -309,9 +309,11 @@ RSpec.describe 'Internal voice calls API', type: :request do
       )
       expect(event.arguments['reason']).to eq('caller gave [email redacted] and [phone redacted]')
       expect(event.external_id).to eq('tool-call-1')
-      expect(Voice::CallSerializer.new(call).payload[:tool_events].first).to include(
-        tool: 'request_human_handoff',
-        arguments: { 'reason' => 'caller gave [email redacted] and [phone redacted]' }
+      serialized = Voice::CallSerializer.new(call).payload
+      expect(serialized).not_to have_key(:tool_events)
+      expect(serialized[:tool_event_summaries].first).to include(
+        action: 'human_handoff',
+        status: 'executed'
       )
     end
 

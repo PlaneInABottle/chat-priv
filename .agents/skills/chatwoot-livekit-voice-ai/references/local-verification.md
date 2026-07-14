@@ -139,7 +139,7 @@ Before creating a call, verify the browser can open an audio track with `navigat
 8. Wait until `Join as test caller` is enabled and the setup fields are disabled.
 9. Click `Join as test caller`.
 10. Wait for the Browser status to become `Connected` and for the worker to connect to the realtime provider and post transcript.
-11. To verify handoff tool detection, say a human-handoff request such as `Temsilciye baglanmak istiyorum`; after the worker calls `request_human_handoff`, confirm the `Transcript and tool calls` panel shows a `request_human_handoff` tool event via realtime updates. If the browser reconnects or misses a websocket event, use `Refresh` once to resync the current call payload.
+11. To verify handoff tool detection, say a human-handoff request such as `Temsilciye baglanmak istiyorum`; after the worker calls `request_human_handoff`, confirm the transcript activity panel shows a friendly handoff action via realtime updates without exposing the internal tool name or payload. If the browser reconnects or misses a websocket event, use `Refresh` once to resync the current call payload.
 12. End the call from the settings panel with `End test call`.
 13. Confirm the Call status becomes `completed`, Browser status becomes `Disconnected`, and setup fields are editable again.
 
@@ -157,7 +157,8 @@ Expected proof:
 - After caller joins, the worker connects to the realtime provider.
 - `POST /internal/voice/calls/:provider_call_id/transcript` stores at least one transcript segment.
 - `POST /internal/voice/calls/:provider_call_id/tool_call` stores voice-agent tool events in `voice_tool_events` rows related to the call.
-- The settings `Transcript and tool calls` panel updates in realtime over ActionCable. Use `Refresh` only as a manual resync after websocket reconnect or missed events.
+- Account-facing call APIs and Action Cable expose only public tool-event summaries (`id`, allowlisted `action`, `status`, and `created_at`). Raw tool names, arguments, results, internal errors, source, duration, and external IDs remain available only in persisted Super Admin diagnostics.
+- The settings transcript activity panel updates in realtime over ActionCable and renders a friendly action label without expandable payload details or internal tool names. Use `Refresh` only as a manual resync after websocket reconnect or missed events.
 
 For SIP/telephony-provider calls, expected additional proof:
 

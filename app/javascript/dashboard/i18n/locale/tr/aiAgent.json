@@ -834,14 +834,10 @@
     },
     "TRANSCRIPT": {
       "TITLE": "Transkript",
-      "DESCRIPTION": "Canlı konuşma satırları ve AI araç çağrıları sandbox testlerinde burada görünür.",
-      "EMPTY": "Sesli asistan transkriptleri ve araç çağrılarını gönderdikten sonra burada görünecek.",
+      "DESCRIPTION": "Canlı konuşma satırları ve asistan etkinliği sandbox testlerinde burada görünür.",
+      "EMPTY": "Test çağrısı başladıktan sonra transkript satırları ve asistan etkinliği burada görünür.",
       "TRANSCRIPT_COUNT": "Transkript: {count}",
-      "TOOL_COUNT": "Araç çağrıları: {count}",
-      "TOOL_EVENT": "Araç çağrısı",
-      "TOOL_DETAILS": "Argümanları ve sonucu göster",
-      "ARGUMENTS": "Argümanlar",
-      "RESULT": "Sonuç"
+      "TOOL_COUNT": "İşlemler: {count}"
     }
   }
 }

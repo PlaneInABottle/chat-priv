@@ -7,7 +7,7 @@ const translations = {
     '{agent} searched the ikas catalog',
   'CONVERSATION.VOICE_CALL.TOOL_HUMAN_HANDOFF':
     '{agent} requested human handoff',
-  'CONVERSATION.VOICE_CALL.TOOL_USED': '{agent} used {tool}',
+  'CONVERSATION.VOICE_CALL.TOOL_USED': '{agent} completed an action',
   'CONVERSATION.VOICE_CALL.TOOL_STARTED': 'started',
   'CONVERSATION.VOICE_CALL.TOOL_EXECUTED': 'done',
   'CONVERSATION.VOICE_CALL.TOOL_ERROR': 'failed',
@@ -36,7 +36,7 @@ describe('VoiceToolEventSegment', () => {
   it('renders a readable catalog search event', () => {
     const wrapper = mountComponent({
       id: 1,
-      tool: 'ikas_catalog_search',
+      action: 'catalog_search',
       status: 'executed',
       createdAt: '2026-06-20T12:00:00Z',
     });
@@ -51,15 +51,31 @@ describe('VoiceToolEventSegment', () => {
   it('renders failed tool events distinctly', () => {
     const wrapper = mountComponent({
       id: 2,
-      tool: 'request_human_handoff',
+      action: 'human_handoff',
       status: 'error',
       errorMessage: 'handoff unavailable',
+      arguments: { reason: 'private reason' },
+      result: { internalNote: 'private note' },
       createdAt: '2026-06-20T12:01:00Z',
     });
 
     expect(wrapper.text()).toContain('Voice Assistant requested human handoff');
     expect(wrapper.text()).toContain('failed');
-    expect(wrapper.text()).toContain('handoff unavailable');
+    expect(wrapper.text()).not.toMatch(
+      /handoff unavailable|private reason|private note/
+    );
     expect(wrapper.find('article').classes()).toContain('bg-n-ruby-2');
+  });
+
+  it('does not expose an unknown internal tool name', () => {
+    const wrapper = mountComponent({
+      id: 3,
+      action: 'generic',
+      status: 'executed',
+      createdAt: '2026-06-20T12:02:00Z',
+    });
+
+    expect(wrapper.text()).toContain('Voice Assistant completed an action');
+    expect(wrapper.text()).not.toContain('generic');
   });
 });
