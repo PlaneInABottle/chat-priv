@@ -140,8 +140,8 @@
     "READINESS": {
       "TITLE": "Kurulumu tamamlayın",
       "DESCRIPTION": "Yayınlamadan önce kalan zorunlu adımları tamamlayın.",
-      "INSTRUCTIONS": "Talimatlar eklendi",
-      "INBOX": "Gelen kutusu bağlandı"
+      "INSTRUCTIONS": "Talimat ekleyin",
+      "INBOX": "Bir gelen kutusu bağlayın"
     },
     "RELEASE_HISTORY": {
       "TITLE": "Sürüm geçmişi",
@@ -474,15 +474,8 @@
         "INBOXES": "Gelen kutuları",
         "REVIEW": "İnceleme"
       },
-      "BASICS_TITLE": "Bu asistan ne yapmalı?",
-      "BASICS_HELP": "Açık bir amaç seçin. Test etmeden önce talimatları ayrıntılandırabilirsiniz.",
-      "GOAL_LABEL": "Ana amaç",
-      "GOALS": {
-        "SUPPORT": "Müşteri sorularını yanıtla",
-        "SALES": "Müşterilerin ürün seçmesine yardımcı ol",
-        "ORDERS": "Sipariş ve teslimatta yardımcı ol",
-        "CUSTOM": "Özel bir destek akışı"
-      },
+      "BASICS_TITLE": "Asistanınıza ad verin",
+      "BASICS_HELP": "Yanıt dilini ve varsayılan üslubu seçin. Sonraki adımda tüm talimatları ayrıntılandırabilirsiniz.",
       "LANGUAGE": "Yanıt dili",
       "LANGUAGES": {
         "SAME_AS_CUSTOMER": "Her müşterinin dilini kullan",
@@ -499,7 +492,7 @@
       "INSTRUCTIONS_HELP": "İşletme bilgilerini ve sınırları ekleyin, ardından önerilen konuşma akışını sade bir dille düzenleyin.",
       "BUSINESS_CONTEXT": "İşletmeniz hakkında neleri bilmeli?",
       "BOUNDARIES": "Nelerden kaçınmalı veya bir insana bırakmalı?",
-      "REBUILD": "Önerilen akışı sıfırla",
+      "REBUILD": "Önerilen yönlendirmeyi sıfırla",
       "INSTRUCTIONS_LABEL": "Görevler ve konuşma akışı",
       "INSTRUCTIONS_REQUIRED": "Devam etmeden önce talimat ekleyin.",
       "INBOXES_TITLE": "Nerede yanıt vermeli?",
@@ -524,8 +517,10 @@
       "STATUS_RUNNING_HELP": "{website} okunuyor. İncelemeniz olmadan taslağınız değişmeyecek.",
       "READY_TITLE": "Web sitesi incelemesi hazır ({count} öneri)",
       "READY_KNOWLEDGE_TITLE": "Web sitesi bilgileri incelemeye hazır",
+      "READY_NO_CHANGES_TITLE": "Web sitesinde kullanılabilir yeni bilgi bulunamadı",
       "READY_TO_REVIEW": "Web sitesi önerileri incelemeye hazır.",
       "STATUS_READY_HELP": "{pages} sayfadan hazırlanan talimat önerilerini inceleyin ve isterseniz siteyi Paylaşılan Bilgi'ye ekleyin.",
+      "STATUS_READY_NO_CHANGES_HELP": "Başka bir web sitesi deneyin veya asistanı elle düzenlemeye devam edin.",
       "FAILED_TITLE": "Web sitesi incelemesi tamamlanamadı",
       "STATUS_FAILED_HELP": "Web sitesini yeniden deneyin veya asistanı elle düzenlemeye devam edin.",
       "REVIEW": "Önerileri incele",

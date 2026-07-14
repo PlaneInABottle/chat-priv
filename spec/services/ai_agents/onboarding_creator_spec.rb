@@ -8,12 +8,14 @@ RSpec.describe AiAgents::OnboardingCreator do
       locale: 'en',
       website: 'example.com',
       industry: 'E-commerce',
-      company_size: '11-50',
-      timezone: 'Europe/Istanbul',
-      user_role: 'owner'
+      website_verification_token: 'verified-token'
     }
   end
-  let(:assistant_attributes) { { tone: 'warm' } }
+  let(:assistant_attributes) { { tone: 'friendly' } }
+
+  before do
+    allow(AiAgents::OnboardingWebsiteVerifier).to receive(:verified_url!).and_return('https://example.com/')
+  end
 
   it 'creates a disabled fallback draft and queues website enrichment', :aggregate_failures do
     result = nil
@@ -34,10 +36,28 @@ RSpec.describe AiAgents::OnboardingCreator do
     expect(result.ai_agent.config.dig('instructions', 'sections', 'business_context')).to include('E-commerce')
     expect(result.ai_agent.config.dig('instructions', 'sections', 'tasks')).to include('orders, delivery, returns, and exchanges')
     expect(result.ai_agent.config.dig('instructions', 'profile', 'tone')).to eq('friendly')
-    expect(result.ai_agent.config['setup_profile']).not_to have_key('purpose')
+    expect(result.ai_agent.config['setup_profile']).to eq('source' => 'account_onboarding')
     expect(result.website_import).to have_attributes(website_url: 'https://example.com/')
     expect(result.website_import.base_document).to eq(result.ai_agent.config['instructions'])
     expect(account.reload.custom_attributes['onboarding_step']).to be_nil
+  end
+
+  it 'requires the submitted website to match its verification' do
+    allow(AiAgents::OnboardingWebsiteVerifier).to receive(:verified_url!).and_raise(
+      AiAgents::WebsiteCrawler::InvalidWebsite,
+      'Website verification is missing or expired.'
+    )
+
+    expect do
+      described_class.new(
+        account: account,
+        user: user,
+        account_attributes: account_attributes,
+        assistant_attributes: assistant_attributes
+      ).perform
+    end.to raise_error(AiAgents::WebsiteCrawler::InvalidWebsite, /verification/)
+
+    expect(account.ai_agents).to be_empty
   end
 
   it 'creates the fallback without an import when the website is blank' do

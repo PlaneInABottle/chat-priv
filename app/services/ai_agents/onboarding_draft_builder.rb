@@ -42,8 +42,6 @@ class AiAgents::OnboardingDraftBuilder
   attr_reader :account, :answers
 
   def tone
-    return 'friendly' if answers['tone'] == 'warm'
-
     TONES.include?(answers['tone']) ? answers['tone'] : 'friendly'
   end
 
@@ -159,11 +157,6 @@ class AiAgents::OnboardingDraftBuilder
   end
 
   def setup_profile
-    {
-      'source' => 'account_onboarding',
-      'tone' => tone,
-      'language' => answers['language'],
-      'website' => answers['website']
-    }
+    { 'source' => 'account_onboarding' }
   end
 end

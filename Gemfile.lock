@@ -1149,6 +1149,7 @@ DEPENDENCIES
   pgvector
   procore-sift
   pry-rails
+  public_suffix (~> 7.0)
   puma (~> 7.2, >= 7.2.1)
   pundit
   rack-attack (>= 6.7.0)

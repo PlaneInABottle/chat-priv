@@ -130,6 +130,10 @@ const isOverLimit = computed(() => totalLength.value > 50000);
 const compiledInstructions = computed(() =>
   compileInstructionDocument(props.modelValue)
 );
+
+defineExpose({
+  refreshCredits: () => draftTestPanel.value?.refreshCredits?.(),
+});
 const formattedInstructions = computed(() =>
   formatMessage(compiledInstructions.value, false, false, false)
 );

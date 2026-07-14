@@ -168,4 +168,19 @@ RSpec.describe AiAgents::WebsiteImportApplier do
       ).perform
     end.to raise_error(described_class::InvalidSelection, /run again/)
   end
+
+  it 'rejects a selected section that has no generated proposal' do
+    website_import.update!(proposed_sections: {})
+
+    expect do
+      described_class.new(
+        website_import: website_import,
+        section_keys: ['rules'],
+        expected_draft_fingerprint: ai_agent.draft_fingerprint
+      ).perform
+    end.to raise_error(described_class::InvalidSelection, /available suggestion/)
+
+    expect(website_import.reload).to be_ready
+    expect(ai_agent.reload.config.dig('instructions', 'sections', 'rules')).to eq('Existing rules')
+  end
 end

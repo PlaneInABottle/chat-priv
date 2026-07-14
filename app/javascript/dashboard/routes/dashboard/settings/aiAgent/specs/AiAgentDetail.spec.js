@@ -3,6 +3,8 @@ import { createStore } from 'vuex';
 import { defineComponent, nextTick } from 'vue';
 import AiAgentDetail from '../AiAgentDetail.vue';
 
+const refreshInstructionCredits = vi.fn();
+
 vi.mock(
   'dashboard/components-next/combobox/TagMultiSelectComboBox.vue',
   () => ({
@@ -211,6 +213,7 @@ const mountComponent = options => {
         InstructionWorkspace: {
           template: '<div class="instruction-workspace" />',
           props: ['modelValue', 'aiAgentId', 'isDirty', 'isDisabled'],
+          methods: { refreshCredits: refreshInstructionCredits },
         },
         WebsiteImportStatus: {
           name: 'WebsiteImportStatus',
@@ -258,6 +261,7 @@ const mountComponent = options => {
 describe('AiAgentDetail.vue', () => {
   beforeEach(() => {
     resetRoute();
+    refreshInstructionCredits.mockClear();
   });
 
   it('renders conflicting inboxes as disabled with owner label', async () => {
@@ -467,8 +471,8 @@ describe('AiAgentDetail.vue', () => {
 
     expect(wrapper.vm.showSetupNotice).toBe(true);
     expect(wrapper.find('#readiness-title').exists()).toBe(true);
-    expect(wrapper.text()).toContain('Inbox connected');
-    expect(wrapper.text()).not.toContain('Instructions added');
+    expect(wrapper.text()).toContain('Connect an inbox');
+    expect(wrapper.text()).not.toContain('Add instructions');
   });
 
   it('offers to resume an unchanged paused version without presenting it as an update', async () => {
@@ -562,6 +566,7 @@ describe('AiAgentDetail.vue', () => {
   });
 
   it('preserves local knowledge edits when a website import adds a source', async () => {
+    setRouteName('ai_agent_instructions');
     const { wrapper, actionMocks, store } = mountComponent({
       aiAgentRecord: buildAiAgent({ knowledge_source_ids: [1, 2] }),
     });
@@ -576,6 +581,7 @@ describe('AiAgentDetail.vue', () => {
     await wrapper.vm.refreshAfterWebsiteImport();
 
     expect(wrapper.vm.formState.knowledge_source_ids).toEqual([2, 3, 4]);
+    expect(refreshInstructionCredits).toHaveBeenCalledOnce();
   });
 
   it('preserves unsaved edits when pausing the live assistant', async () => {

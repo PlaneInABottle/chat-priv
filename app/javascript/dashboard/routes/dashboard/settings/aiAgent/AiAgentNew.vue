@@ -18,33 +18,46 @@ const router = useRouter();
 const uiFlags = useMapGetter('aiAgent/getUIFlags');
 const inboxes = useMapGetter('inboxes/getInboxes');
 
-const goalInstructionContent = {
+const generalInstructionContent = {
   tr: {
-    support:
-      'Müşteri sorularını yanıtla ve müşteriyi uygun sonraki adıma yönlendir.',
-    sales:
-      'Müşterilerin uygun ürünleri anlamasına ve karşılaştırmasına yardımcı ol, ardından sonraki satış adımına yönlendir.',
-    orders:
-      'Yalnızca sonraki adım için gereken bilgileri isteyerek genel sipariş, teslimat, iade ve değişim sorularında yardımcı ol.',
-    custom: 'Bu talimatlarda açıklanan işletmeye özel destek akışını izle.',
+    instructions: `- Ürün seçimi, satış, destek, sipariş, teslimat, iade ve değişim konularında yardımcı ol ve müşteriyi uygun sonraki adıma yönlendir.
+- Konuşmanın başında müşterinin amacını ve ihtiyacını belirle.
+- Ürün veya hizmet seçimi gerekiyorsa kullanım amacı, gerekli özellikler, ölçü veya diğer karar bilgilerini sırayla netleştir.
+- Doğrulanmış seçenekleri kısa ve karşılaştırılabilir biçimde sun; önerinin neden uygun olduğunu açıkla.
+- Politika, sipariş veya teslimat sorularında yalnızca mevcut bilgiye dayan ve müşteriye izleyebileceği sonraki adımı belirt.
+- Sorun çözüldüğünde kısa bir özet ver ve başka bir konuda yardıma ihtiyaç olup olmadığını sor.`,
+    boundaries: `- Yanıt vermeden önce müşterinin asıl ihtiyacını belirle; eksik bilgi varsa yalnızca gerekli ve anlaşılır soruları sor.
+- Yalnızca talimatlarda, bağlı bilgi kaynaklarında veya araç sonuçlarında doğrulanan şirket bilgilerini kullan.
+- Ürün, fiyat, stok, kampanya, politika, teslimat tarihi veya taahhüt uydurma. Bilgi yoksa bunu açıkça söyle.
+- Müşterinin ihtiyacına uygun seçenekleri gerekçesiyle açıkla; emin olmadığın bir ürünü kesin öneri gibi sunma.
+- Yanıtı kolay taranır tut, müşterinin sorusunu gereksiz yere tekrarlama ve konuşmayı net bir sonraki adımla ilerlet.
+- Yapılandırılmış bir işlem doğrulanmadıkça sipariş, iade, rezervasyon, ödeme veya hesap değişikliğinin tamamlandığını söyleme.
+- Ödeme bilgisi, parola veya gereksiz kişisel veri isteme. Müşterinin paylaştığı hassas bilgileri yanıtta tekrar etme.
+- Talep kapsam dışındaysa, bilgi çelişkiliyse veya güvenli bir yanıt veremiyorsan tahmin yürütmek yerine insan desteğine aktar.`,
   },
   en: {
-    support:
-      'Answer customer questions and guide customers to the appropriate next step.',
-    sales:
-      'Help customers understand and compare suitable products, then guide them to the next sales step.',
-    orders:
-      'Help with general order, delivery, return, and exchange questions while requesting only the information needed for the next step.',
-    custom:
-      'Follow the business-specific support workflow described in these instructions.',
+    instructions: `- Help with product selection, sales, support, orders, delivery, returns, and exchanges, then guide the customer toward the appropriate next step.
+- Establish the customer's goal and need at the beginning of the conversation.
+- For product or service selection, clarify intended use, required features, measurements, and other decision details in a logical order.
+- Present verified options in a concise, comparable format and explain why a recommendation fits.
+- For policy, order, or delivery questions, rely only on available information and state the next action the customer can take.
+- When the request is resolved, give a brief summary and ask whether anything else is needed.`,
+    boundaries: `- Identify the customer's real need before answering. Ask only clear, necessary follow-up questions when details are missing.
+- Use only company information verified by these instructions, connected knowledge, or tool results.
+- Do not invent products, prices, stock, campaigns, policies, delivery dates, or commitments. Say clearly when information is unavailable.
+- Explain suitable options with a reason. Do not present an uncertain product match as a definitive recommendation.
+- Keep answers easy to scan, avoid repeating the question, and move the conversation toward a clear next step.
+- Never claim an order, refund, booking, payment, or account change was completed unless a configured action confirms it.
+- Do not request passwords, payment credentials, or unnecessary personal data. Do not repeat sensitive details back to the customer.
+- Transfer to human support instead of guessing when a request is out of scope, information conflicts, or a safe answer is not possible.`,
   },
 };
 
 const currentStep = ref(0);
 const generatedInstructions = ref('');
+const generatedBoundaries = ref('');
 const form = ref({
   name: '',
-  goal: 'support',
   language: 'tr',
   tone: 'friendly',
   businessContext: '',
@@ -69,29 +82,6 @@ const instructionLanguage = computed(() => {
   return uiLocale.value?.toLowerCase().startsWith('tr') ? 'tr' : 'en';
 });
 
-const goalOptions = computed(() => [
-  {
-    value: 'support',
-    label: t('AI_ASSISTANT.CREATE.GOALS.SUPPORT'),
-    instructions: goalInstructionContent[instructionLanguage.value].support,
-  },
-  {
-    value: 'sales',
-    label: t('AI_ASSISTANT.CREATE.GOALS.SALES'),
-    instructions: goalInstructionContent[instructionLanguage.value].sales,
-  },
-  {
-    value: 'orders',
-    label: t('AI_ASSISTANT.CREATE.GOALS.ORDERS'),
-    instructions: goalInstructionContent[instructionLanguage.value].orders,
-  },
-  {
-    value: 'custom',
-    label: t('AI_ASSISTANT.CREATE.GOALS.CUSTOM'),
-    instructions: goalInstructionContent[instructionLanguage.value].custom,
-  },
-]);
-
 const toneOptions = computed(() => [
   { value: 'friendly', label: t('AI_ASSISTANT.CREATE.TONES.FRIENDLY') },
   { value: 'professional', label: t('AI_ASSISTANT.CREATE.TONES.PROFESSIONAL') },
@@ -108,10 +98,29 @@ const languageOptions = computed(() => [
 ]);
 
 const buildInstructions = () => {
-  generatedInstructions.value =
-    goalOptions.value.find(option => option.value === form.value.goal)
-      ?.instructions || '';
+  const content = generalInstructionContent[instructionLanguage.value];
+  generatedInstructions.value = content.instructions;
+  generatedBoundaries.value = content.boundaries;
   form.value.instructions = generatedInstructions.value;
+  form.value.boundaries = generatedBoundaries.value;
+};
+
+const seedInstructions = () => {
+  const content = generalInstructionContent[instructionLanguage.value];
+  if (
+    !form.value.instructions.trim() ||
+    form.value.instructions === generatedInstructions.value
+  ) {
+    form.value.instructions = content.instructions;
+    generatedInstructions.value = content.instructions;
+  }
+  if (
+    !form.value.boundaries.trim() ||
+    form.value.boundaries === generatedBoundaries.value
+  ) {
+    form.value.boundaries = content.boundaries;
+    generatedBoundaries.value = content.boundaries;
+  }
 };
 
 const validateStep = () => {
@@ -130,10 +139,7 @@ const validateStep = () => {
 
 const nextStep = () => {
   if (!validateStep()) return;
-  const instructionsAreGenerated =
-    !form.value.instructions.trim() ||
-    form.value.instructions === generatedInstructions.value;
-  if (currentStep.value === 0 && instructionsAreGenerated) buildInstructions();
+  if (currentStep.value === 0) seedInstructions();
   currentStep.value += 1;
 };
 
@@ -161,8 +167,8 @@ const buildInstructionDocument = () => {
   const sectionContent = {
     identity:
       language === 'tr'
-        ? `Sen, ${form.value.name} adıyla müşterilere yardımcı olan bir destek asistanısın.`
-        : `You are ${form.value.name}, a customer-facing support assistant.`,
+        ? `Sen, ${form.value.name} adıyla müşterilere yardımcı olan bir müşteri asistanısın.`
+        : `You are ${form.value.name}, a customer-facing assistant.`,
     business_context: form.value.businessContext.trim(),
     tasks: form.value.instructions.trim(),
     rules: form.value.boundaries.trim(),
@@ -183,13 +189,6 @@ const handleSubmit = async () => {
     inbox_ids: form.value.inboxIds,
     config: {
       instructions: buildInstructionDocument(),
-      setup_profile: {
-        goal: form.value.goal,
-        language: form.value.language,
-        tone: form.value.tone,
-        business_context: form.value.businessContext.trim(),
-        boundaries: form.value.boundaries.trim(),
-      },
     },
   });
 
@@ -266,24 +265,6 @@ const handleCancel = () => {
               :placeholder="t('AI_AGENTS.NEW.NAME_PLACEHOLDER')"
               @input="errorMessage = ''"
             />
-            <fieldset class="flex flex-col gap-2">
-              <legend class="mb-2 text-sm font-medium text-n-slate-12">
-                {{ t('AI_ASSISTANT.CREATE.GOAL_LABEL') }}
-              </legend>
-              <label
-                v-for="option in goalOptions"
-                :key="option.value"
-                class="flex cursor-pointer items-center gap-3 rounded-lg border border-n-weak p-3"
-              >
-                <input
-                  v-model="form.goal"
-                  name="assistant-goal"
-                  type="radio"
-                  :value="option.value"
-                />
-                <span class="text-sm text-n-slate-12">{{ option.label }}</span>
-              </label>
-            </fieldset>
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <label
                 class="flex flex-col gap-1 text-sm font-medium text-n-slate-12"
@@ -325,13 +306,23 @@ const handleCancel = () => {
           </section>
 
           <section v-else-if="currentStep === 1" class="flex flex-col gap-5">
-            <div>
-              <h2 class="m-0 text-xl font-semibold text-n-slate-12">
-                {{ t('AI_ASSISTANT.CREATE.INSTRUCTIONS_TITLE') }}
-              </h2>
-              <p class="mb-0 mt-1 text-sm text-n-slate-11">
-                {{ t('AI_ASSISTANT.CREATE.INSTRUCTIONS_HELP') }}
-              </p>
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 class="m-0 text-xl font-semibold text-n-slate-12">
+                  {{ t('AI_ASSISTANT.CREATE.INSTRUCTIONS_TITLE') }}
+                </h2>
+                <p class="mb-0 mt-1 text-sm text-n-slate-11">
+                  {{ t('AI_ASSISTANT.CREATE.INSTRUCTIONS_HELP') }}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                color="slate"
+                icon="i-lucide-refresh-cw"
+                :label="t('AI_ASSISTANT.CREATE.REBUILD')"
+                @click="buildInstructions"
+              />
             </div>
             <label
               class="flex flex-col gap-1 text-sm font-medium text-n-slate-12"
@@ -341,8 +332,21 @@ const handleCancel = () => {
                 v-model="form.businessContext"
                 name="assistant-business-context"
                 autocomplete="off"
-                rows="3"
+                rows="4"
                 class="rounded-lg border border-n-weak bg-n-alpha-1 p-3 font-normal"
+              />
+            </label>
+            <label
+              class="flex flex-col gap-1 text-sm font-medium text-n-slate-12"
+            >
+              {{ t('AI_ASSISTANT.CREATE.INSTRUCTIONS_LABEL') }}
+              <textarea
+                v-model="form.instructions"
+                name="assistant-tasks"
+                autocomplete="off"
+                rows="10"
+                maxlength="50000"
+                class="rounded-lg border border-n-weak bg-n-alpha-1 p-3 font-mono text-sm font-normal leading-6"
               />
             </label>
             <label
@@ -352,27 +356,6 @@ const handleCancel = () => {
               <textarea
                 v-model="form.boundaries"
                 name="assistant-boundaries"
-                autocomplete="off"
-                rows="3"
-                class="rounded-lg border border-n-weak bg-n-alpha-1 p-3 font-normal"
-              />
-            </label>
-            <Button
-              type="button"
-              variant="outline"
-              color="slate"
-              icon="i-lucide-refresh-cw"
-              :label="t('AI_ASSISTANT.CREATE.REBUILD')"
-              class="w-fit"
-              @click="buildInstructions"
-            />
-            <label
-              class="flex flex-col gap-1 text-sm font-medium text-n-slate-12"
-            >
-              {{ t('AI_ASSISTANT.CREATE.INSTRUCTIONS_LABEL') }}
-              <textarea
-                v-model="form.instructions"
-                name="assistant-tasks"
                 autocomplete="off"
                 rows="12"
                 maxlength="50000"
@@ -420,12 +403,6 @@ const handleCancel = () => {
             >
               <dt class="text-n-slate-11">{{ t('AI_ASSISTANT.LIST.NAME') }}</dt>
               <dd class="m-0 text-n-slate-12">{{ form.name }}</dd>
-              <dt class="text-n-slate-11">
-                {{ t('AI_ASSISTANT.CREATE.GOAL_LABEL') }}
-              </dt>
-              <dd class="m-0 text-n-slate-12">
-                {{ goalOptions.find(item => item.value === form.goal)?.label }}
-              </dd>
               <dt class="text-n-slate-11">
                 {{ t('AI_ASSISTANT.CREATE.LANGUAGE') }}
               </dt>

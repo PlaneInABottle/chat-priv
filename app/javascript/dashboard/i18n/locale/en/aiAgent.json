@@ -140,8 +140,8 @@
     "READINESS": {
       "TITLE": "Finish setup",
       "DESCRIPTION": "Complete the remaining required items before publishing.",
-      "INSTRUCTIONS": "Instructions added",
-      "INBOX": "Inbox connected"
+      "INSTRUCTIONS": "Add instructions",
+      "INBOX": "Connect an inbox"
     },
     "ACTIONS": {
       "PUBLISH": "Publish assistant",
@@ -372,8 +372,10 @@
       "STATUS_RUNNING_HELP": "We are reading {website}. Your draft will not change without your review.",
       "READY_TITLE": "Website analysis ready ({count} suggestions)",
       "READY_KNOWLEDGE_TITLE": "Website knowledge is ready to review",
+      "READY_NO_CHANGES_TITLE": "No reusable website changes found",
       "READY_TO_REVIEW": "Website suggestions are ready to review.",
       "STATUS_READY_HELP": "Review instruction suggestions from {pages} pages and optionally add the website to Shared Knowledge.",
+      "STATUS_READY_NO_CHANGES_HELP": "Try another website or continue editing this assistant manually.",
       "FAILED_TITLE": "Website analysis needs attention",
       "STATUS_FAILED_HELP": "Try the website again or continue editing the assistant manually.",
       "REVIEW": "Review suggestions",
@@ -535,15 +537,8 @@
         "INBOXES": "Inboxes",
         "REVIEW": "Review"
       },
-      "BASICS_TITLE": "What should this assistant do?",
-      "BASICS_HELP": "Choose a clear purpose. You can refine the instructions before testing.",
-      "GOAL_LABEL": "Primary goal",
-      "GOALS": {
-        "SUPPORT": "Answer customer questions",
-        "SALES": "Help customers choose products",
-        "ORDERS": "Help with orders and delivery",
-        "CUSTOM": "A custom support workflow"
-      },
+      "BASICS_TITLE": "Name your assistant",
+      "BASICS_HELP": "Choose its response language and default tone. You can refine every instruction on the next step.",
       "LANGUAGE": "Response language",
       "LANGUAGES": {
         "SAME_AS_CUSTOMER": "Match each customer",
@@ -560,7 +555,7 @@
       "INSTRUCTIONS_HELP": "Add business context and boundaries, then edit the suggested conversation flow in plain language.",
       "BUSINESS_CONTEXT": "What should it know about your business?",
       "BOUNDARIES": "What should it avoid or leave to a person?",
-      "REBUILD": "Reset suggested flow",
+      "REBUILD": "Reset suggested guidance",
       "INSTRUCTIONS_LABEL": "Tasks and conversation flow",
       "INSTRUCTIONS_REQUIRED": "Add instructions before continuing.",
       "INBOXES_TITLE": "Where should it answer?",

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onUnmounted, ref } from 'vue';
+import { computed, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useAlert } from 'dashboard/composables';
 import { useMessageFormatter } from 'shared/composables/useMessageFormatter';
@@ -33,6 +33,9 @@ const improvementCreditsRef = ref(null);
 const improvementUsage = ref(null);
 const applyErrorCode = ref('');
 let pollTimer = null;
+let dialogSequence = 0;
+let agentSequence = 0;
+let componentMounted = true;
 
 const api = computed(() => new AiAgentWebsiteImportsAPI(props.aiAgentId));
 const isRunning = computed(
@@ -147,11 +150,30 @@ const stopPolling = () => {
   pollTimer = null;
 };
 
+const requestMatchesAgent = (requestAgentId, requestAgentSequence) =>
+  componentMounted &&
+  requestAgentId === props.aiAgentId &&
+  requestAgentSequence === agentSequence;
+
 const refreshImprovementUsage = () => improvementCreditsRef.value?.refresh();
 
 const pollImport = async () => {
+  if (!isDialogOpen.value || !websiteImport.value?.id) return;
+
+  const requestSequence = dialogSequence;
+  const requestAgentId = props.aiAgentId;
+  const requestAgentSequence = agentSequence;
+  const importId = websiteImport.value.id;
   try {
-    const { data } = await api.value.show(websiteImport.value.id);
+    const { data } = await api.value.show(importId);
+    if (
+      !isDialogOpen.value ||
+      requestSequence !== dialogSequence ||
+      !requestMatchesAgent(requestAgentId, requestAgentSequence)
+    ) {
+      return;
+    }
+
     initializeReview(data);
     emit('stateChanged', data);
     stopPolling();
@@ -161,17 +183,30 @@ const pollImport = async () => {
       await refreshImprovementUsage();
     }
   } catch {
+    if (
+      !isDialogOpen.value ||
+      requestSequence !== dialogSequence ||
+      !requestMatchesAgent(requestAgentId, requestAgentSequence)
+    ) {
+      return;
+    }
+
     stopPolling();
     pollTimer = setTimeout(pollImport, 3000);
   }
 };
 
 const restartImport = async () => {
+  const requestAgentId = props.aiAgentId;
+  const requestAgentSequence = agentSequence;
   stopPolling();
   if (isReady.value) {
     try {
       await api.value.dismiss(websiteImport.value.id);
+      if (!requestMatchesAgent(requestAgentId, requestAgentSequence)) return;
     } catch {
+      if (!requestMatchesAgent(requestAgentId, requestAgentSequence)) return;
+
       useAlert(t('AI_ASSISTANT.WEBSITE_IMPORT.ERROR.RESTART'));
       return;
     }
@@ -185,17 +220,32 @@ const restartImport = async () => {
 const startImport = async () => {
   if (!websiteUrl.value.trim() || creditsExhausted.value) return;
 
+  const requestSequence = dialogSequence;
+  const requestAgentId = props.aiAgentId;
+  const requestAgentSequence = agentSequence;
   isStarting.value = true;
   try {
     const { data } = await api.value.create({
       website_url: websiteUrl.value.trim(),
     });
-    initializeReview(data);
+    if (!requestMatchesAgent(requestAgentId, requestAgentSequence)) return;
+
     emit('stateChanged', data);
+    if (!isDialogOpen.value || requestSequence !== dialogSequence) return;
+
+    initializeReview(data);
     if (['pending', 'running'].includes(data.status)) {
       pollTimer = setTimeout(pollImport, 1000);
     }
   } catch (error) {
+    if (
+      !isDialogOpen.value ||
+      requestSequence !== dialogSequence ||
+      !requestMatchesAgent(requestAgentId, requestAgentSequence)
+    ) {
+      return;
+    }
+
     await refreshImprovementUsage();
     useAlert(
       localizedError(
@@ -204,13 +254,20 @@ const startImport = async () => {
       )
     );
   } finally {
-    isStarting.value = false;
+    if (
+      requestSequence === dialogSequence &&
+      requestMatchesAgent(requestAgentId, requestAgentSequence)
+    ) {
+      isStarting.value = false;
+    }
   }
 };
 
 const applyImport = async () => {
   if (!canApply.value) return;
 
+  const requestAgentId = props.aiAgentId;
+  const requestAgentSequence = agentSequence;
   isApplying.value = true;
   try {
     const { data } = await api.value.applyImport(websiteImport.value.id, {
@@ -219,33 +276,57 @@ const applyImport = async () => {
       attach_knowledge: attachKnowledge.value,
       expected_draft_fingerprint: props.expectedDraftFingerprint,
     });
+    if (!requestMatchesAgent(requestAgentId, requestAgentSequence)) return;
+
     emit('applied');
     emit('stateChanged', data);
     dialog.value.close();
     useAlert(t('AI_ASSISTANT.WEBSITE_IMPORT.APPLIED'));
   } catch (error) {
+    if (!requestMatchesAgent(requestAgentId, requestAgentSequence)) return;
+
     const errorCode = error.response?.data?.code || '';
     applyErrorCode.value = errorCode === 'draft_changed' ? errorCode : '';
     useAlert(
       localizedError(errorCode, 'AI_ASSISTANT.WEBSITE_IMPORT.ERROR.APPLY')
     );
   } finally {
-    isApplying.value = false;
+    if (requestMatchesAgent(requestAgentId, requestAgentSequence)) {
+      isApplying.value = false;
+    }
   }
 };
 
 const open = async () => {
+  dialogSequence += 1;
+  const requestSequence = dialogSequence;
+  const requestAgentId = props.aiAgentId;
+  const requestAgentSequence = agentSequence;
   isDialogOpen.value = true;
+  isStarting.value = false;
   websiteUrl.value = props.defaultWebsite;
   websiteImport.value = null;
   sectionChoices.value = {};
   applyErrorCode.value = '';
   dialog.value.open();
   await refreshImprovementUsage();
+  if (
+    !isDialogOpen.value ||
+    requestSequence !== dialogSequence ||
+    !requestMatchesAgent(requestAgentId, requestAgentSequence)
+  ) {
+    return;
+  }
 
   try {
     const { data } = await api.value.get();
-    if (!isDialogOpen.value) return;
+    if (
+      !isDialogOpen.value ||
+      requestSequence !== dialogSequence ||
+      !requestMatchesAgent(requestAgentId, requestAgentSequence)
+    ) {
+      return;
+    }
 
     const latest = data[0];
     if (
@@ -261,16 +342,46 @@ const open = async () => {
       pollTimer = setTimeout(pollImport, 1000);
     }
   } catch {
+    if (
+      !isDialogOpen.value ||
+      requestSequence !== dialogSequence ||
+      !requestMatchesAgent(requestAgentId, requestAgentSequence)
+    ) {
+      return;
+    }
+
     useAlert(t('AI_ASSISTANT.WEBSITE_IMPORT.ERROR.LOAD'));
   }
 };
 
 const handleClose = () => {
   isDialogOpen.value = false;
+  dialogSequence += 1;
   stopPolling();
 };
 
-onUnmounted(stopPolling);
+watch(
+  () => props.aiAgentId,
+  () => {
+    agentSequence += 1;
+    isDialogOpen.value = false;
+    dialogSequence += 1;
+    isStarting.value = false;
+    isApplying.value = false;
+    websiteImport.value = null;
+    sectionChoices.value = {};
+    applyErrorCode.value = '';
+    stopPolling();
+    dialog.value?.close();
+  }
+);
+
+onUnmounted(() => {
+  componentMounted = false;
+  isDialogOpen.value = false;
+  dialogSequence += 1;
+  stopPolling();
+});
 defineExpose({ open });
 </script>
 

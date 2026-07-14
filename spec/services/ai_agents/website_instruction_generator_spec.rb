@@ -21,7 +21,7 @@ RSpec.describe AiAgents::WebsiteInstructionGenerator do
 
     result = described_class.new(ai_agent: ai_agent, adapter: adapter).call(
       pages: pages,
-      onboarding_answers: { purpose: 'support' }
+      business_context: { company_name: 'Example' }
     )
 
     expect(result.sections).to include(
@@ -41,7 +41,7 @@ RSpec.describe AiAgents::WebsiteInstructionGenerator do
     )
 
     expect do
-      described_class.new(ai_agent: ai_agent, adapter: adapter).call(pages: pages, onboarding_answers: {})
+      described_class.new(ai_agent: ai_agent, adapter: adapter).call(pages: pages, business_context: {})
     end.to raise_error(described_class::InvalidResponse, /unknown sections/)
   end
 
@@ -49,7 +49,7 @@ RSpec.describe AiAgents::WebsiteInstructionGenerator do
     allow(adapter).to receive(:perform).and_return(assistant_text: '')
 
     expect do
-      described_class.new(ai_agent: ai_agent, adapter: adapter).call(pages: pages, onboarding_answers: {})
+      described_class.new(ai_agent: ai_agent, adapter: adapter).call(pages: pages, business_context: {})
     end.to raise_error(described_class::InvalidResponse, 'Website generation returned no content.')
   end
 
@@ -65,7 +65,7 @@ RSpec.describe AiAgents::WebsiteInstructionGenerator do
       }.to_json
     )
 
-    result = described_class.new(ai_agent: ai_agent, adapter: adapter).call(pages: pages, onboarding_answers: {})
+    result = described_class.new(ai_agent: ai_agent, adapter: adapter).call(pages: pages, business_context: {})
 
     expect(result.sections['tasks']).to eq("- Explain the product range.\n- Guide customers to support.")
   end
@@ -75,6 +75,7 @@ RSpec.describe AiAgents::WebsiteInstructionGenerator do
       'business_context: a JSON array',
       'tasks: a JSON array',
       'rules: a JSON array',
+      'Do not tell the assistant to request order numbers',
       'Never combine a full workflow into one dense paragraph.'
     )
   end
@@ -89,7 +90,7 @@ RSpec.describe AiAgents::WebsiteInstructionGenerator do
       }.to_json
     )
 
-    result = described_class.new(ai_agent: ai_agent, adapter: adapter).call(pages: pages, onboarding_answers: {})
+    result = described_class.new(ai_agent: ai_agent, adapter: adapter).call(pages: pages, business_context: {})
 
     expect(result.sections['identity']).to eq('You represent Example.')
   end
@@ -105,7 +106,7 @@ RSpec.describe AiAgents::WebsiteInstructionGenerator do
       assistant_text: { sections: { identity: 'Örnek şirketini temsil et.' } }.to_json
     )
 
-    described_class.new(ai_agent: ai_agent, adapter: adapter).call(pages: pages, onboarding_answers: {})
+    described_class.new(ai_agent: ai_agent, adapter: adapter).call(pages: pages, business_context: {})
 
     expect(adapter).to have_received(:perform) do |messages:, **|
       expect(JSON.parse(messages.first[:content])['target_instruction_language']).to eq('Turkish')
@@ -127,7 +128,7 @@ RSpec.describe AiAgents::WebsiteInstructionGenerator do
       assistant_text: { sections: { identity: 'Örnek şirketini temsil et.' } }.to_json
     )
 
-    described_class.new(ai_agent: ai_agent, adapter: adapter).call(pages: pages, onboarding_answers: {})
+    described_class.new(ai_agent: ai_agent, adapter: adapter).call(pages: pages, business_context: {})
 
     expect(adapter).to have_received(:perform) do |messages:, **|
       expect(JSON.parse(messages.first[:content])['target_instruction_language']).to eq('Turkish')
@@ -138,7 +139,7 @@ RSpec.describe AiAgents::WebsiteInstructionGenerator do
     allow(adapter).to receive(:perform).and_raise(Net::ReadTimeout)
 
     expect do
-      described_class.new(ai_agent: ai_agent, adapter: adapter).call(pages: pages, onboarding_answers: {})
+      described_class.new(ai_agent: ai_agent, adapter: adapter).call(pages: pages, business_context: {})
     end.to raise_error(Net::ReadTimeout)
 
     llm_call = ai_agent.llm_calls.last

@@ -22,6 +22,8 @@ const latestImport = ref(null);
 const dialog = ref(null);
 const didAnnounceReady = ref(false);
 let pollTimer = null;
+let isMounted = false;
+let loadSequence = 0;
 
 const api = computed(() => new AiAgentWebsiteImportsAPI(props.aiAgentId));
 const isRunning = computed(
@@ -32,6 +34,9 @@ const isRunning = computed(
 const isReady = computed(() => latestImport.value?.status === 'ready');
 const isFailed = computed(
   () => latestImport.value?.status === 'failed' || latestImport.value?.stale
+);
+const knowledgeAvailable = computed(() =>
+  Boolean(latestImport.value?.knowledge_available)
 );
 const readyCount = computed(() => {
   if (!isReady.value) return 0;
@@ -44,12 +49,22 @@ const readyCount = computed(() => {
         (props.currentDocument.sections?.[key] || '').trim()
   ).length;
 });
-const readyTitle = computed(() =>
-  readyCount.value
-    ? t('AI_ASSISTANT.WEBSITE_IMPORT.READY_TITLE', {
-        count: readyCount.value,
+const readyTitle = computed(() => {
+  if (readyCount.value) {
+    return t('AI_ASSISTANT.WEBSITE_IMPORT.READY_TITLE', {
+      count: readyCount.value,
+    });
+  }
+  return knowledgeAvailable.value
+    ? t('AI_ASSISTANT.WEBSITE_IMPORT.READY_KNOWLEDGE_TITLE')
+    : t('AI_ASSISTANT.WEBSITE_IMPORT.READY_NO_CHANGES_TITLE');
+});
+const readyHelp = computed(() =>
+  readyCount.value || knowledgeAvailable.value
+    ? t('AI_ASSISTANT.WEBSITE_IMPORT.STATUS_READY_HELP', {
+        pages: latestImport.value?.source_count,
       })
-    : t('AI_ASSISTANT.WEBSITE_IMPORT.READY_KNOWLEDGE_TITLE')
+    : t('AI_ASSISTANT.WEBSITE_IMPORT.STATUS_READY_NO_CHANGES_HELP')
 );
 
 const hostname = computed(() => {
@@ -68,15 +83,34 @@ const stopPolling = () => {
 const setImport = value => {
   latestImport.value = value;
   if (!isReady.value) didAnnounceReady.value = false;
-  if (isReady.value && !didAnnounceReady.value) {
+  if (
+    isReady.value &&
+    (readyCount.value || knowledgeAvailable.value) &&
+    !didAnnounceReady.value
+  ) {
     didAnnounceReady.value = true;
     useAlert(t('AI_ASSISTANT.WEBSITE_IMPORT.READY_TO_REVIEW'));
   }
 };
 
 const loadLatest = async () => {
+  if (!isMounted) return;
+
+  const requestedAgentId = props.aiAgentId;
+  loadSequence += 1;
+  const requestSequence = loadSequence;
+  const requestApi = api.value;
+
   try {
-    const { data } = await api.value.get();
+    const { data } = await requestApi.get();
+    if (
+      !isMounted ||
+      requestedAgentId !== props.aiAgentId ||
+      requestSequence !== loadSequence
+    ) {
+      return;
+    }
+
     const candidate = data[0];
     const latest =
       candidate &&
@@ -93,6 +127,14 @@ const loadLatest = async () => {
       pollTimer = setTimeout(loadLatest, 1500);
     }
   } catch {
+    if (
+      !isMounted ||
+      requestedAgentId !== props.aiAgentId ||
+      requestSequence !== loadSequence
+    ) {
+      return;
+    }
+
     stopPolling();
     pollTimer = setTimeout(loadLatest, 3000);
   }
@@ -118,8 +160,12 @@ const dismissReady = async () => {
   if (!isReady.value) return;
   try {
     await api.value.dismiss(latestImport.value.id);
+    if (!isMounted) return;
+
     setImport(null);
   } catch {
+    if (!isMounted) return;
+
     useAlert(t('AI_ASSISTANT.WEBSITE_IMPORT.ERROR.DISMISS'));
   }
 };
@@ -129,8 +175,25 @@ const handleApplied = () => {
   emit('applied');
 };
 
-onMounted(loadLatest);
-onUnmounted(stopPolling);
+onMounted(() => {
+  isMounted = true;
+  loadLatest();
+});
+onUnmounted(() => {
+  isMounted = false;
+  loadSequence += 1;
+  stopPolling();
+});
+watch(
+  () => props.aiAgentId,
+  () => {
+    loadSequence += 1;
+    stopPolling();
+    didAnnounceReady.value = false;
+    setImport(null);
+    if (isMounted) loadLatest();
+  }
+);
 watch(readyCount, value => emit('readyCountChanged', value), {
   immediate: true,
 });
@@ -189,11 +252,7 @@ watch(readyCount, value => emit('readyCountChanged', value), {
             }}
           </template>
           <template v-else-if="isReady">
-            {{
-              t('AI_ASSISTANT.WEBSITE_IMPORT.STATUS_READY_HELP', {
-                pages: latestImport.source_count,
-              })
-            }}
+            {{ readyHelp }}
           </template>
           <template v-else-if="isFailed">
             {{ t('AI_ASSISTANT.WEBSITE_IMPORT.STATUS_FAILED_HELP') }}
@@ -220,7 +279,9 @@ watch(readyCount, value => emit('readyCountChanged', value), {
         :color="isReady ? 'blue' : 'slate'"
         :label="
           isReady
-            ? t('AI_ASSISTANT.WEBSITE_IMPORT.REVIEW')
+            ? readyCount || knowledgeAvailable
+              ? t('AI_ASSISTANT.WEBSITE_IMPORT.REVIEW')
+              : t('AI_ASSISTANT.WEBSITE_IMPORT.TRY_AGAIN')
             : isFailed
               ? t('AI_ASSISTANT.WEBSITE_IMPORT.TRY_AGAIN')
               : t('AI_ASSISTANT.WEBSITE_IMPORT.ANALYZE')

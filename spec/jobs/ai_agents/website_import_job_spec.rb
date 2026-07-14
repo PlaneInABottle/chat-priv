@@ -6,7 +6,7 @@ RSpec.describe AiAgents::WebsiteImportJob do
   let(:attributes) do
     AiAgents::OnboardingDraftBuilder.new(
       account: account,
-      answers: { purpose: 'support', tone: 'friendly', website: 'https://example.com/' }
+      answers: { tone: 'friendly', website: 'https://example.com/' }
     ).agent_attributes
   end
   let(:ai_agent) { create(:ai_agent, account: account, **attributes) }
@@ -32,9 +32,10 @@ RSpec.describe AiAgents::WebsiteImportJob do
     )
   end
 
+  let(:generator) { instance_double(AiAgents::WebsiteInstructionGenerator, call: generated_result) }
+
   before do
     crawler = instance_double(AiAgents::WebsiteCrawler, perform: crawl_result)
-    generator = instance_double(AiAgents::WebsiteInstructionGenerator, call: generated_result)
     allow(AiAgents::WebsiteCrawler).to receive(:new).and_return(crawler)
     allow(AiAgents::WebsiteInstructionGenerator).to receive(:new).and_return(generator)
   end
@@ -49,6 +50,11 @@ RSpec.describe AiAgents::WebsiteImportJob do
       source_urls: ['https://example.com/'],
       proposed_sections: { 'business_context' => 'Example sells custom screens.' },
       proposed_knowledge_content: "# Example\nSource: https://example.com/\nExample sells custom screens."
+    )
+    expect(AiAgents::WebsiteInstructionGenerator).to have_received(:new)
+    expect(generator).to have_received(:call).with(
+      pages: crawl_result.pages,
+      business_context: { company_name: account.name }
     )
   end
 

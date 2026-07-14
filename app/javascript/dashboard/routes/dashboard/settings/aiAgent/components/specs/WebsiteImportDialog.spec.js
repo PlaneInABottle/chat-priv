@@ -106,6 +106,10 @@ describe('WebsiteImportDialog', () => {
     mockApi.dismiss.mockResolvedValue({ data: {} });
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('compares suggestions with the current local document and shows sources', async () => {
     const wrapper = mountComponent();
 
@@ -275,6 +279,106 @@ describe('WebsiteImportDialog', () => {
 
     expect(mockUseAlert).toHaveBeenCalledWith(
       'AI_ASSISTANT.WEBSITE_IMPORT.ERROR.KNOWLEDGE_SOURCE_LIMIT'
+    );
+  });
+
+  it('does not resume dialog polling when a create request finishes after close', async () => {
+    vi.useFakeTimers();
+    let resolveCreate;
+    mockApi.get.mockResolvedValue({ data: [] });
+    mockApi.create.mockReturnValue(
+      new Promise(resolve => {
+        resolveCreate = resolve;
+      })
+    );
+    const wrapper = mountComponent();
+    await wrapper.vm.open();
+    await flushPromises();
+
+    wrapper.vm.websiteUrl = 'https://example.com/';
+    const request = wrapper.vm.startImport();
+    wrapper.vm.handleClose();
+    resolveCreate({ data: { ...readyImport, status: 'pending' } });
+    await request;
+    await flushPromises();
+    await vi.advanceTimersByTimeAsync(2000);
+
+    expect(mockApi.show).not.toHaveBeenCalled();
+    expect(wrapper.emitted('stateChanged').at(-1)).toEqual([
+      expect.objectContaining({ status: 'pending' }),
+    ]);
+  });
+
+  it('does not emit or poll when a create request finishes after unmount', async () => {
+    vi.useFakeTimers();
+    let resolveCreate;
+    mockApi.get.mockResolvedValue({ data: [] });
+    mockApi.create.mockReturnValue(
+      new Promise(resolve => {
+        resolveCreate = resolve;
+      })
+    );
+    const wrapper = mountComponent();
+    await wrapper.vm.open();
+    await flushPromises();
+
+    wrapper.vm.websiteUrl = 'https://example.com/';
+    const request = wrapper.vm.startImport();
+    wrapper.unmount();
+    resolveCreate({ data: { ...readyImport, status: 'pending' } });
+    await request;
+    await flushPromises();
+    await vi.advanceTimersByTimeAsync(2000);
+
+    expect(mockApi.show).not.toHaveBeenCalled();
+    expect(wrapper.emitted('stateChanged')).toBeUndefined();
+  });
+
+  it('ignores a create response after switching away and back', async () => {
+    let resolveCreate;
+    mockApi.get.mockResolvedValue({ data: [] });
+    mockApi.create.mockReturnValue(
+      new Promise(resolve => {
+        resolveCreate = resolve;
+      })
+    );
+    const wrapper = mountComponent();
+    await wrapper.vm.open();
+    await flushPromises();
+
+    wrapper.vm.websiteUrl = 'https://example.com/';
+    const request = wrapper.vm.startImport();
+    await wrapper.setProps({ aiAgentId: 43 });
+    await wrapper.setProps({ aiAgentId: 42 });
+    resolveCreate({ data: { ...readyImport, status: 'pending' } });
+    await request;
+    await flushPromises();
+
+    expect(wrapper.emitted('stateChanged')).toBeUndefined();
+    expect(wrapper.vm.websiteImport).toBeNull();
+  });
+
+  it('ignores an apply response after switching to another assistant', async () => {
+    let resolveApply;
+    mockApi.applyImport.mockReturnValue(
+      new Promise(resolve => {
+        resolveApply = resolve;
+      })
+    );
+    const wrapper = mountComponent();
+    await wrapper.vm.open();
+    await flushPromises();
+
+    const request = wrapper.vm.applyImport();
+    await wrapper.setProps({ aiAgentId: 43 });
+    resolveApply({ data: {} });
+    await request;
+    await flushPromises();
+
+    expect(wrapper.emitted('applied')).toBeUndefined();
+    expect(wrapper.emitted('stateChanged')).toBeUndefined();
+    expect(mockUseAlert).not.toHaveBeenCalledWith(
+      'AI_ASSISTANT.WEBSITE_IMPORT.APPLIED'
     );
   });
 });
