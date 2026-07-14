@@ -393,7 +393,6 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_18_000000) do
     t.bigint "ai_agent_id", null: false
     t.bigint "requested_by_id"
     t.string "website_url", null: false
-    t.integer "mode", default: 0, null: false
     t.integer "status", default: 0, null: false
     t.integer "stage", default: 0, null: false
     t.jsonb "source_urls", default: [], null: false

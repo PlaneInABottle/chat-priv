@@ -12,7 +12,6 @@ class CreateAiAgentWebsiteImports < ActiveRecord::Migration[7.1]
       t.references :ai_agent, null: false, foreign_key: { on_delete: :cascade }
       t.references :requested_by, foreign_key: { to_table: :users, on_delete: :nullify }
       t.string :website_url, null: false
-      t.integer :mode, null: false, default: 0
       t.integer :status, null: false, default: 0
       t.integer :stage, null: false, default: 0
       t.jsonb :source_urls, null: false, default: []
