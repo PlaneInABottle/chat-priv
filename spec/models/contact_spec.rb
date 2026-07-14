@@ -65,10 +65,12 @@ RSpec.describe Contact do
       expect { contact.update!(phone_number: '123456789') }.to raise_error(ActiveRecord::RecordInvalid)
     end
 
-    it 'rejects a valid-looking number with a prefix' do
-      contact = create(:contact)
+    it 'rejects valid-looking numbers with a prefix' do
+      ['invalid+12312312321', "invalid\n+12312312321"].each do |invalid_phone_number|
+        contact = create(:contact)
 
-      expect { contact.update!(phone_number: "invalid\n+12312312321") }.to raise_error(ActiveRecord::RecordInvalid)
+        expect { contact.update!(phone_number: invalid_phone_number) }.to raise_error(ActiveRecord::RecordInvalid)
+      end
     end
 
     it 'updates phone number when adding valid phone number' do
