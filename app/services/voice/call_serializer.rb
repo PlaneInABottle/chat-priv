@@ -27,7 +27,7 @@ class Voice::CallSerializer
   end
 
   def base_identity_payload
-    payload = {
+    {
       id: call.id,
       direction: call.direction,
       account_id: call.account_id,
@@ -35,12 +35,23 @@ class Voice::CallSerializer
       conversation_id: call.conversation&.display_id,
       contact_id: call.contact_id,
       message_id: call.message_id
+    }.merge(provider_identity_payload)
+  end
+
+  def provider_identity_payload
+    if internal? || !call.livekit?
+      return {
+        provider: call.provider,
+        provider_call_id: call.provider_call_id,
+        livekit_room_name: call.livekit_room_name
+      }
+    end
+
+    {
+      provider: call.public_provider,
+      call_reference: call.provider_call_id,
+      room_name: call.livekit_room_name
     }
-
-    return payload.merge(provider: call.provider, provider_call_id: call.provider_call_id,
-                         livekit_room_name: call.livekit_room_name) if internal? || !call.livekit?
-
-    payload.merge(provider: call.public_provider, call_reference: call.provider_call_id, room_name: call.livekit_room_name)
   end
 
   def release_identity_payload

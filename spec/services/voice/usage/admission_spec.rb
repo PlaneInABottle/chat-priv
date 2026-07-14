@@ -21,7 +21,10 @@ RSpec.describe Voice::Usage::Admission do
     result = described_class.new(account: account).call
 
     expect(result.status).to eq(:voice_ai_disabled)
-    expect { described_class.check!(account: account) }.to raise_error(Voice::Usage::Admission::Error, 'Voice AI is disabled for this account.')
+    expect { described_class.check!(account: account) }.to raise_error do |error|
+      expect(error.class.name).to eq('Voice::Usage::Admission::Error')
+      expect(error.message).to eq('Voice AI is disabled for this account.')
+    end
   end
 
   it 'blocks exhausted monthly limits for real calls' do

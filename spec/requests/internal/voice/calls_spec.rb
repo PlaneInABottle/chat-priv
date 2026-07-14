@@ -619,7 +619,7 @@ RSpec.describe 'Internal voice calls API', type: :request do
       )
       expect(conversation_call.message.reload.content_attributes['data']).to include(
         'call_id' => conversation_call.id,
-        'call_source' => 'livekit',
+        'call_source' => Call::PUBLIC_VOICE_PROVIDER,
         'status' => 'in-progress',
         'handoff_status' => 'requested',
         'ai_status' => 'handoff_requested'

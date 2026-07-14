@@ -36,6 +36,16 @@ services:
           name: crm-redis
           type: keyvalue
           property: connectionString
+      - key: LIVEKIT_URL
+        sync: false
+      - key: LIVEKIT_API_KEY
+        sync: false
+      - key: LIVEKIT_API_SECRET
+        sync: false
+      - key: VOICE_AGENT_NAME
+        value: kozmopath-voice-agent
+      - key: VOICE_AGENT_INTERNAL_TOKEN
+        sync: false
       # Inbound email configuration for conversation continuity (SendGrid)
       - key: RAILS_INBOUND_EMAIL_SERVICE
         value: sendgrid
@@ -86,6 +96,21 @@ services:
           name: crm-redis
           type: keyvalue
           property: connectionString
+      - key: LIVEKIT_URL
+        fromService:
+          name: crm-web
+          type: web
+          envVarKey: LIVEKIT_URL
+      - key: LIVEKIT_API_KEY
+        fromService:
+          name: crm-web
+          type: web
+          envVarKey: LIVEKIT_API_KEY
+      - key: LIVEKIT_API_SECRET
+        fromService:
+          name: crm-web
+          type: web
+          envVarKey: LIVEKIT_API_SECRET
       # Inbound email configuration for conversation continuity (SendGrid)
       - key: RAILS_INBOUND_EMAIL_SERVICE
         value: sendgrid
@@ -106,6 +131,49 @@ services:
         value: fra1  # Replace with your region (fra1, nyc3, sgp1, etc)
       - key: STORAGE_ENDPOINT
         value: https://fra1.digitaloceanspaces.com  # Replace with your region endpoint
+
+  - type: worker
+    name: crm-voice-agent
+    runtime: docker
+    region: frankfurt
+    autoDeployTrigger: 'off'
+    dockerfilePath: services/voice_agent/Dockerfile
+    dockerContext: services/voice_agent
+    plan: standard
+    maxShutdownDelaySeconds: 300
+    envVars:
+      - key: LIVEKIT_URL
+        fromService:
+          name: crm-web
+          type: web
+          envVarKey: LIVEKIT_URL
+      - key: LIVEKIT_API_KEY
+        fromService:
+          name: crm-web
+          type: web
+          envVarKey: LIVEKIT_API_KEY
+      - key: LIVEKIT_API_SECRET
+        fromService:
+          name: crm-web
+          type: web
+          envVarKey: LIVEKIT_API_SECRET
+      - key: CHATWOOT_INTERNAL_API_URL
+        value: https://www.app.kozmopath.com
+      - key: VOICE_AGENT_INTERNAL_TOKEN
+        fromService:
+          name: crm-web
+          type: web
+          envVarKey: VOICE_AGENT_INTERNAL_TOKEN
+      - key: VOICE_AGENT_NAME
+        value: kozmopath-voice-agent
+      - key: VOICE_AGENT_MAX_CONCURRENT_JOBS
+        value: "10"
+      - key: VOICE_AGENT_DRAIN_TIMEOUT_SECONDS
+        value: "300"
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
 
   - type: keyvalue
     name: crm-redis
