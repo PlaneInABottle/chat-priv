@@ -10,7 +10,7 @@ services:
     # Use the memory-optimized Dockerfile for Render
     dockerfilePath: docker/Dockerfile.render
     dockerContext: .
-    # Standard instance (4GB RAM) - sufficient with optimized Dockerfile
+    # Standard runtime instance (2GB RAM, 1 CPU); build compute is configured separately
     plan: standard
     healthCheckPath: /api
     preDeployCommand: bundle exec rails db:prepare
@@ -89,6 +89,8 @@ services:
         value: "true"
       - key: FRONTEND_URL
         value: https://www.app.kozmopath.com
+      - key: SIDEKIQ_CONCURRENCY
+        value: "2"
       - key: DATABASE_URL
         fromDatabase:
           name: crm-db
@@ -141,7 +143,8 @@ services:
     autoDeployTrigger: 'off'
     dockerfilePath: services/voice_agent/Dockerfile
     dockerContext: services/voice_agent
-    plan: standard
+    # Starter is sufficient for the initial single-call voice demo; upgrade if metrics show pressure
+    plan: starter
     maxShutdownDelaySeconds: 300
     envVars:
       - key: LIVEKIT_URL
@@ -169,7 +172,7 @@ services:
       - key: VOICE_AGENT_NAME
         value: kozmopath-voice-agent
       - key: VOICE_AGENT_MAX_CONCURRENT_JOBS
-        value: "10"
+        value: "2"
       - key: VOICE_AGENT_DRAIN_TIMEOUT_SECONDS
         value: "300"
       - key: GOOGLE_API_KEY

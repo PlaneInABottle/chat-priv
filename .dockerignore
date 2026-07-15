@@ -10,8 +10,14 @@ public/system
 tmp
 .codeclimate.yml
 public/packs
+public/vite
+public/vite-dev
+public/vite-test
 node_modules
 vendor/bundle
+services/voice_agent/.venv
+**/__pycache__
+app/javascript/.histoire
 .DS_Store
 *.swp
 *~
