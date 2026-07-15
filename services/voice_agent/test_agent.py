@@ -76,6 +76,7 @@ class WorkerOptionsTest(unittest.TestCase):
     @patch.dict(
         os.environ,
         {
+            "VOICE_AGENT_HEALTH_HOST": "127.0.0.1",
             "VOICE_AGENT_HEALTH_PORT": "9190",
             "VOICE_AGENT_PROMETHEUS_PORT": "9191",
             "VOICE_AGENT_MAX_CONCURRENT_JOBS": "10",
@@ -84,6 +85,7 @@ class WorkerOptionsTest(unittest.TestCase):
     def test_worker_options_expose_health_metrics_and_load_shedding(self) -> None:
         options = agent.build_worker_options()
 
+        self.assertEqual(options.host, "127.0.0.1")
         self.assertEqual(options.port, 9190)
         self.assertEqual(options.prometheus_port, 9191)
         self.assertEqual(options.load_threshold, 0.95)

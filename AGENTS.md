@@ -88,6 +88,21 @@
 - **[Frontend] Sync i18n**: run `pnpm sync:i18n` when the dashboard English `index.js` import list changes; the script copies that import manifest to the other dashboard locale folders and stages them.
 - **[Frontend] Message bubbles**: use `app/javascript/dashboard/components-next/` because legacy message bubbles are being deprecated.
 
+## Home Server Production Runtime
+
+- **[Both] Canonical topology**: use `docker-compose.server.yaml` only for PostgreSQL and Redis, and `ecosystem.server.config.cjs` for the PM2-managed Rails web, Sidekiq worker, and Python Voice worker. Do not recreate the obsolete all-in-Docker Chatwoot runtime for this host.
+- **[Both] Persistent data**: the server Compose profile uses external volumes `kozmopath-server_postgres_data` and `kozmopath-server_redis_data`. Create missing volumes explicitly before first start; never delete, reset, or replace them while they contain the active server data.
+- **[Both] Compose commands**: use `scripts/server/compose.sh <command>` because it applies `.env`, `.env.local`, and the ignored `.env.server.local` in the intended order without passing unrelated application secrets into database containers. Do not invoke this profile with the development Compose file.
+- **[Both] Server environment**: copy `.env.server.example` to ignored `.env.server.local`, keep it mode `600`, and run PM2 roles through `scripts/server/with-server-env.sh`. Never print environment files or secret values; verify sensitive settings through presence/shape checks only.
+- **[Both] Prepare production code**: install locked dependencies, precompile assets with the Node version from `.nvmrc`, take and validate a PostgreSQL backup, run `db:chatwoot_prepare`, and run `uv sync --locked --directory services/voice_agent` before reloading PM2. The complete operator sequence and migration notes are in `docs/home-server.md`.
+- **[Both] Start/reload**: start stateful services with `scripts/server/compose.sh up -d`, then use `pm2 startOrReload ecosystem.server.config.cjs --update-env` and `pm2 save`. The PM2 profile includes bounded restart delays so stateless roles can recover while Docker Desktop becomes ready after boot.
+- **[Both] Readiness**: require `curl -fsS http://127.0.0.1:3000/health`, `curl -fsS http://127.0.0.1:9090/`, and a non-empty response from `http://127.0.0.1:9091/metrics`. Require PostgreSQL and Redis to report healthy and all three named PM2 apps to report online.
+- **[Both] Debug safely**: begin with `git status`, `pm2 list`, `scripts/server/compose.sh ps`, the three readiness probes, and `ss -ltn`. Use bounded logs such as `pm2 logs <name> --nostream --lines 100` and `scripts/server/compose.sh logs --tail 100 <service>`; sanitize URLs, tokens, message content, and environment values before reporting output.
+- **[Both] Network boundary**: Rails, Voice health/metrics, PostgreSQL, Redis, PM2, and Caddy admin must bind only to loopback. Keep SSH restricted to `tailscale0` with `scripts/server/secure-host.sh`; never expose ports `3000`, `5432`, `6379`, `7433`, `9090`, or `9091` through UFW, router forwarding, or a tunnel.
+- **[Both] Root actions**: on the interactive Linux desktop, prefer a narrowly scoped `pkexec <command>` so PolicyKit presents its graphical authentication dialog. Never request, accept, echo, pipe, store, or log the user's sudo password, and never grant passwordless sudo to a user-writable repository script.
+- **[Both] Publication gate**: keep Caddy disabled until the public hostname points to this host and the reviewed `ops/caddy/Caddyfile` is installed. Before customer traffic, require real SMTP delivery, durable S3-compatible attachment storage, tested off-machine backups, TLS plus intentional 80/443 routing, a successful restore drill, healthy runtime probes, and required CI/security workflows passing on the exact pushed HEAD.
+- **[Both] Host reliability**: this single-machine deployment needs stable power and networking. Do not call it unattended-production-ready without a UPS or healthy battery, preferably wired Ethernet, automatic boot of Docker Desktop and PM2, and monitoring for disk, memory, process, database, and backup failures.
+
 ## Database Migrations
 
 - Use expand/contract deployment sequencing: add compatible schema first, deploy code that stops using old columns, and remove or rename those columns only in a later release after old web and worker processes are gone.
@@ -134,5 +149,5 @@ Practical checklist for any change impacting core logic or public APIs
 - **[Both] Translation process**: README section "Translation process" because it links to Crowdin guidelines.
 
 ## Last Verified
-- **Date**: 2026-07-14
-- **Context**: Verified `package.json` scripts, `Procfile.dev`, `Procfile.test`, `docker-compose.yaml`, `/health`, rbenv usage, dashboard English/Turkish locale composition, migration/schema workflow, Tailwind pipeline files, and Enterprise overlay hooks.
+- **Date**: 2026-07-15
+- **Context**: Verified `package.json` scripts, `Procfile.dev`, `Procfile.test`, the development and home-server Compose profiles, PM2 web/worker/Voice roles, loopback listeners and readiness probes, production asset compilation, PostgreSQL/Redis persistence, rbenv and Node toolchains, dashboard English/Turkish locale composition, migration/schema workflow, Tailwind pipeline files, and Enterprise overlay hooks.
