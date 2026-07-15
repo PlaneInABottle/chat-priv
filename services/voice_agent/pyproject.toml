@@ -11,3 +11,7 @@ dependencies = [
 
 [tool.uv]
 package = false
+# livekit-agents 1.5.17 pins json-repair 0.59.10, which is vulnerable to a
+# circular-schema CPU denial of service. Keep this override until upstream
+# accepts the fixed 0.60.x release.
+override-dependencies = ["json-repair>=0.60.1,<0.61"]
