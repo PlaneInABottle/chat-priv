@@ -59,12 +59,28 @@ export default {
       currentUser: 'getCurrentUser',
       authUIFlags: 'getAuthUIFlags',
     }),
+    currentAccountLocale() {
+      return this.getAccount(this.currentAccountId)?.locale;
+    },
+    effectiveLocale() {
+      return (
+        this.uiSettings?.locale ||
+        this.currentAccountLocale ||
+        window.kozmopathConfig.selectedLocale
+      );
+    },
     hideOnOnboardingView() {
       return !isOnOnboardingView(this.$route);
     },
   },
 
   watch: {
+    effectiveLocale: {
+      immediate: true,
+      handler(locale) {
+        this.setLocale(locale);
+      },
+    },
     currentAccountId: {
       immediate: true,
       handler() {
@@ -77,10 +93,6 @@ export default {
   mounted() {
     this.initializeColorTheme();
     this.listenToThemeChanges();
-    // If user locale is set, use it; otherwise use account locale
-    this.setLocale(
-      this.uiSettings?.locale || window.kozmopathConfig.selectedLocale
-    );
   },
   unmounted() {
     if (this.reconnectService) {
@@ -105,11 +117,7 @@ export default {
       this.$store.dispatch('setActiveAccount', {
         accountId: this.currentAccountId,
       });
-      const account = this.getAccount(this.currentAccountId);
-      const { locale } = account;
       const { pubsub_token: pubsubToken } = this.currentUser || {};
-      // If user locale is set, use it; otherwise use account locale
-      this.setLocale(this.uiSettings?.locale || locale);
       vueActionCable.init(this.store, pubsubToken);
       this.reconnectService = new ReconnectService(this.store, this.router);
       window.reconnectService = this.reconnectService;
