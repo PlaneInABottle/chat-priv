@@ -2,7 +2,7 @@
 	admin 127.0.0.1:2019
 }
 
-www.app.kozmopath.com {
+app.kozmopath.com {
 	encode zstd gzip
 
 	header {
