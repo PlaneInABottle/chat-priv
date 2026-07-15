@@ -1,5 +1,5 @@
-# Render-optimized Dockerfile for Performance pipeline (64GB RAM, 16 CPU)
-# Optimized for maximum build speed with high parallelization
+# Render-optimized Dockerfile for the Starter build pipeline (8GB RAM, 2 CPU)
+# Keep build parallelism and memory limits below the pipeline's shared capacity.
 
 # pre-build stage
 ARG NODE_VERSION="24.17.0"
@@ -22,15 +22,14 @@ ENV RAILS_SERVE_STATIC_FILES=${RAILS_SERVE_STATIC_FILES}
 ARG RAILS_ENV=production
 ENV RAILS_ENV=${RAILS_ENV}
 
-# Node memory optimized for Performance pipeline (64GB RAM available)
-# Increased from 1536MB to take advantage of available memory
-ARG NODE_OPTIONS="--max-old-space-size=8192 --openssl-legacy-provider"
+# Leave headroom for Ruby, pnpm, and native build processes during asset compilation.
+ARG NODE_OPTIONS="--max-old-space-size=4096 --openssl-legacy-provider"
 ENV NODE_OPTIONS=${NODE_OPTIONS}
 
-# Aggressive memory settings for fastest builds with 64GB RAM available
+# Bound allocator overhead for the 8GB Starter build pipeline.
 ENV RUBY_GC_HEAP_GROWTH_FACTOR=1.5
 ENV RUBY_GC_MALLOC_LIMIT=32000000
-ENV MALLOC_ARENA_MAX=8
+ENV MALLOC_ARENA_MAX=2
 ENV BUNDLE_PATH="/gems"
 
 RUN apk add --no-cache \
@@ -69,10 +68,10 @@ RUN bundle config set --local force_ruby_platform true \
   && bundle config set --local clean 'true' \
   && gem install bundler -v 4.0.3 --no-document
 
-# Parallel gem installation with max jobs for Performance pipeline (64GB RAM, 16 CPU)
+# Match native gem build parallelism to the Starter pipeline's 2 CPUs.
 RUN if [ "$RAILS_ENV" = "production" ]; then \
-  bundle config set without 'development test'; bundle install -j 8 -r 3; \
-  else bundle install -j 8 -r 3; \
+  bundle config set without 'development test'; bundle install -j 2 -r 3; \
+  else bundle install -j 2 -r 3; \
   fi
 
 COPY package.json pnpm-lock.yaml ./
@@ -84,10 +83,10 @@ COPY . /app
 
 RUN mkdir -p /app/log
 
-# Asset precompile with aggressive settings for Performance pipeline
+# Asset precompile within the Starter pipeline memory budget.
 RUN if [ "$RAILS_ENV" = "production" ]; then \
   DISABLE_SPRING=1 \
-  MALLOC_ARENA_MAX=8 \
+  MALLOC_ARENA_MAX=2 \
   RUBY_GC_HEAP_GROWTH_FACTOR=1.5 \
   RUBY_GC_MALLOC_LIMIT=32000000 \
   SECRET_KEY_BASE=precompile_placeholder \
