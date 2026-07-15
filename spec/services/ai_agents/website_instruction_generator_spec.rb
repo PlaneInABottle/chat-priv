@@ -76,6 +76,9 @@ RSpec.describe AiAgents::WebsiteInstructionGenerator do
       'tasks: a JSON array',
       'rules: a JSON array',
       'Do not tell the assistant to request order numbers',
+      'legal or statutory deadlines',
+      'address one assistant with concise second-person singular imperatives',
+      'never use polite or plural staff-facing forms',
       'Never combine a full workflow into one dense paragraph.'
     )
   end
