@@ -325,7 +325,7 @@ RSpec.describe Conversation do
         started_at: 1.minute.ago,
         meta: { 'livekit_room_name' => 'room-resolve-failure' }
       )
-      conversation.update_column(:waiting_since, 5.minutes.ago)
+      conversation.update!(waiting_since: 5.minutes.ago)
       allow(Voice::CallFinalizer).to receive(:perform!).and_raise(StandardError, 'boom')
 
       expect { conversation.update!(status: :resolved) }.not_to raise_error
