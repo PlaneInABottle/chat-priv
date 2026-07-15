@@ -758,7 +758,7 @@ def build_worker_options() -> agents.WorkerOptions:
         "agent_name": os.getenv("VOICE_AGENT_NAME", "kozmopath-voice-agent"),
         "load_fnc": worker_load,
         "load_threshold": 0.95,
-        "host": "0.0.0.0",
+        "host": os.getenv("VOICE_AGENT_HEALTH_HOST", "0.0.0.0"),
         "port": int(os.getenv("VOICE_AGENT_HEALTH_PORT", "9090")),
         "drain_timeout": int(os.getenv("VOICE_AGENT_DRAIN_TIMEOUT_SECONDS", "1200")),
     }
