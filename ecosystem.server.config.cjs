@@ -7,6 +7,7 @@ module.exports = {
   apps: [
     {
       name: 'kozmopath-web',
+      namespace: 'kozmopath',
       cwd: root,
       script: runner,
       args: ['web'],
@@ -22,6 +23,7 @@ module.exports = {
     },
     {
       name: 'kozmopath-worker',
+      namespace: 'kozmopath',
       cwd: root,
       script: runner,
       args: ['worker'],
@@ -36,6 +38,7 @@ module.exports = {
     },
     {
       name: 'kozmopath-voice',
+      namespace: 'kozmopath',
       cwd: root,
       script: runner,
       args: ['voice'],

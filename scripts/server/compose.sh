@@ -11,4 +11,4 @@ for path in "$root/.env.local" "$root/.env.server.local"; do
   fi
 done
 
-exec docker compose "${env_args[@]}" -f "$root/docker-compose.server.yaml" "$@"
+exec docker --context default compose "${env_args[@]}" -f "$root/docker-compose.server.yaml" "$@"

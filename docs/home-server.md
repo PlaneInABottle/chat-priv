@@ -4,8 +4,8 @@ This is the interim single-machine topology for the Kozmopath fork:
 
 | Role | Runtime | Reason |
 | --- | --- | --- |
-| PostgreSQL | Docker Desktop | Stateful data with a named volume and a loopback-only port |
-| Redis | Docker Desktop | Persistent Sidekiq queue/cache with a named volume and a loopback-only port |
+| PostgreSQL | Native Docker Engine | Stateful data with a named volume and a loopback-only port |
+| Redis | Native Docker Engine | Persistent Sidekiq queue/cache with a named volume and a loopback-only port |
 | Rails web | PM2 | Runs the checked-out fork directly and binds only to `127.0.0.1:3000` |
 | Sidekiq worker | PM2 | Uses the exact same checkout, Ruby bundle, and environment as Rails |
 | Voice worker | PM2 | Uses the fork's locked Python environment and drains on shutdown |
@@ -30,11 +30,11 @@ The attachment and Voice-recording variables intentionally use the same private 
 
 ## Stateful services
 
-The server Compose file intentionally contains only PostgreSQL and Redis. Its volumes are external so `docker compose down -v` cannot delete them. Create them once, then use the wrapper so `.env.local` and `.env.server.local` override `.env` without passing unrelated application secrets into the containers:
+The server Compose file intentionally contains only PostgreSQL and Redis on the native Docker `default` context. Docker Desktop remains installed for manual development and rollback inspection, but it is disabled at login, normally stopped, and is not the production datastore. Start or stop it explicitly with `systemctl --user start docker-desktop.service` and `systemctl --user stop docker-desktop.service`. The external volumes prevent `docker compose down -v` from deleting project state. Create them once on the native context, then use the wrapper so `.env.local` and `.env.server.local` override `.env` without passing unrelated application secrets into the containers:
 
 ```bash
-docker volume inspect kozmopath-server_postgres_data >/dev/null 2>&1 || docker volume create kozmopath-server_postgres_data
-docker volume inspect kozmopath-server_redis_data >/dev/null 2>&1 || docker volume create kozmopath-server_redis_data
+docker --context default volume inspect kozmopath-server_postgres_data >/dev/null 2>&1 || docker --context default volume create kozmopath-server_postgres_data
+docker --context default volume inspect kozmopath-server_redis_data >/dev/null 2>&1 || docker --context default volume create kozmopath-server_redis_data
 scripts/server/compose.sh up -d
 scripts/server/compose.sh ps
 ```
@@ -67,18 +67,19 @@ Take a verified PostgreSQL backup before migrations. Do not restore over the act
 
 ## PM2 roles
 
-Start or reload the three stateless roles together:
+Start or reload only the three Kozmopath roles through the project wrapper:
 
 ```bash
-pm2 startOrReload ecosystem.server.config.cjs --update-env
-pm2 save
+scripts/server/reload-pm2.sh
 pm2 list
 ```
+
+The shared PM2 daemon also owns other projects. Project deployment must never run `pm2 reload all`, `pm2 restart all`, `pm2 kill`, or `pm2 save`. The checked-in ecosystem and wrapper target only `kozmopath-web`, `kozmopath-worker`, and `kozmopath-voice`. Saving PM2 startup state is a deliberate host-wide operation performed only after every live process has been audited. Stopping `pm2-mirza.service` intentionally stops every PM2-managed project.
 
 Readiness checks:
 
 ```bash
-curl -fsS http://127.0.0.1:3000/health
+curl -fsS -H 'X-Forwarded-Proto: https' http://127.0.0.1:3000/health
 curl -fsS http://127.0.0.1:9090/
 curl -fsS http://127.0.0.1:9091/metrics
 ```
@@ -112,6 +113,8 @@ sudo systemctl enable --now caddy
 Do not run the Caddy publication commands while the Cloudflare Tunnel is active or while `app.kozmopath.com` points to another provider.
 
 ## Backup and migration
+
+This installation is currently a restricted demo and has no recurring Kozmopath backup job by owner decision. It is therefore not production-ready for irreplaceable data. The Docker Desktop-to-native-Docker cutover retained the stopped Desktop volumes as rollback material; Desktop must be started manually to inspect or use them. They are not an ongoing backup and must not be deleted until the demo data is disposable.
 
 Back up PostgreSQL with a custom-format `pg_dump`, validate it with `pg_restore --list`, and store a copy off this computer. Redis is not the system of record, but preserving its RDB avoids dropping queued work during a controlled move. Keep attachment data in the configured S3-compatible object store; if local storage is used, back up `storage/` separately.
 
