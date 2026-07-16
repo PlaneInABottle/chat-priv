@@ -16,6 +16,12 @@ module AiAgents
       'Reply to the latest customer message from the available conversation and tool results.',
       'Do not call tools.'
     ].join(' ').freeze
+    INCOMPLETE_RESPONSE_RETRY_PROMPT = [
+      'The previous AI response was cut off by the output limit.',
+      'Reply again with one concise, complete customer-facing response.',
+      'Preserve the latest customer constraints and use only the available verified evidence.',
+      'If tools remain necessary, call only the necessary enabled tools.'
+    ].join(' ').freeze
     TOOL_BUDGET_EXHAUSTED_PROMPT = [
       'No more tools are available for this customer message.',
       'Reply to the customer without calling tools.',
@@ -56,6 +62,8 @@ module AiAgents
     MAX_KNOWLEDGE_SEARCH_CALLS = 2
     MAX_ORDER_LOOKUP_CALLS = 1
     MAX_HUMAN_HANDOFF_CALLS = 1
+    CATALOG_PRICE_COMPARISON_PATTERN = /daha\s+(?:ucuz|ekonomik|pahalı|uygun\s+fiyatlı)|\b(?:cheaper|more\s+(?:affordable|expensive)|less\s+expensive)\b/i
+    CATALOG_DURABILITY_COMPARISON_PATTERN = /daha\s+(?:sağlam|dayanıklı)|\b(?:more\s+durable|sturdier|stronger)\b/i
 
     def initialize(ai_agent:, messages:, mode:, conversation: nil, trigger_message: nil, adapter: nil, prompt_override: nil, config_override: nil,
                    knowledge_sources_override: nil, improvement_operation: nil, initiated_by: nil)
@@ -73,8 +81,8 @@ module AiAgents
       @runtime_knowledge_sources = resolve_knowledge_sources(knowledge_sources_override)
       @improvement_operation = improvement_operation || ('text_test' if mode.to_s == 'test')
       @initiated_by = initiated_by
-      @adapter = adapter || default_adapter
       @config = AiAgents::Config.new(@runtime_config, allow_legacy_human_handoff_settings: true)
+      @adapter = adapter || default_adapter
       @executed_tool_keys = Set.new
       @executed_tool_counts = Hash.new(0)
     end
@@ -150,7 +158,8 @@ module AiAgents
         config_override: runtime_config,
         knowledge_sources_override: runtime_knowledge_sources,
         improvement_operation: improvement_operation,
-        initiated_by: initiated_by
+        initiated_by: initiated_by,
+        llm_options: { system_prompt: effective_system_prompt }
       )
     end
 
@@ -211,6 +220,7 @@ module AiAgents
       )
       log_llm_call(step: step, request_messages: request_messages, request_tools: tools, status: 'succeeded', response: response,
                    duration_ms: duration_ms(started_at))
+      return retry_incomplete_llm_call(step: step, request_messages: request_messages, tools: tools) if incomplete_llm_response?(response)
       return retry_empty_llm_call(step: step, request_messages: request_messages, tools: tools) if empty_llm_response?(response)
 
       response
@@ -230,9 +240,26 @@ module AiAgents
       )
       log_llm_call(step: "#{step}_retry", request_messages: retry_messages, request_tools: tools, status: 'succeeded', response: response,
                    duration_ms: duration_ms(started_at))
-      response
+      discard_incomplete_llm_response(response)
     rescue StandardError => e
       log_llm_call(step: "#{step}_retry", request_messages: retry_messages, request_tools: tools, status: 'failed', error: e,
+                   duration_ms: duration_ms(started_at))
+      raise
+    end
+
+    def retry_incomplete_llm_call(step:, request_messages:, tools:)
+      retry_messages = [*request_messages, { role: 'system', content: INCOMPLETE_RESPONSE_RETRY_PROMPT }]
+      started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      response = adapter.perform(
+        messages: retry_messages,
+        tools: tools,
+        tool_choice: 'auto'
+      )
+      log_llm_call(step: "#{step}_incomplete_retry", request_messages: retry_messages, request_tools: tools, status: 'succeeded', response: response,
+                   duration_ms: duration_ms(started_at))
+      discard_incomplete_llm_response(response)
+    rescue StandardError => e
+      log_llm_call(step: "#{step}_incomplete_retry", request_messages: retry_messages, request_tools: tools, status: 'failed', error: e,
                    duration_ms: duration_ms(started_at))
       raise
     end
@@ -243,6 +270,16 @@ module AiAgents
 
     def empty_llm_response?(response)
       response[:assistant_text].blank? && response[:tool_calls].blank?
+    end
+
+    def incomplete_llm_response?(response)
+      response[:finish_reason].to_s == 'length'
+    end
+
+    def discard_incomplete_llm_response(response)
+      return response unless incomplete_llm_response?(response)
+
+      response.merge(assistant_text: nil, tool_calls: [], incomplete_response: true)
     end
 
     def log_llm_call(step:, request_messages:, request_tools:, status:, response: {}, error: nil, duration_ms: nil)
@@ -275,11 +312,12 @@ module AiAgents
     end
 
     def effective_system_prompt
-      @effective_system_prompt ||= AiAgents::EffectivePromptPreview.new(
+      @effective_system_prompt ||= AiAgents::PromptComposer.new(
         ai_agent: ai_agent,
         prompt_override: prompt_override,
         config_override: runtime_config,
-        knowledge_sources_override: runtime_knowledge_sources
+        knowledge_sources_override: runtime_knowledge_sources,
+        enabled_tool_keys_override: runtime_tool_keys
       ).effective_system_prompt
     end
 
@@ -290,6 +328,7 @@ module AiAgents
     end
 
     def text_result(response, request_messages:, tool_events: [])
+      return safety_handoff_result(reason: 'incomplete_llm_response', tool_events: tool_events) if response[:incomplete_response]
       return failure_result if response[:assistant_text].blank?
       public_answer = customer_facing_answer(response[:assistant_text], request_messages: request_messages, tool_events: tool_events)
       return safety_handoff_result(reason: 'empty_customer_facing_answer', tool_events: tool_events) if public_answer.blank?
@@ -327,6 +366,7 @@ module AiAgents
         request_messages: [*request_messages, { role: 'system', content: instruction }],
         tools: []
       )
+      return safety_handoff_result(reason: 'incomplete_final_answer', tool_events: tool_events) if response[:incomplete_response]
       return safety_handoff_result(reason: 'empty_final_answer', tool_events: tool_events) if response[:assistant_text].blank?
       public_answer = customer_facing_answer(response[:assistant_text], request_messages: request_messages, tool_events: tool_events)
       return safety_handoff_result(reason: 'empty_customer_facing_answer', tool_events: tool_events) if public_answer.blank?
@@ -390,12 +430,15 @@ module AiAgents
     end
 
     def catalog_link_urls(tool_events)
-      catalog_results = Array(tool_events).filter_map do |event|
+      catalog_results(tool_events).flat_map { |result| catalog_link_urls_in(result) }.uniq
+    end
+
+    def catalog_results(tool_events)
+      Array(tool_events).filter_map do |event|
         next unless event['tool'] == AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL
 
         event['result'] || event[:result]
       end
-      catalog_results.flat_map { |result| catalog_link_urls_in(result) }.uniq
     end
 
     def catalog_link_urls_in(value)
@@ -439,13 +482,60 @@ module AiAgents
         tools: []
       )
       retry_answer = retry_response[:assistant_text].to_s.strip.presence
-      return if retry_answer && unsafe_customer_facing_answer?(retry_answer)
+      sanitized_answer = sanitize_reference_prices(retry_answer, tool_events)
+      return sanitized_answer if sanitized_answer && safe_customer_facing_answer?(sanitized_answer, tool_events)
 
-      sanitize_reference_prices(retry_answer, tool_events)
+      nil
     end
 
     def safe_customer_facing_answer?(answer, tool_events)
-      !unsafe_customer_facing_answer?(answer) && !reference_price_leak?(answer, tool_events)
+      !unsafe_customer_facing_answer?(answer) && !reference_price_leak?(answer, tool_events) &&
+        !unsupported_catalog_comparison?(answer, tool_events)
+    end
+
+    def unsupported_catalog_comparison?(answer, tool_events)
+      return false if catalog_results(tool_events).empty?
+
+      unsupported_price_comparison = answer.match?(CATALOG_PRICE_COMPARISON_PATTERN) && !catalog_price_comparison_supported?(tool_events)
+      unsupported_durability_comparison = answer.match?(CATALOG_DURABILITY_COMPARISON_PATTERN) &&
+                                          !catalog_durability_comparison_supported?(tool_events)
+      unsupported_price_comparison || unsupported_durability_comparison
+    end
+
+    def catalog_price_comparison_supported?(tool_events)
+      prices = catalog_candidates(tool_events).filter_map do |candidate|
+        price = candidate['price'].to_h.deep_stringify_keys
+        next if price['final_total_known'] == false || price['amount'].blank? || price['currency'].blank?
+
+        price.slice('amount', 'currency')
+      end
+      prices_by_currency = prices.group_by { |price| price['currency'] }
+
+      prices_by_currency.any? { |_currency, currency_prices| currency_prices.size >= 2 }
+    end
+
+    def catalog_durability_comparison_supported?(tool_events)
+      catalog_candidates(tool_events).any? do |candidate|
+        candidate.slice('evidence', 'attributes', 'features', 'description').to_json.match?(CATALOG_DURABILITY_COMPARISON_PATTERN)
+      end
+    end
+
+    def catalog_candidates(tool_events)
+      catalog_results(tool_events).flat_map { |result| catalog_candidates_in(result) }
+                                  .uniq { |candidate| candidate.values_at('item_id', 'variant_id', 'display_name') }
+    end
+
+    def catalog_candidates_in(value)
+      case value
+      when Hash
+        value = value.deep_stringify_keys
+        Array(value['candidates']).filter_map { |candidate| candidate.deep_stringify_keys if candidate.is_a?(Hash) } +
+          value.each_value.flat_map { |child| catalog_candidates_in(child) }
+      when Array
+        value.flat_map { |child| catalog_candidates_in(child) }
+      else
+        []
+      end
     end
 
     def unsafe_customer_facing_answer?(answer)

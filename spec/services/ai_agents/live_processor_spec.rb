@@ -107,6 +107,36 @@ RSpec.describe AiAgents::LiveProcessor do
     expect(outgoing.content_attributes.to_json).not_to include('present_options', 'tool_events')
   end
 
+  it 'uses shared recommendation rules without native option mechanics on API channels' do
+    api_channel = create(:channel_api, account: account)
+    api_conversation = create(:conversation, account: account, inbox: api_channel.inbox, status: 'pending')
+    create(:agent_bot_inbox, inbox: api_channel.inbox, agent_bot: ai_agent.agent_bot, status: 'active')
+    message = create(
+      :message,
+      account: account,
+      inbox: api_channel.inbox,
+      conversation: api_conversation,
+      message_type: 'incoming',
+      sender: api_conversation.contact,
+      content: 'Bütçem düşük, balkon kapısı için sen öner'
+    )
+    allow(adapter).to receive(:perform).and_return({ assistant_text: 'Kısa öneri', tool_calls: [], finish_reason: 'stop' })
+    adapter_options = nil
+    allow(AiAgents::LlmAdapters::OpenAiCompatibleAdapter).to receive(:new) do |**options|
+      adapter_options = options
+      adapter
+    end
+
+    described_class.new(message: message).perform
+
+    llm_call = AiAgentLlmCall.last
+    system_prompt = llm_call.request_messages.first.fetch('content')
+    expect(llm_call.request_tool_names).not_to include('present_options')
+    expect(system_prompt).to include('Shared conversation rules:', 'interactive choices are unavailable')
+    expect(system_prompt).not_to include('Customer option rules:', '`present_options`')
+    expect(adapter_options.dig(:llm_options, :system_prompt)).to eq(system_prompt)
+  end
+
   it 'uses the published prompt and capabilities while an update remains in draft' do
     ai_agent.update!(prompt: 'Published customer guidance')
     ai_agent.mark_test_succeeded!

@@ -1,6 +1,20 @@
 # frozen_string_literal: true
 
 class AiAgents::ToolPromptPolicy
+  SHARED_CONVERSATION_RULES = <<~PROMPT
+    Shared conversation rules:
+    - Apply these rules on every customer channel, whether or not native interactive choices are supported.
+    - Use the latest customer message together with all previously stated constraints that remain unchanged. Respect corrections and withdrawn requirements.
+    - Do not re-ask a question the customer already answered, declined, or said they could not answer.
+    - When the customer asks you to recommend or choose, recommend the strongest option supported by verified evidence and give a short grounded reason. Do not ask them to make the same choice instead.
+    - If verified evidence cannot support a recommendation, say so briefly and ask at most one necessary follow-up question.
+    - Ask at most one necessary follow-up question in a response. Never combine a product-type question with a measurement or another open question.
+    - Never make comparative price or durability claims unless exact tool evidence supports the comparison. Do not infer that an option is cheaper, more expensive, stronger, or more durable from its category or product name.
+    - Do not dump broad category counts as customer choices or treat category counts as recommendation evidence.
+    - When interactive choices are unavailable, express any necessary bounded alternatives as concise plain text. If the customer requested a recommendation, give the recommendation before any remaining choice.
+    - Preserve normal free-form conversation when no bounded choice is necessary.
+  PROMPT
+
   KNOWLEDGE_RULES = <<~PROMPT
     Shared knowledge rules:
     - Use `search_knowledge` before answering questions about the business, services, policies, procedures, support rules, or other facts that may be covered by verified shared knowledge.
@@ -15,7 +29,6 @@ class AiAgents::ToolPromptPolicy
     - Use `ikas_catalog_search` before answering questions about products, availability, dimensions, compatible sizes, colors, sizes, variants, categories, price, weight, volume, organic products, product links, or follow-up references to a previous product option.
     - For independent product/category questions in one customer message, prefer one `ikas_catalog_search` call with `queries` containing up to three self-contained catalog queries.
     - Tool queries must be self-contained. For ambiguous follow-ups, include the relevant product/category context yourself; do not send only a color, size, or measurement.
-    - Treat the latest customer message together with all previously stated constraints that the customer has not changed or withdrawn. Carry those constraints into catalog queries, recommendations, and follow-up choices.
     - If the latest customer message only gives dimensions or measurements and there is no clear previous product/category context, do not guess a product/category. Ask which product/category the dimensions are for.
     - The latest customer message controls product/category scope. If it names a product or category, search that scope and do not carry over the previous product/category.
     - Use previous product/category context only when the latest message is ambiguous and does not name a new product/category.
@@ -30,7 +43,6 @@ class AiAgents::ToolPromptPolicy
     - If the result_type is `clarify_category`, ask one short focused question using at most three relevant returned buckets. Do not list every bucket.
     - If the result_type is `needs_scope`, ask which product or category the customer means. Do not suggest example products or categories unless they were returned by the tool.
     - If the customer asks for a link or a specific option and the tool returns multiple matching candidates, do not guess. Ask a focused clarification using the returned candidate display names.
-    - If the customer asks you to recommend or says they do not know which option to choose, recommend the strongest grounded candidate with a short reason tied to their constraints. Do not repeat the declined question.
     - Do not ask a generic product-type question when the stated constraints and catalog evidence are sufficient for a grounded recommendation.
     - If the result_type is `show_compatible_candidates`, explain why the candidate fits. For dimensions, mention the catalog max/range evidence.
     - If the result_type is `no_match`, say no clear match was found. Ask for clarification or suggest the closest real returned alternatives only if a returned result includes candidates. Do not list store categories, previous products, or examples unless the tool returned them or the customer asked for alternatives.
@@ -64,8 +76,6 @@ class AiAgents::ToolPromptPolicy
     Customer option rules:
     - When `present_options` is available, use it when one focused question with 2 to 10 concise, mutually exclusive choices will materially advance the conversation.
     - Ask only one selection question at a time and write it in the same language as the customer.
-    - Do not re-ask a question the customer already answered, declined, or said they could not answer. Use the latest customer message and previously stated constraints to advance the conversation.
-    - When the customer asks you to recommend, give one grounded recommendation with a short reason instead of repeating the same question. Use `present_options` only for a remaining bounded choice.
     - Do not use `present_options` for open-ended values such as measurements, addresses, phone numbers, email addresses, explanations, or when there is only one valid choice.
     - General support or workflow choices may use `options` when they follow from the conversation or verified business process.
     - Product, category, color, size, and variant choices must use `catalog_option_ids` from the latest successful `ikas_catalog_search` result in the current turn. Never invent or rewrite catalog choices.
@@ -80,7 +90,7 @@ class AiAgents::ToolPromptPolicy
   end
 
   def instructions
-    policies = []
+    policies = [SHARED_CONVERSATION_RULES]
     policies << PRESENT_OPTIONS_RULES if enabled_tool_keys.include?(AiAgents::Config::PRESENT_OPTIONS_TOOL)
     policies << KNOWLEDGE_RULES if enabled_tool_keys.include?(AiAgents::Config::KNOWLEDGE_SEARCH_TOOL)
     policies << IKAS_CATALOG_RULES if enabled_tool_keys.include?(AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL)

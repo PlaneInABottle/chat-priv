@@ -97,6 +97,172 @@ RSpec.describe AiAgents::Orchestrator do
     expect(AiAgentLlmCall.last.request_messages.last['content']).to include('previous AI response was empty')
   end
 
+  it 'retries a catalog answer cut off by the provider output limit' do
+    ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'] } })
+    tool_result = {
+      status: 'ok',
+      result_type: 'show_candidates',
+      candidates: [{ display_name: 'Menteşeli Kapı Sinekliği', price: { amount: 2500, currency: 'TRY', final_total_known: true } }]
+    }
+    tool_execution = AiAgents::ToolExecutor::Result.new(
+      status: 'executed',
+      tool_event: {
+        'tool' => 'ikas_catalog_search',
+        'status' => 'ok',
+        'tool_call_id' => 'catalog-1',
+        'result' => tool_result.deep_stringify_keys
+      },
+      tool_result: tool_result
+    )
+    allow(AiAgents::ToolExecutor).to receive(:new).and_return(
+      instance_double(AiAgents::ToolExecutor, execute: tool_execution)
+    )
+    allow(adapter).to receive(:perform).and_return(
+      {
+        assistant_text: nil,
+        tool_calls: [
+          {
+            id: 'catalog-1',
+            type: 'function',
+            name: 'ikas_catalog_search',
+            arguments: { query: 'düşük bütçeli kedi tüllü balkon kapısı sineklik' }.to_json
+          }
+        ],
+        finish_reason: 'tool_calls'
+      },
+      { assistant_text: 'Merhaba, tale', tool_calls: [], finish_reason: 'length' },
+      {
+        assistant_text: 'Düşük bütçe önceliğiniz için 2.500 TRY fiyatlı Menteşeli Kapı Sinekliğini öneririm.',
+        tool_calls: [],
+        finish_reason: 'stop'
+      }
+    )
+
+    result = nil
+    expect do
+      result = described_class.new(
+        ai_agent: ai_agent.reload,
+        messages: [{ role: 'user', content: 'Balkon kapısı için düşük bütçeli kedi tüllü sineklik öner' }],
+        mode: :test,
+        adapter: adapter
+      ).perform
+    end.to change(AiAgentLlmCall, :count).by(3)
+
+    expect(result[:assistant_message]['content']).to eq(
+      'Düşük bütçe önceliğiniz için 2.500 TRY fiyatlı Menteşeli Kapı Sinekliğini öneririm.'
+    )
+    expect(AiAgentLlmCall.order(:id).last(2).map(&:finish_reason)).to eq(%w[length stop])
+    expect(AiAgentLlmCall.last.step).to eq('tool_follow_up_incomplete_retry')
+    expect(AiAgentLlmCall.last.request_messages.last['content']).to include('cut off by the output limit')
+  end
+
+  it 'does not return an answer that remains cut off after its retry' do
+    allow(adapter).to receive(:perform).and_return(
+      { assistant_text: 'Merhaba, tale', tool_calls: [], finish_reason: 'length' },
+      { assistant_text: 'Merhaba, iste', tool_calls: [], finish_reason: 'length' }
+    )
+
+    result = described_class.new(
+      ai_agent: ai_agent,
+      messages: [{ role: 'user', content: 'Bir ürün önerir misin?' }],
+      mode: :test,
+      adapter: adapter
+    ).perform
+
+    expect(result[:terminal_action]).to eq('handoff')
+    expect(result[:assistant_message]['content']).not_to include('Merhaba, tale', 'Merhaba, iste')
+    expect(adapter).to have_received(:perform).twice
+  end
+
+  it 'finalizes comparative catalog claims that lack exact product evidence' do
+    ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'] } })
+    tool_result = {
+      status: 'ok',
+      result_type: 'multi_search',
+      queries: [
+        { query: 'akordiyon sineklik', result_type: 'clarify_category', result_count: 0, candidates: [] },
+        { query: 'menteşeli sineklik', result_type: 'clarify_category', result_count: 0, candidates: [] }
+      ]
+    }
+    tool_execution = AiAgents::ToolExecutor::Result.new(
+      status: 'executed',
+      tool_event: {
+        'tool' => 'ikas_catalog_search',
+        'status' => 'ok',
+        'tool_call_id' => 'catalog-1',
+        'result' => tool_result.deep_stringify_keys
+      },
+      tool_result: tool_result
+    )
+    allow(AiAgents::ToolExecutor).to receive(:new).and_return(
+      instance_double(AiAgents::ToolExecutor, execute: tool_execution)
+    )
+    allow(adapter).to receive(:perform).and_return(
+      {
+        assistant_text: nil,
+        tool_calls: [
+          {
+            id: 'catalog-1',
+            type: 'function',
+            name: 'ikas_catalog_search',
+            arguments: { queries: ['akordiyon sineklik', 'menteşeli sineklik'] }.to_json
+          }
+        ],
+        finish_reason: 'tool_calls'
+      },
+      {
+        assistant_text: 'Menteşeli daha sağlam, akordiyon daha ekonomik olabilir. Hangisini istersiniz? Ölçünüz nedir?',
+        tool_calls: [],
+        finish_reason: 'stop'
+      },
+      {
+        assistant_text: 'Bu iki tipi fiyat veya dayanıklılık açısından karşılaştıracak doğrulanmış ürün bilgisi yok. Kapı ölçünüzü biliyor musunuz?',
+        tool_calls: [],
+        finish_reason: 'stop'
+      }
+    )
+
+    result = described_class.new(
+      ai_agent: ai_agent.reload,
+      messages: [{ role: 'user', content: 'Kedi var ve bütçem düşük; akordiyon mu menteşeli mi, sen öner' }],
+      mode: :test,
+      adapter: adapter
+    ).perform
+
+    content = result[:assistant_message]['content']
+    expect(content).to include('doğrulanmış ürün bilgisi yok')
+    expect(content).not_to include('daha sağlam', 'daha ekonomik')
+    expect(AiAgentLlmCall.last.step).to eq('customer_facing_finalizer')
+  end
+
+  it 'allows catalog comparisons backed by exact candidate evidence' do
+    orchestrator = described_class.new(
+      ai_agent: ai_agent,
+      messages: [{ role: 'user', content: 'İki ürünü karşılaştır' }],
+      mode: :test,
+      adapter: adapter
+    )
+    tool_events = [{
+      'tool' => 'ikas_catalog_search',
+      'result' => {
+        'candidates' => [
+          {
+            'display_name' => 'Model A',
+            'price' => { 'amount' => 1000, 'currency' => 'TRY', 'final_total_known' => true },
+            'evidence' => ['Model B ürününden daha dayanıklı']
+          },
+          {
+            'display_name' => 'Model B',
+            'price' => { 'amount' => 1500, 'currency' => 'TRY', 'final_total_known' => true }
+          }
+        ]
+      }
+    }]
+
+    expect(orchestrator.send(:safe_customer_facing_answer?, 'Model A daha ucuz.', tool_events)).to be(true)
+    expect(orchestrator.send(:safe_customer_facing_answer?, 'Model A daha dayanıklı.', tool_events)).to be(true)
+  end
+
   it 'tolerates legacy human handoff config keys when generating responses' do
     ai_agent.update_column(:config, {
                              'tools' => {
