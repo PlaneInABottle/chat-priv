@@ -36,6 +36,7 @@ module AiAgents
     CUSTOMER_FACING_FINALIZER_PROMPT = [
       'Write the final customer-facing reply from the latest customer message and the available structured tool result messages.',
       'Use only concrete facts, policies, verified knowledge excerpts, product details, prices, links, and order fields present in those results.',
+      'Material, durability, pet-resistance, damage, and suitability claims require explicit candidate evidence, attributes, features, or description supporting that exact type of claim. Product names and categories alone do not support physical performance or pet-behavior claims.',
       'The latest customer message controls the product/category scope of the final answer.',
       'Use previous conversation context only to resolve an ambiguous follow-up; if the latest customer message names a different product or category, answer only that new topic unless the customer explicitly asks to compare or combine topics.',
       'If tool results contain multiple query results, answer only the query or queries directly requested by the latest customer message; ignore previous-topic query results unless the customer explicitly asked to compare or combine topics.',
@@ -54,6 +55,7 @@ module AiAgents
       'The previous final customer-facing response attempted to call a tool, contained tool-call markup, or repeated a non-final reference price.',
       'Write only the customer message now from the already available evidence.',
       'Do not repeat numeric reference prices when price.final_total_known is false.',
+      'Remove unsupported material, durability, pet-resistance, damage, and suitability claims while preserving verified product names, links, and properly qualified price comparisons.',
       'If the exact requested item is unavailable, say that simply and ask one focused customer question when needed.'
     ].join(' ').freeze
     MAX_TOOL_ITERATIONS = 4
@@ -62,8 +64,60 @@ module AiAgents
     MAX_KNOWLEDGE_SEARCH_CALLS = 2
     MAX_ORDER_LOOKUP_CALLS = 1
     MAX_HUMAN_HANDOFF_CALLS = 1
-    CATALOG_PRICE_COMPARISON_PATTERN = /daha\s+(?:ucuz|ekonomik|pahalı|uygun\s+fiyatlı)|\b(?:cheaper|more\s+(?:affordable|expensive)|less\s+expensive)\b/i
-    CATALOG_DURABILITY_COMPARISON_PATTERN = /daha\s+(?:sağlam|dayanıklı)|\b(?:more\s+durable|sturdier|stronger)\b/i
+    CATALOG_PRICE_COMPARISON_PATTERN = %r{
+      daha\s+(?:ucuz|ekonomik|pahalı|uygun\s+fiyatlı|düşük|yüksek) |
+      \b(?:cheaper|more\s+(?:affordable|expensive)|less\s+expensive|lower|higher)(?:-priced)?\b
+    }ix
+    CATALOG_REFERENCE_PRICE_QUALIFIER_PATTERN = %r{
+      \b(?:
+        referans\s+(?:tutar|fiyat) | reference\s+(?:amount|price) |
+        (?:listelenen|görünen)\s+(?:referans\s+)?(?:tutar|fiyat) |
+        (?:listed|visible)\s+(?:reference\s+)?(?:amount|price)
+      )
+    }ix
+    CATALOG_EVIDENCE_ONLY_CLAIM_PATTERNS = {
+      material: %r{
+        \b(?:
+          (?:sert|rijit)\s+(?:çerçeve(?:li)?|kasa(?:lı)?)(?:dir)? |
+          (?:rigid|hard)\s+frames? |
+          (?:alüminyum|aluminyum|çelik|celik|metal|plastik|ahşap|ahsap|wood(?:en)?|steel|alumin(?:um|ium)|plastic)
+          (?:dan|den)?\s+(?:yapılmış|yapilmis|çerçeve(?:li)?|kasa(?:lı)?|frame(?:d)?) |
+          made\s+(?:of|from)\s+(?:wood|steel|alumin(?:um|ium)|metal|plastic)
+        )\b
+      }ix,
+      durability: %r{
+        \b(?:
+          (?:daha\s+)?(?:sağlam|saglam|dayanıklı|dayanikli)(?:d[ıi]r)? |
+          ezilmez | sark(?:abilir|ar|maz) | yırtıl(?:maz|abilir) | yirtil(?:maz|abilir) |
+          kırıl(?:maz|abilir) | kiril(?:maz|abilir) | deforme\s+ol(?:maz|abilir) |
+          durable | sturd(?:y|ier) | strong(?:er)? | (?:will|can|may|won't)\s+(?:sag|tear|bend|break)
+        )\b
+      }ix,
+      pet_resistance: %r{
+        \b(?:
+          (?:kedi(?:niz|ler)?|köpek(?:iniz|ler)?|evcil\s+hayvan|cats?|dogs?|pets?).{0,50}
+          (?:tırmala[[:alpha:]]*|tirmala[[:alpha:]]*|tırman[[:alpha:]]*|tirman[[:alpha:]]*|scratch\w*|claw\w*|climb\w*|resistan\w*|proof) |
+          (?:tırmala[[:alpha:]]*|tirmala[[:alpha:]]*|scratch\w*|claw\w*|pet[_\s-]?proof).{0,50}
+          (?:kedi[[:alpha:]]*|köpek[[:alpha:]]*|evcil\s+hayvan|cats?|dogs?|pets?)
+        )\b
+      }ix,
+      damage: %r{
+        \b(?:
+          (?:hasar|zarar)\s+gör(?:ebilir|ür|ur|mez) |
+          damage[_\s-]?resistan\w* | prone\s+to\s+damage |
+          (?:can|may|will|won't)\s+(?:be\s+)?damag(?:e|ed)
+        )\b
+      }ix,
+      suitability: %r{
+        \b(?:
+          en\s+uygun\s+(?:seçenek|secenek|ürün|urun|model) |
+          ideal(?:dir)? |
+          (?:kedi(?:niz|ler)?|köpek(?:iniz|ler)?|evcil\s+hayvan)\s+için\s+(?:en\s+)?uygun |
+          best\s+(?:choice|option) | most\s+suitable |
+          (?:suitable|recommended)[_\s-]*for.{0,20}(?:cats?|dogs?|pets?)
+        )\b
+      }ix
+    }.freeze
 
     def initialize(ai_agent:, messages:, mode:, conversation: nil, trigger_message: nil, adapter: nil, prompt_override: nil, config_override: nil,
                    knowledge_sources_override: nil, improvement_operation: nil, initiated_by: nil)
@@ -490,33 +544,45 @@ module AiAgents
 
     def safe_customer_facing_answer?(answer, tool_events)
       !unsafe_customer_facing_answer?(answer) && !reference_price_leak?(answer, tool_events) &&
-        !unsupported_catalog_comparison?(answer, tool_events)
+        !unsupported_catalog_claim?(answer, tool_events)
     end
 
-    def unsupported_catalog_comparison?(answer, tool_events)
+    def unsupported_catalog_claim?(answer, tool_events)
       return false if catalog_results(tool_events).empty?
 
-      unsupported_price_comparison = answer.match?(CATALOG_PRICE_COMPARISON_PATTERN) && !catalog_price_comparison_supported?(tool_events)
-      unsupported_durability_comparison = answer.match?(CATALOG_DURABILITY_COMPARISON_PATTERN) &&
-                                          !catalog_durability_comparison_supported?(tool_events)
-      unsupported_price_comparison || unsupported_durability_comparison
+      unsupported_price_comparison = answer.match?(CATALOG_PRICE_COMPARISON_PATTERN) &&
+                                     !catalog_price_comparison_supported?(answer, tool_events)
+      unsupported_evidence_only_claim = CATALOG_EVIDENCE_ONLY_CLAIM_PATTERNS.values.any? do |pattern|
+        answer.match?(pattern) && !catalog_claim_supported?(tool_events, pattern)
+      end
+      unsupported_price_comparison || unsupported_evidence_only_claim
     end
 
-    def catalog_price_comparison_supported?(tool_events)
+    def catalog_price_comparison_supported?(answer, tool_events)
       prices = catalog_candidates(tool_events).filter_map do |candidate|
         price = candidate['price'].to_h.deep_stringify_keys
-        next if price['final_total_known'] == false || price['amount'].blank? || price['currency'].blank?
+        next if price['currency'].blank?
 
-        price.slice('amount', 'currency')
+        if price['final_total_known'] != false && price['amount'].present?
+          next price.slice('amount', 'currency').merge('kind' => 'final')
+        end
+        next unless price['final_total_known'] == false && price['reference_amount'].present?
+
+        price.slice('reference_amount', 'currency').merge('amount' => price['reference_amount'], 'kind' => 'reference')
       end
-      prices_by_currency = prices.group_by { |price| price['currency'] }
+      prices_by_currency_and_kind = prices.group_by { |price| price.values_at('currency', 'kind') }
 
-      prices_by_currency.any? { |_currency, currency_prices| currency_prices.size >= 2 }
+      prices_by_currency_and_kind.any? do |(_currency, kind), comparable_prices|
+        normalized_amounts = comparable_prices.filter_map { |price| decimal_reference_amount(price['amount']) }
+        next false if normalized_amounts.uniq.size < 2
+
+        kind == 'final' || answer.match?(CATALOG_REFERENCE_PRICE_QUALIFIER_PATTERN)
+      end
     end
 
-    def catalog_durability_comparison_supported?(tool_events)
+    def catalog_claim_supported?(tool_events, pattern)
       catalog_candidates(tool_events).any? do |candidate|
-        candidate.slice('evidence', 'attributes', 'features', 'description').to_json.match?(CATALOG_DURABILITY_COMPARISON_PATTERN)
+        candidate.slice('evidence', 'attributes', 'features', 'description').to_json.match?(pattern)
       end
     end
 

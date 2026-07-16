@@ -263,6 +263,149 @@ RSpec.describe AiAgents::Orchestrator do
     expect(orchestrator.send(:safe_customer_facing_answer?, 'Model A daha dayanıklı.', tool_events)).to be(true)
   end
 
+  it 'finalizes unsupported physical product claims while preserving neutral catalog facts' do
+    ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'] } })
+    hinged_url = 'https://example.test/menteseli-kapi-sineklik'
+    accordion_url = 'https://example.test/akordiyon-kapi-sineklik'
+    tool_result = {
+      status: 'ok',
+      result_type: 'multi_search',
+      queries: [
+        {
+          query: 'akordiyon kapı sineklik',
+          result_type: 'show_candidates',
+          candidates: [
+            {
+              display_name: 'Akordiyon Kapı Sineklik Antrasit',
+              evidence: [],
+              price: { reference_amount: 2637.0, currency: 'TRY', final_total_known: false },
+              link: { url: accordion_url }
+            }
+          ]
+        },
+        {
+          query: 'menteşeli kapı sineklik',
+          result_type: 'show_candidates',
+          candidates: [
+            {
+              display_name: 'Menteşeli Kapı Sineklik Antrasit',
+              evidence: [],
+              price: { reference_amount: 1233.84, currency: 'TRY', final_total_known: false },
+              link: { url: hinged_url }
+            }
+          ]
+        }
+      ]
+    }
+    tool_execution = AiAgents::ToolExecutor::Result.new(
+      status: 'executed',
+      tool_event: {
+        'tool' => 'ikas_catalog_search',
+        'status' => 'ok',
+        'tool_call_id' => 'catalog-physical-claims',
+        'result' => tool_result.deep_stringify_keys
+      },
+      tool_result: tool_result
+    )
+    allow(AiAgents::ToolExecutor).to receive(:new).and_return(
+      instance_double(AiAgents::ToolExecutor, execute: tool_execution)
+    )
+    unsafe_claim = 'Menteşeli modeller sert çerçeveli olduğu için kedi tırmalasa da ezilmez, ' \
+                   'akordiyon/pileli modeller ise kedi tırmanırsa sarkabilir veya hasar görebilir.'
+    corrected_answer = 'Listelenen referans tutarlara göre Menteşeli Kapı Sineklik Antrasit, ' \
+                       'Akordiyon Kapı Sineklik Antrasit ürününe göre daha düşük görünüyor; nihai fiyat ölçü ve seçeneklere göre değişir. ' \
+                       "[Menteşeli](#{hinged_url}) [Akordiyon](#{accordion_url})"
+    calls = []
+    allow(adapter).to receive(:perform) do |payload|
+      calls << payload
+      if calls.one?
+        {
+          assistant_text: nil,
+          tool_calls: [
+            {
+              id: 'catalog-physical-claims',
+              type: 'function',
+              name: 'ikas_catalog_search',
+              arguments: { queries: ['akordiyon kapı sineklik', 'menteşeli kapı sineklik'] }.to_json
+            }
+          ],
+          finish_reason: 'tool_calls'
+        }
+      elsif calls.length == 2
+        {
+          assistant_text: "Menteşeli kapı sinekliği kediniz için en uygun seçenektir. #{unsafe_claim}",
+          tool_calls: [],
+          finish_reason: 'stop'
+        }
+      else
+        { assistant_text: corrected_answer, tool_calls: [], finish_reason: 'stop' }
+      end
+    end
+
+    result = described_class.new(
+      ai_agent: ai_agent.reload,
+      messages: [{ role: 'user', content: 'Kedim için menteşeli mi akordiyon mu önerirsin?' }],
+      mode: :test,
+      adapter: adapter
+    ).perform
+
+    content = result[:assistant_message]['content']
+    expect(content).to eq(corrected_answer)
+    expect(content).to include('Menteşeli Kapı Sineklik Antrasit', 'Akordiyon Kapı Sineklik Antrasit', hinged_url, accordion_url)
+    expect(content).to include('referans tutarlara göre', 'daha düşük')
+    expect(content).not_to include('sert çerçeveli', 'ezilmez', 'sarkabilir', 'hasar görebilir', 'en uygun')
+    expect(calls.third.fetch(:messages).pluck(:content).compact.join(' ')).to include('pet-resistance')
+    expect(AiAgentLlmCall.last.step).to eq('customer_facing_finalizer')
+  end
+
+  it 'guards Turkish and English physical claim families without blocking neutral catalog facts' do
+    orchestrator = described_class.new(ai_agent: ai_agent, messages: [], mode: :test, adapter: adapter)
+    empty_evidence_events = [{
+      'tool' => 'ikas_catalog_search',
+      'result' => {
+        'candidates' => [
+          {
+            'display_name' => 'Menteşeli Kapı Sineklik Antrasit',
+            'evidence' => [],
+            'price' => { 'reference_amount' => 1233.84, 'currency' => 'TRY', 'final_total_known' => false },
+            'link' => { 'url' => 'https://example.test/menteseli-kapi-sineklik' }
+          }
+        ]
+      }
+    }]
+    unsupported_claims = [
+      'Bu model sert çerçevelidir.',
+      'This model has a rigid frame.',
+      'Bu model dayanıklıdır ve sarkmaz.',
+      'This model is durable and will not sag.',
+      'Kedi tırmalamasına karşı dayanıklıdır.',
+      'This pet-resistant mesh withstands scratching.',
+      'Tırmanılırsa hasar görebilir.',
+      'It may be damaged if a cat climbs on it.',
+      'Kediniz için en uygun seçenektir.',
+      'This is the best option for pets.'
+    ]
+
+    aggregate_failures do
+      unsupported_claims.each do |claim|
+        expect(orchestrator.send(:safe_customer_facing_answer?, claim, empty_evidence_events)).to be(false), claim
+      end
+
+      neutral_answer = 'Menteşeli Kapı Sineklik Antrasit ürününü buldum. ' \
+                       'Listelenen referans tutarı nihai fiyat değildir. ' \
+                       '[Ürün](https://example.test/menteseli-kapi-sineklik)'
+      expect(orchestrator.send(:safe_customer_facing_answer?, neutral_answer, empty_evidence_events)).to be(true)
+      expect(orchestrator.send(:safe_customer_facing_answer?, 'Listelenen referans tutara göre daha düşük.', empty_evidence_events)).to be(false)
+
+      supported_events = empty_evidence_events.deep_dup
+      supported_events.first.dig('result', 'candidates').first['evidence'] = [
+        'Rigid frame with scratch-resistant pet mesh.'
+      ]
+      supported_claim = 'This model has a rigid frame and scratch-resistant pet mesh.'
+      expect(orchestrator.send(:safe_customer_facing_answer?, supported_claim, supported_events)).to be(true)
+    end
+  end
+
   it 'tolerates legacy human handoff config keys when generating responses' do
     ai_agent.update_column(:config, {
                              'tools' => {
@@ -912,7 +1055,7 @@ RSpec.describe AiAgents::Orchestrator do
         finish_reason: 'tool_calls'
       },
       {
-        assistant_text: 'Kedi için uygun seçenek: [Ürüne git](https://example.test/kedi-sineklik?%22RENK%22=AN',
+        assistant_text: 'Kedi Sineklik Antrasit: [Ürüne git](https://example.test/kedi-sineklik?%22RENK%22=AN',
         tool_calls: [],
         finish_reason: 'stop'
       }

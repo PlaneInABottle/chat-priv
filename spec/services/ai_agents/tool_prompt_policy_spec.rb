@@ -34,6 +34,13 @@ RSpec.describe AiAgents::ToolPromptPolicy do
     expect(instructions).not_to include('Customer option rules:', '`present_options`')
   end
 
+  it 'requires explicit candidate evidence for physical product claims' do
+    instructions = described_class.new([AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL]).instructions
+
+    expect(instructions).to match(/material.*durability.*pet-resistance.*damage.*suitability.*candidate evidence/i)
+    expect(instructions).to match(/names.*neutral catalog facts.*not evidence.*physical performance.*pet behavior/i)
+  end
+
   it 'keeps shared conversation rules when the merchant disables native options' do
     instructions = described_class.new([]).instructions
 
