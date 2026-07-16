@@ -1,14 +1,15 @@
 # frozen_string_literal: true
 
 class AiAgents::PromptComposer
-  def initialize(ai_agent:, prompt_override: nil, config_override: nil, knowledge_sources_override: nil)
+  def initialize(ai_agent:, prompt_override: nil, config_override: nil, knowledge_sources_override: nil, enabled_tool_keys_override: nil)
     @ai_agent = ai_agent
     @prompt_override = prompt_override
     @config_override = config_override
     @knowledge_sources_override = knowledge_sources_override
+    @enabled_tool_keys_override = enabled_tool_keys_override
   end
 
-  attr_reader :ai_agent, :prompt_override, :config_override, :knowledge_sources_override
+  attr_reader :ai_agent, :prompt_override, :config_override, :knowledge_sources_override, :enabled_tool_keys_override
 
   def base_prompt
     AiAgents::Settings.global_instructions
@@ -36,6 +37,8 @@ class AiAgents::PromptComposer
   private
 
   def enabled_tool_keys
+    return Array(enabled_tool_keys_override).map(&:to_s) unless enabled_tool_keys_override.nil?
+
     keys = tool_config.enabled_tool_keys
     keys = [*keys, AiAgents::Config::KNOWLEDGE_SEARCH_TOOL] if knowledge_sources_override.present?
     keys
