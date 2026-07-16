@@ -9,7 +9,7 @@ class AiAgents::LlmCallLogger
     @mode = mode
   end
 
-  def call(step:, model:, request_messages:, request_tools:, status:, response: {}, error: nil, duration_ms: nil)
+  def call(step:, model:, request_messages:, request_tools:, status:, response: {}, request_options: {}, error: nil, duration_ms: nil)
     AiAgentLlmCall.create!(
       account: account,
       ai_agent: ai_agent,
@@ -21,7 +21,7 @@ class AiAgents::LlmCallLogger
       status: status,
       request_messages: sanitized_messages(request_messages),
       request_tool_names: tool_names(request_tools),
-      response: sanitized_response(response),
+      response: sanitized_response(response, request_options),
       usage: response[:usage] || response['usage'] || {},
       finish_reason: response[:finish_reason] || response['finish_reason'],
       error_code: error&.class&.name,
@@ -52,7 +52,10 @@ class AiAgents::LlmCallLogger
     Array(tools).filter_map { |tool| tool.dig(:function, :name) || tool.dig('function', 'name') }
   end
 
-  def sanitized_response(response)
-    response.except(:raw_response, 'raw_response', :usage, 'usage').deep_stringify_keys
+  def sanitized_response(response, request_options)
+    payload = response.except(:raw_response, 'raw_response', :usage, 'usage').deep_stringify_keys
+    options = request_options.to_h.deep_stringify_keys.slice('max_tokens')
+    payload['request_options'] = options if options.present?
+    payload
   end
 end

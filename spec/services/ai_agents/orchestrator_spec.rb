@@ -156,6 +156,169 @@ RSpec.describe AiAgents::Orchestrator do
     expect(AiAgentLlmCall.last.request_messages.last['content']).to include('cut off by the output limit')
   end
 
+  it 'uses a larger final retry budget and falls back to exact catalog evidence when it remains truncated' do
+    ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'] } })
+    hinged_url = 'https://example.test/menteseli-kapi?"RENK"=GRI'
+    accordion_url = 'https://example.test/akordiyon-kapi'
+    pet_mesh_url = 'https://example.test/kedi-tullu-kapi'
+    tool_result = {
+      status: 'ok',
+      result_type: 'show_candidates',
+      result_count: 3,
+      candidates: [
+        {
+          display_name: 'Menteşeli Kapı Sinekliği',
+          link: { url: hinged_url },
+          price: { reference_amount: 1250, currency: 'TRY', final_total_known: false },
+          description: 'Kedi tırmalamasına dayanıklıdır.'
+        },
+        {
+          display_name: 'Akordiyon Kapı Sinekliği',
+          link: { url: accordion_url },
+          price: { reference_amount: 1500.50, currency: 'TRY', final_total_known: false }
+        },
+        {
+          display_name: 'Kedi Tüllü Kapı Sinekliği',
+          link: { url: pet_mesh_url }
+        }
+      ]
+    }
+    tool_execution = AiAgents::ToolExecutor::Result.new(
+      status: 'executed',
+      tool_event: {
+        'tool' => 'ikas_catalog_search',
+        'status' => 'ok',
+        'tool_call_id' => 'catalog-1',
+        'result' => tool_result.deep_stringify_keys
+      },
+      tool_result: tool_result
+    )
+    allow(AiAgents::ToolExecutor).to receive(:new).and_return(
+      instance_double(AiAgents::ToolExecutor, execute: tool_execution)
+    )
+    calls = []
+    allow(adapter).to receive(:perform) do |**payload|
+      calls << payload
+      case calls.length
+      when 1
+        {
+          assistant_text: nil,
+          tool_calls: [{
+            id: 'catalog-1',
+            type: 'function',
+            name: 'ikas_catalog_search',
+            arguments: { queries: ['balkon kapısı sineklik', 'menteşeli kapı sineklik', 'akordiyon kapı sineklik'] }.to_json
+          }],
+          finish_reason: 'tool_calls'
+        }
+      when 2
+        {
+          assistant_text: nil,
+          tool_calls: [{ id: 'catalog-over-budget', type: 'function', name: 'ikas_catalog_search', arguments: { query: 'kedi tüllü kapı' }.to_json }],
+          finish_reason: 'tool_calls'
+        }
+      when 3
+        { assistant_text: 'Merhaba! Balkon kapınız için sineklik bakıy', tool_calls: [], finish_reason: 'length' }
+      else
+        { assistant_text: nil, tool_calls: [], finish_reason: 'length' }
+      end
+    end
+
+    result = described_class.new(
+      ai_agent: ai_agent.reload,
+      messages: [{ role: 'user', content: 'Balkon kapısı için düşük bütçeli bir sineklik önerir misin?' }],
+      mode: :live,
+      conversation: conversation,
+      trigger_message: trigger_message,
+      adapter: adapter
+    ).perform
+
+    content = result[:assistant_message]['content']
+    retry_log = AiAgentLlmCall.find_by!(conversation: conversation, step: 'tool_final_incomplete_retry')
+
+    expect(calls.third).not_to have_key(:max_tokens)
+    expect(calls.fourth[:max_tokens]).to eq(4_096)
+    expect(retry_log.response['request_options']).to eq('max_tokens' => 4_096)
+    expect(result[:terminal_action]).to be_nil
+    expect(result[:tool_events].none? { |event| event['tool'] == 'human_handoff' }).to be(true)
+    expect(content).to include(
+      'Menteşeli Kapı Sinekliği',
+      'Akordiyon Kapı Sinekliği',
+      'Kedi Tüllü Kapı Sinekliği',
+      'https://example.test/menteseli-kapi?%22RENK%22=GRI',
+      accordion_url,
+      pet_mesh_url,
+      '1250 TRY',
+      '1500.5 TRY',
+      'referans',
+      'nihai fiyat'
+    )
+    expect(content).not_to include('Merhaba! Balkon kapınız için sineklik bakıy', 'dayanıklıdır', 'tırmalama')
+    expect(content.lines.count { |line| line.strip.end_with?('?') }).to eq(1)
+    expect(adapter).to have_received(:perform).exactly(4).times
+  end
+
+  it 'hands off after a larger final retry still truncates without safe catalog evidence' do
+    allow(adapter).to receive(:perform).and_return(
+      { assistant_text: 'Kısmi yan', tool_calls: [], finish_reason: 'length' },
+      { assistant_text: nil, tool_calls: [], finish_reason: 'length' }
+    )
+    orchestrator = described_class.new(
+      ai_agent: ai_agent,
+      messages: [{ role: 'user', content: 'Bir ürün önerir misin?' }],
+      mode: :test,
+      adapter: adapter
+    )
+    tool_events = [{
+      'tool' => 'ikas_catalog_search',
+      'result' => { 'result_type' => 'no_match', 'result_count' => 0, 'candidates' => [] }
+    }]
+
+    result = orchestrator.send(:final_answer_result, [], tool_events, 'Reply from the available evidence.')
+
+    expect(result[:terminal_action]).to eq('handoff')
+    expect(result[:assistant_message]['content']).not_to include('Kısmi yan')
+    expect(adapter).to have_received(:perform).with(hash_including(max_tokens: 4_096)).once
+  end
+
+  it 'keeps multi-search fallback diverse and within the latest customer scope' do
+    orchestrator = described_class.new(
+      ai_agent: ai_agent,
+      messages: [{ role: 'user', content: 'Akordiyon mu menteşeli mi karar veremedim; ikisini de göster.' }],
+      mode: :test,
+      adapter: adapter
+    )
+    tool_events = [{
+      'tool' => 'ikas_catalog_search',
+      'result' => {
+        'result_type' => 'multi_search',
+        'queries' => [
+          {
+            'query' => 'pencere sineklik',
+            'candidates' => Array.new(3) { |index| { 'display_name' => "Pencere Sinekliği #{index + 1}" } }
+          },
+          {
+            'query' => 'akordiyon kapı sineklik',
+            'candidates' => Array.new(3) do |index|
+              { 'display_name' => "Akordiyon Kapı Sinekliği #{index + 1}", 'description' => 'En dayanıklı model.' }
+            end
+          },
+          {
+            'query' => 'menteşeli kapı sineklik',
+            'candidates' => Array.new(3) { |index| { 'display_name' => "Menteşeli Kapı Sinekliği #{index + 1}" } }
+          }
+        ]
+      }
+    }]
+    request_messages = [{ role: 'user', content: 'Akordiyon mu menteşeli mi karar veremedim; ikisini de göster.' }]
+
+    content = orchestrator.send(:catalog_evidence_fallback_answer, tool_events, request_messages: request_messages)
+
+    expect(content).to include('Akordiyon Kapı Sinekliği 1', 'Menteşeli Kapı Sinekliği 1')
+    expect(content).not_to include('Pencere Sinekliği', 'dayanıklı')
+    expect(content.lines.grep(/^- /).size).to eq(3)
+  end
+
   it 'does not return an answer that remains cut off after its retry' do
     allow(adapter).to receive(:perform).and_return(
       { assistant_text: 'Merhaba, tale', tool_calls: [], finish_reason: 'length' },

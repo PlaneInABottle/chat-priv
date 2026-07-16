@@ -16,7 +16,7 @@ class AiAgents::LlmAdapters::BaseAdapter
     @response_format = llm_options[:response_format]
   end
 
-  def perform(messages:, tools:, tool_choice: 'auto')
+  def perform(messages:, tools:, tool_choice: 'auto', max_tokens: nil)
     raise NotImplementedError
   end
 

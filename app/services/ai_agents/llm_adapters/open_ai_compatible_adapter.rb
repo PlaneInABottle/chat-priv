@@ -3,9 +3,17 @@
 class AiAgents::LlmAdapters::OpenAiCompatibleAdapter < AiAgents::LlmAdapters::BaseAdapter
   class RequestFailed < StandardError; end
 
-  def perform(messages:, tools:, tool_choice: 'auto')
+  DEFAULT_COMPLETION_TOKEN_LIMIT = 1_024
+  MAX_COMPLETION_TOKEN_LIMIT = 4_096
+
+  def perform(messages:, tools:, tool_choice: 'auto', max_tokens: nil)
     usage_event = reserve_improvement_credit
-    response = make_api_request(messages: messages, tools: tools, tool_choice: tool_choice)
+    response = make_api_request(
+      messages: messages,
+      tools: tools,
+      tool_choice: tool_choice,
+      max_tokens: completion_token_limit(max_tokens)
+    )
     normalized = normalize_response(response)
     consume_improvement_credit(usage_event, normalized[:usage])
     normalized
@@ -16,14 +24,14 @@ class AiAgents::LlmAdapters::OpenAiCompatibleAdapter < AiAgents::LlmAdapters::Ba
 
   private
 
-  def make_api_request(messages:, tools:, tool_choice:)
+  def make_api_request(messages:, tools:, tool_choice:, max_tokens:)
     uri = URI(api_endpoint)
     http = Net::HTTP.new(uri.host, uri.port)
     http.use_ssl = uri.scheme == 'https'
     http.read_timeout = api_timeout
 
     request = Net::HTTP::Post.new(uri.path, headers)
-    request.body = request_body(messages: messages, tools: tools, tool_choice: tool_choice).to_json
+    request.body = request_body(messages: messages, tools: tools, tool_choice: tool_choice, max_tokens: max_tokens).to_json
 
     response = http.request(request)
     raise RequestFailed, "LLM request failed with HTTP #{response.code}" unless response.code.to_i.between?(200, 299)
@@ -31,17 +39,22 @@ class AiAgents::LlmAdapters::OpenAiCompatibleAdapter < AiAgents::LlmAdapters::Ba
     JSON.parse(response.body)
   end
 
-  def request_body(messages:, tools:, tool_choice:)
+  def request_body(messages:, tools:, tool_choice:, max_tokens:)
     body = {
       model: account.ai_agent_model,
       messages: build_messages(messages),
       temperature: temperature.nil? ? 0.2 : temperature,
-      max_tokens: max_tokens || 1024
+      max_tokens: max_tokens
     }
     body[:tools] = tools if tools.present?
     body[:tool_choice] = tool_choice if tools.present?
     body[:response_format] = response_format if response_format.present?
     body
+  end
+
+  def completion_token_limit(override)
+    requested = (override || max_tokens || DEFAULT_COMPLETION_TOKEN_LIMIT).to_i
+    requested.clamp(1, MAX_COMPLETION_TOKEN_LIMIT)
   end
 
   def build_messages(messages)

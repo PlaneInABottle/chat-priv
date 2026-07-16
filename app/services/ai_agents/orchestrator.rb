@@ -61,6 +61,7 @@ module AiAgents
     MAX_TOOL_ITERATIONS = 4
     MAX_TOOL_CALLS_PER_RESPONSE = 4
     MAX_UNKNOWN_TOOL_CORRECTION_ATTEMPTS = 1
+    INCOMPLETE_FINAL_RETRY_MAX_TOKENS = 4_096
     MAX_CATALOG_SEARCH_QUERY_UNITS = 3
     MAX_KNOWLEDGE_SEARCH_CALLS = 2
     MAX_ORDER_LOOKUP_CALLS = 1
@@ -272,7 +273,7 @@ module AiAgents
       keys.uniq
     end
 
-    def perform_llm_call(step:, request_messages:, tools: llm_tools)
+    def perform_llm_call(step:, request_messages:, tools: llm_tools, incomplete_retry_max_tokens: nil)
       started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       response = adapter.perform(
         messages: request_messages,
@@ -281,7 +282,14 @@ module AiAgents
       )
       log_llm_call(step: step, request_messages: request_messages, request_tools: tools, status: 'succeeded', response: response,
                    duration_ms: duration_ms(started_at))
-      return retry_incomplete_llm_call(step: step, request_messages: request_messages, tools: tools) if incomplete_llm_response?(response)
+      if incomplete_llm_response?(response)
+        return retry_incomplete_llm_call(
+          step: step,
+          request_messages: request_messages,
+          tools: tools,
+          max_tokens: incomplete_retry_max_tokens
+        )
+      end
       return retry_empty_llm_call(step: step, request_messages: request_messages, tools: tools) if empty_llm_response?(response)
 
       response
@@ -308,20 +316,22 @@ module AiAgents
       raise
     end
 
-    def retry_incomplete_llm_call(step:, request_messages:, tools:)
+    def retry_incomplete_llm_call(step:, request_messages:, tools:, max_tokens: nil)
       retry_messages = [*request_messages, { role: 'system', content: INCOMPLETE_RESPONSE_RETRY_PROMPT }]
+      request_options = max_tokens.present? ? { max_tokens: max_tokens } : {}
       started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       response = adapter.perform(
         messages: retry_messages,
         tools: tools,
-        tool_choice: 'auto'
+        tool_choice: 'auto',
+        **request_options
       )
       log_llm_call(step: "#{step}_incomplete_retry", request_messages: retry_messages, request_tools: tools, status: 'succeeded', response: response,
-                   duration_ms: duration_ms(started_at))
+                   request_options: request_options, duration_ms: duration_ms(started_at))
       discard_incomplete_llm_response(response)
     rescue StandardError => e
       log_llm_call(step: "#{step}_incomplete_retry", request_messages: retry_messages, request_tools: tools, status: 'failed', error: e,
-                   duration_ms: duration_ms(started_at))
+                   request_options: request_options, duration_ms: duration_ms(started_at))
       raise
     end
 
@@ -343,12 +353,13 @@ module AiAgents
       response.merge(assistant_text: nil, tool_calls: [], incomplete_response: true)
     end
 
-    def log_llm_call(step:, request_messages:, request_tools:, status:, response: {}, error: nil, duration_ms: nil)
+    def log_llm_call(step:, request_messages:, request_tools:, status:, response: {}, request_options: {}, error: nil, duration_ms: nil)
       llm_call_logger.call(
         step: step,
         model: ai_agent.account.ai_agent_model,
         request_messages: traced_request_messages(request_messages),
         request_tools: request_tools,
+        request_options: request_options,
         status: status,
         response: response,
         error: error,
@@ -425,9 +436,12 @@ module AiAgents
       response = perform_llm_call(
         step: 'tool_final',
         request_messages: [*request_messages, { role: 'system', content: instruction }],
-        tools: []
+        tools: [],
+        incomplete_retry_max_tokens: INCOMPLETE_FINAL_RETRY_MAX_TOKENS
       )
-      return safety_handoff_result(reason: 'incomplete_final_answer', tool_events: tool_events) if response[:incomplete_response]
+      if response[:incomplete_response]
+        return incomplete_final_answer_result(request_messages, tool_events, budget_exhausted: budget_exhausted)
+      end
       return safety_handoff_result(reason: 'empty_final_answer', tool_events: tool_events) if response[:assistant_text].blank?
       public_answer = customer_facing_answer(response[:assistant_text], request_messages: request_messages, tool_events: tool_events)
       return safety_handoff_result(reason: 'empty_customer_facing_answer', tool_events: tool_events) if public_answer.blank?
@@ -435,6 +449,21 @@ module AiAgents
       {
         assistant_message: build_assistant_message(
           content: public_answer,
+          tool_events: tool_events,
+          telemetry: turn_telemetry(tool_events: tool_events, budget_exhausted: budget_exhausted)
+        ),
+        tool_events: tool_events,
+        terminal_action: nil
+      }
+    end
+
+    def incomplete_final_answer_result(request_messages, tool_events, budget_exhausted:)
+      fallback = catalog_evidence_fallback_answer(tool_events, request_messages: request_messages)
+      return safety_handoff_result(reason: 'incomplete_final_answer', tool_events: tool_events) if fallback.blank?
+
+      {
+        assistant_message: build_assistant_message(
+          content: fallback,
           tool_events: tool_events,
           telemetry: turn_telemetry(tool_events: tool_events, budget_exhausted: budget_exhausted)
         ),
@@ -646,6 +675,113 @@ module AiAgents
       subject = query.present? ? "#{query} için " : ''
 
       "#{subject}net bir ürün bulamadım. Ürün adını, kategori bilgisini veya aradığınız özelliği biraz daha net paylaşır mısınız?"
+    end
+
+    def catalog_evidence_fallback_answer(tool_events, request_messages: [])
+      groups = scoped_catalog_fallback_groups(catalog_fallback_candidate_groups(tool_events), request_messages)
+      candidates = diverse_catalog_fallback_candidates(groups)
+      return if candidates.empty?
+
+      lines = candidates.map { |candidate| catalog_fallback_candidate_line(candidate) }
+      price_note = if candidates.any? { |candidate| catalog_fallback_reference_price(candidate).present? }
+                     "\n\nListelenen referans tutarlar nihai fiyat değildir; ölçü ve seçeneklere göre değişir."
+                   else
+                     ''
+                   end
+      "Şu ürün seçeneklerini buldum:\n\n#{lines.join("\n")}#{price_note}\n\nHangisini daha ayrıntılı incelemek istersiniz?"
+    end
+
+    def catalog_fallback_candidate_groups(tool_events)
+      catalog_results(tool_events).flat_map do |result|
+        result = result.to_h.deep_stringify_keys
+        query_results = Array(result['queries']).select { |query_result| query_result.is_a?(Hash) }
+        query_results = [result] if query_results.empty?
+        query_results.map do |query_result|
+          query_result = query_result.deep_stringify_keys
+          {
+            query: query_result['query'].to_s,
+            candidates: Array(query_result['candidates']).filter_map do |candidate|
+              candidate.deep_stringify_keys if candidate.is_a?(Hash)
+            end
+          }
+        end
+      end
+    end
+
+    def scoped_catalog_fallback_groups(groups, request_messages)
+      return groups if groups.length < 2
+
+      latest_tokens = Set.new(catalog_scope_tokens(latest_customer_message(request_messages)))
+      return groups if latest_tokens.empty?
+
+      query_token_sets = groups.map { |group| Set.new(catalog_scope_tokens(group[:query])) }
+      common_tokens = query_token_sets.reduce { |common, tokens| common & tokens } || Set.new
+      scoped_groups = groups.zip(query_token_sets).filter_map do |group, query_tokens|
+        group if (query_tokens - common_tokens).intersect?(latest_tokens)
+      end
+      scoped_groups.presence || groups
+    end
+
+    def latest_customer_message(request_messages)
+      message = Array(request_messages).reverse.find { |entry| (entry[:role] || entry['role']).to_s == 'user' }
+      message&.[](:content) || message&.[]('content')
+    end
+
+    def catalog_scope_tokens(text)
+      I18n.transliterate(text.to_s).downcase.scan(/[a-z0-9]+/)
+    end
+
+    def diverse_catalog_fallback_candidates(groups)
+      candidate_groups = groups.map do |group|
+        group[:candidates].select { |candidate| usable_catalog_fallback_candidate?(candidate) }
+      end.reject(&:empty?)
+      return [] if candidate_groups.empty?
+
+      max_group_size = candidate_groups.map(&:size).max
+      round_robin = max_group_size.times.flat_map do |index|
+        candidate_groups.filter_map { |candidates| candidates[index] }
+      end
+
+      round_robin.uniq { |candidate| catalog_fallback_candidate_identity(candidate) }.first(3)
+    end
+
+    def catalog_fallback_candidate_identity(candidate)
+      candidate.values_at('item_id', 'variant_id', 'display_name').compact.join(':').presence || candidate.dig('link', 'url').to_s
+    end
+
+    def usable_catalog_fallback_candidate?(candidate)
+      return false if candidate['display_name'].to_s.strip.blank?
+
+      stock = candidate['stock'].to_h.deep_stringify_keys
+      stock.values_at('available', 'in_stock', 'sellable').none?(false)
+    end
+
+    def catalog_fallback_candidate_line(candidate)
+      details = [candidate['display_name'].to_s.squish]
+      reference_price = catalog_fallback_reference_price(candidate)
+      details << reference_price if reference_price
+      link = catalog_fallback_link(candidate)
+      details << "[Ürünü inceleyin](#{link})" if link
+      "- #{details.join(' — ')}"
+    end
+
+    def catalog_fallback_reference_price(candidate)
+      price = candidate['price'].to_h.deep_stringify_keys
+      return unless price['final_total_known'] == false
+
+      amount = decimal_reference_amount(price['reference_amount'])
+      currency = price['currency'].to_s.strip
+      return if amount.nil? || !currency.match?(/\A[A-Z]{3}\z/)
+
+      number = amount.to_s('F').sub(/\.0+\z/, '').sub(/(\.\d*?)0+\z/, '\\1')
+      "listelenen referans tutar: #{number} #{currency}"
+    end
+
+    def catalog_fallback_link(candidate)
+      url = candidate.dig('link', 'url').to_s.strip
+      return unless url.match?(/\Ahttps?:\/\//i)
+
+      normalize_catalog_url(url)
     end
 
     def latest_catalog_query(tool_events)
