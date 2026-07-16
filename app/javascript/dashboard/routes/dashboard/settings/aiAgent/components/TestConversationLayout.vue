@@ -75,12 +75,14 @@ const clearAllConversations = () => {
   });
 };
 
-const sendMessage = async content => {
+const sendMessage = async payload => {
   if (!activeConversation.value || creditsExhausted.value) return;
+  const messagePayload =
+    typeof payload === 'string' ? { content: payload } : payload;
   const result = await store.dispatch('aiAgentTestConversations/sendMessage', {
     aiAgentId: props.aiAgentId,
     id: activeConversation.value.id,
-    content,
+    ...messagePayload,
   });
 
   if (result?.error) {

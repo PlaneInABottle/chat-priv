@@ -150,8 +150,13 @@ describe Whatsapp::Providers::WhatsappCloudService do
                 body: {
                   text: 'test'
                 },
-                action: '{"buttons":[{"type":"reply","reply":{"id":"Burito","title":"Burito"}},{"type":"reply",' \
-                        '"reply":{"id":"Pasta","title":"Pasta"}},{"type":"reply","reply":{"id":"Sushi","title":"Sushi"}}]}'
+                action: {
+                  buttons: [
+                    { type: 'reply', reply: { id: 'Burito', title: 'Burito' } },
+                    { type: 'reply', reply: { id: 'Pasta', title: 'Pasta' } },
+                    { type: 'reply', reply: { id: 'Sushi', title: 'Sushi' } }
+                  ]
+                }
               }, type: 'interactive'
             }.to_json
           ).to_return(status: 200, body: whatsapp_response.to_json, headers: response_headers)
@@ -166,7 +171,7 @@ describe Whatsapp::Providers::WhatsappCloudService do
         expected_action = {
           button: I18n.t('conversations.messages.whatsapp.list_button_label'),
           sections: [{ rows: %w[Burito Pasta Sushi Salad].map { |i| { id: i, title: i } } }]
-        }.to_json
+        }
 
         stub_request(:post, 'https://graph.facebook.com/v13.0/123456789/messages')
           .with(
@@ -183,6 +188,24 @@ describe Whatsapp::Providers::WhatsappCloudService do
             }.to_json
           ).to_return(status: 200, body: whatsapp_response.to_json, headers: response_headers)
         expect(service.send_message('+123456789', message)).to eq 'message_id'
+      end
+
+      it 'uses a list and preserves the full label as a description when a button title is too long' do
+        long_title = 'Alüminyum uzun ürün seçeneği'
+        items = [{ title: long_title, value: 'long' }, { title: 'Kısa', value: 'short' }]
+        message = create(:message, message_type: :outgoing, content: 'test', inbox: whatsapp_channel.inbox,
+                                   content_type: 'input_select', content_attributes: { items: items })
+
+        sent_body = nil
+        request = stub_request(:post, 'https://graph.facebook.com/v13.0/123456789/messages')
+                  .with { |request_body| sent_body = JSON.parse(request_body.body) }
+                  .to_return(status: 200, body: whatsapp_response.to_json, headers: response_headers)
+
+        expect(service.send_message('+123456789', message)).to eq 'message_id'
+        expect(request).to have_been_requested
+        rows = sent_body.dig('interactive', 'action', 'sections', 0, 'rows')
+        expect(rows.first['title'].length).to be <= 24
+        expect(rows.first['description']).to eq(long_title)
       end
     end
   end

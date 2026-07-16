@@ -101,7 +101,7 @@ class Whatsapp::IncomingMessageBaseService
     create_message(message, source_id: message[:id])
     attach_files
     attach_location if message_type == 'location'
-    @message.save!
+    @interactive_selection_service ? record_interactive_selection : @message.save!
   end
 
   def set_contact
@@ -177,9 +177,16 @@ class Whatsapp::IncomingMessageBaseService
   def message_content_attributes(message)
     content_attrs = outgoing_echo ? { external_echo: true } : {}
     content_attrs[:in_reply_to_external_id] = @in_reply_to_external_id if @in_reply_to_external_id.present?
+    content_attrs[:selected_option] = @interactive_selection_item if @interactive_selection_item.present?
     referral_content_attrs = referral_attributes(message)
     content_attrs[:referral] = referral_content_attrs if referral_content_attrs.present?
     content_attrs
+  end
+
+  def record_interactive_selection
+    @message = @interactive_selection_service.record_response!(@message)
+  rescue AiAgents::OptionSelectionService::AlreadySubmitted
+    Rails.logger.info('[Whatsapp::IncomingMessage] Interactive selection was already submitted')
   end
 
   def attach_contact(contact)

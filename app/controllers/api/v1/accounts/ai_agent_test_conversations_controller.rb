@@ -33,18 +33,19 @@ class Api::V1::Accounts::AiAgentTestConversationsController < Api::V1::Accounts:
   end
 
   def send_message
-    content = params[:content].to_s.strip
-    return render json: { error: 'Content is required' }, status: :bad_request if content.blank?
-    return render json: { error: 'Message limit reached (200 messages max)' }, status: :unprocessable_entity if @test_conversation.at_message_limit?
-    return render json: { error: 'Draft instructions are too long' }, status: :unprocessable_entity if effective_test_prompt.length > 50_000
+    validation_error = send_message_validation_error
+    return render json: { error: validation_error[:message] }, status: validation_error[:status] if validation_error
 
     ensure_ai_improvement_credits!(operation: 'text_test', ai_agent: @ai_agent)
+    content = selection_requested? ? resolve_selected_option! : params[:content].to_s.strip
     @test_conversation.append_message(role: 'user', content: content)
     @test_conversation.update!(title: content.truncate(50)) if @test_conversation.title == 'New Test Conversation'
 
     generate_and_render_ai_response
   rescue AiImprovements::Usage::Exhausted => e
     render_ai_improvement_credits_exhausted(e)
+  rescue AiAgentTestConversation::InvalidSelection => e
+    render json: { error: e.message }, status: :unprocessable_entity
   end
 
   private
@@ -90,6 +91,29 @@ class Api::V1::Accounts::AiAgentTestConversationsController < Api::V1::Accounts:
       content: message['content'],
       metadata: message.except('id', 'role', 'content', 'created_at')
     )
+  end
+
+  def resolve_selected_option!
+    if params[:reply_to_message_id].blank? || params[:selected_value].blank?
+      raise AiAgentTestConversation::InvalidSelection, 'Both option identifiers are required.'
+    end
+
+    @test_conversation.submit_option!(
+      message_id: params[:reply_to_message_id],
+      selected_value: params[:selected_value]
+    )
+  end
+
+  def selection_requested?
+    params[:reply_to_message_id].present? || params[:selected_value].present?
+  end
+
+  def send_message_validation_error
+    return { message: 'Content is required', status: :bad_request } if params[:content].to_s.strip.blank? && !selection_requested?
+    return { message: 'Message limit reached (200 messages max)', status: :unprocessable_entity } if @test_conversation.at_message_limit?
+    return { message: 'Draft instructions are too long', status: :unprocessable_entity } if effective_test_prompt.length > 50_000
+
+    nil
   end
 
   def effective_test_prompt

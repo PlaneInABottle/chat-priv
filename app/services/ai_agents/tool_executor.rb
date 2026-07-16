@@ -12,6 +12,7 @@ class AiAgents::ToolExecutor
     @conversation = context[:conversation]
     @trigger_message = context[:trigger_message]
     @knowledge_sources = Array(context[:knowledge_sources]).map { |source| source.to_h.deep_stringify_keys }
+    @tool_events = Array(context[:tool_events])
   end
 
   def execute(tool_call)
@@ -40,7 +41,7 @@ class AiAgents::ToolExecutor
 
   private
 
-  attr_reader :ai_agent, :account, :mode, :executed_tool_keys, :config, :conversation, :trigger_message, :knowledge_sources
+  attr_reader :ai_agent, :account, :mode, :executed_tool_keys, :config, :conversation, :trigger_message, :knowledge_sources, :tool_events
 
   def tool_execution_logger
     @tool_execution_logger ||= AiAgents::ToolExecutionLogger.new(
@@ -63,6 +64,9 @@ class AiAgents::ToolExecutor
 
   def tool_enabled?(tool_key)
     return knowledge_sources.present? if tool_key == AiAgents::Config::KNOWLEDGE_SEARCH_TOOL
+    if tool_key == AiAgents::Config::PRESENT_OPTIONS_TOOL
+      return config.enabled_tool?(tool_key) && AiAgents::ChannelCapabilities.present_options?(mode: mode, conversation: conversation)
+    end
 
     config.enabled_tool?(tool_key)
   end
@@ -83,6 +87,7 @@ class AiAgents::ToolExecutor
       trigger_message: trigger_message
     }
     context[:knowledge_sources] = knowledge_sources if definition.key == AiAgents::Config::KNOWLEDGE_SEARCH_TOOL
+    context[:tool_events] = tool_events if definition.key == AiAgents::Config::PRESENT_OPTIONS_TOOL
     definition.service_class.constantize.new(**context)
   end
 

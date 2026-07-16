@@ -18,6 +18,8 @@
 #  index_ai_agent_test_conversations_on_last_message_at  (last_message_at)
 #
 class AiAgentTestConversation < ApplicationRecord
+  class InvalidSelection < StandardError; end
+
   belongs_to :account
   belongs_to :ai_agent
 
@@ -51,11 +53,46 @@ class AiAgentTestConversation < ApplicationRecord
     new_message
   end
 
+  def submit_option!(message_id:, selected_value:)
+    with_lock do
+      message_index, prompt = option_prompt!(message_id)
+      item = selected_option!(prompt, selected_value)
+      raise InvalidSelection, 'This question has already been answered.' if prompt['submitted_values'].present?
+
+      persist_option_selection!(message_index, prompt, item)
+      item['title']
+    end
+  end
+
   def at_message_limit?
     messages.length >= MAX_MESSAGES
   end
 
   private
+
+  def option_prompt!(message_id)
+    message_index = messages.index { |message| message['id'].to_s == message_id.to_s }
+    raise InvalidSelection, 'Option prompt was not found.' unless message_index
+
+    [message_index, messages.fetch(message_index).deep_dup]
+  end
+
+  def selected_option!(prompt, selected_value)
+    valid_prompt = prompt['role'] == 'assistant' && prompt['terminal_action'] == AiAgents::Config::PRESENT_OPTIONS_TOOL
+    item = Array(prompt.dig('tool_result', 'presentation', 'items')).find do |candidate|
+      candidate['value'].to_s == selected_value.to_s
+    end
+    raise InvalidSelection, 'Selected option is not available.' unless valid_prompt && item
+
+    item
+  end
+
+  def persist_option_selection!(message_index, prompt, item)
+    prompt['submitted_values'] = [item.slice('title', 'value')]
+    updated_messages = messages.deep_dup
+    updated_messages[message_index] = prompt
+    update!(messages: updated_messages)
+  end
 
   def messages_must_be_array
     errors.add(:messages, 'must be an array') unless messages.is_a?(Array)

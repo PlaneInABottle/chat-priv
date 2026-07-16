@@ -25,8 +25,8 @@ module Whatsapp::IncomingMessageServiceHelpers
   end
 
   def message_content(message)
-    # TODO: map interactive messages back to button messages in chatwoot
-    message.dig(:text, :body) ||
+    @interactive_selection_item&.dig('title') ||
+      message.dig(:text, :body) ||
       message.dig(:button, :text) ||
       message.dig(:interactive, :button_reply, :title) ||
       message.dig(:interactive, :list_reply, :title) ||
@@ -69,6 +69,25 @@ module Whatsapp::IncomingMessageServiceHelpers
 
   def process_in_reply_to(message)
     @in_reply_to_external_id = message['context']&.[]('id')
+    resolve_interactive_selection(message)
+  end
+
+  def resolve_interactive_selection(message)
+    selected_value = message.dig(:interactive, :button_reply, :id) || message.dig(:interactive, :list_reply, :id)
+    return if selected_value.blank? || @in_reply_to_external_id.blank?
+
+    prompt_message = @conversation.messages.find_by(source_id: @in_reply_to_external_id)
+    return unless prompt_message
+
+    @interactive_selection_service = AiAgents::OptionSelectionService.new(
+      prompt_message: prompt_message,
+      selected_value: selected_value
+    )
+    @interactive_selection_item = @interactive_selection_service.selected_item
+  rescue AiAgents::OptionSelectionService::InvalidSelection => e
+    Rails.logger.warn("[Whatsapp::IncomingMessage] Interactive selection could not be resolved: #{e.class.name}")
+    @interactive_selection_service = nil
+    @interactive_selection_item = nil
   end
 
   def referral_attributes(message)

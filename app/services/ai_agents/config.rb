@@ -6,9 +6,10 @@ module AiAgents
     IKAS_LOOKUP_ORDER_TOOL = 'ikas_lookup_order'.freeze
     IKAS_CATALOG_SEARCH_TOOL = 'ikas_catalog_search'.freeze
     KNOWLEDGE_SEARCH_TOOL = 'search_knowledge'.freeze
+    PRESENT_OPTIONS_TOOL = 'present_options'.freeze
     TOOLS_KEY = 'tools'.freeze
     ENABLED_KEY = 'enabled'.freeze
-    DEFAULT_ENABLED_TOOL_KEYS = [HUMAN_HANDOFF_TOOL].freeze
+    DEFAULT_ENABLED_TOOL_KEYS = [HUMAN_HANDOFF_TOOL, PRESENT_OPTIONS_TOOL].freeze
     HUMAN_HANDOFF_SETTINGS_KEYS = ['allowed_labels'].freeze
     LEGACY_HUMAN_HANDOFF_SETTINGS_KEYS = %w[preview_only transfer_message].freeze
 
@@ -37,6 +38,11 @@ module AiAgents
     def enabled_tool_keys
       @enabled_tool_keys ||= begin
         keys = [HUMAN_HANDOFF_TOOL, *Array(enabled_tools_value)].filter_map(&:presence).map(&:to_s).uniq
+        if present_options_settings['enabled']
+          keys << PRESENT_OPTIONS_TOOL
+        else
+          keys.delete(PRESENT_OPTIONS_TOOL)
+        end
         keys & AiAgents::ToolRegistry.keys
       end
     end
@@ -54,7 +60,8 @@ module AiAgents
         ENABLED_KEY => enabled_tool_keys,
         HUMAN_HANDOFF_TOOL => human_handoff_settings,
         IKAS_LOOKUP_ORDER_TOOL => ikas_lookup_order_settings,
-        IKAS_CATALOG_SEARCH_TOOL => ikas_catalog_search_settings
+        IKAS_CATALOG_SEARCH_TOOL => ikas_catalog_search_settings,
+        PRESENT_OPTIONS_TOOL => present_options_settings
       }
     end
 
@@ -72,7 +79,8 @@ module AiAgents
         ENABLED_KEY => enabled_tool_keys,
         HUMAN_HANDOFF_TOOL => human_handoff_settings,
         IKAS_LOOKUP_ORDER_TOOL => ikas_lookup_order_settings,
-        IKAS_CATALOG_SEARCH_TOOL => ikas_catalog_search_settings
+        IKAS_CATALOG_SEARCH_TOOL => ikas_catalog_search_settings,
+        PRESENT_OPTIONS_TOOL => present_options_settings
       }
     end
 
@@ -105,6 +113,15 @@ module AiAgents
       settings.is_a?(Hash) ? settings.deep_stringify_keys : {}
     end
 
+    def present_options_settings
+      settings = tools_config&.dig(PRESENT_OPTIONS_TOOL)
+      settings = settings.deep_stringify_keys if settings.is_a?(Hash)
+
+      {
+        'enabled' => settings&.key?('enabled') ? settings['enabled'] : true
+      }
+    end
+
     def validate
       return [] if config.blank?
       return ['config must be a JSON object'] unless config.is_a?(Hash)
@@ -117,6 +134,7 @@ module AiAgents
         messages.concat(validate_human_handoff_settings)
         messages.concat(validate_ikas_lookup_order_settings)
         messages.concat(validate_ikas_catalog_search_settings)
+        messages.concat(validate_present_options_settings)
       end
     end
 
@@ -168,6 +186,18 @@ module AiAgents
       return [] if unknown_keys.empty?
 
       ["config.tools.ikas_catalog_search contains unknown keys: #{unknown_keys.join(', ')}"]
+    end
+
+    def validate_present_options_settings
+      settings = tools_config[PRESENT_OPTIONS_TOOL]
+      return [] if settings.nil?
+      return ['config.tools.present_options must be an object'] unless settings.is_a?(Hash)
+
+      unknown_keys = settings.keys - ['enabled']
+      return ["config.tools.present_options contains unknown keys: #{unknown_keys.join(', ')}"] if unknown_keys.present?
+      return [] unless settings.key?('enabled') && !boolean?(settings['enabled'])
+
+      ['config.tools.present_options.enabled must be true or false']
     end
 
     def allowed_human_handoff_settings_keys

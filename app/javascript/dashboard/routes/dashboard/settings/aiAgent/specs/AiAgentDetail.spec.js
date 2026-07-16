@@ -61,15 +61,17 @@ const buildAiAgent = overrides => ({
   available_inboxes: [],
   config: {},
   tools_config: {
-    enabled: [],
+    enabled: ['present_options'],
     human_handoff: {
       allowed_labels: [],
     },
     ikas_lookup_order: { enabled: false },
     ikas_catalog_search: {},
+    present_options: { enabled: true },
   },
   available_tools: [
     { key: 'human_handoff' },
+    { key: 'present_options' },
     { key: 'ikas_lookup_order' },
     { key: 'ikas_catalog_search' },
   ],
@@ -199,8 +201,10 @@ const mountComponent = options => {
           props: ['label', 'disabled', 'isLoading'],
         },
         Switch: {
-          template: '<input type="checkbox" :checked="modelValue" />',
+          template:
+            '<input type="checkbox" :checked="modelValue" @change="$emit(\'change\')" />',
           props: ['modelValue'],
+          emits: ['change'],
         },
         TextArea: {
           template: '<textarea>{{ message }}</textarea>',
@@ -738,19 +742,23 @@ describe('AiAgentDetail.vue', () => {
     const { wrapper, actionMocks } = mountComponent({
       aiAgentRecord: buildAiAgent({
         tools_config: {
-          enabled: ['human_handoff'],
+          enabled: ['human_handoff', 'present_options'],
           human_handoff: {
             allowed_labels: ['vip'],
           },
           ikas_lookup_order: { enabled: false },
           ikas_catalog_search: {},
+          present_options: { enabled: true },
         },
       }),
     });
 
     await flushPromises();
 
-    expect(wrapper.vm.formState.tools.enabled).toEqual(['human_handoff']);
+    expect(wrapper.vm.formState.tools.enabled).toEqual([
+      'human_handoff',
+      'present_options',
+    ]);
     expect(wrapper.vm.formState.tools.human_handoff.allowed_labels).toEqual([
       'vip',
     ]);
@@ -763,7 +771,7 @@ describe('AiAgentDetail.vue', () => {
       data: expect.objectContaining({
         config: expect.objectContaining({
           tools: expect.objectContaining({
-            enabled: ['human_handoff'],
+            enabled: ['human_handoff', 'present_options'],
             human_handoff: expect.objectContaining({
               allowed_labels: ['vip', 'billing'],
             }),
@@ -773,16 +781,39 @@ describe('AiAgentDetail.vue', () => {
     });
   });
 
+  it('enables clickable options by default and saves an explicit disabled toggle', async () => {
+    const { wrapper, actionMocks } = mountComponent();
+
+    await flushPromises();
+    expect(wrapper.vm.formState.tools.enabled).toContain('present_options');
+    expect(
+      wrapper.find('[data-testid="tool-toggle-present_options"]').exists()
+    ).toBe(true);
+
+    await wrapper
+      .find('[data-testid="tool-toggle-present_options"]')
+      .trigger('change');
+    expect(wrapper.vm.formState.tools.enabled).not.toContain('present_options');
+    await wrapper.vm.handleSave();
+
+    const [, payload] = actionMocks.update.mock.calls.at(-1);
+    expect(payload.data.config.tools.enabled).not.toContain('present_options');
+    expect(payload.data.config.tools.present_options).toEqual({
+      enabled: false,
+    });
+  });
+
   it('saves human handoff config without routing fields', async () => {
     const { wrapper, actionMocks } = mountComponent({
       aiAgentRecord: buildAiAgent({
         tools_config: {
-          enabled: ['human_handoff'],
+          enabled: ['human_handoff', 'present_options'],
           human_handoff: {
             allowed_labels: ['vip', 'billing'],
           },
           ikas_lookup_order: { enabled: false },
           ikas_catalog_search: {},
+          present_options: { enabled: true },
         },
       }),
     });

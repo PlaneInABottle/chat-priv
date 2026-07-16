@@ -1,6 +1,6 @@
 class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
   before_action :set_conversation, only: [:create]
-  before_action :set_message, only: [:update]
+  before_action :set_message, only: [:update, :select]
 
   def index
     @messages = conversation.nil? ? [] : message_finder.perform
@@ -25,6 +25,17 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
     end
   rescue StandardError => e
     render json: { error: @contact.errors, message: e.message }.to_json, status: :internal_server_error
+  end
+
+  def select
+    @message = AiAgents::OptionSelectionService.new(
+      prompt_message: @message,
+      selected_value: selection_params[:selected_value]
+    ).create_widget_response!(contact: @contact)
+    render :create
+  rescue AiAgents::OptionSelectionService::InvalidSelection,
+         AiAgents::OptionSelectionService::AlreadySubmitted => e
+    render json: { error: e.message }, status: :unprocessable_entity
   end
 
   private
@@ -68,6 +79,10 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
 
   def message_update_params
     params.permit(message: [{ submitted_values: [:name, :title, :value, { csat_survey_response: [:feedback_message, :rating] }] }])
+  end
+
+  def selection_params
+    params.require(:message).permit(:selected_value)
   end
 
   def permitted_params

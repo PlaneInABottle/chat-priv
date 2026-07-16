@@ -140,6 +140,81 @@ describe('TestConversationChatPanel.vue', () => {
     expect(wrapper.text()).toContain('ignored');
   });
 
+  it('renders clickable option previews and emits the grounded selection', async () => {
+    const wrapper = mountComponent({
+      conversation: {
+        ...conversation,
+        messages: [
+          {
+            id: 'options-1',
+            role: 'assistant',
+            content: 'Nasıl devam edelim?',
+            terminal_action: 'present_options',
+            tool_result: {
+              presentation: {
+                content_type: 'input_select',
+                items: [
+                  { title: 'Ürün seçimi', value: 'products' },
+                  { title: 'Sipariş desteği', value: 'orders' },
+                ],
+              },
+            },
+          },
+        ],
+        messages_count: 1,
+      },
+    });
+
+    const options = wrapper
+      .findAll('button')
+      .filter(button =>
+        ['Ürün seçimi', 'Sipariş desteği'].includes(button.text())
+      );
+    expect(options).toHaveLength(2);
+    await options[1].trigger('click');
+
+    expect(wrapper.emitted('send')).toEqual([
+      [
+        {
+          content: 'Sipariş desteği',
+          replyToMessageId: 'options-1',
+          selectedValue: 'orders',
+        },
+      ],
+    ]);
+  });
+
+  it('disables a persisted option preview after it has been answered', () => {
+    const wrapper = mountComponent({
+      conversation: {
+        ...conversation,
+        messages: [
+          {
+            id: 'options-1',
+            role: 'assistant',
+            content: 'Choose',
+            terminal_action: 'present_options',
+            submitted_values: [{ title: 'Sales', value: 'sales' }],
+            tool_result: {
+              presentation: {
+                content_type: 'input_select',
+                items: [{ title: 'Sales', value: 'sales' }],
+              },
+            },
+          },
+        ],
+        messages_count: 1,
+      },
+    });
+
+    expect(
+      wrapper
+        .findAll('button')
+        .find(button => button.text() === 'Sales')
+        .attributes('disabled')
+    ).toBeDefined();
+  });
+
   it('renders compact source attributions below assistant answers', () => {
     const wrapper = mountComponent({
       conversation: {

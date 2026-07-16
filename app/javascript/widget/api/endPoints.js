@@ -88,6 +88,10 @@ const updateMessage = id => ({
   url: `/api/v1/widget/messages/${id}${window.location.search}`,
 });
 
+const selectMessageOption = id => ({
+  url: `/api/v1/widget/messages/${id}/select${window.location.search}`,
+});
+
 const getAvailableAgents = token => ({
   url: '/api/v1/widget/inbox_members',
   params: {
@@ -131,6 +135,7 @@ export default {
   sendAttachment,
   getConversation,
   updateMessage,
+  selectMessageOption,
   getAvailableAgents,
   getCampaigns,
   triggerCampaign,

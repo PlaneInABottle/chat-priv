@@ -1,6 +1,8 @@
 require 'rails_helper'
 
 RSpec.describe '/api/v1/widget/messages', type: :request do
+  include ActiveJob::TestHelper
+
   let(:account) { create(:account) }
   let(:web_widget) { create(:channel_widget, account: account) }
   let(:contact) { create(:contact, account: account, email: nil) }
@@ -295,6 +297,103 @@ RSpec.describe '/api/v1/widget/messages', type: :request do
         message.reload
         expect { contact.reload }.to raise_error(ActiveRecord::RecordNotFound)
       end
+    end
+  end
+
+  describe 'POST /api/v1/widget/messages/:id/select' do
+    let(:prompt_message) do
+      create(
+        :message,
+        account: account,
+        inbox: web_widget.inbox,
+        conversation: conversation,
+        message_type: :outgoing,
+        content_type: :input_select,
+        content: 'How can we help?',
+        content_attributes: {
+          items: [{ title: 'Sales', value: 'sales-id' }, { title: 'Support', value: 'support-id' }],
+          ai_agent: { selection: { version: 1 } }
+        }
+      )
+    end
+
+    it 'does not expose option prompts to unauthenticated visitors' do
+      expect do
+        post "/api/v1/widget/messages/#{prompt_message.id}/select",
+             params: { website_token: web_widget.website_token, message: { selected_value: 'sales-id' } },
+             as: :json
+      end.not_to change(conversation.messages.incoming, :count)
+
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it 'atomically records the choice and creates one incoming customer message' do
+      expect do
+        post "/api/v1/widget/messages/#{prompt_message.id}/select",
+             params: { website_token: web_widget.website_token, message: { selected_value: 'support-id' } },
+             headers: { 'X-Auth-Token' => token },
+             as: :json
+      end.to change { conversation.messages.incoming.count }.by(1)
+
+      expect(response).to have_http_status(:success)
+      expect(response.parsed_body).to include('content' => 'Support', 'message_type' => Message.message_types[:incoming])
+      response_message = conversation.messages.incoming.last
+      expect(response_message.content_attributes).to include(
+        'in_reply_to' => prompt_message.id,
+        'selected_option' => { 'title' => 'Support', 'value' => 'support-id' }
+      )
+      expect(prompt_message.reload.content_attributes.dig('ai_agent', 'selection', 'response_message_id')).to eq(response_message.id)
+    end
+
+    it 'returns the same incoming message when the same click is retried' do
+      ai_agent = create(:ai_agent, :with_human_handoff_tool, account: account, enabled: true)
+      create(:agent_bot_inbox, inbox: web_widget.inbox, agent_bot: ai_agent.agent_bot)
+      request_params = { website_token: web_widget.website_token, message: { selected_value: 'sales-id' } }
+      clear_enqueued_jobs
+
+      expect do
+        post "/api/v1/widget/messages/#{prompt_message.id}/select", params: request_params,
+                                                                    headers: { 'X-Auth-Token' => token }, as: :json
+      end.to have_enqueued_job(AgentBots::AiResponseJob).once
+      first_response_id = response.parsed_body['id']
+
+      expect do
+        post "/api/v1/widget/messages/#{prompt_message.id}/select", params: request_params,
+                                                                    headers: { 'X-Auth-Token' => token }, as: :json
+      end.not_to have_enqueued_job(AgentBots::AiResponseJob)
+
+      expect(response).to have_http_status(:success)
+      expect(response.parsed_body['id']).to eq(first_response_id)
+      expect(conversation.messages.incoming.where(id: first_response_id)).to exist
+
+      expect do
+        post "/api/v1/widget/messages/#{prompt_message.id}/select",
+             params: request_params.deep_merge(message: { selected_value: 'support-id' }),
+             headers: { 'X-Auth-Token' => token }, as: :json
+      end.not_to change(conversation.messages.incoming, :count)
+      expect(response).to have_http_status(:unprocessable_entity)
+    end
+
+    it 'rejects unknown values and messages belonging to another visitor' do
+      post "/api/v1/widget/messages/#{prompt_message.id}/select",
+           params: { website_token: web_widget.website_token, message: { selected_value: 'unknown' } },
+           headers: { 'X-Auth-Token' => token },
+           as: :json
+      expect(response).to have_http_status(:unprocessable_entity)
+
+      other_contact = create(:contact, account: account, email: nil)
+      other_contact_inbox = create(:contact_inbox, contact: other_contact, inbox: web_widget.inbox)
+      other_conversation = create(:conversation, contact: other_contact, account: account, inbox: web_widget.inbox,
+                                                 contact_inbox: other_contact_inbox)
+      foreign_prompt = create(:message, account: account, inbox: web_widget.inbox, conversation: other_conversation,
+                                        message_type: :outgoing, content_type: :input_select,
+                                        content_attributes: { items: [{ title: 'A', value: 'a' }], ai_agent: { selection: { version: 1 } } })
+
+      post "/api/v1/widget/messages/#{foreign_prompt.id}/select",
+           params: { website_token: web_widget.website_token, message: { selected_value: 'a' } },
+           headers: { 'X-Auth-Token' => token },
+           as: :json
+      expect(response).to have_http_status(:not_found)
     end
   end
 end

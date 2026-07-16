@@ -86,6 +86,19 @@ RSpec.describe AiAgents::ToolExecutor do
     expect(AiAgentToolExecution.last).to have_attributes(status: 'executed', tool_key: 'search_knowledge')
   end
 
+  it 'implicitly enables option presentation in test mode and logs the structured result' do
+    result = executor.execute(
+      tool_call(
+        name: 'present_options',
+        arguments: { question: 'Choose one', options: [{ label: 'Sales' }, { label: 'Support' }] }
+      )
+    )
+
+    expect(result.status).to eq('executed')
+    expect(result.tool_result).to include(status: 'ok', terminal_action: 'present_options')
+    expect(AiAgentToolExecution.last).to have_attributes(status: 'executed', tool_key: 'present_options')
+  end
+
   it 'logs test conversation tool executions without a live conversation link' do
     test_conversation = create(:ai_agent_test_conversation, account: account, ai_agent: ai_agent)
     test_executor = described_class.new(

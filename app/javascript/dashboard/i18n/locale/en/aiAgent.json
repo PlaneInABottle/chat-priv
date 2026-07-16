@@ -56,6 +56,10 @@
         "HELP": "Search your connected ikas catalog before answering product, stock, size, color, and compatibility questions.",
         "READY": "ikas catalog is synced and ready for catalog answers.",
         "UNAVAILABLE": "ikas catalog search is unavailable (connection: {state}, catalog: {catalogStatus})."
+      },
+      "PRESENT_OPTIONS": {
+        "LABEL": "Clickable choices",
+        "HELP": "Let the assistant present single-choice buttons or lists when choosing an option will help the customer continue."
       }
     },
     "USAGE_REPORT": {

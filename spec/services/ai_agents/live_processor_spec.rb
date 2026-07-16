@@ -65,6 +65,48 @@ RSpec.describe AiAgents::LiveProcessor do
     )
   end
 
+  it 'persists one outgoing input selection for a supported live widget inbox' do
+    widget = create(:channel_widget, account: account)
+    widget_conversation = create(:conversation, account: account, inbox: widget.inbox, status: 'pending')
+    create(:agent_bot_inbox, inbox: widget.inbox, agent_bot: ai_agent.agent_bot, status: 'active')
+    message = create(
+      :message,
+      account: account,
+      inbox: widget.inbox,
+      conversation: widget_conversation,
+      message_type: 'incoming',
+      sender: widget_conversation.contact,
+      content: 'Yardıma ihtiyacım var'
+    )
+    allow(adapter).to receive(:perform).and_return(
+      {
+        assistant_text: nil,
+        tool_calls: [
+          {
+            id: 'options-1',
+            type: 'function',
+            name: 'present_options',
+            arguments: {
+              question: 'Nasıl devam edelim?',
+              options: [{ label: 'Ürün seçimi' }, { label: 'Sipariş desteği' }]
+            }.to_json
+          }
+        ],
+        finish_reason: 'tool_calls'
+      }
+    )
+
+    expect do
+      described_class.new(message: message, adapter: adapter).perform
+    end.to change { widget_conversation.messages.outgoing.where(private: false, sender: ai_agent.agent_bot).count }.by(1)
+
+    outgoing = widget_conversation.messages.outgoing.where(private: false, sender: ai_agent.agent_bot).last
+    expect(outgoing).to have_attributes(content: 'Nasıl devam edelim?', content_type: 'input_select')
+    expect(outgoing.content_attributes['items'].pluck('title')).to eq(['Ürün seçimi', 'Sipariş desteği'])
+    expect(outgoing.content_attributes.dig('ai_agent', 'selection', 'version')).to eq(1)
+    expect(outgoing.content_attributes.to_json).not_to include('present_options', 'tool_events')
+  end
+
   it 'uses the published prompt and capabilities while an update remains in draft' do
     ai_agent.update!(prompt: 'Published customer guidance')
     ai_agent.mark_test_succeeded!
@@ -82,7 +124,7 @@ RSpec.describe AiAgents::LiveProcessor do
     system_prompt = AiAgentLlmCall.last.request_messages.first.fetch('content')
     expect(system_prompt).to include('Published customer guidance')
     expect(system_prompt).not_to include('Unpublished draft guidance')
-    expect(AiAgentLlmCall.last.request_tool_names).to eq(['human_handoff'])
+    expect(AiAgentLlmCall.last.request_tool_names).to eq(%w[human_handoff present_options])
   end
 
   it 'uses published knowledge and persists compact source attribution' do

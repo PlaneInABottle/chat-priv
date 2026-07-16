@@ -62,6 +62,10 @@
         "HELP": "Ürün, stok, ölçü, renk ve uyumluluk sorularını yanıtlamadan önce bağlı ikas kataloğunuzda arama yapın.",
         "READY": "ikas kataloğu eşitlendi ve ürün soruları için hazır.",
         "UNAVAILABLE": "ikas katalog araması kullanılamıyor (bağlantı: {state}, katalog: {catalogStatus})."
+      },
+      "PRESENT_OPTIONS": {
+        "LABEL": "Tıklanabilir seçenekler",
+        "HELP": "Bir seçenek belirlemek müşterinin ilerlemesine yardımcı olduğunda asistanın tek seçimli düğmeler veya listeler sunmasını sağlar."
       }
     },
     "USAGE_REPORT": {

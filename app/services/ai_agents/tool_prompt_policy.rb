@@ -56,12 +56,25 @@ class AiAgents::ToolPromptPolicy
     - If handoff is needed in the same response as another tool, call only `human_handoff`; the handoff will stop automation.
   PROMPT
 
+  PRESENT_OPTIONS_RULES = <<~PROMPT
+    Customer option rules:
+    - When `present_options` is available, use it when one focused question with 2 to 10 concise, mutually exclusive choices will materially advance the conversation.
+    - Ask only one selection question at a time and write it in the same language as the customer.
+    - Do not use `present_options` for open-ended values such as measurements, addresses, phone numbers, email addresses, explanations, or when there is only one valid choice.
+    - General support or workflow choices may use `options` when they follow from the conversation or verified business process.
+    - Product, category, color, size, and variant choices must use `catalog_option_ids` from the latest successful `ikas_catalog_search` result in the current turn. Never invent or rewrite catalog choices.
+    - Call `ikas_catalog_search` first, then call `present_options` in the next tool iteration. Do not call them together in one response.
+    - Do not call `present_options` when a normal answer is sufficient. Do not mention options tooling, tool calls, searches, databases, or internal identifiers to the customer.
+    - `present_options` ends the current response. Do not add another customer-facing answer after calling it.
+  PROMPT
+
   def initialize(enabled_tool_keys)
     @enabled_tool_keys = Array(enabled_tool_keys).map(&:to_s)
   end
 
   def instructions
     policies = []
+    policies << PRESENT_OPTIONS_RULES if enabled_tool_keys.include?(AiAgents::Config::PRESENT_OPTIONS_TOOL)
     policies << KNOWLEDGE_RULES if enabled_tool_keys.include?(AiAgents::Config::KNOWLEDGE_SEARCH_TOOL)
     policies << IKAS_CATALOG_RULES if enabled_tool_keys.include?(AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL)
     policies << IKAS_ORDER_RULES if enabled_tool_keys.include?(AiAgents::Config::IKAS_LOOKUP_ORDER_TOOL)

@@ -108,7 +108,10 @@ describe('aiAgentTestConversations store', () => {
       );
 
       expect(result).toEqual({ error: 'AI response failed' });
-      expect(sendMessage).toHaveBeenCalledWith(99, 'Hello there', undefined);
+      expect(sendMessage).toHaveBeenCalledWith(99, 'Hello there', undefined, {
+        replyToMessageId: undefined,
+        selectedValue: undefined,
+      });
       expect(commit).toHaveBeenCalledWith('SET_UI_FLAG', { isSending: true });
       expect(optimisticCommit[1]).toEqual({
         id: 99,
@@ -124,6 +127,29 @@ describe('aiAgentTestConversations store', () => {
       });
       expect(commit).toHaveBeenLastCalledWith('SET_UI_FLAG', {
         isSending: false,
+      });
+    });
+
+    it('forwards a selected option with its prompt identifier', async () => {
+      const commit = vi.fn();
+      const sendMessage = vi.fn().mockResolvedValue({
+        data: { messages: [], title: 'Options' },
+      });
+      AiAgentTestConversationsAPI.mockImplementation(() => ({ sendMessage }));
+
+      await actions.sendMessage(
+        { commit, rootState: { aiAgent: { activeId: 7 } } },
+        {
+          id: 99,
+          content: 'Support',
+          replyToMessageId: 'options-1',
+          selectedValue: 'support',
+        }
+      );
+
+      expect(sendMessage).toHaveBeenCalledWith(99, 'Support', undefined, {
+        replyToMessageId: 'options-1',
+        selectedValue: 'support',
       });
     });
   });
