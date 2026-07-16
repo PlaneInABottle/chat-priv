@@ -17,6 +17,7 @@ RSpec.describe AiAgents::LlmCallLogger do
       model: 'openai/gpt-5.1',
       request_messages: [{ role: 'user', content: 'beyaz olanin linki var mi' }],
       request_tools: [{ type: 'function', function: { name: 'ikas_catalog_search' } }],
+      request_options: { max_tokens: 4_096, ignored_secret: 'do-not-store' },
       status: 'succeeded',
       response: { assistant_text: nil, tool_calls: [{ name: 'ikas_catalog_search' }], finish_reason: 'tool_calls', usage: { 'total_tokens' => 42 } },
       duration_ms: 25
@@ -28,7 +29,7 @@ RSpec.describe AiAgents::LlmCallLogger do
     expect(llm_call.request_messages).to eq([{ 'role' => 'user', 'content' => 'beyaz olanin linki var mi' }])
     expect(llm_call.request_tool_names).to eq(['ikas_catalog_search'])
     expect(llm_call.response).to eq('assistant_text' => nil, 'tool_calls' => [{ 'name' => 'ikas_catalog_search' }],
-                                    'finish_reason' => 'tool_calls')
+                                    'finish_reason' => 'tool_calls', 'request_options' => { 'max_tokens' => 4_096 })
     expect(llm_call.usage).to eq('total_tokens' => 42)
   end
 
