@@ -371,6 +371,57 @@ describe Whatsapp::IncomingMessageService do
           described_class.new(inbox: whatsapp_channel.inbox, params: repeated_click_params).perform
         end.not_to(change { conversation.messages.incoming.count })
       end
+
+      it 'treats an interactive reply as free text when newer customer text supersedes its prompt' do
+        contact_inbox = create(:contact_inbox, inbox: whatsapp_channel.inbox, source_id: wa_id)
+        conversation = create(:conversation, inbox: whatsapp_channel.inbox, contact_inbox: contact_inbox)
+        prompt = create(
+          :message,
+          account: whatsapp_channel.account, inbox: whatsapp_channel.inbox,
+          conversation: conversation,
+          message_type: :outgoing,
+          content_type: :input_select, source_id: 'wamid.stale-option-prompt',
+          content: 'Bir seçenek belirleyin',
+          content_attributes: {
+            items: [
+              { title: 'Pencere ürünleri', value: 'windows' },
+              { title: 'Kapı ürünleri', value: 'doors' }
+            ],
+            ai_agent: { selection: { version: 1 } }
+          }
+        )
+        create(
+          :message,
+          account: whatsapp_channel.account, inbox: whatsapp_channel.inbox,
+          conversation: conversation,
+          sender: contact_inbox.contact,
+          message_type: :incoming,
+          content: 'Aslında gri balkon kapısı arıyorum'
+        )
+        interactive_params = {
+          'contacts' => [{ 'profile' => { 'name' => 'Sojan Jose' }, 'wa_id' => wa_id }],
+          'messages' => [{
+            'from' => wa_id,
+            'id' => 'wamid.stale-option-response',
+            'context' => { 'id' => prompt.source_id },
+            'interactive' => {
+              'button_reply' => { 'id' => 'windows', 'title' => 'Eski pencere seçeneği' },
+              'type' => 'button_reply'
+            },
+            'timestamp' => '1633034394',
+            'type' => 'interactive'
+          }]
+        }.with_indifferent_access
+
+        expect do
+          described_class.new(inbox: whatsapp_channel.inbox, params: interactive_params).perform
+        end.to change { conversation.messages.incoming.count }.by(1)
+
+        response_message = conversation.messages.incoming.order(:id).last
+        expect(response_message).to have_attributes(content: 'Eski pencere seçeneği')
+        expect(response_message.content_attributes).not_to have_key('selected_option')
+        expect(prompt.reload.content_attributes['submitted_values']).to be_blank
+      end
     end
 
     # ref: https://github.com/chatwoot/chatwoot/issues/3795#issuecomment-1018057318

@@ -215,6 +215,42 @@ describe('TestConversationChatPanel.vue', () => {
     ).toBeDefined();
   });
 
+  it('disables an option preview superseded by a newer customer message', async () => {
+    const wrapper = mountComponent({
+      conversation: {
+        ...conversation,
+        messages: [
+          {
+            id: 'options-1',
+            role: 'assistant',
+            content: 'Choose',
+            terminal_action: 'present_options',
+            tool_result: {
+              presentation: {
+                content_type: 'input_select',
+                items: [{ title: 'Window products', value: 'windows' }],
+              },
+            },
+          },
+          {
+            id: 'customer-2',
+            role: 'user',
+            content: 'Actually I need a grey balcony door option',
+          },
+        ],
+        messages_count: 2,
+      },
+    });
+
+    const staleOption = wrapper
+      .findAll('button')
+      .find(button => button.text() === 'Window products');
+    expect(staleOption.attributes('disabled')).toBeDefined();
+
+    await staleOption.trigger('click');
+    expect(wrapper.emitted('send')).toBeUndefined();
+  });
+
   it('renders compact source attributions below assistant answers', () => {
     const wrapper = mountComponent({
       conversation: {

@@ -9,7 +9,7 @@ RSpec.describe AiAgents::ToolAvailability do
 
       keys = described_class.new(account: account).available_keys(AiAgents::ToolRegistry.available_definitions)
 
-      expect(keys).to eq(['human_handoff'])
+      expect(keys).to eq(%w[human_handoff present_options])
     end
 
     it 'shows order lookup when ikas is connected' do

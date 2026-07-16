@@ -374,6 +374,30 @@ RSpec.describe '/api/v1/widget/messages', type: :request do
       expect(response).to have_http_status(:unprocessable_entity)
     end
 
+    it 'rejects a direct selection after newer customer text supersedes the prompt' do
+      prompt_message
+      create(
+        :message,
+        account: account,
+        inbox: web_widget.inbox,
+        conversation: conversation,
+        sender: contact,
+        message_type: :incoming,
+        content: 'Actually I need a grey balcony door option'
+      )
+
+      expect do
+        post "/api/v1/widget/messages/#{prompt_message.id}/select",
+             params: { website_token: web_widget.website_token, message: { selected_value: 'sales-id' } },
+             headers: { 'X-Auth-Token' => token },
+             as: :json
+      end.not_to change(conversation.messages.incoming, :count)
+
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response.parsed_body['error']).to match(/no longer active/i)
+      expect(prompt_message.reload.content_attributes['submitted_values']).to be_blank
+    end
+
     it 'rejects unknown values and messages belonging to another visitor' do
       post "/api/v1/widget/messages/#{prompt_message.id}/select",
            params: { website_token: web_widget.website_token, message: { selected_value: 'unknown' } },

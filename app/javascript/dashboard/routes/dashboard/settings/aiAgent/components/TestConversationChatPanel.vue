@@ -46,6 +46,18 @@ const isOptionsPreview = message =>
   message?.terminal_action === 'present_options' &&
   message?.tool_result?.presentation?.content_type === 'input_select';
 
+const isOptionPromptStale = message => {
+  const messages = props.conversation?.messages || [];
+  const messageIndex = messages.findIndex(
+    candidate => candidate.id === message.id
+  );
+  if (messageIndex < 0) return true;
+
+  return messages
+    .slice(messageIndex + 1)
+    .some(candidate => candidate.role === 'user');
+};
+
 const handoffPreviewSummary = message => {
   return (
     message?.tool_result?.customer_message ||
@@ -97,7 +109,12 @@ const handleKeyup = event => {
 };
 
 const handleOptionSelect = (message, option) => {
-  if (isInputDisabled.value || message.submitted_values?.length) return;
+  if (
+    isInputDisabled.value ||
+    message.submitted_values?.length ||
+    isOptionPromptStale(message)
+  )
+    return;
 
   emit('send', {
     content: option.title,
@@ -213,7 +230,11 @@ const handleOptionSelect = (message, option) => {
                     'border-n-brand bg-n-brand/10':
                       msg.submitted_values?.[0]?.value === option.value,
                   }"
-                  :disabled="isInputDisabled || !!msg.submitted_values?.length"
+                  :disabled="
+                    isInputDisabled ||
+                    !!msg.submitted_values?.length ||
+                    isOptionPromptStale(msg)
+                  "
                   @click="handleOptionSelect(msg, option)"
                 >
                   {{ option.title }}

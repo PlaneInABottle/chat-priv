@@ -412,6 +412,34 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
         expect(messages.last).to include('role' => 'assistant', 'content' => 'Hello from AI')
       end
 
+      it 'rejects an option click after newer customer text supersedes the prompt' do
+        prompt = test_conversation.append_message(
+          role: 'assistant',
+          content: 'Choose',
+          metadata: {
+            terminal_action: 'present_options',
+            tool_result: {
+              presentation: {
+                content_type: 'input_select',
+                items: [{ title: 'Window products', value: 'windows' }, { title: 'Door products', value: 'doors' }]
+              }
+            }
+          }
+        )
+        test_conversation.append_message(role: 'user', content: 'Actually I need a grey balcony door option on a budget')
+
+        expect do
+          post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations/#{test_conversation.id}/send_message",
+               headers: admin.create_new_auth_token,
+               params: { reply_to_message_id: prompt['id'], selected_value: 'windows' },
+               as: :json
+        end.not_to(change { test_conversation.reload.messages_count })
+
+        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response.parsed_body['error']).to match(/no longer active/i)
+        expect(test_conversation.reload.messages.first['submitted_values']).to be_blank
+      end
+
       it 'rejects a stale or unknown simulated option without appending a message' do
         prompt = test_conversation.append_message(
           role: 'assistant',

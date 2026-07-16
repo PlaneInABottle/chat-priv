@@ -716,6 +716,71 @@ RSpec.describe AiAgents::Orchestrator do
     expect(AiAgentLlmCall.last.step).to eq('customer_facing_finalizer')
   end
 
+  it 'repairs a truncated trailing markdown link from exact catalog evidence' do
+    ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'] } })
+    product_url = 'https://example.test/kedi-sineklik?%22RENK%22=ANTRAS%C4%B0T'
+    tool_result = {
+      status: 'ok',
+      result_type: 'show_candidates',
+      candidates: [{ display_name: 'Kedi Sineklik Antrasit', link: { url: product_url } }]
+    }
+    tool_execution = AiAgents::ToolExecutor::Result.new(
+      status: 'executed',
+      tool_event: {
+        'tool' => 'ikas_catalog_search',
+        'status' => 'ok',
+        'tool_call_id' => 'call_1',
+        'result' => tool_result.deep_stringify_keys
+      },
+      tool_result: tool_result
+    )
+    allow(AiAgents::ToolExecutor).to receive(:new).and_return(
+      instance_double(AiAgents::ToolExecutor, execute: tool_execution)
+    )
+    allow(adapter).to receive(:perform).and_return(
+      {
+        assistant_text: nil,
+        tool_calls: [
+          { id: 'call_1', type: 'function', name: 'ikas_catalog_search', arguments: { query: 'antrasit kedi sineklik' }.to_json }
+        ],
+        finish_reason: 'tool_calls'
+      },
+      {
+        assistant_text: 'Kedi için uygun seçenek: [Ürüne git](https://example.test/kedi-sineklik?%22RENK%22=AN',
+        tool_calls: [],
+        finish_reason: 'stop'
+      }
+    )
+
+    result = described_class.new(
+      ai_agent: ai_agent.reload,
+      messages: [{ role: 'user', content: 'Antrasit kedi sinekliği önerir misin?' }],
+      mode: :test,
+      adapter: adapter
+    ).perform
+
+    expect(result[:assistant_message]['content']).to end_with("[Ürüne git](#{product_url})")
+  end
+
+  it 'does not expand a catalog link fragment that does not identify the product path' do
+    orchestrator = described_class.new(
+      ai_agent: ai_agent,
+      messages: [{ role: 'user', content: 'Ürünü gösterir misin?' }],
+      mode: :test,
+      adapter: adapter
+    )
+    tool_events = [{
+      'tool' => 'ikas_catalog_search',
+      'result' => {
+        'candidates' => [{ 'link' => { 'url' => 'https://example.test/products/door?color=grey' } }]
+      }
+    }]
+
+    answer = '[Ürüne git](https://example.test'
+
+    expect(orchestrator.send(:sanitize_catalog_links, answer, tool_events)).to eq(answer)
+  end
+
   it 'allows bounded catalog follow-up tool calls before the final answer' do
     ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'] } })
     first_execution = AiAgents::ToolExecutor::Result.new(
