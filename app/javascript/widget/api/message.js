@@ -9,4 +9,10 @@ export default {
       message: { submitted_values: values },
     });
   },
+  select: ({ messageId, selectedValue }) => {
+    const urlData = authEndPoint.selectMessageOption(messageId);
+    return API.post(urlData.url, {
+      message: { selected_value: selectedValue },
+    });
+  },
 };

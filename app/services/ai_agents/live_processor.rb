@@ -126,26 +126,35 @@ class AiAgents::LiveProcessor
   end
 
   def assistant_message_params(assistant_message)
-    {
+    params = {
       content: assistant_message['content'] || assistant_message[:content],
       private: false,
       sender_type: 'AgentBot',
       sender_id: ai_agent.agent_bot_id,
       content_attributes: assistant_message_content_attributes(assistant_message)
     }
+    presentation = assistant_message.dig('tool_result', 'presentation') || assistant_message.dig(:tool_result, :presentation)
+    params[:content_type] = presentation['content_type'] || presentation[:content_type] if presentation.present?
+    params
   end
 
   def assistant_message_content_attributes(assistant_message)
     telemetry = assistant_message['turn_telemetry'] || assistant_message[:turn_telemetry]
     source_attributions = assistant_message['source_attributions'] || assistant_message[:source_attributions]
-    return {} if telemetry.blank? && source_attributions.blank?
+    presentation = assistant_message.dig('tool_result', 'presentation') || assistant_message.dig(:tool_result, :presentation)
+    attributes = {}
+    if presentation.present?
+      attributes[:items] = presentation['items'] || presentation[:items]
+      attributes[:ai_agent] = { selection: { version: 1 } }
+    end
+    return attributes if telemetry.blank? && source_attributions.blank?
 
-    {
+    attributes.deep_merge(
       ai_agent: {
         turn_telemetry: telemetry,
         source_attributions: source_attributions
       }.compact
-    }
+    )
   end
 
   def handoff_result?(result)

@@ -10,6 +10,15 @@ RSpec.describe AiAgents::ToolRegistry do
     )
   end
 
+  it 'exposes option presentation as a merchant-configurable terminal capability' do
+    expect(described_class.keys).to include(AiAgents::Config::PRESENT_OPTIONS_TOOL)
+    expect(described_class.find(AiAgents::Config::PRESENT_OPTIONS_TOOL)).to have_attributes(
+      name: 'present_options',
+      service_class: 'AiAgents::Tools::PresentOptionsService',
+      terminal: true
+    )
+  end
+
   it 'requires handoff messages and teammate context to use the customer language' do
     properties = described_class::HUMAN_HANDOFF_INPUT_SCHEMA[:properties]
 

@@ -5,6 +5,52 @@ const commit = vi.fn();
 vi.mock('widget/helpers/axios');
 
 describe('#actions', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe('#select', () => {
+    it('submits one AI option and appends the incoming response message', async () => {
+      const responseMessage = {
+        id: 42,
+        content: 'Support',
+        message_type: 0,
+      };
+      API.post.mockResolvedValue({ data: responseMessage });
+
+      await actions.select(
+        {
+          commit,
+          getters: { getUIFlags: { isUpdating: false } },
+        },
+        {
+          messageId: 10,
+          selectedOption: { title: 'Support', value: 'support-id' },
+        }
+      );
+
+      expect(API.post).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/widget/messages/10/select'),
+        { message: { selected_value: 'support-id' } }
+      );
+      expect(commit).toHaveBeenCalledWith(
+        'conversation/updateMessage',
+        {
+          id: 10,
+          content_attributes: {
+            submitted_values: [{ title: 'Support', value: 'support-id' }],
+          },
+        },
+        { root: true }
+      );
+      expect(commit).toHaveBeenCalledWith(
+        'conversation/pushMessageToConversation',
+        responseMessage,
+        { root: true }
+      );
+    });
+  });
+
   describe('#update', () => {
     it('sends correct actions', async () => {
       const user = {

@@ -135,6 +135,101 @@ RSpec.describe AiAgents::Orchestrator do
     expect(result[:assistant_message]['tool_result']['conversation_status']).to eq('open')
   end
 
+  it 'returns a terminal option presentation in test mode' do
+    allow(adapter).to receive(:perform).and_return({
+      assistant_text: nil,
+      tool_calls: [
+        {
+          id: 'options-1',
+          type: 'function',
+          name: 'present_options',
+          arguments: {
+            question: 'Nasıl devam edelim?',
+            options: [{ label: 'Ürün seçimi' }, { label: 'Sipariş desteği' }]
+          }.to_json
+        }
+      ],
+      finish_reason: 'tool_calls'
+    })
+
+    result = described_class.new(
+      ai_agent: ai_agent,
+      messages: [{ role: 'user', content: 'Yardıma ihtiyacım var' }],
+      mode: :test,
+      adapter: adapter
+    ).perform
+
+    expect(result[:terminal_action]).to eq('present_options')
+    expect(result[:assistant_message]['content']).to eq('Nasıl devam edelim?')
+    expect(result[:assistant_message].dig('tool_result', 'presentation', 'content_type')).to eq('input_select')
+    expect(result[:assistant_message].dig('tool_result', 'presentation', 'items').pluck('title')).to eq(['Ürün seçimi', 'Sipariş desteği'])
+    expect(result[:assistant_message]['turn_telemetry']['final_answer_source']).to eq('tool_presentation')
+  end
+
+  it 'omits option presentation and its prompt rules when the merchant disables it' do
+    ai_agent.update!(config: {
+                       'tools' => {
+                         'enabled' => ['human_handoff'],
+                         'present_options' => { 'enabled' => false }
+                       }
+                     })
+    allow(adapter).to receive(:perform).and_return({ assistant_text: 'How can I help?', tool_calls: [], finish_reason: 'stop' })
+
+    described_class.new(
+      ai_agent: ai_agent,
+      messages: [{ role: 'user', content: 'Hi' }],
+      mode: :test,
+      adapter: adapter
+    ).perform
+
+    request = AiAgentLlmCall.last
+    expect(request.request_tool_names).not_to include('present_options')
+    expect(request.request_messages.first['content']).not_to include('Customer option rules:', '`present_options`')
+  end
+
+  it 'falls back to a plain question when option presentation is invalid' do
+    allow(adapter).to receive(:perform).and_return(
+      {
+        assistant_text: nil,
+        tool_calls: [
+          {
+            id: 'options-1',
+            type: 'function',
+            name: 'present_options',
+            arguments: { question: 'Hangisi?', options: [{ label: 'Only one' }] }.to_json
+          }
+        ],
+        finish_reason: 'tool_calls'
+      },
+      { assistant_text: 'Hangi konuda destek istersiniz?', tool_calls: [], finish_reason: 'stop' }
+    )
+
+    result = described_class.new(
+      ai_agent: ai_agent,
+      messages: [{ role: 'user', content: 'Yardım' }],
+      mode: :test,
+      adapter: adapter
+    ).perform
+
+    expect(result[:terminal_action]).to be_nil
+    expect(result[:assistant_message]['content']).to eq('Hangi konuda destek istersiniz?')
+    expect(result[:tool_events].last).to include('tool' => 'present_options', 'status' => 'error')
+    expect(result[:tool_events].none? { |event| event['tool'] == 'human_handoff' }).to be(true)
+  end
+
+  it 'defers option presentation when the model requests evidence and presentation together' do
+    orchestrator = described_class.new(
+      ai_agent: ai_agent,
+      messages: [{ role: 'user', content: 'Renkler?' }],
+      mode: :test,
+      adapter: adapter
+    )
+    catalog_call = { id: 'catalog-1', name: 'ikas_catalog_search', arguments: { query: 'sineklik renk' }.to_json }
+    options_call = { id: 'options-1', name: 'present_options', arguments: { question: 'Renk?', catalog_option_ids: %w[a b] }.to_json }
+
+    expect(orchestrator.send(:tool_calls_to_execute, [options_call, catalog_call])).to eq([catalog_call])
+  end
+
   it 'executes live handoff side effects when mode is live' do
     allow(adapter).to receive(:perform).and_return({
       assistant_text: nil,

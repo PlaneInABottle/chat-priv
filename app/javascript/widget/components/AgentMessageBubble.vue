@@ -52,6 +52,9 @@ export default {
     isOptions() {
       return this.contentType === 'input_select';
     },
+    isAiSelection() {
+      return this.messageContentAttributes.ai_agent?.selection?.version === 1;
+    },
     isForm() {
       return this.contentType === 'form';
     },
@@ -70,6 +73,14 @@ export default {
       this.$store.dispatch('message/update', messageResponse);
     },
     onOptionSelect(selectedOption) {
+      if (this.isAiSelection) {
+        this.$store.dispatch('message/select', {
+          selectedOption,
+          messageId: this.messageId,
+        });
+        return;
+      }
+
       this.onResponse({
         submittedValues: [selectedOption],
         messageId: this.messageId,

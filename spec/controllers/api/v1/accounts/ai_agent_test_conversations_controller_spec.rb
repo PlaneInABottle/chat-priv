@@ -382,6 +382,56 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
         expect(assistant_reply.dig('tool_result', 'conversation_status')).to eq('open')
       end
 
+      it 'accepts a stored option click as the next simulated customer message' do
+        prompt = test_conversation.append_message(
+          role: 'assistant',
+          content: 'Nasıl devam edelim?',
+          metadata: {
+            terminal_action: 'present_options',
+            tool_result: {
+              presentation: {
+                content_type: 'input_select',
+                items: [
+                  { title: 'Ürün seçimi', value: 'products' },
+                  { title: 'Sipariş desteği', value: 'orders' }
+                ]
+              }
+            }
+          }
+        )
+
+        post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations/#{test_conversation.id}/send_message",
+             headers: admin.create_new_auth_token,
+             params: { reply_to_message_id: prompt['id'], selected_value: 'orders' },
+             as: :json
+
+        expect(response).to have_http_status(:success)
+        messages = response.parsed_body['messages']
+        expect(messages.first['submitted_values']).to eq([{ 'title' => 'Sipariş desteği', 'value' => 'orders' }])
+        expect(messages.second).to include('role' => 'user', 'content' => 'Sipariş desteği')
+        expect(messages.last).to include('role' => 'assistant', 'content' => 'Hello from AI')
+      end
+
+      it 'rejects a stale or unknown simulated option without appending a message' do
+        prompt = test_conversation.append_message(
+          role: 'assistant',
+          content: 'Choose',
+          metadata: {
+            terminal_action: 'present_options',
+            tool_result: { presentation: { content_type: 'input_select', items: [{ title: 'Sales', value: 'sales' }] } }
+          }
+        )
+
+        expect do
+          post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations/#{test_conversation.id}/send_message",
+               headers: admin.create_new_auth_token,
+               params: { reply_to_message_id: prompt['id'], selected_value: 'unknown' },
+               as: :json
+        end.not_to(change { test_conversation.reload.messages_count })
+
+        expect(response).to have_http_status(:unprocessable_entity)
+      end
+
       it 'persists messages to the database' do
         post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations/#{test_conversation.id}/send_message",
              headers: admin.create_new_auth_token,

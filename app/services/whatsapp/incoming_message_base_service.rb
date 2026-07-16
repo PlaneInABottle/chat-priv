@@ -101,7 +101,7 @@ class Whatsapp::IncomingMessageBaseService
     create_message(message, source_id: message[:id])
     attach_files
     attach_location if message_type == 'location'
-    @message.save!
+    @interactive_selection_service ? record_interactive_selection : @message.save!
   end
 
   def set_contact
@@ -159,9 +159,6 @@ class Whatsapp::IncomingMessageBaseService
   end
 
   def create_message(message, source_id: nil)
-    content_attrs = outgoing_echo ? { external_echo: true } : {}
-    content_attrs[:in_reply_to_external_id] = @in_reply_to_external_id if @in_reply_to_external_id.present?
-
     @message = @conversation.messages.build(
       content: message_content(message),
       account_id: @inbox.account_id,
@@ -171,8 +168,21 @@ class Whatsapp::IncomingMessageBaseService
       status: outgoing_echo ? :delivered : :sent,
       sender: outgoing_echo ? nil : @contact,
       source_id: (source_id || message[:id]).to_s,
-      content_attributes: content_attrs
+      content_attributes: incoming_content_attributes
     )
+  end
+
+  def incoming_content_attributes
+    attributes = outgoing_echo ? { external_echo: true } : {}
+    attributes[:in_reply_to_external_id] = @in_reply_to_external_id if @in_reply_to_external_id.present?
+    attributes[:selected_option] = @interactive_selection_item if @interactive_selection_item.present?
+    attributes
+  end
+
+  def record_interactive_selection
+    @message = @interactive_selection_service.record_response!(@message)
+  rescue AiAgents::OptionSelectionService::AlreadySubmitted
+    Rails.logger.info('[Whatsapp::IncomingMessage] Interactive selection was already submitted')
   end
 
   def attach_contact(contact)

@@ -314,6 +314,63 @@ describe Whatsapp::IncomingMessageService do
         expect(Contact.all.first.name).to eq('Sojan Jose')
         expect(whatsapp_channel.inbox.messages.first.content).to eq('First Button')
       end
+
+      it 'resolves an AI option reply to its full canonical label and records one submission' do
+        contact_inbox = create(:contact_inbox, inbox: whatsapp_channel.inbox, source_id: wa_id)
+        conversation = create(:conversation, inbox: whatsapp_channel.inbox, contact_inbox: contact_inbox)
+        prompt = create(
+          :message,
+          account: whatsapp_channel.account, inbox: whatsapp_channel.inbox,
+          conversation: conversation,
+          message_type: :outgoing,
+          content_type: :input_select, source_id: 'wamid.option-prompt',
+          content: 'Bir seçenek belirleyin',
+          content_attributes: {
+            items: [
+              { title: 'Alüminyum uzun ürün seçeneği', value: 'option-1' },
+              { title: 'Başka ürün', value: 'option-2' }
+            ],
+            ai_agent: { selection: { version: 1 } }
+          }
+        )
+        interactive_params = {
+          'contacts' => [{ 'profile' => { 'name' => 'Sojan Jose' }, 'wa_id' => wa_id }],
+          'messages' => [{
+            'from' => wa_id,
+            'id' => 'wamid.option-response',
+            'context' => { 'id' => prompt.source_id },
+            'interactive' => {
+              'list_reply' => { 'id' => 'option-1', 'title' => 'Alüminyum uzun ürün 1' },
+              'type' => 'list_reply'
+            },
+            'timestamp' => '1633034394',
+            'type' => 'interactive'
+          }]
+        }.with_indifferent_access
+
+        expect do
+          described_class.new(inbox: whatsapp_channel.inbox, params: interactive_params).perform
+        end.to change { conversation.messages.incoming.count }.by(1)
+
+        response_message = conversation.messages.incoming.last
+        expect(response_message.content).to eq('Alüminyum uzun ürün seçeneği')
+        expect(response_message.content_attributes).to include(
+          'selected_option' => { 'title' => 'Alüminyum uzun ürün seçeneği', 'value' => 'option-1' }
+        )
+        expect(prompt.reload.content_attributes['submitted_values']).to eq(
+          [{ 'title' => 'Alüminyum uzun ürün seçeneği', 'value' => 'option-1' }]
+        )
+
+        expect do
+          described_class.new(inbox: whatsapp_channel.inbox, params: interactive_params).perform
+        end.not_to(change { conversation.messages.incoming.count })
+
+        repeated_click_params = interactive_params.deep_dup
+        repeated_click_params[:messages].first[:id] = 'wamid.option-response-retry'
+        expect do
+          described_class.new(inbox: whatsapp_channel.inbox, params: repeated_click_params).perform
+        end.not_to(change { conversation.messages.incoming.count })
+      end
     end
 
     # ref: https://github.com/chatwoot/chatwoot/issues/3795#issuecomment-1018057318

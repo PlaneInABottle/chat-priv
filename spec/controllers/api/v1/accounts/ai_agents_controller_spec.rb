@@ -135,8 +135,8 @@ RSpec.describe 'Ai Agents API', type: :request do
         expect(json['agent_bot']).to be_present
         expect(json['agent_bot']['bot_type']).to eq('ai')
         expect(json['agent_bot']['inbox_ids']).to include(inbox.id)
-        expect(json['tools_config']).to include('enabled' => ['human_handoff'])
-        expect(json['available_tools'].map { |tool| tool['key'] }).to match_array(%w[human_handoff])
+        expect(json['tools_config']).to include('enabled' => %w[human_handoff present_options])
+        expect(json['available_tools'].map { |tool| tool['key'] }).to match_array(%w[human_handoff present_options])
         expect(json['ikas_integration']).to include('feature_enabled', 'state', 'can_connect')
       end
 
@@ -159,7 +159,7 @@ RSpec.describe 'Ai Agents API', type: :request do
 
         expect(response).to have_http_status(:success)
         expect(response.parsed_body['available_tools'].map { |tool| tool['key'] }).to match_array(
-          %w[human_handoff ikas_lookup_order ikas_catalog_search]
+          %w[human_handoff present_options ikas_lookup_order ikas_catalog_search]
         )
       end
 
@@ -266,6 +266,25 @@ RSpec.describe 'Ai Agents API', type: :request do
             'enabled' => ['human_handoff']
           )
         )
+      end
+
+      it 'persists clickable options as disabled when requested' do
+        post "/api/v1/accounts/#{account.id}/ai_agents",
+             headers: admin.create_new_auth_token,
+             params: {
+               name: 'New Agent',
+               config: {
+                 tools: {
+                   enabled: ['human_handoff'],
+                   present_options: { enabled: false }
+                 }
+               }
+             },
+             as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(AiAgent.last.config.dig('tools', 'present_options')).to eq('enabled' => false)
+        expect(response.parsed_body.dig('tools_config', 'enabled')).to eq(['human_handoff'])
       end
 
       it 'rejects removed human handoff config keys' do

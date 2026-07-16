@@ -123,7 +123,8 @@ class AiAgents::ToolRegistry
   }.freeze
 
   def self.available_definitions
-    @available_definitions ||= [human_handoff_definition, ikas_lookup_order_definition, ikas_catalog_search_definition]
+    @available_definitions ||= [human_handoff_definition, AiAgents::ToolDefinitions::PresentOptions.build(Definition),
+                                ikas_lookup_order_definition, ikas_catalog_search_definition]
   end
 
   def self.runtime_definitions

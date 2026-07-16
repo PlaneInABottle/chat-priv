@@ -21,6 +21,11 @@ module AiAgents
       'Use only the collected tool evidence; if it is insufficient, ask one focused clarification question.',
       'Do not mention tools, tool calls, budgets, internal searches, system limitations, or application safety checks.'
     ].join(' ').freeze
+    PRESENT_OPTIONS_FALLBACK_PROMPT = [
+      'The requested interactive options could not be presented safely.',
+      'Ask the same focused question as plain customer-facing text using only the available conversation and tool evidence.',
+      'Do not call tools, invent options, mention internal errors, or promise a human handoff.'
+    ].join(' ').freeze
     CUSTOMER_FACING_FINALIZER_PROMPT = [
       'Write the final customer-facing reply from the latest customer message and the available structured tool result messages.',
       'Use only concrete facts, policies, verified knowledge excerpts, product details, prices, links, and order fields present in those results.',
@@ -94,12 +99,16 @@ module AiAgents
         rejection_code = tool_request_rejection_code(tool_calls)
         return rejected_tool_request_result(request_messages, tool_events, rejection_code) if rejection_code
 
-        tool_executions = tool_calls.map { |tool_call| execute_tool_call(tool_call) }
+        tool_executions = tool_calls.map { |tool_call| execute_tool_call(tool_call, tool_events) }
         tool_events.concat(tool_executions.map(&:tool_event))
 
         terminal_execution = tool_executions.find { |tool_execution| tool_execution.tool_result[:terminal_action].present? }
         return terminal_result(response, terminal_execution, tool_events: tool_events) if terminal_execution
-        return safety_handoff_result(reason: tool_failure_reason(tool_executions), tool_events: tool_events) if tool_failure?(tool_executions)
+        if tool_failure?(tool_executions)
+          return recoverable_tool_failure_result(request_messages, tool_calls, tool_executions, tool_events) if recoverable_tool_failure?(tool_executions)
+
+          return safety_handoff_result(reason: tool_failure_reason(tool_executions), tool_events: tool_events)
+        end
 
         request_messages = [
           *follow_up_context_messages(request_messages, tool_executions),
@@ -144,7 +153,7 @@ module AiAgents
       )
     end
 
-    def tool_executor
+    def tool_executor(tool_events)
       @tool_executor ||= AiAgents::ToolExecutor.new(
         ai_agent: ai_agent,
         account: ai_agent.account,
@@ -154,7 +163,8 @@ module AiAgents
           conversation: conversation,
           trigger_message: trigger_message,
           config: runtime_config,
-          knowledge_sources: runtime_knowledge_sources
+          knowledge_sources: runtime_knowledge_sources,
+          tool_events: tool_events
         }
       )
     end
@@ -187,6 +197,7 @@ module AiAgents
     def runtime_tool_keys
       keys = config.enabled_tool_keys
       keys = [*keys, AiAgents::Config::KNOWLEDGE_SEARCH_TOOL] if runtime_knowledge_sources.present?
+      keys -= [AiAgents::Config::PRESENT_OPTIONS_TOOL] unless AiAgents::ChannelCapabilities.present_options?(mode: mode, conversation: conversation)
       keys.uniq
     end
 
@@ -290,20 +301,22 @@ module AiAgents
     end
 
     def terminal_result(response, tool_execution, tool_events:)
-      telemetry = turn_telemetry(tool_events: tool_events, final_answer_source: 'handoff')
+      terminal_action = tool_execution.tool_result[:terminal_action]
+      telemetry_source = terminal_action == 'handoff' ? 'handoff' : 'tool_presentation'
+      telemetry = turn_telemetry(tool_events: tool_events, final_answer_source: telemetry_source)
       assistant_message = build_assistant_message(
         content: tool_execution.tool_result[:customer_message] || response[:assistant_text] || fallback_assistant_message,
         tool_events: tool_events,
-        terminal_action: tool_execution.tool_result[:terminal_action],
+        terminal_action: terminal_action,
         tool_result: tool_execution.tool_result,
         telemetry: telemetry
       )
-      attach_telemetry_to_latest_agent_message!(telemetry) if tool_execution.tool_result[:terminal_action] == 'handoff'
+      attach_telemetry_to_latest_agent_message!(telemetry) if terminal_action == 'handoff'
 
       {
         assistant_message: assistant_message,
         tool_events: tool_events,
-        terminal_action: tool_execution.tool_result[:terminal_action]
+        terminal_action: terminal_action
       }
     end
 
@@ -527,9 +540,18 @@ module AiAgents
     end
 
     def tool_calls_to_execute(tool_calls)
-      terminal_tool_call = tool_calls.find do |tool_call|
-        AiAgents::ToolRegistry.find(tool_call[:name])&.terminal
+      handoff_call = tool_calls.find { |tool_call| tool_key_for(tool_call) == AiAgents::Config::HUMAN_HANDOFF_TOOL }
+      return [handoff_call] if handoff_call
+
+      present_options_call = tool_calls.find { |tool_call| tool_key_for(tool_call) == AiAgents::Config::PRESENT_OPTIONS_TOOL }
+      if present_options_call
+        evidence_calls = tool_calls.reject { |tool_call| tool_call.equal?(present_options_call) }
+        return evidence_calls if evidence_calls.present?
+
+        return [present_options_call]
       end
+
+      terminal_tool_call = tool_calls.find { |tool_call| AiAgents::ToolRegistry.find(tool_call[:name])&.terminal }
       return [terminal_tool_call] if terminal_tool_call
 
       tool_calls
@@ -557,8 +579,8 @@ module AiAgents
       requested_counts.any? { |tool_key, requested_count| requested_count > remaining_tool_budget(tool_key) }
     end
 
-    def execute_tool_call(tool_call)
-      tool_execution = tool_executor.execute(tool_call)
+    def execute_tool_call(tool_call, tool_events)
+      tool_execution = tool_executor(tool_events).execute(tool_call)
       executed_tool_counts[tool_key_for(tool_call)] += tool_call_budget_cost(tool_call)
       tool_execution
     end
@@ -610,6 +632,20 @@ module AiAgents
     def tool_failure_reason(tool_executions)
       failed_execution = tool_executions.find { |tool_execution| tool_execution.status.to_s != 'executed' }
       failed_execution&.tool_result&.[](:error_code) || failed_execution&.tool_result&.[]('error_code') || 'tool_execution_failed'
+    end
+
+    def recoverable_tool_failure?(tool_executions)
+      failed = tool_executions.reject { |tool_execution| tool_execution.status.to_s == 'executed' }
+      failed.present? && failed.all? { |tool_execution| tool_execution.tool_result[:recoverable] == true }
+    end
+
+    def recoverable_tool_failure_result(request_messages, tool_calls, tool_executions, tool_events)
+      messages = [
+        *follow_up_context_messages(request_messages, tool_executions),
+        assistant_tool_call_message(tool_calls),
+        *tool_result_messages(tool_executions)
+      ]
+      final_answer_result(messages, tool_events, PRESENT_OPTIONS_FALLBACK_PROMPT)
     end
 
     def follow_up_context_messages(request_messages, tool_executions)

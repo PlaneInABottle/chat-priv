@@ -42,6 +42,9 @@ const isInputDisabled = computed(() => {
 });
 
 const isHandoffPreview = message => message?.terminal_action === 'handoff';
+const isOptionsPreview = message =>
+  message?.terminal_action === 'present_options' &&
+  message?.tool_result?.presentation?.content_type === 'input_select';
 
 const handoffPreviewSummary = message => {
   return (
@@ -91,6 +94,16 @@ const handleKeyup = event => {
   if (event.key === 'Enter') {
     handleSend();
   }
+};
+
+const handleOptionSelect = (message, option) => {
+  if (isInputDisabled.value || message.submitted_values?.length) return;
+
+  emit('send', {
+    content: option.title,
+    replyToMessageId: message.id,
+    selectedValue: option.value,
+  });
 };
 </script>
 
@@ -187,6 +200,25 @@ const handleKeyup = event => {
                 {{ t('AI_AGENT.TEST_CONVERSATIONS.LABELS_IGNORED') }}
                 {{ msg.tool_result.labels_ignored.join(', ') }}
               </p>
+            </template>
+            <template v-else-if="isOptionsPreview(msg)">
+              <p class="whitespace-pre-wrap">{{ msg.content }}</p>
+              <div class="mt-2 flex flex-col gap-1.5">
+                <button
+                  v-for="option in msg.tool_result.presentation.items"
+                  :key="option.value"
+                  type="button"
+                  class="rounded-lg border border-n-weak bg-n-alpha-1 px-3 py-2 text-left text-sm text-n-slate-12 transition-colors hover:bg-n-alpha-2 disabled:cursor-not-allowed disabled:opacity-60"
+                  :class="{
+                    'border-n-brand bg-n-brand/10':
+                      msg.submitted_values?.[0]?.value === option.value,
+                  }"
+                  :disabled="isInputDisabled || !!msg.submitted_values?.length"
+                  @click="handleOptionSelect(msg, option)"
+                >
+                  {{ option.title }}
+                </button>
+              </div>
             </template>
             <template v-else-if="msg.role === 'user'">
               {{ msg.content }}

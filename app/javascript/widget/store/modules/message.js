@@ -11,6 +11,34 @@ export const getters = {
 };
 
 export const actions = {
+  select: async (
+    { commit, getters: { getUIFlags: uiFlags } },
+    { messageId, selectedOption }
+  ) => {
+    if (uiFlags.isUpdating) return;
+
+    commit('toggleUpdateStatus', true);
+    try {
+      const response = await MessageAPI.select({
+        messageId,
+        selectedValue: selectedOption.value,
+      });
+      commit(
+        'conversation/updateMessage',
+        {
+          id: messageId,
+          content_attributes: { submitted_values: [selectedOption] },
+        },
+        { root: true }
+      );
+      commit('conversation/pushMessageToConversation', response.data, {
+        root: true,
+      });
+    } catch (error) {
+      // Keep the options active so the visitor can retry.
+    }
+    commit('toggleUpdateStatus', false);
+  },
   update: async (
     { commit, dispatch, getters: { getUIFlags: uiFlags } },
     { email, messageId, submittedValues }

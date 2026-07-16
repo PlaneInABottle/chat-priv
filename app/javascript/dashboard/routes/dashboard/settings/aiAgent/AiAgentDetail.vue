@@ -30,7 +30,7 @@ import {
 } from './helpers/instructionDocument';
 
 const defaultToolsState = () => ({
-  enabled: ['human_handoff'],
+  enabled: ['human_handoff', 'present_options'],
   human_handoff: {
     allowed_labels: [],
   },
@@ -38,6 +38,9 @@ const defaultToolsState = () => ({
     enabled: false,
   },
   ikas_catalog_search: {},
+  present_options: {
+    enabled: true,
+  },
 });
 
 const normalizeToolsState = toolsConfig => {
@@ -45,8 +48,19 @@ const normalizeToolsState = toolsConfig => {
 
   return {
     enabled: Array.from(
-      new Set(['human_handoff', ...(tools.enabled || [])])
-    ).filter(Boolean),
+      new Set([
+        'human_handoff',
+        ...(tools.present_options?.enabled === false
+          ? []
+          : ['present_options']),
+        ...(tools.enabled || []),
+      ])
+    )
+      .filter(Boolean)
+      .filter(
+        tool =>
+          tool !== 'present_options' || tools.present_options?.enabled !== false
+      ),
     human_handoff: {
       allowed_labels: Array.from(
         new Set(tools.human_handoff?.allowed_labels || [])
@@ -56,6 +70,9 @@ const normalizeToolsState = toolsConfig => {
       enabled: Boolean(tools.ikas_lookup_order?.enabled),
     },
     ikas_catalog_search: {},
+    present_options: {
+      enabled: tools.present_options?.enabled !== false,
+    },
   };
 };
 
@@ -364,6 +381,12 @@ const toggleTool = toolKey => {
             : formState.value.tools.ikas_lookup_order.enabled,
       },
       ikas_catalog_search: {},
+      present_options: {
+        enabled:
+          toolKey === 'present_options'
+            ? enabled.has(toolKey)
+            : formState.value.tools.present_options.enabled,
+      },
     },
   };
 };
@@ -454,6 +477,9 @@ const connectionSaveData = () => {
           enabled: tools.enabled.includes('ikas_lookup_order'),
         },
         ikas_catalog_search: {},
+        present_options: {
+          enabled: tools.enabled.includes('present_options'),
+        },
       },
     },
   };
@@ -919,7 +945,7 @@ watch(agentId, async (newAgentId, oldAgentId) => {
                             : tool.key === 'ikas_lookup_order' &&
                               !isIkasAvailable
                         "
-                        @update:model-value="toggleTool(tool.key)"
+                        @change="toggleTool(tool.key)"
                       />
                     </div>
 
