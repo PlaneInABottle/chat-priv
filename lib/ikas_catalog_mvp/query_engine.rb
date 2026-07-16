@@ -28,11 +28,24 @@ module IkasCatalogMvp
         end
 
         root_category_ids = root ? category_subtree_ids(db, root.fetch('id')) : []
-        rows = matching_rows(db, parsed, root, limit, category_ids: root_category_ids)
-        rows = matching_rows(db, parsed, nil, limit, category_ids: []) if rows.empty? && root
-        candidates = rows.filter_map { |row| candidate_for(db, row, parsed, root, root_category_ids) }
-                         .sort_by { |candidate| candidate_sort_key(candidate, parsed.fetch('terms')) }
-                         .first(limit)
+        candidates = candidates_for(db, parsed, root, root_category_ids, limit)
+
+        if candidates.empty?
+          fallback_parsed = QueryNormalizer.contextual_location_fallback(plan.fetch('query'), parsed)
+          if fallback_parsed
+            fallback_root = matched_root(db, category_scope_terms_for(fallback_parsed))
+            fallback_buckets = fallback_root ? type_buckets(db, fallback_root.fetch('id')) : []
+            return clarify_payload(text, fallback_parsed, fallback_root, fallback_buckets) if clarification_needed?(fallback_parsed, fallback_buckets)
+
+            fallback_root_category_ids = fallback_root ? category_subtree_ids(db, fallback_root.fetch('id')) : []
+            fallback_candidates = candidates_for(db, fallback_parsed, fallback_root, fallback_root_category_ids, limit)
+            if fallback_candidates.any?
+              parsed = fallback_parsed
+              root = fallback_root
+              candidates = fallback_candidates
+            end
+          end
+        end
 
         result_payload(plan.fetch('query'), parsed, root, candidates)
       end
@@ -154,6 +167,14 @@ module IkasCatalogMvp
       raise Error, 'Ikas catalog FTS index is missing. Sync the catalog again.' unless fts5_available?(db)
 
       fts5_matching_rows(db, fts5_terms, limit, category_ids: category_ids)
+    end
+
+    def candidates_for(db, parsed, root, root_category_ids, limit)
+      rows = matching_rows(db, parsed, root, limit, category_ids: root_category_ids)
+      rows = matching_rows(db, parsed, nil, limit, category_ids: []) if rows.empty? && root
+      rows.filter_map { |row| candidate_for(db, row, parsed, root, root_category_ids) }
+          .sort_by { |candidate| candidate_sort_key(candidate, parsed.fetch('terms')) }
+          .first(limit)
     end
 
     def category_matching_rows(db, limit, category_ids:)

@@ -35,7 +35,9 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
     [
       { 'id' => 'sineklik-root', 'name' => 'Sineklikler', 'parentId' => nil },
       { 'id' => 'sineklik-kedi', 'name' => 'Kedi Sineklikleri', 'parentId' => 'sineklik-root' },
+      { 'id' => 'sineklik-kedi-door', 'name' => 'Kedi Tüllü Kapı Sineklikleri', 'parentId' => 'sineklik-kedi' },
       { 'id' => 'sineklik-akordiyon', 'name' => 'Akordiyon Sineklikler', 'parentId' => 'sineklik-root' },
+      { 'id' => 'sineklik-akordiyon-door', 'name' => 'Akordiyon Kapı Sineklikleri', 'parentId' => 'sineklik-akordiyon' },
       { 'id' => 'sineklik-hinged', 'name' => 'Menteşeli Sineklikler', 'parentId' => 'sineklik-root' },
       { 'id' => 'sineklik-hinged-door', 'name' => 'Menteşeli Kapı Sineklikleri', 'parentId' => 'sineklik-hinged' },
       { 'id' => 'sineklik-hinged-window', 'name' => 'Menteşeli Pencere Sinekliği', 'parentId' => 'sineklik-hinged' },
@@ -176,7 +178,7 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
     {
       'id' => 'p-sineklik-akordiyon',
       'name' => 'Akordiyon Sineklik',
-      'categoryIds' => ['sineklik-akordiyon'],
+      'categoryIds' => ['sineklik-akordiyon-door'],
       'attributes' => [{ 'productAttributeId' => 'measurement-attr', 'value' => 'Max 80x100 cm' }],
       'variants' => [
         variant('v-sineklik-akordiyon', price: 450.0, stocks: 3)
@@ -188,7 +190,7 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
     {
       'id' => 'p-sineklik-kedi',
       'name' => 'Kedi İçin Sineklik',
-      'categoryIds' => ['sineklik-kedi'],
+      'categoryIds' => ['sineklik-kedi-door'],
       'attributes' => [],
       'variants' => [
         variant('v-sineklik-kedi', price: 350.0, stocks: 2)
@@ -813,6 +815,33 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
 
       expect(engine.query('cam balkon sineklik').fetch('matched_scope').fetch('id')).to eq('sineklik-balcony')
       expect(engine.query('menteşeli kapı sinekliği').fetch('matched_scope').fetch('id')).to eq('sineklik-hinged-door')
+    end
+  end
+
+  it 'recovers door scopes when a contextual location compound has no exact catalog match' do
+    with_snapshot do |sqlite_path|
+      engine = described_class.new(sqlite_path: sqlite_path)
+      cases = {
+        'balkon kapısı sineklik akordiyon' => %w[sineklik-akordiyon-door p-sineklik-akordiyon],
+        'balkon kapısı sineklik menteşeli' => %w[sineklik-hinged-door p-sineklik-hinged-door],
+        'balkon kapısı sineklik kedi' => %w[sineklik-kedi-door p-sineklik-kedi]
+      }
+
+      aggregate_failures do
+        cases.each do |query, (scope_id, product_id)|
+          payload = engine.query(query)
+
+          expect(payload.fetch('query')).to eq(query)
+          expect(payload.fetch('result_type')).to eq('show_candidates')
+          expect(payload.dig('matched_scope', 'id')).to eq(scope_id)
+          expect(payload.fetch('candidates').map { |candidate| candidate.fetch('product_id') }).to include(product_id)
+          expect(payload.dig('parsed', 'terms')).not_to include('balkon')
+        end
+
+        broad_payload = engine.query('balkon kapısı')
+        expect(broad_payload.fetch('result_type')).to eq('no_match')
+        expect(broad_payload.dig('parsed', 'terms')).to include('balkon')
+      end
     end
   end
 
