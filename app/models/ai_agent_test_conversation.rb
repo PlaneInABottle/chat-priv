@@ -58,6 +58,7 @@ class AiAgentTestConversation < ApplicationRecord
       message_index, prompt = option_prompt!(message_id)
       item = selected_option!(prompt, selected_value)
       raise InvalidSelection, 'This question has already been answered.' if prompt['submitted_values'].present?
+      raise InvalidSelection, 'This option prompt is no longer active.' if option_prompt_superseded?(message_index)
 
       persist_option_selection!(message_index, prompt, item)
       item['title']
@@ -92,6 +93,10 @@ class AiAgentTestConversation < ApplicationRecord
     updated_messages = messages.deep_dup
     updated_messages[message_index] = prompt
     update!(messages: updated_messages)
+  end
+
+  def option_prompt_superseded?(message_index)
+    messages.drop(message_index + 1).any? { |message| message['role'] == 'user' }
   end
 
   def messages_must_be_array

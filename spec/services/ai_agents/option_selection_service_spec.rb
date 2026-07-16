@@ -33,6 +33,25 @@ RSpec.describe AiAgents::OptionSelectionService do
     expect(conversation.messages.incoming.count).to eq(1)
   end
 
+  it 'rejects a prompt superseded by newer free-form customer text' do
+    prompt_message
+    create(
+      :message,
+      account: account,
+      inbox: inbox,
+      conversation: conversation,
+      sender: contact,
+      message_type: :incoming,
+      content: 'Actually I need a grey balcony door option'
+    )
+
+    service = described_class.new(prompt_message: prompt_message, selected_value: 'sales-id')
+
+    expect { service.create_widget_response!(contact: contact) }
+      .to raise_error(described_class::InvalidSelection, /no longer active/i)
+    expect(prompt_message.reload.content_attributes['submitted_values']).to be_blank
+  end
+
   private
 
   def incoming_message(source_id)

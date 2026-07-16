@@ -2,6 +2,7 @@
 
 require 'bigdecimal'
 require 'set'
+require 'uri'
 
 module AiAgents
   class Orchestrator
@@ -344,10 +345,76 @@ module AiAgents
     def customer_facing_answer(content, request_messages:, tool_events:)
       answer = content.to_s.strip
       return answer if tool_events.blank?
-      return catalog_no_match_fallback_answer(tool_events) if single_catalog_no_match_without_candidates?(tool_events)
-      return answer if safe_customer_facing_answer?(answer, tool_events)
 
-      finalize_customer_facing_answer(request_messages: request_messages, tool_events: tool_events)
+      answer = if single_catalog_no_match_without_candidates?(tool_events)
+                 catalog_no_match_fallback_answer(tool_events)
+               elsif safe_customer_facing_answer?(answer, tool_events)
+                 answer
+               else
+                 finalize_customer_facing_answer(request_messages: request_messages, tool_events: tool_events)
+               end
+      sanitize_catalog_links(answer, tool_events)
+    end
+
+    def sanitize_catalog_links(answer, tool_events)
+      sanitized = answer.to_s.strip.presence
+      return sanitized if sanitized.blank?
+
+      trusted_urls = catalog_link_urls(tool_events)
+      return sanitized if trusted_urls.empty?
+
+      sanitized = sanitized.gsub(/\]\((https?:\/\/[^\s)]*)\)/) do |markdown_link|
+        raw_url = Regexp.last_match(1)
+        normalized_url = normalize_catalog_url(raw_url)
+        trusted_urls.include?(normalized_url) ? markdown_link.sub(raw_url, normalized_url) : markdown_link
+      end
+
+      trailing_link = sanitized.match(/\[[^\]\n]+\]\((?<url>https?:\/\/[^\s)]*)\z/)
+      return sanitized unless trailing_link
+
+      normalized_prefix = normalize_catalog_url(trailing_link[:url])
+      matches = trusted_urls.select { |url| url.start_with?(normalized_prefix) }
+      return sanitized unless matches.one? && catalog_url_prefix_identifies_product?(normalized_prefix, matches.first)
+
+      "#{sanitized[0...trailing_link.begin(:url)]}#{matches.first})"
+    end
+
+    def catalog_url_prefix_identifies_product?(prefix, trusted_url)
+      product_url = URI.parse(trusted_url)
+      return false if product_url.path.blank? || product_url.path == '/'
+
+      product_identity = trusted_url.split(/[?#]/, 2).first
+      prefix.start_with?(product_identity)
+    rescue URI::InvalidURIError
+      false
+    end
+
+    def catalog_link_urls(tool_events)
+      catalog_results = Array(tool_events).filter_map do |event|
+        next unless event['tool'] == AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL
+
+        event['result'] || event[:result]
+      end
+      catalog_results.flat_map { |result| catalog_link_urls_in(result) }.uniq
+    end
+
+    def catalog_link_urls_in(value)
+      case value
+      when Hash
+        value = value.deep_stringify_keys
+        urls = []
+        urls << normalize_catalog_url(value.dig('link', 'url')) if value.dig('link', 'url').present?
+        urls.concat(value.each_value.flat_map { |child| catalog_link_urls_in(child) })
+        urls
+      when Array
+        value.flat_map { |child| catalog_link_urls_in(child) }
+      else
+        []
+      end
+    end
+
+    def normalize_catalog_url(url)
+      URI::DEFAULT_PARSER.escape(url.to_s, /[" <>\\()]/)
     end
 
     def finalize_customer_facing_answer(request_messages:, tool_events:)

@@ -14,6 +14,8 @@ class AiAgents::OptionSelectionService
     item = items.find { |candidate| candidate['value'].to_s == selected_value }
     raise InvalidSelection, 'Selected option is not available.' unless item
 
+    validate_active_prompt! unless same_selection_submitted?
+
     item.slice('title', 'value')
   end
 
@@ -25,6 +27,7 @@ class AiAgents::OptionSelectionService
       raise AlreadySubmitted, 'This question has already been answered.' if submitted_values.present?
 
       validate_contact!(contact)
+      validate_active_prompt!
 
       item = selected_item
       response = create_widget_message!(contact, item)
@@ -41,6 +44,7 @@ class AiAgents::OptionSelectionService
       raise AlreadySubmitted, 'This question has already been answered.' if submitted_values.present?
 
       validate_response_conversation!(response_message)
+      validate_active_prompt!(excluding: response_message)
 
       item = selected_item
       response_message.content = item['title']
@@ -95,6 +99,14 @@ class AiAgents::OptionSelectionService
     return if response_message.conversation_id == prompt_message.conversation_id
 
     raise InvalidSelection, 'The selected option does not belong to this conversation.'
+  end
+
+  def validate_active_prompt!(excluding: nil)
+    later_messages = prompt_message.conversation.messages.incoming.where('messages.id > ?', prompt_message.id)
+    later_messages = later_messages.where.not(id: excluding.id) if excluding&.persisted?
+    return unless later_messages.exists?
+
+    raise InvalidSelection, 'This option prompt is no longer active.'
   end
 
   def create_widget_message!(contact, item)
