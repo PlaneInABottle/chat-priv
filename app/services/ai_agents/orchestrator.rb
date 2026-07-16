@@ -558,7 +558,8 @@ module AiAgents
       response = perform_llm_call(
         step: 'customer_facing_finalizer',
         request_messages: finalizer_messages,
-        tools: []
+        tools: [],
+        incomplete_retry_max_tokens: INCOMPLETE_FINAL_RETRY_MAX_TOKENS
       )
       answer = response[:assistant_text].to_s.strip.presence
       return answer if answer && safe_customer_facing_answer?(answer, tool_events)
@@ -569,13 +570,14 @@ module AiAgents
           *finalizer_messages,
           { role: 'system', content: CUSTOMER_FACING_FINALIZER_RETRY_PROMPT }
         ],
-        tools: []
+        tools: [],
+        incomplete_retry_max_tokens: INCOMPLETE_FINAL_RETRY_MAX_TOKENS
       )
       retry_answer = retry_response[:assistant_text].to_s.strip.presence
       sanitized_answer = sanitize_reference_prices(retry_answer, tool_events)
       return sanitized_answer if sanitized_answer && safe_customer_facing_answer?(sanitized_answer, tool_events)
 
-      nil
+      catalog_evidence_fallback_answer(tool_events, request_messages: request_messages)
     end
 
     def safe_customer_facing_answer?(answer, tool_events)

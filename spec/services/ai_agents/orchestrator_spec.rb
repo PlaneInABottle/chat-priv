@@ -281,6 +281,153 @@ RSpec.describe AiAgents::Orchestrator do
     expect(adapter).to have_received(:perform).with(hash_including(max_tokens: 4_096)).once
   end
 
+  it 'uses larger incomplete retries and catalog evidence after customer-facing finalizers exhaust' do
+    ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'] } })
+    catalog_results = [
+      {
+        status: 'ok',
+        query: 'akordiyon sineklik kapı',
+        result_type: 'show_candidates',
+        result_count: 2,
+        candidates: [
+          {
+            display_name: 'Akordiyon Kapı Sinekliği Antrasit',
+            link: { url: 'https://example.test/akordiyon-kapi-antrasit' },
+            price: { reference_amount: 2637, currency: 'TRY', final_total_known: false }
+          },
+          { display_name: 'Akordiyon Kapı Sinekliği Gri' }
+        ]
+      },
+      {
+        status: 'ok',
+        query: 'menteşeli sineklik kapı',
+        result_type: 'show_candidates',
+        result_count: 2,
+        candidates: [
+          {
+            display_name: 'Menteşeli Kapı Sinekliği Antrasit',
+            link: { url: 'https://example.test/menteseli-kapi-antrasit' },
+            price: { reference_amount: 1233.84, currency: 'TRY', final_total_known: false }
+          },
+          { display_name: 'Menteşeli Kapı Sinekliği Gri' }
+        ]
+      }
+    ]
+    tool_executions = catalog_results.each_with_index.map do |tool_result, index|
+      AiAgents::ToolExecutor::Result.new(
+        status: 'executed',
+        tool_event: {
+          'tool' => 'ikas_catalog_search',
+          'status' => 'ok',
+          'tool_call_id' => "catalog-#{index + 1}",
+          'result' => tool_result.deep_stringify_keys
+        },
+        tool_result: tool_result
+      )
+    end
+    executor = instance_double(AiAgents::ToolExecutor)
+    allow(executor).to receive(:execute).and_return(*tool_executions)
+    allow(AiAgents::ToolExecutor).to receive(:new).and_return(executor)
+
+    unsafe_claim = 'Menteşeli modeller sert çerçeveli olduğu için kedi tırmalasa da ezilmez, ' \
+                   'akordiyon modeller ise kedi tırmanırsa sarkabilir veya hasar görebilir.'
+    calls = []
+    allow(adapter).to receive(:perform) do |**payload|
+      calls << payload
+      case calls.length
+      when 1
+        {
+          assistant_text: nil,
+          tool_calls: [
+            {
+              id: 'catalog-1',
+              type: 'function',
+              name: 'ikas_catalog_search',
+              arguments: { query: 'akordiyon sineklik kapı' }.to_json
+            },
+            {
+              id: 'catalog-2',
+              type: 'function',
+              name: 'ikas_catalog_search',
+              arguments: { query: 'menteşeli sineklik kapı' }.to_json
+            }
+          ],
+          finish_reason: 'tool_calls'
+        }
+      when 2
+        { assistant_text: unsafe_claim, tool_calls: [], finish_reason: 'stop' }
+      when 3
+        { assistant_text: 'Balkon kapınız için bulduğum ürün', tool_calls: [], finish_reason: 'length' }
+      when 4
+        { assistant_text: nil, tool_calls: [], finish_reason: 'length' }
+      when 5
+        { assistant_text: 'İki seçenek arasından', tool_calls: [], finish_reason: 'length' }
+      else
+        { assistant_text: unsafe_claim, tool_calls: [], finish_reason: 'stop' }
+      end
+    end
+
+    result = described_class.new(
+      ai_agent: ai_agent.reload,
+      messages: [{ role: 'user', content: 'Balkon kapısı için akordiyon mu menteşeli mi, ikisini de göster.' }],
+      mode: :live,
+      conversation: conversation,
+      trigger_message: trigger_message,
+      adapter: adapter
+    ).perform
+
+    finalizer_steps = %w[
+      customer_facing_finalizer
+      customer_facing_finalizer_incomplete_retry
+      customer_facing_finalizer_retry
+      customer_facing_finalizer_retry_incomplete_retry
+    ]
+    finalizer_logs = AiAgentLlmCall.where(conversation: conversation, step: finalizer_steps).order(:id)
+    content = result[:assistant_message]['content']
+
+    expect(finalizer_logs.pluck(:step)).to eq(finalizer_steps)
+    expect(finalizer_logs.map { |log| log.response['request_options'] }).to eq(
+      [nil, { 'max_tokens' => 4_096 }, nil, { 'max_tokens' => 4_096 }]
+    )
+    expect(calls.values_at(3, 5).pluck(:max_tokens)).to eq([4_096, 4_096])
+    expect(result[:terminal_action]).to be_nil
+    expect(result[:tool_events].map { |event| event['tool'] }).to eq(%w[ikas_catalog_search ikas_catalog_search])
+    expect(content).to include('Akordiyon Kapı Sinekliği Antrasit', 'Menteşeli Kapı Sinekliği Antrasit')
+    expect(content).not_to include('sert çerçeveli', 'ezilmez', 'sarkabilir', 'hasar görebilir', 'bulduğum ürün')
+    expect(content.lines.grep(/^- /).size).to eq(3)
+    expect(adapter).to have_received(:perform).exactly(6).times
+  end
+
+  it 'hands off when customer-facing finalizers exhaust without catalog candidates' do
+    allow(adapter).to receive(:perform).and_return(
+      { assistant_text: 'Eksik yanıt', tool_calls: [], finish_reason: 'length' },
+      { assistant_text: nil, tool_calls: [], finish_reason: 'length' },
+      { assistant_text: 'Yine eksik', tool_calls: [], finish_reason: 'length' },
+      { assistant_text: nil, tool_calls: [], finish_reason: 'length' }
+    )
+    orchestrator = described_class.new(
+      ai_agent: ai_agent,
+      messages: [{ role: 'user', content: 'Bir ürün önerir misin?' }],
+      mode: :test,
+      adapter: adapter
+    )
+    tool_events = [{
+      'tool' => 'ikas_catalog_search',
+      'result' => { 'result_type' => 'show_candidates', 'result_count' => 0, 'candidates' => [] }
+    }]
+
+    result = orchestrator.send(
+      :text_result,
+      { assistant_text: 'Bu model en dayanıklı seçenektir.', tool_calls: [], finish_reason: 'stop' },
+      request_messages: [{ role: 'user', content: 'Bir ürün önerir misin?' }],
+      tool_events: tool_events
+    )
+
+    expect(result[:terminal_action]).to eq('handoff')
+    expect(result[:tool_events].last['tool']).to eq('human_handoff')
+    expect(adapter).to have_received(:perform).exactly(4).times
+  end
+
   it 'keeps multi-search fallback diverse and within the latest customer scope' do
     orchestrator = described_class.new(
       ai_agent: ai_agent,
