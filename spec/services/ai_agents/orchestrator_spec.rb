@@ -695,6 +695,155 @@ RSpec.describe AiAgents::Orchestrator do
     expect(AiAgentLlmCall.pluck(:step)).not_to include('customer_facing_finalizer')
   end
 
+  it 'returns one unknown tool call to the model for an exact-name correction' do
+    account.enable_features('ikas_integration')
+    account.save!
+    connection_status = instance_double(Integrations::Ikas::ConnectionStatus, payload: { state: 'connected' })
+    allow(Integrations::Ikas::ConnectionStatus).to receive(:new).with(account: account).and_return(connection_status)
+    ai_agent.update!(config: { 'tools' => { 'enabled' => %w[human_handoff ikas_catalog_search] } })
+    api_inbox = create(:inbox, account: account, channel: create(:channel_api, account: account))
+    api_conversation = create(:conversation, account: account, inbox: api_inbox)
+    api_trigger_message = create(
+      :message,
+      account: account,
+      inbox: api_inbox,
+      conversation: api_conversation,
+      message_type: 'incoming',
+      sender: api_conversation.contact
+    )
+    initial_result = { status: 'ok', result_type: 'no_match', query: 'balkon kapısı sineklik', result_count: 0, candidates: [] }
+    corrected_result = {
+      status: 'ok',
+      result_type: 'show_candidates',
+      query: 'kapı sineklik',
+      result_count: 1,
+      candidates: [
+        {
+          display_name: 'Menteşeli Kapı Sineklik',
+          link: { url: 'https://example.test/menteseli-kapi-sineklik' }
+        }
+      ]
+    }
+    catalog_requests = []
+    catalog_service = instance_double(AiAgents::Tools::IkasCatalogSearchService)
+    allow(catalog_service).to receive(:call) do |args:|
+      catalog_requests << args
+      [initial_result, corrected_result].fetch(catalog_requests.length - 1)
+    end
+    allow(AiAgents::Tools::IkasCatalogSearchService).to receive(:new).and_return(catalog_service)
+    calls = []
+    responses = [
+      {
+        assistant_text: nil,
+        tool_calls: [
+          { id: 'catalog-initial', type: 'function', name: 'ikas_catalog_search', arguments: { query: 'balkon kapısı sineklik' }.to_json }
+        ],
+        finish_reason: 'tool_calls'
+      },
+      {
+        assistant_text: nil,
+        tool_calls: [
+          { id: 'catalog-typo', type: 'function', name: 'iks_catalog_search', arguments: { query: 'kapı sineklik' }.to_json }
+        ],
+        finish_reason: 'tool_calls'
+      },
+      {
+        assistant_text: nil,
+        tool_calls: [
+          { id: 'catalog-corrected', type: 'function', name: 'ikas_catalog_search', arguments: { query: 'kapı sineklik' }.to_json }
+        ],
+        finish_reason: 'tool_calls'
+      },
+      {
+        assistant_text: 'Menteşeli Kapı Sinekliği buldum: https://example.test/menteseli-kapi-sineklik',
+        tool_calls: [],
+        finish_reason: 'stop'
+      }
+    ]
+    allow(adapter).to receive(:perform) do |payload|
+      calls << payload
+      responses.fetch(calls.length - 1)
+    end
+
+    result = described_class.new(
+      ai_agent: ai_agent.reload,
+      messages: [{ role: 'user', content: 'Balkon kapısı için sineklik önerir misin?' }],
+      mode: :live,
+      conversation: api_conversation,
+      trigger_message: api_trigger_message,
+      adapter: adapter
+    ).perform
+
+    correction_message = calls.third.fetch(:messages).find do |message|
+      message[:role] == 'tool' && message[:tool_call_id] == 'catalog-typo'
+    end
+    correction_feedback = JSON.parse(correction_message.fetch(:content))
+
+    expect(correction_feedback).to include(
+      'status' => 'error',
+      'error_code' => 'unknown_tool',
+      'recoverable' => true,
+      'requested_tool_name' => 'iks_catalog_search',
+      'available_tool_names' => %w[human_handoff ikas_catalog_search]
+    )
+    expected_catalog_requests = [
+      { 'query' => 'balkon kapısı sineklik' },
+      { 'query' => 'kapı sineklik' }
+    ]
+    expected_executions = [
+      ['ikas_catalog_search', 'executed', nil],
+      %w[iks_catalog_search rejected unknown_tool],
+      ['ikas_catalog_search', 'executed', nil]
+    ]
+
+    expect(catalog_requests).to eq(expected_catalog_requests)
+    expect(AiAgentToolExecution.where(conversation: api_conversation).order(:id).pluck(:tool_key, :status, :error_code)).to eq(expected_executions)
+    expect(result[:terminal_action]).to be_nil
+    expect(result[:assistant_message]['content']).to include('Menteşeli Kapı Sinekliği')
+    expect(result[:tool_events].map { |event| event['tool'] }).to eq(
+      %w[ikas_catalog_search iks_catalog_search ikas_catalog_search]
+    )
+    expect(result[:tool_events].none? { |event| event['tool'] == 'human_handoff' }).to be(true)
+    expect(adapter).to have_received(:perform).exactly(4).times
+  end
+
+  it 'fails closed after the model repeats an unknown tool call' do
+    ai_agent.update!(config: { 'tools' => { 'enabled' => %w[human_handoff ikas_catalog_search] } })
+    allow(adapter).to receive(:perform).and_return(
+      {
+        assistant_text: nil,
+        tool_calls: [{ id: 'typo-1', type: 'function', name: 'iks_catalog_search', arguments: '{}' }],
+        finish_reason: 'tool_calls'
+      },
+      {
+        assistant_text: nil,
+        tool_calls: [{ id: 'typo-2', type: 'function', name: 'iks_catalog_search', arguments: '{}' }],
+        finish_reason: 'tool_calls'
+      }
+    )
+
+    result = described_class.new(
+      ai_agent: ai_agent.reload,
+      messages: [{ role: 'user', content: 'Balkon kapısı için sineklik önerir misin?' }],
+      mode: :live,
+      conversation: conversation,
+      trigger_message: trigger_message,
+      adapter: adapter
+    ).perform
+
+    expect(result[:terminal_action]).to eq('handoff')
+    expect(result[:tool_events].map { |event| event['tool'] }).to eq(
+      %w[iks_catalog_search iks_catalog_search human_handoff]
+    )
+    expected_executions = [
+      %w[iks_catalog_search rejected unknown_tool],
+      %w[iks_catalog_search rejected unknown_tool],
+      ['human_handoff', 'executed', nil]
+    ]
+    expect(AiAgentToolExecution.where(conversation: conversation).order(:id).pluck(:tool_key, :status, :error_code)).to eq(expected_executions)
+    expect(adapter).to have_received(:perform).twice
+  end
+
   it 'retries the finalizer when it attempts to call tools after tool-backed evidence is available' do
     ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'] } })
     tool_execution = AiAgents::ToolExecutor::Result.new(

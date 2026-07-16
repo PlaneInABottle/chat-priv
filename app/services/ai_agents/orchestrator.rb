@@ -60,6 +60,7 @@ module AiAgents
     ].join(' ').freeze
     MAX_TOOL_ITERATIONS = 4
     MAX_TOOL_CALLS_PER_RESPONSE = 4
+    MAX_UNKNOWN_TOOL_CORRECTION_ATTEMPTS = 1
     MAX_CATALOG_SEARCH_QUERY_UNITS = 3
     MAX_KNOWLEDGE_SEARCH_CALLS = 2
     MAX_ORDER_LOOKUP_CALLS = 1
@@ -139,6 +140,7 @@ module AiAgents
       @adapter = adapter || default_adapter
       @executed_tool_keys = Set.new
       @executed_tool_counts = Hash.new(0)
+      @unknown_tool_correction_attempts = 0
     end
 
     def perform
@@ -167,6 +169,11 @@ module AiAgents
 
         terminal_execution = tool_executions.find { |tool_execution| tool_execution.tool_result[:terminal_action].present? }
         return terminal_result(response, terminal_execution, tool_events: tool_events) if terminal_execution
+        if correctable_unknown_tool_failure?(tool_executions, iteration)
+          @unknown_tool_correction_attempts += 1
+          request_messages = unknown_tool_correction_context(request_messages, tool_calls, tool_executions)
+          next
+        end
         if tool_failure?(tool_executions)
           return recoverable_tool_failure_result(request_messages, tool_calls, tool_executions, tool_events) if recoverable_tool_failure?(tool_executions)
 
@@ -804,7 +811,9 @@ module AiAgents
 
     def execute_tool_call(tool_call, tool_events)
       tool_execution = tool_executor(tool_events).execute(tool_call)
-      executed_tool_counts[tool_key_for(tool_call)] += tool_call_budget_cost(tool_call)
+      if AiAgents::ToolRegistry.find(tool_call[:name])
+        executed_tool_counts[tool_key_for(tool_call)] += tool_call_budget_cost(tool_call)
+      end
       tool_execution
     end
 
@@ -869,6 +878,46 @@ module AiAgents
         *tool_result_messages(tool_executions)
       ]
       final_answer_result(messages, tool_events, PRESENT_OPTIONS_FALLBACK_PROMPT)
+    end
+
+    def correctable_unknown_tool_failure?(tool_executions, iteration)
+      return false unless @unknown_tool_correction_attempts < MAX_UNKNOWN_TOOL_CORRECTION_ATTEMPTS
+      return false unless iteration < MAX_TOOL_ITERATIONS - 1
+      return false unless tool_executions.one?
+      return false if available_tool_names.empty?
+
+      execution = tool_executions.first
+      execution.status.to_s != 'executed' && tool_failure_reason(tool_executions) == 'unknown_tool'
+    end
+
+    def unknown_tool_correction_context(request_messages, tool_calls, tool_executions)
+      [
+        *follow_up_context_messages(request_messages, tool_executions),
+        assistant_tool_call_message(tool_calls),
+        *unknown_tool_correction_messages(tool_executions)
+      ]
+    end
+
+    def unknown_tool_correction_messages(tool_executions)
+      tool_executions.map do |tool_execution|
+        feedback = tool_execution.tool_result.merge(
+          recoverable: true,
+          requested_tool_name: tool_execution.tool_event['tool'],
+          available_tool_names: available_tool_names,
+          correction_instruction: 'Call at most one tool again using one exact available_tool_names value. Do not guess or alter a tool name.'
+        )
+        {
+          role: 'tool',
+          tool_call_id: tool_execution.tool_event['tool_call_id'],
+          content: feedback.to_json
+        }
+      end
+    end
+
+    def available_tool_names
+      llm_tools_for_remaining_budget.filter_map do |tool|
+        tool.dig(:function, :name) || tool.dig('function', 'name')
+      end
     end
 
     def follow_up_context_messages(request_messages, tool_executions)
