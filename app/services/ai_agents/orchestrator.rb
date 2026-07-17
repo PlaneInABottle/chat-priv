@@ -36,7 +36,7 @@ module AiAgents
     CUSTOMER_FACING_FINALIZER_PROMPT = [
       'Write the final customer-facing reply from the latest customer message and the available structured tool result messages.',
       'Use only concrete facts, policies, verified knowledge excerpts, product details, prices, links, and order fields present in those results.',
-      'Material, durability, pet-resistance, damage, and suitability claims require explicit candidate evidence, attributes, features, or description supporting that exact type of claim. Product names and categories alone do not support physical performance or pet-behavior claims.',
+      'Material, durability, pet-resistance, damage, convenience/ease-of-use, and suitability claims require explicit candidate evidence, attributes, features, or description supporting that exact type of claim. Product names and categories alone do not support physical performance or pet-behavior claims.',
       'The latest customer message controls the product/category scope of the final answer.',
       'Use previous conversation context only to resolve an ambiguous follow-up; if the latest customer message names a different product or category, answer only that new topic unless the customer explicitly asks to compare or combine topics.',
       'If tool results contain multiple query results, answer only the query or queries directly requested by the latest customer message; ignore previous-topic query results unless the customer explicitly asked to compare or combine topics.',
@@ -55,7 +55,7 @@ module AiAgents
       'The previous final customer-facing response attempted to call a tool, contained tool-call markup, or repeated a non-final reference price.',
       'Write only the customer message now from the already available evidence.',
       'Do not repeat numeric reference prices when price.final_total_known is false.',
-      'Remove unsupported material, durability, pet-resistance, damage, and suitability claims while preserving verified product names, links, and properly qualified price comparisons.',
+      'Remove unsupported material, durability, pet-resistance, damage, convenience/ease-of-use, and suitability claims while preserving verified product names, links, and properly qualified price comparisons.',
       'If the exact requested item is unavailable, say that simply and ask one focused customer question when needed.'
     ].join(' ').freeze
     MAX_TOOL_ITERATIONS = 4
@@ -108,6 +108,15 @@ module AiAgents
           (?:hasar|zarar)\s+gör(?:ebilir|ür|ur|mez) |
           damage[_\s-]?resistan\w* | prone\s+to\s+damage |
           (?:can|may|will|won't)\s+(?:be\s+)?damag(?:e|ed)
+        )\b
+      }ix,
+      convenience: %r{
+        \b(?:
+          (?:açılıp|acilip)\s+kapanma\s+kolaylığ[ıi](?:\s+sağlar)? |
+          (?:açma|acma|kapatma|kullanım|kullanim)\s+kolaylığ[ıi] |
+          kolay(?:ca)?\s+(?:açılır|acilir|kapanır|kapanir|kullanılır|kullanilir) |
+          (?:easy|convenient)\s+to\s+(?:open|close|use|operate) |
+          ease\s+of\s+(?:opening|closing|use|operation)
         )\b
       }ix,
       suitability: %r{
@@ -577,12 +586,21 @@ module AiAgents
       sanitized_answer = sanitize_reference_prices(retry_answer, tool_events)
       return sanitized_answer if sanitized_answer && safe_customer_facing_answer?(sanitized_answer, tool_events)
 
-      catalog_evidence_fallback_answer(tool_events, request_messages: request_messages)
+      catalog_evidence_fallback_answer(tool_events, request_messages: request_messages) ||
+        catalog_clarification_fallback_answer(tool_events, request_messages: request_messages)
     end
 
     def safe_customer_facing_answer?(answer, tool_events)
       !unsafe_customer_facing_answer?(answer) && !reference_price_leak?(answer, tool_events) &&
-        !unsupported_catalog_claim?(answer, tool_events)
+        !unsupported_catalog_claim?(answer, tool_events) && !excessive_catalog_questions?(answer, tool_events)
+    end
+
+    def excessive_catalog_questions?(answer, tool_events)
+      catalog_results(tool_events).present? && customer_question_count(answer) > 1
+    end
+
+    def customer_question_count(answer)
+      answer.gsub(%r{https?://[^\s)>]+}i, '').count('?')
     end
 
     def unsupported_catalog_claim?(answer, tool_events)
@@ -691,6 +709,44 @@ module AiAgents
                      ''
                    end
       "Şu ürün seçeneklerini buldum:\n\n#{lines.join("\n")}#{price_note}\n\nHangisini daha ayrıntılı incelemek istersiniz?"
+    end
+
+    def catalog_clarification_fallback_answer(tool_events, request_messages: [])
+      groups = scoped_catalog_fallback_groups(catalog_clarification_fallback_groups(tool_events), request_messages)
+      options = diverse_catalog_clarification_options(groups)
+      return if options.empty?
+
+      "Şu kategori seçenekleri eşleşiyor: #{options.join(', ')}. Hangisini incelemek istersiniz?"
+    end
+
+    def catalog_clarification_fallback_groups(tool_events)
+      catalog_results(tool_events).flat_map do |result|
+        result = result.to_h.deep_stringify_keys
+        query_results = Array(result['queries']).select { |query_result| query_result.is_a?(Hash) }
+        query_results = [result] if query_results.empty?
+
+        query_results.filter_map do |query_result|
+          query_result = query_result.deep_stringify_keys
+          next unless query_result['result_type'] == 'clarify_category'
+
+          options = Array(query_result['buckets']).filter_map do |bucket|
+            next unless bucket.is_a?(Hash)
+
+            bucket.deep_stringify_keys['label'].to_s.squish.presence
+          end.uniq
+          next if options.empty?
+
+          { query: query_result['query'].to_s, options: options }
+        end
+      end
+    end
+
+    def diverse_catalog_clarification_options(groups)
+      option_groups = groups.pluck(:options).reject(&:empty?)
+      return [] if option_groups.empty?
+      return option_groups.first.first(3) if option_groups.one?
+
+      option_groups.filter_map(&:first).uniq.first(3)
     end
 
     def catalog_fallback_candidate_groups(tool_events)

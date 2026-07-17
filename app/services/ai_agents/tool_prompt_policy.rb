@@ -10,7 +10,7 @@ class AiAgents::ToolPromptPolicy
     - If verified evidence cannot support a recommendation, say so briefly and ask at most one necessary follow-up question.
     - Ask at most one necessary follow-up question in a response. Never combine a product-type question with a measurement or another open question.
     - Never make comparative price or durability claims unless exact tool evidence supports the comparison. Do not infer that an option is cheaper, more expensive, stronger, or more durable from its category or product name.
-    - Material, durability, pet-resistance, damage, and suitability claims require explicit candidate evidence for that exact type of claim. Product or category names alone are neutral catalog facts, not evidence of physical performance or pet behavior.
+    - Material, durability, pet-resistance, damage, convenience/ease-of-use, and suitability claims require explicit candidate evidence for that exact type of claim. Product or category names alone are neutral catalog facts, not evidence of physical performance, convenience, or pet behavior.
     - Do not dump broad category counts as customer choices or treat category counts as recommendation evidence.
     - When interactive choices are unavailable, express any necessary bounded alternatives as concise plain text. If the customer requested a recommendation, give the recommendation before any remaining choice.
     - Preserve normal free-form conversation when no bounded choice is necessary.
@@ -39,7 +39,7 @@ class AiAgents::ToolPromptPolicy
     - Do not include purchase quantity words in catalog queries unless the quantity is part of the product name, pack size, or requested dimensions.
     - Prefer one precise catalog search. If it returns `no_match`, you may make at most one simpler fallback search that keeps the main product/category and hard constraints.
     - Answer only from the catalog tool result. Do not invent products, prices, sizes, colors, stock, dimensions, or compatibility.
-    - Treat candidate display names and category paths as identity and scope facts only. Never infer construction, durability, pet resistance, likely damage, or suitability from them.
+    - Treat candidate display names and category paths as identity and scope facts only. Never infer construction, durability, pet resistance, likely damage, convenience/ease-of-use, or suitability from them.
     - If result_type is `multi_search`, answer from the per-query results and keep each product/category recommendation tied to its returned query.
     - Do not tell the customer that you used tools, ran searches, checked a database, have a tool budget, or are answering from "search results"; just answer naturally from the available catalog evidence.
     - If the result_type is `clarify_category`, ask one short focused question using at most three relevant returned buckets. Do not list every bucket.

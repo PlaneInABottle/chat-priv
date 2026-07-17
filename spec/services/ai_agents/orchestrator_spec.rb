@@ -545,6 +545,157 @@ RSpec.describe AiAgents::Orchestrator do
     expect(AiAgentLlmCall.last.step).to eq('customer_facing_finalizer')
   end
 
+  it 'falls back to exact category choices when category-only finalizers exhaust' do
+    ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'] } })
+    api_inbox = create(:inbox, account: account, channel: create(:channel_api, account: account))
+    api_conversation = create(:conversation, account: account, inbox: api_inbox)
+    api_trigger_message = create(
+      :message,
+      account: account,
+      inbox: api_inbox,
+      conversation: api_conversation,
+      message_type: 'incoming',
+      sender: api_conversation.contact
+    )
+    tool_result = {
+      status: 'ok',
+      result_type: 'multi_search',
+      result_count: 0,
+      candidates: [],
+      queries: [
+        {
+          query: 'balkon kapısı sineklik',
+          result_type: 'no_match',
+          result_count: 0,
+          candidates: []
+        },
+        {
+          query: 'akordiyon sineklik',
+          result_type: 'clarify_category',
+          result_count: 0,
+          candidates: [],
+          buckets: [
+            { label: 'Double Akordiyon Kapı Sineklikleri', group_count: 6 },
+            { label: 'Double Akordiyon Pencere Sineklikleri', group_count: 4 },
+            { label: 'Pileli Kapı Sineklikleri', group_count: 3 }
+          ]
+        },
+        {
+          query: 'menteşeli sineklik',
+          result_type: 'clarify_category',
+          result_count: 0,
+          candidates: [],
+          buckets: [
+            { label: 'Menteşeli Kapı Sineklikleri', group_count: 3 },
+            { label: 'Menteşeli Pencere Sinekliği', group_count: 2 }
+          ]
+        }
+      ]
+    }
+    tool_execution = AiAgents::ToolExecutor::Result.new(
+      status: 'executed',
+      tool_event: {
+        'tool' => 'ikas_catalog_search',
+        'status' => 'ok',
+        'tool_call_id' => 'category-only-catalog',
+        'result' => tool_result.deep_stringify_keys
+      },
+      tool_result: tool_result
+    )
+    allow(AiAgents::ToolExecutor).to receive(:new).and_return(
+      instance_double(AiAgents::ToolExecutor, execute: tool_execution)
+    )
+    unsafe_claim = 'Kediniz için menteşeli sineklikler daha sağlam ve dayanıklı olabilir; ' \
+                   'akordiyon/pileli modeller ise açılıp kapanma kolaylığı sağlar.'
+    allow(adapter).to receive(:perform).and_return(
+      {
+        assistant_text: nil,
+        tool_calls: [{
+          id: 'category-only-catalog',
+          type: 'function',
+          name: 'ikas_catalog_search',
+          arguments: {
+            queries: ['balkon kapısı sineklik', 'akordiyon sineklik', 'menteşeli sineklik']
+          }.to_json
+        }],
+        finish_reason: 'tool_calls'
+      },
+      { assistant_text: unsafe_claim, tool_calls: [], finish_reason: 'stop' },
+      { assistant_text: unsafe_claim, tool_calls: [], finish_reason: 'stop' },
+      { assistant_text: unsafe_claim, tool_calls: [], finish_reason: 'stop' }
+    )
+
+    result = described_class.new(
+      ai_agent: ai_agent.reload,
+      messages: [{ role: 'user', content: 'Balkon kapısı için akordiyon mu menteşeli mi, sen öner.' }],
+      mode: :live,
+      conversation: api_conversation,
+      trigger_message: api_trigger_message,
+      adapter: adapter
+    ).perform
+
+    content = result[:assistant_message]['content']
+    finalizer_steps = AiAgentLlmCall.where(conversation: api_conversation).order(:id).pluck(:step).last(2)
+
+    expect(finalizer_steps).to eq(%w[customer_facing_finalizer customer_facing_finalizer_retry])
+    expect(result[:terminal_action]).to be_nil
+    expect(result[:tool_events].map { |event| event['tool'] }).to eq(['ikas_catalog_search'])
+    expect(content).to include('Double Akordiyon Kapı Sineklikleri', 'Menteşeli Kapı Sineklikleri')
+    expect(content).not_to include(
+      'Double Akordiyon Pencere Sineklikleri',
+      'Menteşeli Pencere Sinekliği',
+      'daha sağlam',
+      'dayanıklı',
+      'açılıp kapanma kolaylığı'
+    )
+    expect(content.count('?')).to eq(1)
+    expect(adapter).to have_received(:perform).exactly(4).times
+  end
+
+  it 'requires evidence and at most one question for category-only answers' do
+    orchestrator = described_class.new(ai_agent: ai_agent, messages: [], mode: :test, adapter: adapter)
+    tool_events = [{
+      'tool' => 'ikas_catalog_search',
+      'status' => 'ok',
+      'result' => {
+        'status' => 'ok',
+        'result_type' => 'clarify_category',
+        'buckets' => [{ 'label' => 'Pileli Kapı Sineklikleri', 'group_count' => 3 }]
+      }
+    }]
+
+    expect(
+      orchestrator.send(:safe_customer_facing_answer?, 'Pileli modeller açılıp kapanma kolaylığı sağlar.', tool_events)
+    ).to be(false)
+    expect(
+      orchestrator.send(:safe_customer_facing_answer?, 'Pileli mi istersiniz? Kapı ölçünüz nedir?', tool_events)
+    ).to be(false)
+  end
+
+  it 'ignores catalog URL query markers when enforcing one customer question' do
+    orchestrator = described_class.new(ai_agent: ai_agent, messages: [], mode: :test, adapter: adapter)
+    accordion_url = 'https://example.test/akordiyon-kapi?%22RENK%22=ANTRASIT'
+    hinged_url = 'https://example.test/menteseli-kapi?%22RENK%22=GRI'
+    tool_events = [{
+      'tool' => 'ikas_catalog_search',
+      'status' => 'ok',
+      'result' => {
+        'status' => 'ok',
+        'result_type' => 'show_candidates',
+        'candidates' => [
+          { 'display_name' => 'Akordiyon Kapı Sinekliği', 'link' => { 'url' => accordion_url } },
+          { 'display_name' => 'Menteşeli Kapı Sinekliği', 'link' => { 'url' => hinged_url } }
+        ]
+      }
+    }]
+    links = "[Akordiyon](#{accordion_url}) ve [Menteşeli](#{hinged_url})."
+
+    expect(orchestrator.send(:safe_customer_facing_answer?, "#{links} Hangisini istersiniz?", tool_events)).to be(true)
+    expect(
+      orchestrator.send(:safe_customer_facing_answer?, "#{links} Hangisini istersiniz? Ölçünüz nedir?", tool_events)
+    ).to be(false)
+  end
+
   it 'allows catalog comparisons backed by exact candidate evidence' do
     orchestrator = described_class.new(
       ai_agent: ai_agent,
