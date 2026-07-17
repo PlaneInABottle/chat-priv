@@ -150,6 +150,7 @@ module AiAgents
       @adapter = adapter || default_adapter
       @executed_tool_keys = Set.new
       @executed_tool_counts = Hash.new(0)
+      @catalog_search_queries_truncated = 0
       @unknown_tool_correction_attempts = 0
     end
 
@@ -170,8 +171,7 @@ module AiAgents
 
         return text_result(response, request_messages: request_messages, tool_events: tool_events) if response[:tool_calls].blank?
 
-        tool_calls = tool_calls_to_execute(response[:tool_calls])
-        rejection_code = tool_request_rejection_code(tool_calls)
+        tool_calls, rejection_code = bounded_tool_calls(response[:tool_calls])
         return rejected_tool_request_result(request_messages, tool_events, rejection_code) if rejection_code
 
         tool_executions = tool_calls.map { |tool_call| execute_tool_call(tool_call, tool_events) }
@@ -208,7 +208,8 @@ module AiAgents
     private
 
     attr_reader :ai_agent, :messages, :mode, :conversation, :trigger_message, :adapter, :config, :executed_tool_keys,
-                :executed_tool_counts, :prompt_override, :runtime_config, :runtime_knowledge_sources, :improvement_operation, :initiated_by
+                :executed_tool_counts, :catalog_search_queries_truncated, :prompt_override, :runtime_config, :runtime_knowledge_sources,
+                :improvement_operation, :initiated_by
 
     def resolve_knowledge_sources(override)
       sources = if !override.nil?
@@ -1025,12 +1026,58 @@ module AiAgents
       tool_calls
     end
 
+    def bounded_tool_calls(tool_calls)
+      selected_calls = tool_calls_to_execute(tool_calls)
+      return [selected_calls, 'too_many_tool_calls'] if selected_calls.size > MAX_TOOL_CALLS_PER_RESPONSE
+
+      fitted_calls = fit_catalog_search_calls_to_remaining_budget(selected_calls)
+      [fitted_calls, tool_request_rejection_code(fitted_calls)]
+    end
+
     def tool_request_rejection_code(tool_calls)
       return 'too_many_tool_calls' if tool_calls.size > MAX_TOOL_CALLS_PER_RESPONSE
 
       return 'tool_budget_exhausted' if tool_budget_exhausted?(tool_calls)
 
       nil
+    end
+
+    def fit_catalog_search_calls_to_remaining_budget(tool_calls)
+      remaining_units = remaining_tool_budget(AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL)
+      return tool_calls unless remaining_units.positive?
+
+      requested_units = tool_calls.sum do |tool_call|
+        tool_key_for(tool_call) == AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL ? tool_call_budget_cost(tool_call) : 0
+      end
+      return tool_calls if requested_units <= remaining_units
+
+      tool_calls.filter_map do |tool_call|
+        next tool_call unless tool_key_for(tool_call) == AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL
+
+        requested_call_units = tool_call_budget_cost(tool_call)
+        if requested_call_units <= remaining_units
+          remaining_units -= requested_call_units
+          next tool_call
+        end
+
+        retained_call = catalog_search_tool_call_with_query_limit(tool_call, remaining_units)
+        retained_units = retained_call ? tool_call_budget_cost(retained_call) : 0
+        @catalog_search_queries_truncated += requested_call_units - retained_units
+        remaining_units -= retained_units
+        retained_call
+      end
+    end
+
+    def catalog_search_tool_call_with_query_limit(tool_call, query_limit)
+      return unless query_limit.positive?
+
+      args = parsed_tool_arguments(tool_call)
+      queries = Array(args['queries']).filter_map { |query| query.to_s.strip.presence }.uniq.first(MAX_CATALOG_SEARCH_QUERY_UNITS)
+      return tool_call if queries.empty?
+
+      args['queries'] = queries.first(query_limit)
+      args.delete('query')
+      tool_call.merge(arguments: args.to_json)
     end
 
     def rejected_tool_request_result(request_messages, tool_events, rejection_code)
@@ -1307,6 +1354,7 @@ module AiAgents
     def turn_telemetry(tool_events:, budget_exhausted: false, final_answer_source: nil)
       {
         'catalog_search_units_used' => executed_tool_counts[AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL],
+        'catalog_search_queries_truncated' => catalog_search_queries_truncated,
         'knowledge_searches_used' => executed_tool_counts[AiAgents::Config::KNOWLEDGE_SEARCH_TOOL],
         'knowledge_sources_used' => source_attributions(tool_events).length,
         'order_lookup_used' => executed_tool_counts[AiAgents::Config::IKAS_LOOKUP_ORDER_TOOL],

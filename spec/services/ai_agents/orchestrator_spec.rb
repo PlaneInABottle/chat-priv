@@ -1867,6 +1867,121 @@ RSpec.describe AiAgents::Orchestrator do
     expect(result[:assistant_message]['turn_telemetry']['catalog_search_units_used']).to eq(3)
   end
 
+  it 'executes the ordered catalog queries that fit the remaining query budget' do
+    account.enable_features('ikas_integration')
+    account.save!
+    connection_status = instance_double(Integrations::Ikas::ConnectionStatus, payload: { state: 'connected' })
+    allow(Integrations::Ikas::ConnectionStatus).to receive(:new).with(account: account).and_return(connection_status)
+    ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'] } })
+
+    initial_result = {
+      status: 'ok',
+      query: 'balkon kapısı sineklik',
+      result_type: 'show_candidates',
+      result_count: 3,
+      candidates: [
+        { display_name: 'Akordeon Kapı Sineklik Altınmeşe' },
+        { display_name: 'Akordeon Kapı Sineklik Antrasit' },
+        { display_name: 'Akordeon Kapı Sineklik Beyaz' }
+      ]
+    }
+    follow_up_result = {
+      status: 'ok',
+      result_type: 'multi_search',
+      result_count: 1,
+      queries: [
+        {
+          status: 'ok',
+          query: 'menteşeli kapı sineklik',
+          result_type: 'show_candidates',
+          result_count: 1,
+          candidates: [{ display_name: 'Menteşeli Kapı Sineklik Antrasit' }]
+        },
+        {
+          status: 'ok',
+          query: 'balkon sineklik kedi',
+          result_type: 'no_match',
+          result_count: 0,
+          candidates: []
+        }
+      ]
+    }
+    catalog_requests = []
+    catalog_service = instance_double(AiAgents::Tools::IkasCatalogSearchService)
+    allow(catalog_service).to receive(:call) do |args:|
+      catalog_requests << args
+      [initial_result, follow_up_result].fetch(catalog_requests.length - 1)
+    end
+    allow(AiAgents::Tools::IkasCatalogSearchService).to receive(:new).and_return(catalog_service)
+
+    unsafe_claim = 'Menteşeli modeller daha dayanıklıdır; akordiyon modeller açılıp kapanma kolaylığı sağlar.'
+    calls = []
+    allow(adapter).to receive(:perform) do |payload|
+      calls << payload
+      case calls.length
+      when 1
+        {
+          assistant_text: nil,
+          tool_calls: [
+            {
+              id: 'catalog-initial',
+              type: 'function',
+              name: 'ikas_catalog_search',
+              arguments: { query: 'balkon kapısı sineklik' }.to_json
+            }
+          ],
+          finish_reason: 'tool_calls'
+        }
+      when 2
+        {
+          assistant_text: nil,
+          tool_calls: [
+            {
+              id: 'catalog-follow-up',
+              type: 'function',
+              name: 'ikas_catalog_search',
+              arguments: {
+                queries: ['menteşeli kapı sineklik', 'balkon sineklik kedi', 'akordiyon sineklik kapı']
+              }.to_json
+            }
+          ],
+          finish_reason: 'tool_calls'
+        }
+      else
+        { assistant_text: unsafe_claim, tool_calls: [], finish_reason: 'stop' }
+      end
+    end
+
+    result = described_class.new(
+      ai_agent: ai_agent.reload,
+      messages: [{ role: 'user', content: 'Balkon kapısı için akordiyon mu menteşeli mi? Kedim var; ikisini de göster.' }],
+      mode: :live,
+      conversation: conversation,
+      trigger_message: trigger_message,
+      adapter: adapter
+    ).perform
+
+    retained_queries = ['menteşeli kapı sineklik', 'balkon sineklik kedi']
+    expected_requests = [
+      { 'query' => 'balkon kapısı sineklik' },
+      { 'queries' => retained_queries }
+    ]
+    persisted_arguments = AiAgentToolExecution.where(conversation: conversation, tool_key: 'ikas_catalog_search').order(:id).pluck(:arguments)
+
+    expect(catalog_requests).to eq(expected_requests)
+    expect(persisted_arguments).to eq(expected_requests)
+    expect(result[:tool_events].map { |event| event['tool'] }).to eq(%w[ikas_catalog_search ikas_catalog_search])
+    expect(result[:assistant_message]['content']).to include('Akordeon Kapı Sineklik Altınmeşe', 'Menteşeli Kapı Sineklik Antrasit')
+    expect(result[:assistant_message]['turn_telemetry']).to include(
+      'catalog_search_units_used' => 3,
+      'catalog_search_queries_truncated' => 1
+    )
+    expect(catalog_requests.flat_map { |request| request['queries'] || request['query'] }).to eq(
+      ['balkon kapısı sineklik', *retained_queries]
+    )
+    expect(adapter).to have_received(:perform).exactly(5).times
+  end
+
   it 'finalizes without tools when the catalog search budget is exhausted' do
     ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'] } })
     tool_execution = AiAgents::ToolExecutor::Result.new(
