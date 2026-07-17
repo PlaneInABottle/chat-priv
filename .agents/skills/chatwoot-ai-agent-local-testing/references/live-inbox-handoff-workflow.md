@@ -1,4 +1,4 @@
-# Live Inbox Handoff Workflow
+# Live Inbox and Handoff Workflow
 
 ## Contents
 
@@ -16,16 +16,26 @@
 - Confirm local Chatwoot runtime health and seeded browser login first through `chatwoot-ai-native-test`.
 - Use repo command entrypoints from `chatwoot-dev-runbook` instead of restating them here.
 - Use the existing AI-agent controller path, not the legacy inbox `set_agent_bot` path, for AI inbox binding.
+- Discover the current target instead of assuming an account, AI-agent, or inbox ID:
+
+```bash
+.agents/skills/chatwoot-ai-native-test/scripts/with-chatwoot-env.sh bundle exec rails runner '
+  AiAgent.includes(agent_bot: { inboxes: :channel }).find_each do |agent|
+    inboxes = agent.agent_bot&.inboxes.to_a.map { |inbox| { id: inbox.id, name: inbox.name, channel: inbox.channel_type } }
+    puts({ account_id: agent.account_id, ai_agent_id: agent.id, name: agent.name, enabled: agent.enabled?, inboxes: inboxes }.to_json)
+  end
+'
+```
 
 ## Supported runtime path
 
 1. Snapshot the current AI agent with `GET /api/v1/accounts/:account_id/ai_agents/:id`.
-2. Prefer the existing valid AI agent record such as `Browser Verify Bot`.
-3. Update it with only current schema keys:
+2. Select an existing valid agent and compatible test inbox from the discovery output.
+3. If the scenario requires a prompt change, update only current schema keys and retain the complete original response for restoration:
 
 ```json
 {
-  "name": "Browser Verify Bot",
+  "name": "<existing agent name>",
   "enabled": true,
   "prompt": "If the customer asks for a human, refund, escalation, billing dispute, or says the phrase HANDOFF NOW, call the human_handoff tool immediately. For the tool call, use a short customer_message, a short internal_note, reason that quotes the trigger, and labels only from the allowed list. Otherwise answer briefly.",
   "config": {
@@ -36,16 +46,16 @@
       }
     }
   },
-  "inbox_ids": [617]
+  "inbox_ids": ["<verified inbox id>"]
 }
 ```
 
-4. Verify the saved response shows inbox `617` under `agent_bot.inbox_ids`.
+4. Verify the saved response shows the target under `agent_bot.inbox_ids`.
 5. Verify the binding directly in `agent_bot_inboxes` before sending messages.
 
 ## Real inbound demo flow
 
-1. Create a public contact on inbox `617`.
+1. Create a public contact on the verified API or widget inbox.
 2. Create a public conversation for that contact.
 3. Post an incoming public message through `/public/api/v1/inboxes/:inbox_identifier/contacts/:source_id/conversations/:display_id/messages`.
 4. For the handoff proof, use a deterministic trigger such as `HANDOFF NOW: I need a human for my billing dispute.`
@@ -55,7 +65,7 @@
 
 ## Public API message flow
 
-- Use `Channel::Api#identifier` in the public URL, not the numeric inbox id. The local API inbox has recently been `inbox_id: 617` with a channel identifier like `WvZYu8B6poDtexcHSVmnPm1d`; verify it with `Channel::Api.includes(:inbox)` before use.
+- Use `Channel::Api#identifier` in the public URL, not the numeric inbox id. Discover it with `Channel::Api.includes(:inbox)` and do not copy identifiers into durable documentation.
 - Contact create path: `POST /public/api/v1/inboxes/:identifier/contacts`.
 - Conversation create path: `POST /public/api/v1/inboxes/:identifier/contacts/:source_id/conversations`.
 - Message create path: `POST /public/api/v1/inboxes/:identifier/contacts/:source_id/conversations/:display_id/messages`.
@@ -104,5 +114,5 @@
 ## Rollback
 
 1. Restore the pre-demo AI agent payload through the same `PATCH /api/v1/accounts/:account_id/ai_agents/:id` path.
-2. Restore prior `inbox_ids` exactly, or clear `617` if it was newly attached for the demo.
+2. Restore prior `inbox_ids` exactly, or remove the verified target inbox if it was newly attached for the demo.
 3. Keep test conversation IDs for traceability instead of deleting runtime evidence unless the user explicitly asks.
