@@ -281,153 +281,6 @@ RSpec.describe AiAgents::Orchestrator do
     expect(adapter).to have_received(:perform).with(hash_including(max_tokens: 4_096)).once
   end
 
-  it 'uses larger incomplete retries and catalog evidence after customer-facing finalizers exhaust' do
-    ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'] } })
-    catalog_results = [
-      {
-        status: 'ok',
-        query: 'akordiyon sineklik kapı',
-        result_type: 'show_candidates',
-        result_count: 2,
-        candidates: [
-          {
-            display_name: 'Akordiyon Kapı Sinekliği Antrasit',
-            link: { url: 'https://example.test/akordiyon-kapi-antrasit' },
-            price: { reference_amount: 2637, currency: 'TRY', final_total_known: false }
-          },
-          { display_name: 'Akordiyon Kapı Sinekliği Gri' }
-        ]
-      },
-      {
-        status: 'ok',
-        query: 'menteşeli sineklik kapı',
-        result_type: 'show_candidates',
-        result_count: 2,
-        candidates: [
-          {
-            display_name: 'Menteşeli Kapı Sinekliği Antrasit',
-            link: { url: 'https://example.test/menteseli-kapi-antrasit' },
-            price: { reference_amount: 1233.84, currency: 'TRY', final_total_known: false }
-          },
-          { display_name: 'Menteşeli Kapı Sinekliği Gri' }
-        ]
-      }
-    ]
-    tool_executions = catalog_results.each_with_index.map do |tool_result, index|
-      AiAgents::ToolExecutor::Result.new(
-        status: 'executed',
-        tool_event: {
-          'tool' => 'ikas_catalog_search',
-          'status' => 'ok',
-          'tool_call_id' => "catalog-#{index + 1}",
-          'result' => tool_result.deep_stringify_keys
-        },
-        tool_result: tool_result
-      )
-    end
-    executor = instance_double(AiAgents::ToolExecutor)
-    allow(executor).to receive(:execute).and_return(*tool_executions)
-    allow(AiAgents::ToolExecutor).to receive(:new).and_return(executor)
-
-    unsafe_claim = 'Menteşeli modeller sert çerçeveli olduğu için kedi tırmalasa da ezilmez, ' \
-                   'akordiyon modeller ise kedi tırmanırsa sarkabilir veya hasar görebilir.'
-    calls = []
-    allow(adapter).to receive(:perform) do |**payload|
-      calls << payload
-      case calls.length
-      when 1
-        {
-          assistant_text: nil,
-          tool_calls: [
-            {
-              id: 'catalog-1',
-              type: 'function',
-              name: 'ikas_catalog_search',
-              arguments: { query: 'akordiyon sineklik kapı' }.to_json
-            },
-            {
-              id: 'catalog-2',
-              type: 'function',
-              name: 'ikas_catalog_search',
-              arguments: { query: 'menteşeli sineklik kapı' }.to_json
-            }
-          ],
-          finish_reason: 'tool_calls'
-        }
-      when 2
-        { assistant_text: unsafe_claim, tool_calls: [], finish_reason: 'stop' }
-      when 3
-        { assistant_text: 'Balkon kapınız için bulduğum ürün', tool_calls: [], finish_reason: 'length' }
-      when 4
-        { assistant_text: nil, tool_calls: [], finish_reason: 'length' }
-      when 5
-        { assistant_text: 'İki seçenek arasından', tool_calls: [], finish_reason: 'length' }
-      else
-        { assistant_text: unsafe_claim, tool_calls: [], finish_reason: 'stop' }
-      end
-    end
-
-    result = described_class.new(
-      ai_agent: ai_agent.reload,
-      messages: [{ role: 'user', content: 'Balkon kapısı için akordiyon mu menteşeli mi, ikisini de göster.' }],
-      mode: :live,
-      conversation: conversation,
-      trigger_message: trigger_message,
-      adapter: adapter
-    ).perform
-
-    finalizer_steps = %w[
-      customer_facing_finalizer
-      customer_facing_finalizer_incomplete_retry
-      customer_facing_finalizer_retry
-      customer_facing_finalizer_retry_incomplete_retry
-    ]
-    finalizer_logs = AiAgentLlmCall.where(conversation: conversation, step: finalizer_steps).order(:id)
-    content = result[:assistant_message]['content']
-
-    expect(finalizer_logs.pluck(:step)).to eq(finalizer_steps)
-    expect(finalizer_logs.map { |log| log.response['request_options'] }).to eq(
-      [nil, { 'max_tokens' => 4_096 }, nil, { 'max_tokens' => 4_096 }]
-    )
-    expect(calls.values_at(3, 5).pluck(:max_tokens)).to eq([4_096, 4_096])
-    expect(result[:terminal_action]).to be_nil
-    expect(result[:tool_events].map { |event| event['tool'] }).to eq(%w[ikas_catalog_search ikas_catalog_search])
-    expect(content).to include('Akordiyon Kapı Sinekliği Antrasit', 'Menteşeli Kapı Sinekliği Antrasit')
-    expect(content).not_to include('sert çerçeveli', 'ezilmez', 'sarkabilir', 'hasar görebilir', 'bulduğum ürün')
-    expect(content.lines.grep(/^- /).size).to eq(3)
-    expect(adapter).to have_received(:perform).exactly(6).times
-  end
-
-  it 'hands off when customer-facing finalizers exhaust without catalog candidates' do
-    allow(adapter).to receive(:perform).and_return(
-      { assistant_text: 'Eksik yanıt', tool_calls: [], finish_reason: 'length' },
-      { assistant_text: nil, tool_calls: [], finish_reason: 'length' },
-      { assistant_text: 'Yine eksik', tool_calls: [], finish_reason: 'length' },
-      { assistant_text: nil, tool_calls: [], finish_reason: 'length' }
-    )
-    orchestrator = described_class.new(
-      ai_agent: ai_agent,
-      messages: [{ role: 'user', content: 'Bir ürün önerir misin?' }],
-      mode: :test,
-      adapter: adapter
-    )
-    tool_events = [{
-      'tool' => 'ikas_catalog_search',
-      'result' => { 'result_type' => 'show_candidates', 'result_count' => 0, 'candidates' => [] }
-    }]
-
-    result = orchestrator.send(
-      :text_result,
-      { assistant_text: 'Bu model en dayanıklı seçenektir.', tool_calls: [], finish_reason: 'stop' },
-      request_messages: [{ role: 'user', content: 'Bir ürün önerir misin?' }],
-      tool_events: tool_events
-    )
-
-    expect(result[:terminal_action]).to eq('handoff')
-    expect(result[:tool_events].last['tool']).to eq('human_handoff')
-    expect(adapter).to have_received(:perform).exactly(4).times
-  end
-
   it 'keeps multi-search fallback diverse and within the latest customer scope' do
     orchestrator = described_class.new(
       ai_agent: ai_agent,
@@ -466,6 +319,64 @@ RSpec.describe AiAgents::Orchestrator do
     expect(content.lines.grep(/^- /).size).to eq(3)
   end
 
+  it 'keeps requested candidate and clarification scopes in deterministic fallback' do
+    orchestrator = described_class.new(
+      ai_agent: ai_agent,
+      messages: [{ role: 'user', content: 'Balkon kapısı için akordiyon mu menteşeli mi, ikisini de göster.' }],
+      mode: :test,
+      adapter: adapter
+    )
+    tool_events = [{
+      'tool' => 'ikas_catalog_search',
+      'result' => {
+        'result_type' => 'multi_search',
+        'queries' => [
+          {
+            'query' => 'balkon kapısı sineklik',
+            'result_type' => 'show_candidates',
+            'candidates' => [{ 'display_name' => 'Akordiyon Kapı Sinekliği' }]
+          },
+          {
+            'query' => 'akordiyon sineklik',
+            'result_type' => 'clarify_category',
+            'buckets' => [{ 'label' => 'Akordiyon Kapı Sineklikleri' }]
+          },
+          {
+            'query' => 'menteşeli sineklik',
+            'result_type' => 'clarify_category',
+            'buckets' => [{ 'label' => 'Menteşeli Kapı Sineklikleri' }]
+          }
+        ]
+      }
+    }]
+    request_messages = [{ role: 'user', content: 'Balkon kapısı için akordiyon mu menteşeli mi, ikisini de göster.' }]
+
+    content = orchestrator.send(:catalog_mixed_scope_fallback_answer, tool_events, request_messages: request_messages)
+
+    expect(content).to include('Akordiyon Kapı Sinekliği', 'Menteşeli Kapı Sineklikleri')
+    expect(content.count('?')).to eq(1)
+  end
+
+  it 'renders exact returned categories when clarification fallback is required' do
+    orchestrator = described_class.new(ai_agent: ai_agent, messages: [], mode: :test, adapter: adapter)
+    tool_events = [{
+      'tool' => 'ikas_catalog_search',
+      'result' => {
+        'result_type' => 'clarify_category',
+        'query' => 'kapı sineklik',
+        'buckets' => [
+          { 'label' => 'Menteşeli Kapı Sineklikleri' },
+          { 'label' => 'Akordiyon Kapı Sineklikleri' }
+        ]
+      }
+    }]
+
+    content = orchestrator.send(:catalog_clarification_fallback_answer, tool_events)
+
+    expect(content).to include('Menteşeli Kapı Sineklikleri', 'Akordiyon Kapı Sineklikleri')
+    expect(content.count('?')).to eq(1)
+  end
+
   it 'does not return an answer that remains cut off after its retry' do
     allow(adapter).to receive(:perform).and_return(
       { assistant_text: 'Merhaba, tale', tool_calls: [], finish_reason: 'length' },
@@ -484,357 +395,7 @@ RSpec.describe AiAgents::Orchestrator do
     expect(adapter).to have_received(:perform).twice
   end
 
-  it 'finalizes comparative catalog claims that lack exact product evidence' do
-    ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'] } })
-    tool_result = {
-      status: 'ok',
-      result_type: 'multi_search',
-      queries: [
-        { query: 'akordiyon sineklik', result_type: 'clarify_category', result_count: 0, candidates: [] },
-        { query: 'menteşeli sineklik', result_type: 'clarify_category', result_count: 0, candidates: [] }
-      ]
-    }
-    tool_execution = AiAgents::ToolExecutor::Result.new(
-      status: 'executed',
-      tool_event: {
-        'tool' => 'ikas_catalog_search',
-        'status' => 'ok',
-        'tool_call_id' => 'catalog-1',
-        'result' => tool_result.deep_stringify_keys
-      },
-      tool_result: tool_result
-    )
-    allow(AiAgents::ToolExecutor).to receive(:new).and_return(
-      instance_double(AiAgents::ToolExecutor, execute: tool_execution)
-    )
-    allow(adapter).to receive(:perform).and_return(
-      {
-        assistant_text: nil,
-        tool_calls: [
-          {
-            id: 'catalog-1',
-            type: 'function',
-            name: 'ikas_catalog_search',
-            arguments: { queries: ['akordiyon sineklik', 'menteşeli sineklik'] }.to_json
-          }
-        ],
-        finish_reason: 'tool_calls'
-      },
-      {
-        assistant_text: 'Menteşeli daha sağlam, akordiyon daha ekonomik olabilir. Hangisini istersiniz? Ölçünüz nedir?',
-        tool_calls: [],
-        finish_reason: 'stop'
-      },
-      {
-        assistant_text: 'Bu iki tipi fiyat veya dayanıklılık açısından karşılaştıracak doğrulanmış ürün bilgisi yok. Kapı ölçünüzü biliyor musunuz?',
-        tool_calls: [],
-        finish_reason: 'stop'
-      }
-    )
-
-    result = described_class.new(
-      ai_agent: ai_agent.reload,
-      messages: [{ role: 'user', content: 'Kedi var ve bütçem düşük; akordiyon mu menteşeli mi, sen öner' }],
-      mode: :test,
-      adapter: adapter
-    ).perform
-
-    content = result[:assistant_message]['content']
-    expect(content).to include('doğrulanmış ürün bilgisi yok')
-    expect(content).not_to include('daha sağlam', 'daha ekonomik')
-    expect(AiAgentLlmCall.last.step).to eq('customer_facing_finalizer')
-  end
-
-  it 'falls back to exact category choices when category-only finalizers exhaust' do
-    ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'] } })
-    api_inbox = create(:inbox, account: account, channel: create(:channel_api, account: account))
-    api_conversation = create(:conversation, account: account, inbox: api_inbox)
-    api_trigger_message = create(
-      :message,
-      account: account,
-      inbox: api_inbox,
-      conversation: api_conversation,
-      message_type: 'incoming',
-      sender: api_conversation.contact
-    )
-    tool_result = {
-      status: 'ok',
-      result_type: 'multi_search',
-      result_count: 0,
-      candidates: [],
-      queries: [
-        {
-          query: 'balkon kapısı sineklik',
-          result_type: 'no_match',
-          result_count: 0,
-          candidates: []
-        },
-        {
-          query: 'akordiyon sineklik',
-          result_type: 'clarify_category',
-          result_count: 0,
-          candidates: [],
-          buckets: [
-            { label: 'Double Akordiyon Kapı Sineklikleri', group_count: 6 },
-            { label: 'Double Akordiyon Pencere Sineklikleri', group_count: 4 },
-            { label: 'Pileli Kapı Sineklikleri', group_count: 3 }
-          ]
-        },
-        {
-          query: 'menteşeli sineklik',
-          result_type: 'clarify_category',
-          result_count: 0,
-          candidates: [],
-          buckets: [
-            { label: 'Menteşeli Kapı Sineklikleri', group_count: 3 },
-            { label: 'Menteşeli Pencere Sinekliği', group_count: 2 }
-          ]
-        }
-      ]
-    }
-    tool_execution = AiAgents::ToolExecutor::Result.new(
-      status: 'executed',
-      tool_event: {
-        'tool' => 'ikas_catalog_search',
-        'status' => 'ok',
-        'tool_call_id' => 'category-only-catalog',
-        'result' => tool_result.deep_stringify_keys
-      },
-      tool_result: tool_result
-    )
-    allow(AiAgents::ToolExecutor).to receive(:new).and_return(
-      instance_double(AiAgents::ToolExecutor, execute: tool_execution)
-    )
-    unsafe_claim = 'Kediniz için menteşeli sineklikler daha sağlam ve dayanıklı olabilir; ' \
-                   'akordiyon/pileli modeller ise açılıp kapanma kolaylığı sağlar.'
-    allow(adapter).to receive(:perform).and_return(
-      {
-        assistant_text: nil,
-        tool_calls: [{
-          id: 'category-only-catalog',
-          type: 'function',
-          name: 'ikas_catalog_search',
-          arguments: {
-            queries: ['balkon kapısı sineklik', 'akordiyon sineklik', 'menteşeli sineklik']
-          }.to_json
-        }],
-        finish_reason: 'tool_calls'
-      },
-      { assistant_text: unsafe_claim, tool_calls: [], finish_reason: 'stop' },
-      { assistant_text: unsafe_claim, tool_calls: [], finish_reason: 'stop' },
-      { assistant_text: unsafe_claim, tool_calls: [], finish_reason: 'stop' }
-    )
-
-    result = described_class.new(
-      ai_agent: ai_agent.reload,
-      messages: [{ role: 'user', content: 'Balkon kapısı için akordiyon mu menteşeli mi, sen öner.' }],
-      mode: :live,
-      conversation: api_conversation,
-      trigger_message: api_trigger_message,
-      adapter: adapter
-    ).perform
-
-    content = result[:assistant_message]['content']
-    finalizer_steps = AiAgentLlmCall.where(conversation: api_conversation).order(:id).pluck(:step).last(2)
-
-    expect(finalizer_steps).to eq(%w[customer_facing_finalizer customer_facing_finalizer_retry])
-    expect(result[:terminal_action]).to be_nil
-    expect(result[:tool_events].map { |event| event['tool'] }).to eq(['ikas_catalog_search'])
-    expect(content).to include('Double Akordiyon Kapı Sineklikleri', 'Menteşeli Kapı Sineklikleri')
-    expect(content).not_to include(
-      'Double Akordiyon Pencere Sineklikleri',
-      'Menteşeli Pencere Sinekliği',
-      'daha sağlam',
-      'dayanıklı',
-      'açılıp kapanma kolaylığı'
-    )
-    expect(content.count('?')).to eq(1)
-    expect(adapter).to have_received(:perform).exactly(4).times
-  end
-
-  it 'preserves explicitly requested category coverage in mixed catalog fallback' do
-    ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'] } })
-    tool_result = {
-      status: 'ok',
-      result_type: 'multi_search',
-      result_count: 3,
-      candidates: [],
-      queries: [
-        {
-          query: 'balkon kapısı sineklik',
-          result_type: 'show_candidates',
-          result_count: 3,
-          candidates: [
-            {
-              display_name: 'Akordeon Kapı Sineklik Altınmeşe',
-              category_paths: ['Sineklikler > Akordiyon Sineklikler > Pileli Kapı Sineklikleri']
-            },
-            {
-              display_name: 'Akordeon Kapı Sineklik Antrasit',
-              category_paths: ['Sineklikler > Akordiyon Sineklikler > Pileli Kapı Sineklikleri']
-            },
-            {
-              display_name: 'Akordeon Kapı Sineklik Beyaz',
-              category_paths: ['Sineklikler > Akordiyon Sineklikler > Pileli Kapı Sineklikleri']
-            }
-          ]
-        },
-        {
-          query: 'akordiyon sineklik',
-          result_type: 'clarify_category',
-          result_count: 0,
-          candidates: [],
-          buckets: [
-            { label: 'Double Akordiyon Kapı Sineklikleri', group_count: 6 },
-            { label: 'Double Akordiyon Pencere Sineklikleri', group_count: 4 },
-            { label: 'Pileli Kapı Sineklikleri', group_count: 3 }
-          ]
-        },
-        {
-          query: 'menteşeli sineklik',
-          result_type: 'clarify_category',
-          result_count: 0,
-          candidates: [],
-          buckets: [
-            { label: 'Menteşeli Kapı Sineklikleri', group_count: 3 },
-            { label: 'Menteşeli Pencere Sinekliği', group_count: 2 }
-          ]
-        }
-      ]
-    }
-    tool_execution = AiAgents::ToolExecutor::Result.new(
-      status: 'executed',
-      tool_event: {
-        'tool' => 'ikas_catalog_search',
-        'status' => 'ok',
-        'tool_call_id' => 'mixed-catalog',
-        'result' => tool_result.deep_stringify_keys
-      },
-      tool_result: tool_result
-    )
-    allow(AiAgents::ToolExecutor).to receive(:new).and_return(
-      instance_double(AiAgents::ToolExecutor, execute: tool_execution)
-    )
-    unsafe_claim = 'Menteşeli modeller daha dayanıklıdır; akordiyon modeller açılıp kapanma kolaylığı sağlar.'
-    allow(adapter).to receive(:perform).and_return(
-      {
-        assistant_text: nil,
-        tool_calls: [{
-          id: 'mixed-catalog',
-          type: 'function',
-          name: 'ikas_catalog_search',
-          arguments: {
-            queries: ['balkon kapısı sineklik', 'akordiyon sineklik', 'menteşeli sineklik']
-          }.to_json
-        }],
-        finish_reason: 'tool_calls'
-      },
-      { assistant_text: unsafe_claim, tool_calls: [], finish_reason: 'stop' },
-      { assistant_text: unsafe_claim, tool_calls: [], finish_reason: 'stop' },
-      { assistant_text: unsafe_claim, tool_calls: [], finish_reason: 'stop' }
-    )
-
-    result = described_class.new(
-      ai_agent: ai_agent.reload,
-      messages: [{ role: 'user', content: 'Balkon kapısı için akordiyon mu menteşeli mi, ikisini de göster.' }],
-      mode: :test,
-      adapter: adapter
-    ).perform
-
-    content = result[:assistant_message]['content']
-
-    expect(result[:terminal_action]).to be_nil
-    expect(result[:tool_events].map { |event| event['tool'] }).to eq(['ikas_catalog_search'])
-    expect(content).to include(
-      'Akordeon Kapı Sineklik Altınmeşe',
-      'Akordeon Kapı Sineklik Antrasit',
-      'Menteşeli Kapı Sineklikleri'
-    )
-    expect(content).not_to include(
-      'Akordeon Kapı Sineklik Beyaz',
-      'Double Akordiyon Kapı Sineklikleri',
-      'Menteşeli Pencere Sinekliği',
-      'dayanıklıdır',
-      'açılıp kapanma kolaylığı'
-    )
-    expect(content.lines.grep(/^- /).size).to eq(3)
-    expect(content.count('?')).to eq(1)
-    expect(adapter).to have_received(:perform).exactly(4).times
-  end
-
-  it 'requires evidence and at most one question for category-only answers' do
-    orchestrator = described_class.new(ai_agent: ai_agent, messages: [], mode: :test, adapter: adapter)
-    tool_events = [{
-      'tool' => 'ikas_catalog_search',
-      'status' => 'ok',
-      'result' => {
-        'status' => 'ok',
-        'result_type' => 'clarify_category',
-        'buckets' => [{ 'label' => 'Pileli Kapı Sineklikleri', 'group_count' => 3 }]
-      }
-    }]
-
-    expect(
-      orchestrator.send(:safe_customer_facing_answer?, 'Pileli modeller açılıp kapanma kolaylığı sağlar.', tool_events)
-    ).to be(false)
-    expect(
-      orchestrator.send(:safe_customer_facing_answer?, 'Pileli mi istersiniz? Kapı ölçünüz nedir?', tool_events)
-    ).to be(false)
-  end
-
-  it 'ignores catalog URL query markers when enforcing one customer question' do
-    orchestrator = described_class.new(ai_agent: ai_agent, messages: [], mode: :test, adapter: adapter)
-    accordion_url = 'https://example.test/akordiyon-kapi?%22RENK%22=ANTRASIT'
-    hinged_url = 'https://example.test/menteseli-kapi?%22RENK%22=GRI'
-    tool_events = [{
-      'tool' => 'ikas_catalog_search',
-      'status' => 'ok',
-      'result' => {
-        'status' => 'ok',
-        'result_type' => 'show_candidates',
-        'candidates' => [
-          { 'display_name' => 'Akordiyon Kapı Sinekliği', 'link' => { 'url' => accordion_url } },
-          { 'display_name' => 'Menteşeli Kapı Sinekliği', 'link' => { 'url' => hinged_url } }
-        ]
-      }
-    }]
-    links = "[Akordiyon](#{accordion_url}) ve [Menteşeli](#{hinged_url})."
-
-    expect(orchestrator.send(:safe_customer_facing_answer?, "#{links} Hangisini istersiniz?", tool_events)).to be(true)
-    expect(
-      orchestrator.send(:safe_customer_facing_answer?, "#{links} Hangisini istersiniz? Ölçünüz nedir?", tool_events)
-    ).to be(false)
-  end
-
-  it 'allows catalog comparisons backed by exact candidate evidence' do
-    orchestrator = described_class.new(
-      ai_agent: ai_agent,
-      messages: [{ role: 'user', content: 'İki ürünü karşılaştır' }],
-      mode: :test,
-      adapter: adapter
-    )
-    tool_events = [{
-      'tool' => 'ikas_catalog_search',
-      'result' => {
-        'candidates' => [
-          {
-            'display_name' => 'Model A',
-            'price' => { 'amount' => 1000, 'currency' => 'TRY', 'final_total_known' => true },
-            'evidence' => ['Model B ürününden daha dayanıklı']
-          },
-          {
-            'display_name' => 'Model B',
-            'price' => { 'amount' => 1500, 'currency' => 'TRY', 'final_total_known' => true }
-          }
-        ]
-      }
-    }]
-
-    expect(orchestrator.send(:safe_customer_facing_answer?, 'Model A daha ucuz.', tool_events)).to be(true)
-    expect(orchestrator.send(:safe_customer_facing_answer?, 'Model A daha dayanıklı.', tool_events)).to be(true)
-  end
-
-  it 'finalizes unsupported physical product claims while preserving neutral catalog facts' do
+  it 'returns free-form catalog reasoning without evidence finalization' do
     ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'] } })
     hinged_url = 'https://example.test/menteseli-kapi-sineklik'
     accordion_url = 'https://example.test/akordiyon-kapi-sineklik'
@@ -881,11 +442,9 @@ RSpec.describe AiAgents::Orchestrator do
     allow(AiAgents::ToolExecutor).to receive(:new).and_return(
       instance_double(AiAgents::ToolExecutor, execute: tool_execution)
     )
-    unsafe_claim = 'Menteşeli modeller sert çerçeveli olduğu için kedi tırmalasa da ezilmez, ' \
-                   'akordiyon/pileli modeller ise kedi tırmanırsa sarkabilir veya hasar görebilir.'
-    corrected_answer = 'Listelenen referans tutarlara göre Menteşeli Kapı Sineklik Antrasit, ' \
-                       'Akordiyon Kapı Sineklik Antrasit ürününe göre daha düşük görünüyor; nihai fiyat ölçü ve seçeneklere göre değişir. ' \
-                       "[Menteşeli](#{hinged_url}) [Akordiyon](#{accordion_url})"
+    physical_reasoning = 'Menteşeli modeller sert çerçeveli olduğu için kedi tırmalasa da ezilmez, ' \
+                         'akordiyon/pileli modeller ise kedi tırmanırsa sarkabilir veya hasar görebilir.'
+    free_form_answer = "Menteşeli kapı sinekliği kediniz için en uygun seçenektir. #{physical_reasoning}"
     calls = []
     allow(adapter).to receive(:perform) do |payload|
       calls << payload
@@ -903,13 +462,9 @@ RSpec.describe AiAgents::Orchestrator do
           finish_reason: 'tool_calls'
         }
       elsif calls.length == 2
-        {
-          assistant_text: "Menteşeli kapı sinekliği kediniz için en uygun seçenektir. #{unsafe_claim}",
-          tool_calls: [],
-          finish_reason: 'stop'
-        }
+        { assistant_text: free_form_answer, tool_calls: [], finish_reason: 'stop' }
       else
-        { assistant_text: corrected_answer, tool_calls: [], finish_reason: 'stop' }
+        raise 'catalog reasoning should not invoke evidence finalization'
       end
     end
 
@@ -920,61 +475,11 @@ RSpec.describe AiAgents::Orchestrator do
       adapter: adapter
     ).perform
 
-    content = result[:assistant_message]['content']
-    expect(content).to eq(corrected_answer)
-    expect(content).to include('Menteşeli Kapı Sineklik Antrasit', 'Akordiyon Kapı Sineklik Antrasit', hinged_url, accordion_url)
-    expect(content).to include('referans tutarlara göre', 'daha düşük')
-    expect(content).not_to include('sert çerçeveli', 'ezilmez', 'sarkabilir', 'hasar görebilir', 'en uygun')
-    expect(calls.third.fetch(:messages).pluck(:content).compact.join(' ')).to include('pet-resistance')
-    expect(AiAgentLlmCall.last.step).to eq('customer_facing_finalizer')
-  end
-
-  it 'guards Turkish and English physical claim families without blocking neutral catalog facts' do
-    orchestrator = described_class.new(ai_agent: ai_agent, messages: [], mode: :test, adapter: adapter)
-    empty_evidence_events = [{
-      'tool' => 'ikas_catalog_search',
-      'result' => {
-        'candidates' => [
-          {
-            'display_name' => 'Menteşeli Kapı Sineklik Antrasit',
-            'evidence' => [],
-            'price' => { 'reference_amount' => 1233.84, 'currency' => 'TRY', 'final_total_known' => false },
-            'link' => { 'url' => 'https://example.test/menteseli-kapi-sineklik' }
-          }
-        ]
-      }
-    }]
-    unsupported_claims = [
-      'Bu model sert çerçevelidir.',
-      'This model has a rigid frame.',
-      'Bu model dayanıklıdır ve sarkmaz.',
-      'This model is durable and will not sag.',
-      'Kedi tırmalamasına karşı dayanıklıdır.',
-      'This pet-resistant mesh withstands scratching.',
-      'Tırmanılırsa hasar görebilir.',
-      'It may be damaged if a cat climbs on it.',
-      'Kediniz için en uygun seçenektir.',
-      'This is the best option for pets.'
-    ]
-
-    aggregate_failures do
-      unsupported_claims.each do |claim|
-        expect(orchestrator.send(:safe_customer_facing_answer?, claim, empty_evidence_events)).to be(false), claim
-      end
-
-      neutral_answer = 'Menteşeli Kapı Sineklik Antrasit ürününü buldum. ' \
-                       'Listelenen referans tutarı nihai fiyat değildir. ' \
-                       '[Ürün](https://example.test/menteseli-kapi-sineklik)'
-      expect(orchestrator.send(:safe_customer_facing_answer?, neutral_answer, empty_evidence_events)).to be(true)
-      expect(orchestrator.send(:safe_customer_facing_answer?, 'Listelenen referans tutara göre daha düşük.', empty_evidence_events)).to be(false)
-
-      supported_events = empty_evidence_events.deep_dup
-      supported_events.first.dig('result', 'candidates').first['evidence'] = [
-        'Rigid frame with scratch-resistant pet mesh.'
-      ]
-      supported_claim = 'This model has a rigid frame and scratch-resistant pet mesh.'
-      expect(orchestrator.send(:safe_customer_facing_answer?, supported_claim, supported_events)).to be(true)
-    end
+    expect(result[:assistant_message]['content']).to eq(free_form_answer)
+    expect(result[:terminal_action]).to be_nil
+    expect(result[:tool_events].map { |event| event['tool'] }).to eq(['ikas_catalog_search'])
+    expect(adapter).to have_received(:perform).twice
+    expect(AiAgentLlmCall.pluck(:step)).not_to include('customer_facing_finalizer', 'customer_facing_finalizer_retry')
   end
 
   it 'tolerates legacy human handoff config keys when generating responses' do
@@ -1220,9 +725,9 @@ RSpec.describe AiAgents::Orchestrator do
     expect(adapter).to have_received(:perform).exactly(2).times
   end
 
-  it 'answers catalog no_match through the follow-up prompt as a normal search outcome' do
+  it 'returns the model response for a catalog no_match as a normal search outcome' do
     ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'] } })
-    tool_result = { status: 'ok', result_type: 'no_match', query: 'mor unicorn sineklik', result_count: 0, candidates: [] }
+    tool_result = { status: 'ok', result_type: 'no_match', query: 'purple unicorn screen', result_count: 0, candidates: [] }
     tool_execution = AiAgents::ToolExecutor::Result.new(
       status: 'executed',
       tool_event: { 'tool' => 'ikas_catalog_search', 'status' => 'ok', 'result' => tool_result.deep_stringify_keys },
@@ -1236,31 +741,28 @@ RSpec.describe AiAgents::Orchestrator do
       if calls.one?
         {
           assistant_text: nil,
-          tool_calls: [{ id: 'call_1', type: 'function', name: 'ikas_catalog_search', arguments: { query: 'mor unicorn sineklik' }.to_json }],
+          tool_calls: [{ id: 'call_1', type: 'function', name: 'ikas_catalog_search', arguments: { query: 'purple unicorn screen' }.to_json }],
           finish_reason: 'tool_calls'
         }
-      elsif calls.length == 2
-        { assistant_text: 'Mor unicorn sineklik için katalogda net eşleşme bulamadım. Ölçü veya ürün tipini paylaşır mısınız?', tool_calls: [], finish_reason: 'stop' }
       else
-        { assistant_text: 'Mor unicorn sineklik için katalogda net eşleşme bulamadım. Ölçü veya ürün tipini paylaşır mısınız?', tool_calls: [], finish_reason: 'stop' }
+        { assistant_text: 'I could not find that product. Would you like a different screen type?', tool_calls: [], finish_reason: 'stop' }
       end
     end
 
     result = described_class.new(
       ai_agent: ai_agent.reload,
-      messages: [{ role: 'user', content: 'mor unicorn sineklik var mi' }],
+      messages: [{ role: 'user', content: 'Do you have a purple unicorn screen?' }],
       mode: :live,
       conversation: conversation,
       trigger_message: trigger_message,
       adapter: adapter
     ).perform
 
-    expect(result[:assistant_message]['content']).to eq('mor unicorn sineklik için net bir ürün bulamadım. Ürün adını, kategori bilgisini veya aradığınız özelliği biraz daha net paylaşır mısınız?')
-    expect(result[:assistant_message]['content']).not_to include('sineklik kategorileri', 'mağazamızda şunlar')
+    expect(result[:assistant_message]['content']).to eq('I could not find that product. Would you like a different screen type?')
     expect(result[:assistant_message]['turn_telemetry']).to include(
       'catalog_search_units_used' => 1,
       'handoff_used' => false,
-      'final_answer_source' => 'tool_evidence'
+      'final_answer_source' => 'tool_context'
     )
     expect(adapter).to have_received(:perform).exactly(2).times
     expect(AiAgentLlmCall.pluck(:step)).not_to include('customer_facing_finalizer')
@@ -1468,7 +970,7 @@ RSpec.describe AiAgents::Orchestrator do
     expect(result[:assistant_message]['turn_telemetry']).to include(
       'catalog_search_units_used' => 1,
       'handoff_used' => false,
-      'final_answer_source' => 'tool_evidence'
+      'final_answer_source' => 'tool_context'
     )
     expect(result[:tool_events].map { |event| event['tool'] }).to eq(['ikas_catalog_search'])
     expect(adapter).to have_received(:perform).exactly(4).times
@@ -1603,93 +1105,6 @@ RSpec.describe AiAgents::Orchestrator do
     expect(result[:assistant_message]['content']).not_to include('DSML', 'tool_calls')
     expect(adapter).to have_received(:perform).exactly(4).times
     expect(AiAgentLlmCall.pluck(:step)).to include('customer_facing_finalizer_retry')
-  end
-
-  it 'scrubs non-final reference prices when the finalizer repeats them after retry' do
-    ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'] } })
-    tool_result = {
-      status: 'ok',
-      result_type: 'show_candidates',
-      candidates: [
-        {
-          display_name: 'Orjin Pliseli Perde Antrasit',
-          price: {
-            amount: nil,
-            reference_amount: 12.90,
-            compare_at_reference_amount: nil,
-            final_total_known: false,
-            pricing_model: 'custom_options'
-          },
-          link: { url: 'https://example.test/perde' }
-        }
-      ]
-    }
-    tool_execution = AiAgents::ToolExecutor::Result.new(
-      status: 'executed',
-      tool_event: {
-        'tool' => 'ikas_catalog_search',
-        'status' => 'ok',
-        'tool_call_id' => 'call_1',
-        'result' => tool_result.deep_stringify_keys
-      },
-      tool_result: tool_result
-    )
-    executor = instance_double(AiAgents::ToolExecutor, execute: tool_execution)
-    allow(AiAgents::ToolExecutor).to receive(:new).and_return(executor)
-    calls = []
-    allow(adapter).to receive(:perform) do |payload|
-      calls << payload
-      if calls.one?
-        {
-          assistant_text: nil,
-          tool_calls: [{ id: 'call_1', type: 'function', name: 'ikas_catalog_search', arguments: { query: 'orjin pliseli perde antrasit' }.to_json }],
-          finish_reason: 'tool_calls'
-        }
-      elsif calls.length == 2
-        { assistant_text: 'Gördüğünüz 12,9 TL tutarı nihai fiyat değildir.', tool_calls: [], finish_reason: 'stop' }
-      elsif calls.length == 3
-        { assistant_text: 'Gördüğünüz **12,9 TL** tutarı nihai fiyat değildir.', tool_calls: [], finish_reason: 'stop' }
-      else
-        {
-          assistant_text: 'Gördüğünüz **12,9 TL** tutarı nihai fiyat değildir. Ölçü ve seçeneklere göre değişir.',
-          tool_calls: [],
-          finish_reason: 'stop'
-        }
-      end
-    end
-
-    result = described_class.new(
-      ai_agent: ai_agent.reload,
-      messages: [{ role: 'user', content: 'Bu 12,94 TL fiyat 70x80 perde için doğru mu?' }],
-      mode: :live,
-      conversation: conversation,
-      trigger_message: trigger_message,
-      adapter: adapter
-    ).perform
-
-    expect(result[:assistant_message]['content']).to include('Gördüğünüz tutar')
-    expect(result[:assistant_message]['content']).not_to include('12,9', '12.9', 'TL')
-    expect(adapter).to have_received(:perform).exactly(4).times
-    expect(AiAgentLlmCall.pluck(:step)).to include('customer_facing_finalizer_retry')
-  end
-
-  it 'recognizes integer and zero-trimmed non-final reference price formats' do
-    orchestrator = described_class.new(ai_agent: ai_agent, messages: [], mode: :test, adapter: adapter)
-    tool_events = [
-      {
-        'result' => {
-          'candidates' => [
-            { 'price' => { 'reference_amount' => 100, 'final_total_known' => false } },
-            { 'price' => { 'reference_amount' => 12.90, 'final_total_known' => false } },
-            { 'price' => { 'reference_amount' => 1250, 'final_total_known' => false } }
-          ]
-        }
-      }
-    ]
-
-    ['100 TL', '100.0 TL', '100,0 TL', '100.00 TL', '100,00 TL', '12.9 TL', '12,9 TL', '1.250,00 TL'].each do |answer|
-      expect(orchestrator.send(:reference_price_leak?, answer, tool_events)).to be(true), answer
-    end
   end
 
   it 'finalizes tool-backed drafts into customer-facing replies without exposing internal process' do
@@ -1914,7 +1329,7 @@ RSpec.describe AiAgents::Orchestrator do
     end
     allow(AiAgents::Tools::IkasCatalogSearchService).to receive(:new).and_return(catalog_service)
 
-    unsafe_claim = 'Menteşeli modeller daha dayanıklıdır; akordiyon modeller açılıp kapanma kolaylığı sağlar.'
+    free_form_answer = 'Menteşeli modeller daha dayanıklıdır; akordiyon modeller açılıp kapanma kolaylığı sağlar.'
     calls = []
     allow(adapter).to receive(:perform) do |payload|
       calls << payload
@@ -1948,7 +1363,7 @@ RSpec.describe AiAgents::Orchestrator do
           finish_reason: 'tool_calls'
         }
       else
-        { assistant_text: unsafe_claim, tool_calls: [], finish_reason: 'stop' }
+        { assistant_text: free_form_answer, tool_calls: [], finish_reason: 'stop' }
       end
     end
 
@@ -1971,7 +1386,7 @@ RSpec.describe AiAgents::Orchestrator do
     expect(catalog_requests).to eq(expected_requests)
     expect(persisted_arguments).to eq(expected_requests)
     expect(result[:tool_events].map { |event| event['tool'] }).to eq(%w[ikas_catalog_search ikas_catalog_search])
-    expect(result[:assistant_message]['content']).to include('Akordeon Kapı Sineklik Altınmeşe', 'Menteşeli Kapı Sineklik Antrasit')
+    expect(result[:assistant_message]['content']).to eq(free_form_answer)
     expect(result[:assistant_message]['turn_telemetry']).to include(
       'catalog_search_units_used' => 3,
       'catalog_search_queries_truncated' => 1
@@ -1979,7 +1394,7 @@ RSpec.describe AiAgents::Orchestrator do
     expect(catalog_requests.flat_map { |request| request['queries'] || request['query'] }).to eq(
       ['balkon kapısı sineklik', *retained_queries]
     )
-    expect(adapter).to have_received(:perform).exactly(5).times
+    expect(adapter).to have_received(:perform).exactly(3).times
   end
 
   it 'finalizes without tools when the catalog search budget is exhausted' do

@@ -7,6 +7,9 @@
     "FORM_BUBBLE": {
       "SUBMIT": "Yolla"
     },
+    "OPTION_BUBBLE": {
+      "UNAVAILABLE": "Bu seçim artık kullanılamıyor."
+    },
     "MESSAGE_BUBBLE": {
       "RETRY": "Mesajı tekrar gönder",
       "ERROR_MESSAGE": "Gönderilemedi, tekrar deneyin"

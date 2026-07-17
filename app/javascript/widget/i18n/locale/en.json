@@ -7,6 +7,9 @@
     "FORM_BUBBLE": {
       "SUBMIT": "Submit"
     },
+    "OPTION_BUBBLE": {
+      "UNAVAILABLE": "This choice is no longer available."
+    },
     "MESSAGE_BUBBLE": {
       "RETRY": "Send message again",
       "ERROR_MESSAGE": "Couldn't send, try again"

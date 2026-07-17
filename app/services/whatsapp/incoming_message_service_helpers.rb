@@ -78,6 +78,7 @@ module Whatsapp::IncomingMessageServiceHelpers
 
     prompt_message = @conversation.messages.find_by(source_id: @in_reply_to_external_id)
     return unless prompt_message
+    return unless ai_option_prompt?(prompt_message)
 
     @interactive_selection_service = AiAgents::OptionSelectionService.new(
       prompt_message: prompt_message,
@@ -88,6 +89,12 @@ module Whatsapp::IncomingMessageServiceHelpers
     Rails.logger.warn("[Whatsapp::IncomingMessage] Interactive selection could not be resolved: #{e.class.name}")
     @interactive_selection_service = nil
     @interactive_selection_item = nil
+    @interactive_selection_rejected = true
+  end
+
+  def ai_option_prompt?(message)
+    message.outgoing? && !message.private? && message.content_type == 'input_select' &&
+      message.content_attributes.dig('ai_agent', 'selection', 'version').to_i == 1
   end
 
   def find_message_by_source_id(source_id)

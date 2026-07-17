@@ -128,9 +128,18 @@ export default {
       <ChatOptions
         :title="message"
         :options="messageContentAttributes.items"
-        :hide-fields="!!messageContentAttributes.submitted_values"
+        :hide-fields="
+          !!messageContentAttributes.submitted_values ||
+          !!messageContentAttributes.selection_unavailable
+        "
         @option-select="onOptionSelect"
       />
+      <p
+        v-if="messageContentAttributes.selection_unavailable"
+        class="mt-1 px-4 text-xs text-n-slate-10"
+      >
+        {{ $t('COMPONENTS.OPTION_BUBBLE.UNAVAILABLE') }}
+      </p>
     </div>
     <ChatForm
       v-if="isForm && !messageContentAttributes.submitted_values"

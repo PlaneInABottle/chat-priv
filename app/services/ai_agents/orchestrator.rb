@@ -19,32 +19,29 @@ module AiAgents
     INCOMPLETE_RESPONSE_RETRY_PROMPT = [
       'The previous AI response was cut off by the output limit.',
       'Reply again with one concise, complete customer-facing response.',
-      'Preserve the latest customer constraints and use only the available verified evidence.',
+      'Preserve the latest customer constraints and use the available conversation and tool results as context.',
       'If tools remain necessary, call only the necessary enabled tools.'
     ].join(' ').freeze
     TOOL_BUDGET_EXHAUSTED_PROMPT = [
       'No more tools are available for this customer message.',
       'Reply to the customer without calling tools.',
-      'Use only the collected tool evidence; if it is insufficient, ask one focused clarification question.',
+      'Use the collected tool results as context; if the available information is insufficient, ask one focused clarification question.',
       'Do not mention tools, tool calls, budgets, internal searches, system limitations, or application safety checks.'
     ].join(' ').freeze
     PRESENT_OPTIONS_FALLBACK_PROMPT = [
       'The requested interactive options could not be presented safely.',
-      'Ask the same focused question as plain customer-facing text using only the available conversation and tool evidence.',
+      'Ask the same focused question as plain customer-facing text using the available conversation and tool results as context.',
       'Do not call tools, invent options, mention internal errors, or promise a human handoff.'
     ].join(' ').freeze
     CUSTOMER_FACING_FINALIZER_PROMPT = [
       'Write the final customer-facing reply from the latest customer message and the available structured tool result messages.',
-      'Use only concrete facts, policies, verified knowledge excerpts, product details, prices, links, and order fields present in those results.',
-      'Material, durability, pet-resistance, damage, convenience/ease-of-use, and suitability claims require explicit candidate evidence, attributes, features, or description supporting that exact type of claim. Product names and categories alone do not support physical performance or pet-behavior claims.',
+      'Use returned catalog entries for product names, prices, links, identifiers, and other concrete catalog fields instead of inventing entries. You may add normal reasoning and recommendations.',
       'The latest customer message controls the product/category scope of the final answer.',
       'Use previous conversation context only to resolve an ambiguous follow-up; if the latest customer message names a different product or category, answer only that new topic unless the customer explicitly asks to compare or combine topics.',
       'If tool results contain multiple query results, answer only the query or queries directly requested by the latest customer message; ignore previous-topic query results unless the customer explicitly asked to compare or combine topics.',
-      'Use price.amount only when price.final_total_known is not false. If only reference pricing is present, say final price depends on selected options or dimensions instead of quoting a final total.',
-      'For custom-option products with price.final_total_known false, do not repeat numeric reference prices even if the customer mentioned one. Refer to it as a listed or visible reference amount instead.',
       'For no_match results without candidates, do not list store categories, previous products, or examples unless the tool returned them or the customer asked for alternatives.',
       'Write in natural support prose. Avoid robotic field-label blocks such as product/stock/color/price lines unless the customer explicitly asks for a structured table.',
-      'Use stock evidence to avoid recommending unavailable products. Do not mention that an item is in stock unless availability is the customer question or it changes the recommendation.',
+      'Use returned stock fields when making concrete availability statements.',
       'Speak as the brand support assistant, not as software explaining how it worked.',
       'For unusual, unavailable, or unrealistic requests, stay neutral and professional; do not comment on the customer intent.',
       'If the exact requested item is unavailable, say that simply, then offer returned relevant alternatives or ask one focused customer question.',
@@ -52,10 +49,9 @@ module AiAgents
       'Return only the message that should be sent to the customer.'
     ].join(' ').freeze
     CUSTOMER_FACING_FINALIZER_RETRY_PROMPT = [
-      'The previous final customer-facing response attempted to call a tool, contained tool-call markup, or repeated a non-final reference price.',
-      'Write only the customer message now from the already available evidence.',
-      'Do not repeat numeric reference prices when price.final_total_known is false.',
-      'Remove unsupported material, durability, pet-resistance, damage, convenience/ease-of-use, and suitability claims while preserving verified product names, links, and properly qualified price comparisons.',
+      'The previous final customer-facing response attempted to call a tool, contained tool-call markup, or exposed internal process details.',
+      'Write only the customer message now from the available conversation and tool results.',
+      'Use returned catalog entries for product names, prices, links, identifiers, and other concrete catalog fields instead of inventing entries. You may add normal reasoning and recommendations.',
       'If the exact requested item is unavailable, say that simply and ask one focused customer question when needed.'
     ].join(' ').freeze
     MAX_TOOL_ITERATIONS = 4
@@ -66,70 +62,6 @@ module AiAgents
     MAX_KNOWLEDGE_SEARCH_CALLS = 2
     MAX_ORDER_LOOKUP_CALLS = 1
     MAX_HUMAN_HANDOFF_CALLS = 1
-    CATALOG_PRICE_COMPARISON_PATTERN = %r{
-      daha\s+(?:ucuz|ekonomik|pahalı|uygun\s+fiyatlı|düşük|yüksek) |
-      \b(?:cheaper|more\s+(?:affordable|expensive)|less\s+expensive|lower|higher)(?:-priced)?\b
-    }ix
-    CATALOG_REFERENCE_PRICE_QUALIFIER_PATTERN = %r{
-      \b(?:
-        referans\s+(?:tutar|fiyat) | reference\s+(?:amount|price) |
-        (?:listelenen|görünen)\s+(?:referans\s+)?(?:tutar|fiyat) |
-        (?:listed|visible)\s+(?:reference\s+)?(?:amount|price)
-      )
-    }ix
-    CATALOG_EVIDENCE_ONLY_CLAIM_PATTERNS = {
-      material: %r{
-        \b(?:
-          (?:sert|rijit)\s+(?:çerçeve(?:li)?|kasa(?:lı)?)(?:dir)? |
-          (?:rigid|hard)\s+frames? |
-          (?:alüminyum|aluminyum|çelik|celik|metal|plastik|ahşap|ahsap|wood(?:en)?|steel|alumin(?:um|ium)|plastic)
-          (?:dan|den)?\s+(?:yapılmış|yapilmis|çerçeve(?:li)?|kasa(?:lı)?|frame(?:d)?) |
-          made\s+(?:of|from)\s+(?:wood|steel|alumin(?:um|ium)|metal|plastic)
-        )\b
-      }ix,
-      durability: %r{
-        \b(?:
-          (?:daha\s+)?(?:sağlam|saglam|dayanıklı|dayanikli)(?:d[ıi]r)? |
-          ezilmez | sark(?:abilir|ar|maz) | yırtıl(?:maz|abilir) | yirtil(?:maz|abilir) |
-          kırıl(?:maz|abilir) | kiril(?:maz|abilir) | deforme\s+ol(?:maz|abilir) |
-          durable | sturd(?:y|ier) | strong(?:er)? | (?:will|can|may|won't)\s+(?:sag|tear|bend|break)
-        )\b
-      }ix,
-      pet_resistance: %r{
-        \b(?:
-          (?:kedi(?:niz|ler)?|köpek(?:iniz|ler)?|evcil\s+hayvan|cats?|dogs?|pets?).{0,50}
-          (?:tırmala[[:alpha:]]*|tirmala[[:alpha:]]*|tırman[[:alpha:]]*|tirman[[:alpha:]]*|scratch\w*|claw\w*|climb\w*|resistan\w*|proof) |
-          (?:tırmala[[:alpha:]]*|tirmala[[:alpha:]]*|scratch\w*|claw\w*|pet[_\s-]?proof).{0,50}
-          (?:kedi[[:alpha:]]*|köpek[[:alpha:]]*|evcil\s+hayvan|cats?|dogs?|pets?)
-        )\b
-      }ix,
-      damage: %r{
-        \b(?:
-          (?:hasar|zarar)\s+gör(?:ebilir|ür|ur|mez) |
-          damage[_\s-]?resistan\w* | prone\s+to\s+damage |
-          (?:can|may|will|won't)\s+(?:be\s+)?damag(?:e|ed)
-        )\b
-      }ix,
-      convenience: %r{
-        \b(?:
-          (?:açılıp|acilip)\s+kapanma\s+kolaylığ[ıi](?:\s+sağlar)? |
-          (?:açma|acma|kapatma|kullanım|kullanim)\s+kolaylığ[ıi] |
-          kolay(?:ca)?\s+(?:açılır|acilir|kapanır|kapanir|kullanılır|kullanilir) |
-          (?:easy|convenient)\s+to\s+(?:open|close|use|operate) |
-          ease\s+of\s+(?:opening|closing|use|operation)
-        )\b
-      }ix,
-      suitability: %r{
-        \b(?:
-          en\s+uygun\s+(?:seçenek|secenek|ürün|urun|model) |
-          ideal(?:dir)? |
-          (?:kedi(?:niz|ler)?|köpek(?:iniz|ler)?|evcil\s+hayvan)\s+için\s+(?:en\s+)?uygun |
-          best\s+(?:choice|option) | most\s+suitable |
-          (?:suitable|recommended)[_\s-]*for.{0,20}(?:cats?|dogs?|pets?)
-        )\b
-      }ix
-    }.freeze
-
     def initialize(ai_agent:, messages:, mode:, conversation: nil, trigger_message: nil, adapter: nil, prompt_override: nil, config_override: nil,
                    knowledge_sources_override: nil, improvement_operation: nil, initiated_by: nil)
       @ai_agent = ai_agent
@@ -486,9 +418,7 @@ module AiAgents
       answer = content.to_s.strip
       return answer if tool_events.blank?
 
-      answer = if single_catalog_no_match_without_candidates?(tool_events)
-                 catalog_no_match_fallback_answer(tool_events)
-               elsif safe_customer_facing_answer?(answer, tool_events)
+      answer = if safe_customer_facing_answer?(answer)
                  answer
                else
                  finalize_customer_facing_answer(request_messages: request_messages, tool_events: tool_events)
@@ -572,7 +502,7 @@ module AiAgents
         incomplete_retry_max_tokens: INCOMPLETE_FINAL_RETRY_MAX_TOKENS
       )
       answer = response[:assistant_text].to_s.strip.presence
-      return answer if answer && safe_customer_facing_answer?(answer, tool_events)
+      return answer if answer && safe_customer_facing_answer?(answer)
 
       retry_response = perform_llm_call(
         step: 'customer_facing_finalizer_retry',
@@ -584,82 +514,15 @@ module AiAgents
         incomplete_retry_max_tokens: INCOMPLETE_FINAL_RETRY_MAX_TOKENS
       )
       retry_answer = retry_response[:assistant_text].to_s.strip.presence
-      sanitized_answer = sanitize_reference_prices(retry_answer, tool_events)
-      return sanitized_answer if sanitized_answer && safe_customer_facing_answer?(sanitized_answer, tool_events)
+      return retry_answer if retry_answer && safe_customer_facing_answer?(retry_answer)
 
       catalog_mixed_scope_fallback_answer(tool_events, request_messages: request_messages) ||
         catalog_evidence_fallback_answer(tool_events, request_messages: request_messages) ||
         catalog_clarification_fallback_answer(tool_events, request_messages: request_messages)
     end
 
-    def safe_customer_facing_answer?(answer, tool_events)
-      !unsafe_customer_facing_answer?(answer) && !reference_price_leak?(answer, tool_events) &&
-        !unsupported_catalog_claim?(answer, tool_events) && !excessive_catalog_questions?(answer, tool_events)
-    end
-
-    def excessive_catalog_questions?(answer, tool_events)
-      catalog_results(tool_events).present? && customer_question_count(answer) > 1
-    end
-
-    def customer_question_count(answer)
-      answer.gsub(%r{https?://[^\s)>]+}i, '').count('?')
-    end
-
-    def unsupported_catalog_claim?(answer, tool_events)
-      return false if catalog_results(tool_events).empty?
-
-      unsupported_price_comparison = answer.match?(CATALOG_PRICE_COMPARISON_PATTERN) &&
-                                     !catalog_price_comparison_supported?(answer, tool_events)
-      unsupported_evidence_only_claim = CATALOG_EVIDENCE_ONLY_CLAIM_PATTERNS.values.any? do |pattern|
-        answer.match?(pattern) && !catalog_claim_supported?(tool_events, pattern)
-      end
-      unsupported_price_comparison || unsupported_evidence_only_claim
-    end
-
-    def catalog_price_comparison_supported?(answer, tool_events)
-      prices = catalog_candidates(tool_events).filter_map do |candidate|
-        price = candidate['price'].to_h.deep_stringify_keys
-        next if price['currency'].blank?
-
-        if price['final_total_known'] != false && price['amount'].present?
-          next price.slice('amount', 'currency').merge('kind' => 'final')
-        end
-        next unless price['final_total_known'] == false && price['reference_amount'].present?
-
-        price.slice('reference_amount', 'currency').merge('amount' => price['reference_amount'], 'kind' => 'reference')
-      end
-      prices_by_currency_and_kind = prices.group_by { |price| price.values_at('currency', 'kind') }
-
-      prices_by_currency_and_kind.any? do |(_currency, kind), comparable_prices|
-        normalized_amounts = comparable_prices.filter_map { |price| decimal_reference_amount(price['amount']) }
-        next false if normalized_amounts.uniq.size < 2
-
-        kind == 'final' || answer.match?(CATALOG_REFERENCE_PRICE_QUALIFIER_PATTERN)
-      end
-    end
-
-    def catalog_claim_supported?(tool_events, pattern)
-      catalog_candidates(tool_events).any? do |candidate|
-        candidate.slice('evidence', 'attributes', 'features', 'description').to_json.match?(pattern)
-      end
-    end
-
-    def catalog_candidates(tool_events)
-      catalog_results(tool_events).flat_map { |result| catalog_candidates_in(result) }
-                                  .uniq { |candidate| candidate.values_at('item_id', 'variant_id', 'display_name') }
-    end
-
-    def catalog_candidates_in(value)
-      case value
-      when Hash
-        value = value.deep_stringify_keys
-        Array(value['candidates']).filter_map { |candidate| candidate.deep_stringify_keys if candidate.is_a?(Hash) } +
-          value.each_value.flat_map { |child| catalog_candidates_in(child) }
-      when Array
-        value.flat_map { |child| catalog_candidates_in(child) }
-      else
-        []
-      end
+    def safe_customer_facing_answer?(answer)
+      !unsafe_customer_facing_answer?(answer)
     end
 
     def unsafe_customer_facing_answer?(answer)
@@ -674,29 +537,6 @@ module AiAgents
         \b(?:based\s+on|according\s+to|from)\s+(?:the\s+)?(?:\d+\s+)?search\s+results?\b |
         \b(?:i|we)\s+(?:found|have)\s+\d+\s+search\s+results?\b
       }ix
-    end
-
-    def single_catalog_no_match_without_candidates?(tool_events)
-      events = Array(tool_events)
-      return false unless events.one?
-
-      event = events.first
-      event['tool'] == AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL && no_match_without_candidates?(event['result'] || event[:result])
-    end
-
-    def no_match_without_candidates?(result)
-      result = result.deep_stringify_keys if result.respond_to?(:deep_stringify_keys)
-      return false unless result.is_a?(Hash)
-      return false unless result['result_type'] == 'no_match'
-
-      Array(result['candidates']).empty? && result['result_count'].to_i.zero?
-    end
-
-    def catalog_no_match_fallback_answer(tool_events)
-      query = latest_catalog_query(tool_events)
-      subject = query.present? ? "#{query} için " : ''
-
-      "#{subject}net bir ürün bulamadım. Ürün adını, kategori bilgisini veya aradığınız özelliği biraz daha net paylaşır mısınız?"
     end
 
     def catalog_evidence_fallback_answer(tool_events, request_messages: [])
@@ -887,104 +727,12 @@ module AiAgents
       normalize_catalog_url(url)
     end
 
-    def latest_catalog_query(tool_events)
-      catalog_event = Array(tool_events).reverse.find { |event| event['tool'] == AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL }
-      return unless catalog_event
-
-      result = catalog_event['result'] || catalog_event[:result] || {}
-      args = catalog_event['args'] || catalog_event[:args] || {}
-      result['query'].presence || result[:query].presence || args['query'].presence || args[:query].presence
-    end
-
-    def reference_price_leak?(answer, tool_events)
-      reference_price_patterns(tool_events).any? { |pattern| answer.match?(pattern) }
-    end
-
-    def sanitize_reference_prices(answer, tool_events)
-      sanitized = answer.to_s.strip.presence
-      return sanitized if sanitized.blank?
-
-      reference_price_patterns(tool_events).each do |pattern|
-        sanitized = sanitized.gsub(pattern, 'gördüğünüz tutar')
-      end
-      sanitized.gsub(/\*\*gördüğünüz tutar\*\*\s+tutar[ıi]?/i, '**gördüğünüz tutar**')
-               .gsub(/gördüğünüz\s+\*\*gördüğünüz tutar\*\*/i, 'Gördüğünüz tutar')
-               .gsub(/gördüğünüz\s+gördüğünüz tutar/i, 'gördüğünüz tutar')
-               .gsub(/gördüğünüz tutar\s+tutar[ıi]?/i, 'gördüğünüz tutar')
-               .strip
-               .presence
-    end
-
-    def reference_price_patterns(tool_events)
-      reference_price_amounts(tool_events).flat_map { |amount| reference_amount_patterns(amount) }
-    end
-
-    def reference_price_amounts(tool_events)
-      Array(tool_events).flat_map do |event|
-        reference_price_amounts_in(event['result'] || event[:result])
-      end.uniq
-    end
-
-    def reference_price_amounts_in(value)
-      case value
-      when Array
-        value.flat_map { |item| reference_price_amounts_in(item) }
-      when Hash
-        amounts = reference_amounts_from_price_hash(value)
-        value.each_value { |child| amounts.concat(reference_price_amounts_in(child)) }
-        amounts
-      else
-        []
-      end
-    end
-
-    def reference_amounts_from_price_hash(value)
-      price = value['price'] || value[:price]
-      return [] unless price.is_a?(Hash)
-      return [] unless price['final_total_known'] == false || price[:final_total_known] == false
-
-      [
-        decimal_reference_amount(price['reference_amount'] || price[:reference_amount]),
-        decimal_reference_amount(price['compare_at_reference_amount'] || price[:compare_at_reference_amount])
-      ].compact
-    end
-
     def decimal_reference_amount(value)
       return if value.blank?
 
       BigDecimal(value.to_s)
     rescue ArgumentError
       nil
-    end
-
-    def reference_amount_patterns(amount)
-      formatted_decimal_amounts(amount).map do |formatted_amount|
-        reference_amount_pattern(formatted_amount)
-      end
-    end
-
-    def formatted_decimal_amounts(amount)
-      rounded = amount.round(2)
-      integer, fraction = format('%.2f', rounded).split('.')
-      grouped_dot = integer.reverse.gsub(/(\d{3})(?=\d)/, '\\1.').reverse
-      grouped_comma = integer.reverse.gsub(/(\d{3})(?=\d)/, '\\1,').reverse
-      fractions = fraction == '00' ? [nil, '0', '00'] : [fraction.delete_suffix('0'), fraction].uniq
-
-      fractions.flat_map do |decimal|
-        next [integer, grouped_dot, grouped_comma] unless decimal
-
-        ["#{integer}.#{decimal}", "#{integer},#{decimal}", "#{grouped_dot},#{decimal}", "#{grouped_comma}.#{decimal}"]
-      end.uniq
-    end
-
-    def reference_amount_pattern(formatted_amount)
-      currency = '(?:TL|TRY|USD|EUR|GBP|₺|\$|€|£)'
-      amount = Regexp.escape(formatted_amount)
-
-      Regexp.new(
-        "(?<![\\d[:alpha:]])(?:[₺$€£]\\s*)?#{amount}(?:\\s*#{currency})?(?![\\d[:alpha:]]|[.,]\\d)",
-        Regexp::IGNORECASE
-      )
     end
 
     def failure_result
@@ -1395,7 +1143,7 @@ module AiAgents
       return 'tool_error' if tool_events.any? { |event| event['status'].to_s == 'error' || event['status'].to_s == 'rejected' }
       return 'knowledge_evidence' if tool_events.any? { |event| event['tool'] == AiAgents::Config::KNOWLEDGE_SEARCH_TOOL }
 
-      'tool_evidence'
+      'tool_context'
     end
 
     def fallback_assistant_message

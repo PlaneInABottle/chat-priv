@@ -32,7 +32,7 @@ RSpec.describe AiAgents::EffectivePromptPreview do
         'The latest customer message controls product/category scope',
         'only gives dimensions or measurements and there is no clear previous product/category context',
         'do not add the previous product/category as an extra `queries` entry',
-        'do not repeat the numeric amount or attach a currency',
+        'You may add your own reasoning, comparisons, and recommendations',
         'Do not list store categories, previous products, or examples unless the tool returned them',
         'Use stock evidence to avoid recommending unavailable products',
         'Avoid robotic field-label blocks',

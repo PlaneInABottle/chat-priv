@@ -372,7 +372,7 @@ describe Whatsapp::IncomingMessageService do
         end.not_to(change { conversation.messages.incoming.count })
       end
 
-      it 'treats an interactive reply as free text when newer customer text supersedes its prompt' do
+      it 'rejects an interactive reply when newer customer text supersedes its prompt' do
         contact_inbox = create(:contact_inbox, inbox: whatsapp_channel.inbox, source_id: wa_id)
         conversation = create(:conversation, inbox: whatsapp_channel.inbox, contact_inbox: contact_inbox)
         prompt = create(
@@ -415,11 +415,9 @@ describe Whatsapp::IncomingMessageService do
 
         expect do
           described_class.new(inbox: whatsapp_channel.inbox, params: interactive_params).perform
-        end.to change { conversation.messages.incoming.count }.by(1)
+        end.not_to change(conversation.messages.incoming, :count)
 
-        response_message = conversation.messages.incoming.order(:id).last
-        expect(response_message).to have_attributes(content: 'Eski pencere seçeneği')
-        expect(response_message.content_attributes).not_to have_key('selected_option')
+        expect(conversation.messages.find_by(source_id: 'wamid.stale-option-response')).to be_nil
         expect(prompt.reload.content_attributes['submitted_values']).to be_blank
       end
     end

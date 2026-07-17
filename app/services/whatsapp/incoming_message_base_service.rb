@@ -98,6 +98,8 @@ class Whatsapp::IncomingMessageBaseService
   end
 
   def create_regular_message(message)
+    return if @interactive_selection_rejected
+
     create_message(message, source_id: message[:id])
     attach_files
     attach_location if message_type == 'location'
