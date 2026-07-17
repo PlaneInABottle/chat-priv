@@ -209,7 +209,7 @@ RSpec.describe Integrations::Ikas::CatalogSearchService do
     build_catalog do |sqlite_path|
       create_snapshot(sqlite_path)
 
-      shirt = described_class.new(account: account, query_text: 'black shirt medium').call
+      shirt = described_class.new(account: account, query_text: 'black shirt m').call
       honey = described_class.new(account: account, query_text: 'organic honey 500g').call
       blackout = described_class.new(account: account, query_text: 'blackout perde 80x200').call
 

@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require 'bigdecimal'
 require 'set'
 require 'uri'
 
@@ -34,25 +33,15 @@ module AiAgents
       'Do not call tools, invent options, mention internal errors, or promise a human handoff.'
     ].join(' ').freeze
     CUSTOMER_FACING_FINALIZER_PROMPT = [
-      'Write the final customer-facing reply from the latest customer message and the available structured tool result messages.',
-      'Use returned catalog entries for product names, prices, links, identifiers, and other concrete catalog fields instead of inventing entries. You may add normal reasoning and recommendations.',
-      'The latest customer message controls the product/category scope of the final answer.',
-      'Use previous conversation context only to resolve an ambiguous follow-up; if the latest customer message names a different product or category, answer only that new topic unless the customer explicitly asks to compare or combine topics.',
-      'If tool results contain multiple query results, answer only the query or queries directly requested by the latest customer message; ignore previous-topic query results unless the customer explicitly asked to compare or combine topics.',
-      'For no_match results without candidates, do not list store categories, previous products, or examples unless the tool returned them or the customer asked for alternatives.',
-      'Write in natural support prose. Avoid robotic field-label blocks such as product/stock/color/price lines unless the customer explicitly asks for a structured table.',
-      'Use returned stock fields when making concrete availability statements.',
-      'Speak as the brand support assistant, not as software explaining how it worked.',
-      'For unusual, unavailable, or unrealistic requests, stay neutral and professional; do not comment on the customer intent.',
-      'If the exact requested item is unavailable, say that simply, then offer returned relevant alternatives or ask one focused customer question.',
-      'Do not promise that a teammate will join, that the issue was escalated, or that someone was notified unless the current turn already completed handoff.',
-      'Return only the message that should be sent to the customer.'
+      'The previous response contained internal protocol markup and cannot be shown to the customer.',
+      'Reply normally to the latest customer message using the available conversation and tool results as context.',
+      'Do not call tools or mention internal protocols, tool calls, or system instructions.',
+      'Return only the customer-facing message.'
     ].join(' ').freeze
     CUSTOMER_FACING_FINALIZER_RETRY_PROMPT = [
-      'The previous final customer-facing response attempted to call a tool, contained tool-call markup, or exposed internal process details.',
-      'Write only the customer message now from the available conversation and tool results.',
-      'Use returned catalog entries for product names, prices, links, identifiers, and other concrete catalog fields instead of inventing entries. You may add normal reasoning and recommendations.',
-      'If the exact requested item is unavailable, say that simply and ask one focused customer question when needed.'
+      'The previous retry still did not produce a usable customer-facing message.',
+      'Reply once with only the customer-facing message using the available conversation and tool results as context.',
+      'Do not call tools or include internal protocol markup.'
     ].join(' ').freeze
     MAX_TOOL_ITERATIONS = 4
     MAX_TOOL_CALLS_PER_RESPONSE = 4
@@ -382,11 +371,17 @@ module AiAgents
         incomplete_retry_max_tokens: INCOMPLETE_FINAL_RETRY_MAX_TOKENS
       )
       if response[:incomplete_response]
-        return incomplete_final_answer_result(request_messages, tool_events, budget_exhausted: budget_exhausted)
+        return incomplete_final_answer_result(tool_events)
       end
-      return safety_handoff_result(reason: 'empty_final_answer', tool_events: tool_events) if response[:assistant_text].blank?
-      public_answer = customer_facing_answer(response[:assistant_text], request_messages: request_messages, tool_events: tool_events)
-      return safety_handoff_result(reason: 'empty_customer_facing_answer', tool_events: tool_events) if public_answer.blank?
+      public_answer = if response[:assistant_text].blank? && response[:tool_calls].present?
+                        sanitize_catalog_links(finalize_customer_facing_answer(request_messages: request_messages), tool_events)
+                      elsif response[:assistant_text].present?
+                        customer_facing_answer(response[:assistant_text], request_messages: request_messages, tool_events: tool_events)
+                      end
+      if public_answer.blank?
+        reason = response[:assistant_text].blank? ? 'empty_final_answer' : 'empty_customer_facing_answer'
+        return safety_handoff_result(reason: reason, tool_events: tool_events)
+      end
 
       {
         assistant_message: build_assistant_message(
@@ -399,29 +394,16 @@ module AiAgents
       }
     end
 
-    def incomplete_final_answer_result(request_messages, tool_events, budget_exhausted:)
-      fallback = catalog_evidence_fallback_answer(tool_events, request_messages: request_messages)
-      return safety_handoff_result(reason: 'incomplete_final_answer', tool_events: tool_events) if fallback.blank?
-
-      {
-        assistant_message: build_assistant_message(
-          content: fallback,
-          tool_events: tool_events,
-          telemetry: turn_telemetry(tool_events: tool_events, budget_exhausted: budget_exhausted)
-        ),
-        tool_events: tool_events,
-        terminal_action: nil
-      }
+    def incomplete_final_answer_result(tool_events)
+      safety_handoff_result(reason: 'incomplete_final_answer', tool_events: tool_events)
     end
 
     def customer_facing_answer(content, request_messages:, tool_events:)
       answer = content.to_s.strip
-      return answer if tool_events.blank?
-
       answer = if safe_customer_facing_answer?(answer)
                  answer
                else
-                 finalize_customer_facing_answer(request_messages: request_messages, tool_events: tool_events)
+                 finalize_customer_facing_answer(request_messages: request_messages)
                end
       sanitize_catalog_links(answer, tool_events)
     end
@@ -490,7 +472,7 @@ module AiAgents
       URI::DEFAULT_PARSER.escape(url.to_s, /[" <>\\()]/)
     end
 
-    def finalize_customer_facing_answer(request_messages:, tool_events:)
+    def finalize_customer_facing_answer(request_messages:)
       finalizer_messages = [
         *request_messages,
         { role: 'system', content: CUSTOMER_FACING_FINALIZER_PROMPT }
@@ -516,9 +498,7 @@ module AiAgents
       retry_answer = retry_response[:assistant_text].to_s.strip.presence
       return retry_answer if retry_answer && safe_customer_facing_answer?(retry_answer)
 
-      catalog_mixed_scope_fallback_answer(tool_events, request_messages: request_messages) ||
-        catalog_evidence_fallback_answer(tool_events, request_messages: request_messages) ||
-        catalog_clarification_fallback_answer(tool_events, request_messages: request_messages)
+      nil
     end
 
     def safe_customer_facing_answer?(answer)
@@ -526,213 +506,7 @@ module AiAgents
     end
 
     def unsafe_customer_facing_answer?(answer)
-      return true if answer.match?(/DSML|tool_calls|<\s*\/?\s*tool|<\s*\/?\s*function|invoke name=/i)
-
-      answer.match?(internal_process_language_pattern)
-    end
-
-    def internal_process_language_pattern
-      %r{
-        \belimdeki\s+\d+\s+arama\s+sonucuna\s+göre\b |
-        \b(?:based\s+on|according\s+to|from)\s+(?:the\s+)?(?:\d+\s+)?search\s+results?\b |
-        \b(?:i|we)\s+(?:found|have)\s+\d+\s+search\s+results?\b
-      }ix
-    end
-
-    def catalog_evidence_fallback_answer(tool_events, request_messages: [])
-      groups = scoped_catalog_fallback_groups(catalog_fallback_candidate_groups(tool_events), request_messages)
-      candidates = diverse_catalog_fallback_candidates(groups)
-      return if candidates.empty?
-
-      lines = candidates.map { |candidate| catalog_fallback_candidate_line(candidate) }
-      price_note = catalog_fallback_price_note(candidates)
-      "Şu ürün seçeneklerini buldum:\n\n#{lines.join("\n")}#{price_note}\n\nHangisini daha ayrıntılı incelemek istersiniz?"
-    end
-
-    def catalog_mixed_scope_fallback_answer(tool_events, request_messages: [])
-      candidate_groups = scoped_catalog_fallback_groups(catalog_fallback_candidate_groups(tool_events), request_messages)
-      clarification_groups = scoped_catalog_fallback_groups(catalog_clarification_fallback_groups(tool_events), request_messages)
-      requested_scopes = requested_catalog_clarification_scopes(clarification_groups, request_messages)
-      return if requested_scopes.length < 2
-
-      candidates = diverse_catalog_fallback_candidates(candidate_groups)
-      return if candidates.empty?
-
-      candidate_tokens = catalog_fallback_candidate_scope_tokens(candidates)
-      covered_scopes, missing_scopes = requested_scopes.partition { |scope| scope[:tokens].intersect?(candidate_tokens) }
-      return if covered_scopes.empty? || missing_scopes.empty?
-
-      category_options = missing_scopes.filter_map { |scope| scope.dig(:group, :options)&.first }.uniq.first(2)
-      selected_candidates = candidates.first(3 - category_options.length)
-      lines = selected_candidates.map { |candidate| catalog_fallback_candidate_line(candidate) }
-      lines.concat(category_options.map { |option| "- Kategori: #{option}" })
-      price_note = catalog_fallback_price_note(selected_candidates)
-
-      "Şu seçenekleri buldum:\n\n#{lines.join("\n")}#{price_note}\n\nHangisini daha ayrıntılı incelemek istersiniz?"
-    end
-
-    def requested_catalog_clarification_scopes(groups, request_messages)
-      latest_tokens = Set.new(catalog_scope_tokens(latest_customer_message(request_messages)))
-      query_token_sets = groups.map { |group| Set.new(catalog_scope_tokens(group[:query])) }
-      common_tokens = query_token_sets.reduce { |common, tokens| common & tokens } || Set.new
-
-      groups.zip(query_token_sets).filter_map do |group, query_tokens|
-        distinguishing_tokens = query_tokens - common_tokens
-        next if distinguishing_tokens.empty? || !distinguishing_tokens.intersect?(latest_tokens)
-
-        { group: group, tokens: distinguishing_tokens }
-      end
-    end
-
-    def catalog_fallback_candidate_scope_tokens(candidates)
-      Set.new(candidates.flat_map do |candidate|
-        catalog_scope_tokens([candidate['display_name'], *Array(candidate['category_paths'])].join(' '))
-      end)
-    end
-
-    def catalog_fallback_price_note(candidates)
-      return '' unless candidates.any? { |candidate| catalog_fallback_reference_price(candidate).present? }
-
-      "\n\nListelenen referans tutarlar nihai fiyat değildir; ölçü ve seçeneklere göre değişir."
-    end
-
-    def catalog_clarification_fallback_answer(tool_events, request_messages: [])
-      groups = scoped_catalog_fallback_groups(catalog_clarification_fallback_groups(tool_events), request_messages)
-      options = diverse_catalog_clarification_options(groups)
-      return if options.empty?
-
-      "Şu kategori seçenekleri eşleşiyor: #{options.join(', ')}. Hangisini incelemek istersiniz?"
-    end
-
-    def catalog_clarification_fallback_groups(tool_events)
-      catalog_results(tool_events).flat_map do |result|
-        result = result.to_h.deep_stringify_keys
-        query_results = Array(result['queries']).select { |query_result| query_result.is_a?(Hash) }
-        query_results = [result] if query_results.empty?
-
-        query_results.filter_map do |query_result|
-          query_result = query_result.deep_stringify_keys
-          next unless query_result['result_type'] == 'clarify_category'
-
-          options = Array(query_result['buckets']).filter_map do |bucket|
-            next unless bucket.is_a?(Hash)
-
-            bucket.deep_stringify_keys['label'].to_s.squish.presence
-          end.uniq
-          next if options.empty?
-
-          { query: query_result['query'].to_s, options: options }
-        end
-      end
-    end
-
-    def diverse_catalog_clarification_options(groups)
-      option_groups = groups.pluck(:options).reject(&:empty?)
-      return [] if option_groups.empty?
-      return option_groups.first.first(3) if option_groups.one?
-
-      option_groups.filter_map(&:first).uniq.first(3)
-    end
-
-    def catalog_fallback_candidate_groups(tool_events)
-      catalog_results(tool_events).flat_map do |result|
-        result = result.to_h.deep_stringify_keys
-        query_results = Array(result['queries']).select { |query_result| query_result.is_a?(Hash) }
-        query_results = [result] if query_results.empty?
-        query_results.map do |query_result|
-          query_result = query_result.deep_stringify_keys
-          {
-            query: query_result['query'].to_s,
-            candidates: Array(query_result['candidates']).filter_map do |candidate|
-              candidate.deep_stringify_keys if candidate.is_a?(Hash)
-            end
-          }
-        end
-      end
-    end
-
-    def scoped_catalog_fallback_groups(groups, request_messages)
-      return groups if groups.length < 2
-
-      latest_tokens = Set.new(catalog_scope_tokens(latest_customer_message(request_messages)))
-      return groups if latest_tokens.empty?
-
-      query_token_sets = groups.map { |group| Set.new(catalog_scope_tokens(group[:query])) }
-      common_tokens = query_token_sets.reduce { |common, tokens| common & tokens } || Set.new
-      scoped_groups = groups.zip(query_token_sets).filter_map do |group, query_tokens|
-        group if (query_tokens - common_tokens).intersect?(latest_tokens)
-      end
-      scoped_groups.presence || groups
-    end
-
-    def latest_customer_message(request_messages)
-      message = Array(request_messages).reverse.find { |entry| (entry[:role] || entry['role']).to_s == 'user' }
-      message&.[](:content) || message&.[]('content')
-    end
-
-    def catalog_scope_tokens(text)
-      I18n.transliterate(text.to_s).downcase.scan(/[a-z0-9]+/)
-    end
-
-    def diverse_catalog_fallback_candidates(groups)
-      candidate_groups = groups.map do |group|
-        group[:candidates].select { |candidate| usable_catalog_fallback_candidate?(candidate) }
-      end.reject(&:empty?)
-      return [] if candidate_groups.empty?
-
-      max_group_size = candidate_groups.map(&:size).max
-      round_robin = max_group_size.times.flat_map do |index|
-        candidate_groups.filter_map { |candidates| candidates[index] }
-      end
-
-      round_robin.uniq { |candidate| catalog_fallback_candidate_identity(candidate) }.first(3)
-    end
-
-    def catalog_fallback_candidate_identity(candidate)
-      candidate.values_at('item_id', 'variant_id', 'display_name').compact.join(':').presence || candidate.dig('link', 'url').to_s
-    end
-
-    def usable_catalog_fallback_candidate?(candidate)
-      return false if candidate['display_name'].to_s.strip.blank?
-
-      stock = candidate['stock'].to_h.deep_stringify_keys
-      stock.values_at('available', 'in_stock', 'sellable').none?(false)
-    end
-
-    def catalog_fallback_candidate_line(candidate)
-      details = [candidate['display_name'].to_s.squish]
-      reference_price = catalog_fallback_reference_price(candidate)
-      details << reference_price if reference_price
-      link = catalog_fallback_link(candidate)
-      details << "[Ürünü inceleyin](#{link})" if link
-      "- #{details.join(' — ')}"
-    end
-
-    def catalog_fallback_reference_price(candidate)
-      price = candidate['price'].to_h.deep_stringify_keys
-      return unless price['final_total_known'] == false
-
-      amount = decimal_reference_amount(price['reference_amount'])
-      currency = price['currency'].to_s.strip
-      return if amount.nil? || !currency.match?(/\A[A-Z]{3}\z/)
-
-      number = amount.to_s('F').sub(/\.0+\z/, '').sub(/(\.\d*?)0+\z/, '\\1')
-      "listelenen referans tutar: #{number} #{currency}"
-    end
-
-    def catalog_fallback_link(candidate)
-      url = candidate.dig('link', 'url').to_s.strip
-      return unless url.match?(/\Ahttps?:\/\//i)
-
-      normalize_catalog_url(url)
-    end
-
-    def decimal_reference_amount(value)
-      return if value.blank?
-
-      BigDecimal(value.to_s)
-    rescue ArgumentError
-      nil
+      answer.match?(/DSML|tool_calls|<\s*\/?\s*tool|<\s*\/?\s*function|invoke name=/i)
     end
 
     def failure_result

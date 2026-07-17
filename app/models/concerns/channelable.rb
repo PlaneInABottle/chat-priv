@@ -8,6 +8,10 @@ module Channelable
   end
 
   def create_audit_log_entry; end
+
+  def supports_ai_input_select?
+    false
+  end
 end
 
 Channelable.prepend_mod_with('Channelable')

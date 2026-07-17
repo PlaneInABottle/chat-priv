@@ -36,6 +36,24 @@ RSpec.describe AiAgents::Orchestrator do
     expect(AiAgentLlmCall.last.response).to include('assistant_text' => 'Hello there', 'finish_reason' => 'stop')
   end
 
+  it 'regenerates model-only replies that contain internal tool protocol markup' do
+    allow(adapter).to receive(:perform).and_return(
+      { assistant_text: '<tool_calls>ikas_catalog_search</tool_calls>', tool_calls: [], finish_reason: 'stop' },
+      { assistant_text: 'How can I help you today?', tool_calls: [], finish_reason: 'stop' }
+    )
+
+    result = described_class.new(
+      ai_agent: ai_agent,
+      messages: [{ role: 'user', content: 'Hi' }],
+      mode: :test,
+      adapter: adapter
+    ).perform
+
+    expect(result[:assistant_message]['content']).to eq('How can I help you today?')
+    expect(adapter).to have_received(:perform).twice
+    expect(AiAgentLlmCall.pluck(:step)).to include('customer_facing_finalizer')
+  end
+
   it 'searches runtime knowledge and attributes the sources used in the final answer' do
     calls = []
     allow(adapter).to receive(:perform) do |payload|
@@ -156,7 +174,7 @@ RSpec.describe AiAgents::Orchestrator do
     expect(AiAgentLlmCall.last.request_messages.last['content']).to include('cut off by the output limit')
   end
 
-  it 'uses a larger final retry budget and falls back to exact catalog evidence when it remains truncated' do
+  it 'uses a larger final retry budget and hands off when it remains truncated' do
     ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'] } })
     hinged_url = 'https://example.test/menteseli-kapi?"RENK"=GRI'
     accordion_url = 'https://example.test/akordiyon-kapi'
@@ -233,28 +251,18 @@ RSpec.describe AiAgents::Orchestrator do
       adapter: adapter
     ).perform
 
-    content = result[:assistant_message]['content']
     retry_log = AiAgentLlmCall.find_by!(conversation: conversation, step: 'tool_final_incomplete_retry')
 
     expect(calls.third).not_to have_key(:max_tokens)
     expect(calls.fourth[:max_tokens]).to eq(4_096)
     expect(retry_log.response['request_options']).to eq('max_tokens' => 4_096)
-    expect(result[:terminal_action]).to be_nil
-    expect(result[:tool_events].none? { |event| event['tool'] == 'human_handoff' }).to be(true)
-    expect(content).to include(
+    expect(result[:terminal_action]).to eq('handoff')
+    expect(result[:assistant_message]['content']).not_to include(
+      'Merhaba! Balkon kapınız için sineklik bakıy',
       'Menteşeli Kapı Sinekliği',
       'Akordiyon Kapı Sinekliği',
-      'Kedi Tüllü Kapı Sinekliği',
-      'https://example.test/menteseli-kapi?%22RENK%22=GRI',
-      accordion_url,
-      pet_mesh_url,
-      '1250 TRY',
-      '1500.5 TRY',
-      'referans',
-      'nihai fiyat'
+      'Kedi Tüllü Kapı Sinekliği'
     )
-    expect(content).not_to include('Merhaba! Balkon kapınız için sineklik bakıy', 'dayanıklıdır', 'tırmalama')
-    expect(content.lines.count { |line| line.strip.end_with?('?') }).to eq(1)
     expect(adapter).to have_received(:perform).exactly(4).times
   end
 
@@ -281,100 +289,50 @@ RSpec.describe AiAgents::Orchestrator do
     expect(adapter).to have_received(:perform).with(hash_including(max_tokens: 4_096)).once
   end
 
-  it 'keeps multi-search fallback diverse and within the latest customer scope' do
+  it 'recovers when a tools-disabled final answer attempts another tool call' do
+    allow(adapter).to receive(:perform).and_return(
+      {
+        assistant_text: nil,
+        tool_calls: [
+          {
+            id: 'unexpected-catalog-call',
+            type: 'function',
+            name: 'ikas_catalog_search',
+            arguments: { query: 'pencere sinekliği' }.to_json
+          }
+        ],
+        finish_reason: 'tool_calls'
+      },
+      {
+        assistant_text: 'Beyaz 70x90 cm pencere sinekliği için net bir eşleşme bulamadım.',
+        tool_calls: [],
+        finish_reason: 'stop'
+      }
+    )
     orchestrator = described_class.new(
       ai_agent: ai_agent,
-      messages: [{ role: 'user', content: 'Akordiyon mu menteşeli mi karar veremedim; ikisini de göster.' }],
+      messages: [{ role: 'user', content: 'Beyaz 70x90 cm pencere sinekliği istiyorum.' }],
       mode: :test,
       adapter: adapter
     )
     tool_events = [{
       'tool' => 'ikas_catalog_search',
-      'result' => {
-        'result_type' => 'multi_search',
-        'queries' => [
-          {
-            'query' => 'pencere sineklik',
-            'candidates' => Array.new(3) { |index| { 'display_name' => "Pencere Sinekliği #{index + 1}" } }
-          },
-          {
-            'query' => 'akordiyon kapı sineklik',
-            'candidates' => Array.new(3) do |index|
-              { 'display_name' => "Akordiyon Kapı Sinekliği #{index + 1}", 'description' => 'En dayanıklı model.' }
-            end
-          },
-          {
-            'query' => 'menteşeli kapı sineklik',
-            'candidates' => Array.new(3) { |index| { 'display_name' => "Menteşeli Kapı Sinekliği #{index + 1}" } }
-          }
-        ]
-      }
+      'result' => { 'result_type' => 'no_match', 'result_count' => 0, 'candidates' => [] }
     }]
-    request_messages = [{ role: 'user', content: 'Akordiyon mu menteşeli mi karar veremedim; ikisini de göster.' }]
 
-    content = orchestrator.send(:catalog_evidence_fallback_answer, tool_events, request_messages: request_messages)
-
-    expect(content).to include('Akordiyon Kapı Sinekliği 1', 'Menteşeli Kapı Sinekliği 1')
-    expect(content).not_to include('Pencere Sinekliği', 'dayanıklı')
-    expect(content.lines.grep(/^- /).size).to eq(3)
-  end
-
-  it 'keeps requested candidate and clarification scopes in deterministic fallback' do
-    orchestrator = described_class.new(
-      ai_agent: ai_agent,
-      messages: [{ role: 'user', content: 'Balkon kapısı için akordiyon mu menteşeli mi, ikisini de göster.' }],
-      mode: :test,
-      adapter: adapter
+    result = orchestrator.send(
+      :final_answer_result,
+      [{ role: 'user', content: 'Beyaz 70x90 cm pencere sinekliği istiyorum.' }],
+      tool_events,
+      'Reply using the available tool results.'
     )
-    tool_events = [{
-      'tool' => 'ikas_catalog_search',
-      'result' => {
-        'result_type' => 'multi_search',
-        'queries' => [
-          {
-            'query' => 'balkon kapısı sineklik',
-            'result_type' => 'show_candidates',
-            'candidates' => [{ 'display_name' => 'Akordiyon Kapı Sinekliği' }]
-          },
-          {
-            'query' => 'akordiyon sineklik',
-            'result_type' => 'clarify_category',
-            'buckets' => [{ 'label' => 'Akordiyon Kapı Sineklikleri' }]
-          },
-          {
-            'query' => 'menteşeli sineklik',
-            'result_type' => 'clarify_category',
-            'buckets' => [{ 'label' => 'Menteşeli Kapı Sineklikleri' }]
-          }
-        ]
-      }
-    }]
-    request_messages = [{ role: 'user', content: 'Balkon kapısı için akordiyon mu menteşeli mi, ikisini de göster.' }]
 
-    content = orchestrator.send(:catalog_mixed_scope_fallback_answer, tool_events, request_messages: request_messages)
-
-    expect(content).to include('Akordiyon Kapı Sinekliği', 'Menteşeli Kapı Sineklikleri')
-    expect(content.count('?')).to eq(1)
-  end
-
-  it 'renders exact returned categories when clarification fallback is required' do
-    orchestrator = described_class.new(ai_agent: ai_agent, messages: [], mode: :test, adapter: adapter)
-    tool_events = [{
-      'tool' => 'ikas_catalog_search',
-      'result' => {
-        'result_type' => 'clarify_category',
-        'query' => 'kapı sineklik',
-        'buckets' => [
-          { 'label' => 'Menteşeli Kapı Sineklikleri' },
-          { 'label' => 'Akordiyon Kapı Sineklikleri' }
-        ]
-      }
-    }]
-
-    content = orchestrator.send(:catalog_clarification_fallback_answer, tool_events)
-
-    expect(content).to include('Menteşeli Kapı Sineklikleri', 'Akordiyon Kapı Sineklikleri')
-    expect(content.count('?')).to eq(1)
+    expect(result[:terminal_action]).to be_nil
+    expect(result[:assistant_message]['content']).to eq(
+      'Beyaz 70x90 cm pencere sinekliği için net bir eşleşme bulamadım.'
+    )
+    expect(adapter).to have_received(:perform).twice
+    expect(AiAgentLlmCall.pluck(:step)).to include('customer_facing_finalizer')
   end
 
   it 'does not return an answer that remains cut off after its retry' do
@@ -937,7 +895,7 @@ RSpec.describe AiAgents::Orchestrator do
         }
       elsif calls.length == 2
         {
-          assistant_text: 'Elimdeki 3 arama sonucuna göre 200x300 cm ölçü için net eşleşme bulamadım.',
+          assistant_text: '<tool_calls>ikas_catalog_search</tool_calls>',
           tool_calls: [],
           finish_reason: 'stop'
         }
@@ -1019,7 +977,7 @@ RSpec.describe AiAgents::Orchestrator do
     expect(adapter).to have_received(:perform).twice
   end
 
-  it 'does not replace multiple catalog no-match results with the single-search fallback' do
+  it 'preserves multiple catalog no-match results for the model response' do
     ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'] } })
     result_one = { status: 'ok', result_type: 'no_match', result_count: 0, candidates: [], query: 'mor perde' }
     result_two = { status: 'ok', result_type: 'no_match', result_count: 0, candidates: [], query: 'yeşil sineklik' }
@@ -1080,7 +1038,7 @@ RSpec.describe AiAgents::Orchestrator do
           finish_reason: 'tool_calls'
         }
       elsif calls.length == 2
-        { assistant_text: 'Elimdeki 3 arama sonucuna göre kedi tüllü seçenekler mevcut.', tool_calls: [], finish_reason: 'stop' }
+        { assistant_text: '<tool_calls>ikas_catalog_search</tool_calls>', tool_calls: [], finish_reason: 'stop' }
       elsif calls.length == 3
         {
           assistant_text: "<｜｜DSML｜｜tool_calls>\n<｜｜DSML｜｜invoke name=\"ikas_catalog_search\">\n</｜｜DSML｜｜invoke>\n</｜｜DSML｜｜tool_calls>",
@@ -1107,7 +1065,7 @@ RSpec.describe AiAgents::Orchestrator do
     expect(AiAgentLlmCall.pluck(:step)).to include('customer_facing_finalizer_retry')
   end
 
-  it 'finalizes tool-backed drafts into customer-facing replies without exposing internal process' do
+  it 'returns ordinary catalog prose without semantic phrase filtering' do
     ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'] } })
     tool_execution = AiAgents::ToolExecutor::Result.new(
       status: 'executed',
@@ -1136,11 +1094,7 @@ RSpec.describe AiAgents::Orchestrator do
           finish_reason: 'stop'
         }
       else
-        {
-          assistant_text: 'KEDİ Tüllü Akordeon Kapı Sineklik balkon kapısı için uygun seçeneklerden biri. Link: https://example.test/sineklik',
-          tool_calls: [],
-          finish_reason: 'stop'
-        }
+        raise 'ordinary catalog prose should not invoke customer-facing regeneration'
       end
     end
 
@@ -1153,11 +1107,11 @@ RSpec.describe AiAgents::Orchestrator do
       adapter: adapter
     ).perform
 
-    expect(result[:assistant_message]['content']).to eq('KEDİ Tüllü Akordeon Kapı Sineklik balkon kapısı için uygun seçeneklerden biri. Link: https://example.test/sineklik')
-    expect(calls.third.fetch(:messages).pluck(:content).compact.join(' ')).not_to include('Elimdeki 3 arama sonucuna göre')
-    expect(calls.third.fetch(:messages).pluck(:content).compact.join(' ')).to include('latest customer message controls the product/category scope')
-    expect(calls.third.fetch(:messages).pluck(:content).compact.join(' ')).to include('Avoid robotic field-label blocks')
-    expect(AiAgentLlmCall.last.step).to eq('customer_facing_finalizer')
+    expect(result[:assistant_message]['content']).to eq(
+      'Elimdeki 3 arama sonucuna göre KEDİ Tüllü Akordeon Kapı Sineklik uygun görünüyor.'
+    )
+    expect(adapter).to have_received(:perform).twice
+    expect(AiAgentLlmCall.pluck(:step)).not_to include('customer_facing_finalizer')
   end
 
   it 'repairs a truncated trailing markdown link from exact catalog evidence' do

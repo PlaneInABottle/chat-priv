@@ -69,7 +69,7 @@ class AiAgents::ToolRegistry
     'Search the connected ikas catalog before answering customer questions about product availability,',
     'dimensions, compatible sizes, colors, sizes, variants, categories, price, weight, volume,',
     'organic products, product links, related product selection, or follow-up references.',
-    'Use a self-contained catalog query with product/category context and hard constraints,',
+    'Use a self-contained catalog query with product/category terms and catalog-identifying attributes or measurements,',
     'not filler or action words from the customer message.'
   ].join(' ').freeze
 
@@ -83,7 +83,8 @@ class AiAgents::ToolRegistry
           'Use query for one search or queries for up to three related searches; prefer one field, not both.',
           'For ambiguous follow-ups, include the relevant product/category context yourself; do not send only a color, size, or measurement.',
           'If the customer only gave dimensions and there is no previous product/category context, ask a clarifying question instead of adding a guessed product/category.',
-          'Drop filler/action words unless they are part of a real product name.',
+          'Write catalog search terms rather than copying the customer sentence.',
+          'For budget or availability preferences, search the product scope and reason over the returned price and stock fields.',
           'Drop purchase quantities unless they are part of a product pack, product name, or dimensions.'
         ].join(' ')
       },
@@ -94,7 +95,7 @@ class AiAgents::ToolRegistry
         description: [
           'Up to three complete, self-contained catalog search phrases for related catalog lookups.',
           'Use this instead of query when multiple independent product/category searches are needed.',
-          'Each query should include product/category context and hard constraints.'
+          'Each query should include product/category context and catalog-identifying attributes or measurements.'
         ].join(' ')
       },
       limit: { type: 'integer', minimum: 1, maximum: 20, default: 8 }

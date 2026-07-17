@@ -5,9 +5,6 @@ require 'set'
 
 module IkasCatalogMvp
   class Normalizer
-    SIZE_VALUES = %w[xxs xs s m l xl xxl xxxl].freeze
-    ORGANIC_TERMS = %w[organic organik natural naturel dogal dogadan].freeze
-
     def initialize(categories:, variant_types:, product_attributes:, product_option_sets: [], storefronts: [])
       @categories = Array(categories)
       @variant_types = Array(variant_types)
@@ -107,12 +104,8 @@ module IkasCatalogMvp
     end
 
     def facet_facts(item, facets)
-      facets.flat_map do |facet|
-        key = Text.fold(facet.fetch('key'))
-        value = facet.fetch('value')
-        rows = [fact(item, facet_type_for(key, value), facet.fetch('key'), nil, nil, nil, 'facet', facet.fetch('source') == 'product_attribute' ? 'high' : 'high', value)]
-        rows << fact(item, 'organic', facet.fetch('key'), 1, nil, nil, 'facet', 'high', value) if organic_value?(value)
-        rows
+      facets.map do |facet|
+        fact(item, 'facet', facet.fetch('key'), nil, nil, nil, 'facet', 'high', facet.fetch('value'))
       end
     end
 
@@ -121,8 +114,6 @@ module IkasCatalogMvp
       rows = []
       rows.concat(dimension_facts(item, text, source: source, confidence: confidence))
       rows.concat(weight_volume_facts(item, text, source: source, confidence: confidence))
-      rows << fact(item, 'custom_size_supported', 'custom_size', 1, nil, nil, source, confidence, text) if custom_size?(text)
-      rows << fact(item, 'organic', 'organic', 1, nil, nil, source, confidence, text) if organic_value?(text)
       rows
     end
 
@@ -345,21 +336,6 @@ module IkasCatalogMvp
     def image_id_for(variant)
       image = Array(variant&.[]('images')).find { |row| row['isMain'] } || Array(variant&.[]('images')).first
       image&.[]('imageId')
-    end
-
-    def facet_type_for(key, value)
-      return 'color' if FacetKeyClassifier.color?(key)
-      return 'size' if FacetKeyClassifier.size?(key) || SIZE_VALUES.include?(Text.fold(value))
-
-      'facet'
-    end
-
-    def organic_value?(value)
-      (Text.tokens(value) & ORGANIC_TERMS).any?
-    end
-
-    def custom_size?(value)
-      Text.fold(value).match?(/\b(custom size|ozel olcu|ozel ebat|istedigin olcude|istediginiz olcude|customizable)\b/)
     end
 
     def clean_text(value)
