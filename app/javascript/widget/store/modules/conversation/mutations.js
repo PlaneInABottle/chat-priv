@@ -1,6 +1,32 @@
 import { MESSAGE_TYPE } from 'widget/helpers/constants';
 import { findUndeliveredMessage } from './helpers';
 
+const isActiveAiOptionPrompt = message => {
+  const attributes = message.content_attributes || {};
+  return (
+    message.content_type === 'input_select' &&
+    attributes.ai_agent?.selection?.version === 1 &&
+    !attributes.submitted_values &&
+    !attributes.selection_unavailable
+  );
+};
+
+const markSupersededAiOptionPrompts = (messages, incomingMessage) => {
+  Object.values(messages).forEach(message => {
+    if (
+      !isActiveAiOptionPrompt(message) ||
+      Number(message.id) >= Number(incomingMessage.id)
+    ) {
+      return;
+    }
+
+    message.content_attributes = {
+      ...message.content_attributes,
+      selection_unavailable: true,
+    };
+  });
+};
+
 export const mutations = {
   clearConversations($state) {
     $state.conversations = {};
@@ -18,6 +44,8 @@ export const mutations = {
       messagesInbox[id] = message;
       return;
     }
+
+    markSupersededAiOptionPrompts(messagesInbox, message);
 
     const [messageInConversation] = findUndeliveredMessage(
       messagesInbox,
@@ -69,6 +97,11 @@ export const mutations = {
     payload.forEach(message => {
       $state.conversations[message.id] = message;
     });
+    payload
+      .filter(message => message.message_type === MESSAGE_TYPE.INCOMING)
+      .forEach(message =>
+        markSupersededAiOptionPrompts($state.conversations, message)
+      );
   },
 
   setMissingMessagesInConversation($state, payload) {

@@ -2,6 +2,7 @@
 
 class AiAgents::OptionSelectionService
   class InvalidSelection < StandardError; end
+  StaleSelection = Class.new(InvalidSelection)
   class AlreadySubmitted < StandardError; end
 
   def initialize(prompt_message:, selected_value:)
@@ -106,7 +107,7 @@ class AiAgents::OptionSelectionService
     later_messages = later_messages.where.not(id: excluding.id) if excluding&.persisted?
     return unless later_messages.exists?
 
-    raise InvalidSelection, 'This option prompt is no longer active.'
+    raise StaleSelection, 'This option prompt is no longer active.'
   end
 
   def create_widget_message!(contact, item)

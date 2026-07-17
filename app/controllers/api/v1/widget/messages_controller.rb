@@ -33,9 +33,11 @@ class Api::V1::Widget::MessagesController < Api::V1::Widget::BaseController
       selected_value: selection_params[:selected_value]
     ).create_widget_response!(contact: @contact)
     render :create
-  rescue AiAgents::OptionSelectionService::InvalidSelection,
+  rescue AiAgents::OptionSelectionService::StaleSelection,
          AiAgents::OptionSelectionService::AlreadySubmitted => e
-    render json: { error: e.message }, status: :unprocessable_entity
+    render json: { error: e.message, error_code: 'option_prompt_inactive' }, status: :unprocessable_entity
+  rescue AiAgents::OptionSelectionService::InvalidSelection => e
+    render json: { error: e.message, error_code: 'invalid_option_selection' }, status: :unprocessable_entity
   end
 
   private

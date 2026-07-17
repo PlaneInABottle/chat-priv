@@ -35,7 +35,16 @@ export const actions = {
         root: true,
       });
     } catch (error) {
-      // Keep the options active so the visitor can retry.
+      if (error.response?.data?.error_code === 'option_prompt_inactive') {
+        commit(
+          'conversation/updateMessage',
+          {
+            id: messageId,
+            content_attributes: { selection_unavailable: true },
+          },
+          { root: true }
+        );
+      }
     }
     commit('toggleUpdateStatus', false);
   },

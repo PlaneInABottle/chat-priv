@@ -395,6 +395,7 @@ RSpec.describe '/api/v1/widget/messages', type: :request do
 
       expect(response).to have_http_status(:unprocessable_entity)
       expect(response.parsed_body['error']).to match(/no longer active/i)
+      expect(response.parsed_body['error_code']).to eq('option_prompt_inactive')
       expect(prompt_message.reload.content_attributes['submitted_values']).to be_blank
     end
 

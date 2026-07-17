@@ -49,6 +49,35 @@ describe('#actions', () => {
         { root: true }
       );
     });
+
+    it('marks an inactive option prompt when the backend rejects a stale selection', async () => {
+      API.post.mockRejectedValue({
+        response: {
+          status: 422,
+          data: { error_code: 'option_prompt_inactive' },
+        },
+      });
+
+      await actions.select(
+        {
+          commit,
+          getters: { getUIFlags: { isUpdating: false } },
+        },
+        {
+          messageId: 10,
+          selectedOption: { title: 'Support', value: 'support-id' },
+        }
+      );
+
+      expect(commit).toHaveBeenCalledWith(
+        'conversation/updateMessage',
+        {
+          id: 10,
+          content_attributes: { selection_unavailable: true },
+        },
+        { root: true }
+      );
+    });
   });
 
   describe('#update', () => {

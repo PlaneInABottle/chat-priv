@@ -63,6 +63,30 @@ describe('#mutations', () => {
         1: incomingMessagePayload,
       });
     });
+
+    it('marks an unanswered AI option prompt stale after a newer incoming message', () => {
+      const optionPrompt = {
+        id: 10,
+        content_type: 'input_select',
+        message_type: 1,
+        content_attributes: {
+          ai_agent: { selection: { version: 1 } },
+          items: [{ title: 'Sales', value: 'sales' }],
+        },
+      };
+      const state = { conversations: { 10: optionPrompt } };
+
+      mutations.pushMessageToConversation(state, {
+        id: 11,
+        content: 'I need something else',
+        message_type: 0,
+        status: 'sent',
+      });
+
+      expect(state.conversations[10].content_attributes).toMatchObject({
+        selection_unavailable: true,
+      });
+    });
   });
 
   describe('#setConversationListLoading', () => {
@@ -101,6 +125,35 @@ describe('#mutations', () => {
         1: { id: 1, content: 'hello' },
       });
       expect(state.uiFlags.allMessagesLoaded).toEqual(false);
+    });
+
+    it('marks loaded AI option prompts stale when a newer incoming message exists', () => {
+      const state = {
+        uiFlags: { allMessagesLoaded: false },
+        conversations: {},
+      };
+
+      mutations.setMessagesInConversation(state, [
+        {
+          id: 10,
+          content_type: 'input_select',
+          message_type: 1,
+          content_attributes: {
+            ai_agent: { selection: { version: 1 } },
+            items: [{ title: 'Sales', value: 'sales' }],
+          },
+        },
+        {
+          id: 11,
+          content: 'I need something else',
+          message_type: 0,
+          status: 'sent',
+        },
+      ]);
+
+      expect(state.conversations[10].content_attributes).toMatchObject({
+        selection_unavailable: true,
+      });
     });
   });
 
