@@ -37,7 +37,7 @@ RSpec.describe AiAgents::ToolPromptPolicy do
   it 'requires explicit candidate evidence for physical product claims' do
     instructions = described_class.new([AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL]).instructions
 
-    expect(instructions).to match(/material.*durability.*pet-resistance.*damage.*suitability.*candidate evidence/i)
+    expect(instructions).to match(/material.*durability.*pet-resistance.*damage.*convenience.*suitability.*candidate evidence/i)
     expect(instructions).to match(/names.*neutral catalog facts.*not evidence.*physical performance.*pet behavior/i)
   end
 
