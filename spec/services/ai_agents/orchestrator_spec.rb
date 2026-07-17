@@ -370,6 +370,45 @@ RSpec.describe AiAgents::Orchestrator do
     expect(adapter).to have_received(:perform).twice
   end
 
+  it 'localizes automatic safety handoff messages to the configured instruction locale' do
+    ai_agent.update!(
+      config: {
+        'instructions' => { 'version' => 4, 'locale' => 'en' },
+        'tools' => { 'enabled' => ['human_handoff'] }
+      }
+    )
+    allow(adapter).to receive(:perform).and_return(
+      { assistant_text: 'Partial answer', tool_calls: [], finish_reason: 'length' },
+      { assistant_text: 'Still partial', tool_calls: [], finish_reason: 'length' }
+    )
+
+    result = described_class.new(
+      ai_agent: ai_agent.reload,
+      messages: [{ role: 'user', content: 'Can you recommend a product?' }],
+      mode: :test,
+      adapter: adapter
+    ).perform
+
+    expect(result[:terminal_action]).to eq('handoff')
+    expect(result[:assistant_message]['content']).to eq('I am transferring you to a team member. Our team will help you.')
+    expect(result[:tool_events].last.dig('args', 'customer_message')).to eq(result[:assistant_message]['content'])
+
+    ai_agent.update!(
+      config: {
+        'instructions' => { 'version' => 4, 'locale' => 'tr' },
+        'tools' => { 'enabled' => ['human_handoff'] }
+      }
+    )
+    turkish_result = described_class.new(
+      ai_agent: ai_agent.reload,
+      messages: [{ role: 'user', content: 'Bir ürün önerebilir misiniz?' }],
+      mode: :test,
+      adapter: adapter
+    ).perform
+
+    expect(turkish_result[:assistant_message]['content']).to eq('Sizi bir temsilciye aktarıyorum. Ekibimiz yardımcı olacak.')
+  end
+
   it 'returns free-form catalog reasoning without evidence finalization' do
     ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'] } })
     hinged_url = 'https://example.test/menteseli-kapi-sineklik'
@@ -605,7 +644,7 @@ RSpec.describe AiAgents::Orchestrator do
       adapter: adapter
     ).perform
 
-    expected_message = 'Sizi bir temsilciye aktarıyorum. Ekibimiz yardımcı olacak.'
+    expected_message = 'I am transferring you to a team member. Our team will help you.'
     expect(result[:assistant_message]['content']).to eq(expected_message)
     expect(conversation.messages.outgoing.where(private: false, sender: ai_agent.agent_bot).last.content).to eq(expected_message)
   end
@@ -1462,6 +1501,23 @@ RSpec.describe AiAgents::Orchestrator do
       ['balkon kapısı sineklik', *retained_queries]
     )
     expect(adapter).to have_received(:perform).exactly(3).times
+  end
+
+  it 'counts case and Turkish-diacritic variants as one catalog query unit' do
+    orchestrator = described_class.new(
+      ai_agent: ai_agent,
+      messages: [{ role: 'user', content: 'Yatak seçeneklerini göster.' }],
+      mode: :test,
+      adapter: adapter
+    )
+    tool_call = {
+      name: 'ikas_catalog_search',
+      arguments: { queries: %w[Yatak yatak YATAK SİNEKLİK sineklik] }.to_json
+    }
+
+    expect(orchestrator.send(:catalog_search_query_units, tool_call)).to eq(2)
+    retained = orchestrator.send(:catalog_search_tool_call_with_query_limit, tool_call, 1)
+    expect(JSON.parse(retained[:arguments])['queries']).to eq(['Yatak'])
   end
 
   it 'finalizes without tools when the catalog search budget is exhausted' do

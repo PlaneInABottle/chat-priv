@@ -5,6 +5,22 @@ require Rails.root.join('lib/integrations/ikas/catalog')
 class AiAgents::Tools::IkasCatalogSearchService
   MAX_BATCH_QUERIES = 3
 
+  def self.normalize_queries(raw_queries, limit: MAX_BATCH_QUERIES)
+    seen = {}
+
+    Array(raw_queries).each_with_object([]) do |raw_query, queries|
+      query = raw_query.to_s.strip
+      next if query.blank?
+
+      identity = Integrations::Ikas::Catalog::Text.fold(query).presence || query
+      next if seen[identity]
+
+      seen[identity] = true
+      queries << query
+      break queries if queries.length == limit
+    end
+  end
+
   def initialize(ai_agent:, account:, mode:, settings:, **_context)
     @ai_agent = ai_agent
     @account = account
@@ -27,22 +43,13 @@ class AiAgents::Tools::IkasCatalogSearchService
 
   def normalized_queries(args)
     raw_queries = args.key?('queries') ? Array(args['queries']) : [args['query']]
-
-    raw_queries.each_with_object([]) do |raw_query, queries|
-      query = raw_query.to_s.strip
-      next if query.blank?
-      next if queries.include?(query)
-
-      queries << query
-      break queries if queries.length == MAX_BATCH_QUERIES
-    end
+    self.class.normalize_queries(raw_queries)
   end
 
   def search_catalog(query, args)
     Integrations::Ikas::CatalogSearchService.new(
       account: account,
       query_text: query,
-      context_query_text: nil,
       limit: args['limit'].presence || Integrations::Ikas::CatalogSearchService::DEFAULT_LIMIT
     ).call
   end

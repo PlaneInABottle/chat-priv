@@ -23,7 +23,6 @@ RSpec.describe AiAgents::Tools::IkasCatalogSearchService do
     expect(Integrations::Ikas::CatalogSearchService).to have_received(:new).with(
       account: account,
       query_text: '70x90 sineklik',
-      context_query_text: nil,
       limit: 8
     )
   end
@@ -36,24 +35,21 @@ RSpec.describe AiAgents::Tools::IkasCatalogSearchService do
     expect(Integrations::Ikas::CatalogSearchService).to receive(:new).with(
       account: account,
       query_text: 'sineklik',
-      context_query_text: nil,
       limit: 4
     ).ordered.and_return(sineklik_service)
     expect(Integrations::Ikas::CatalogSearchService).to receive(:new).with(
       account: account,
       query_text: 'perde',
-      context_query_text: nil,
       limit: 4
     ).ordered.and_return(perde_service)
     expect(Integrations::Ikas::CatalogSearchService).to receive(:new).with(
       account: account,
       query_text: 'stor',
-      context_query_text: nil,
       limit: 4
     ).ordered.and_return(stor_service)
 
     result = described_class.new(ai_agent: ai_agent, account: account, mode: :test, settings: {}).call(
-      args: { 'queries' => [' sineklik ', '', 'perde', 'sineklik', 'stor', 'jaluzi'], 'limit' => 4 }
+      args: { 'queries' => [' sineklik ', 'SİNEKLİK', '', 'perde', 'sineklik', 'stor', 'jaluzi'], 'limit' => 4 }
     )
 
     expect(result).to include(status: 'ok', result_type: 'multi_search', result_count: 6)
@@ -93,13 +89,11 @@ RSpec.describe AiAgents::Tools::IkasCatalogSearchService do
     expect(Integrations::Ikas::CatalogSearchService).to receive(:new).with(
       account: account,
       query_text: 'sineklik',
-      context_query_text: nil,
       limit: 8
     ).ordered.and_return(ok_service)
     expect(Integrations::Ikas::CatalogSearchService).to receive(:new).with(
       account: account,
       query_text: 'perde',
-      context_query_text: nil,
       limit: 8
     ).ordered.and_return(error_service)
 
@@ -119,13 +113,11 @@ RSpec.describe AiAgents::Tools::IkasCatalogSearchService do
     expect(Integrations::Ikas::CatalogSearchService).to receive(:new).with(
       account: account,
       query_text: 'sineklik',
-      context_query_text: nil,
       limit: 8
     ).ordered.and_return(first_service)
     expect(Integrations::Ikas::CatalogSearchService).to receive(:new).with(
       account: account,
       query_text: 'perde',
-      context_query_text: nil,
       limit: 8
     ).ordered.and_return(second_service)
 
@@ -192,7 +184,6 @@ RSpec.describe AiAgents::Tools::IkasCatalogSearchService do
     expect(Integrations::Ikas::CatalogSearchService).to have_received(:new).with(
       account: account,
       query_text: '70x100',
-      context_query_text: nil,
       limit: 8
     )
   end

@@ -58,10 +58,12 @@ module IkasCatalogMvp
     end
 
     def extract_facets!(text)
+      folded_text = Text.fold(text)
       vocabulary_entries.filter_map do |entry|
-        next unless phrase_present?(text, entry.fetch('value_folded'))
+        next unless phrase_present?(folded_text, entry.fetch('value_folded'))
 
         text.gsub!(/#{Regexp.escape(entry.fetch('value'))}/i, ' ')
+        folded_text = Text.fold(text)
         {
           'type' => entry.fetch('fact_type'),
           'operator' => 'eq',
@@ -73,7 +75,7 @@ module IkasCatalogMvp
     end
 
     def vocabulary_entries
-      facet_vocabulary.flat_map do |key, values|
+      @vocabulary_entries ||= facet_vocabulary.flat_map do |key, values|
         Array(values).map do |value|
           {
             'key' => key,
@@ -85,9 +87,8 @@ module IkasCatalogMvp
       end
     end
 
-    def phrase_present?(text, folded_phrase)
-      folded = " #{Text.fold(text)} "
-      folded.include?(" #{folded_phrase} ")
+    def phrase_present?(folded_text, folded_phrase)
+      " #{folded_text} ".include?(" #{folded_phrase} ")
     end
 
     def dimension_values(raw, unit)

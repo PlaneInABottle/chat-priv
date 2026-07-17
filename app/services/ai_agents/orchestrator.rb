@@ -529,7 +529,7 @@ module AiAgents
       return unless query_limit.positive?
 
       args = parsed_tool_arguments(tool_call)
-      queries = Array(args['queries']).filter_map { |query| query.to_s.strip.presence }.uniq.first(MAX_CATALOG_SEARCH_QUERY_UNITS)
+      queries = normalized_catalog_queries(args['queries'])
       return tool_call if queries.empty?
 
       args['queries'] = queries.first(query_limit)
@@ -604,10 +604,14 @@ module AiAgents
 
     def catalog_search_query_units(tool_call)
       args = parsed_tool_arguments(tool_call)
-      queries = Array(args['queries']).filter_map { |query| query.to_s.strip.presence }.uniq
+      queries = normalized_catalog_queries(args['queries'])
       return queries.first(MAX_CATALOG_SEARCH_QUERY_UNITS).size if queries.any?
 
       1
+    end
+
+    def normalized_catalog_queries(queries)
+      AiAgents::Tools::IkasCatalogSearchService.normalize_queries(queries, limit: MAX_CATALOG_SEARCH_QUERY_UNITS)
     end
 
     def parsed_tool_arguments(tool_call)
@@ -769,7 +773,12 @@ module AiAgents
     end
 
     def safety_handoff_message
-      'Sizi bir temsilciye aktarıyorum. Ekibimiz yardımcı olacak.'
+      I18n.t('ai_agents.safety_handoff_message', locale: safety_handoff_locale)
+    end
+
+    def safety_handoff_locale
+      instructions = runtime_config.to_h.deep_stringify_keys['instructions']
+      AiAgents::InstructionDocument.new(instructions).normalized.fetch('locale')
     end
 
     def safety_handoff_tool_event(tool_call, definition, result)
