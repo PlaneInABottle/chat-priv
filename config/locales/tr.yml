@@ -18,6 +18,8 @@
 #available at https://guides.rubyonrails.org/i18n.html.
 tr:
   hello: 'Merhaba Dünya'
+  ai_agents:
+    safety_handoff_message: 'Sizi bir temsilciye aktarıyorum. Ekibimiz yardımcı olacak.'
   inbox:
     reauthorization:
       success: 'Kanal başarıyla yeniden yetkilendirildi'

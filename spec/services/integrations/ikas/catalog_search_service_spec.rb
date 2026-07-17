@@ -194,17 +194,6 @@ RSpec.describe Integrations::Ikas::CatalogSearchService do
     end
   end
 
-  it 'applies context query text to dimension-only follow-up searches' do
-    build_catalog do |sqlite_path|
-      create_snapshot(sqlite_path)
-
-      result = described_class.new(account: account, query_text: '70x90', context_query_text: 'sineklik').call
-
-      expect(result[:query]).to eq('sineklik 70x90')
-      expect(result[:candidates].first[:product_id]).to eq('p-sineklik')
-    end
-  end
-
   it 'supports variant size/color and organic weight searches' do
     build_catalog do |sqlite_path|
       create_snapshot(sqlite_path)

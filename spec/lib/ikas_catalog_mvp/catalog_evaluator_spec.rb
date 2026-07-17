@@ -22,8 +22,8 @@ RSpec.describe IkasCatalogMvp::CatalogEvaluator do
         @calls = []
       end
 
-      def query(query, limit:, context_texts:)
-        calls << { query: query, limit: limit, context_texts: context_texts }
+      def query(query, limit:)
+        calls << { query: query, limit: limit }
         @payloads.fetch(query)
       end
     end.new(payloads)
@@ -44,8 +44,6 @@ RSpec.describe IkasCatalogMvp::CatalogEvaluator do
     cases = <<~YAML
       - id: beyaz_perde
         query: "beyaz perde"
-        context_texts:
-          - "perde bakıyorum"
         expect:
           result_type: ["show_candidates"]
           min_results: 1
@@ -70,7 +68,7 @@ RSpec.describe IkasCatalogMvp::CatalogEvaluator do
       expect(report.fetch('status')).to eq('passed')
       expect(report.dig('summary', 'passed')).to eq(1)
       expect(report.dig('cases', 0, 'top_candidates', 0, 'link_url')).to eq('https://store.example.com/perde')
-      expect(engine.calls.first).to eq({ query: 'beyaz perde', limit: 6, context_texts: ['perde bakıyorum'] })
+      expect(engine.calls.first).to eq({ query: 'beyaz perde', limit: 6 })
     end
   end
 

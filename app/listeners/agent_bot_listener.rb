@@ -96,13 +96,8 @@ class AgentBotListener < BaseListener
     return false if message.private?
     return false if message.activity?
     return false if message.template?
-    return false if ai_generated_message?(message)
 
     true
-  end
-
-  def ai_generated_message?(message)
-    message.outgoing? && message.sender_type.in?(['AgentBot', 'Captain::Assistant'])
   end
 
   def ai_handoff_completed?(conversation)

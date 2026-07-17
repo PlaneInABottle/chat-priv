@@ -31,6 +31,8 @@
 
 en:
   hello: 'Hello world'
+  ai_agents:
+    safety_handoff_message: 'I am transferring you to a team member. Our team will help you.'
   inbox:
     reauthorization:
       success: 'Channel reauthorized successfully'

@@ -50,11 +50,7 @@ class AiAgents::LiveProcessor
   end
 
   def eligible_customer_message?
-    message.incoming? && message.text? && !message.private? && !message.activity? && !message.template? && !ai_generated_message?
-  end
-
-  def ai_generated_message?
-    message.outgoing? && message.sender_type.in?(['AgentBot', 'Captain::Assistant'])
+    message.incoming? && message.text? && !message.private? && !message.activity? && !message.template?
   end
 
   def handoff_completed?

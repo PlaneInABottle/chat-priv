@@ -6,10 +6,9 @@ class Integrations::Ikas::CatalogSearchService
   DEFAULT_LIMIT = 8
   MAX_LIMIT = 20
 
-  def initialize(account:, query_text:, limit: DEFAULT_LIMIT, context_query_text: nil)
+  def initialize(account:, query_text:, limit: DEFAULT_LIMIT)
     @account = account
     @query_text = query_text.to_s
-    @context_query_texts = Array(context_query_text).compact.map(&:to_s).reject(&:blank?)
     @limit = limit.to_i
   end
 
@@ -30,7 +29,7 @@ class Integrations::Ikas::CatalogSearchService
 
   private
 
-  attr_reader :account, :query_text, :context_query_texts, :limit
+  attr_reader :account, :query_text, :limit
 
   def validation_error
     return error_payload('invalid_query', 'Catalog query cannot be blank.') if query_text.blank?
@@ -44,7 +43,7 @@ class Integrations::Ikas::CatalogSearchService
 
   def search_result(snapshot)
     engine = query_engine(snapshot)
-    result = engine.query(query_text, limit: clamped_limit, context_texts: context_query_texts)
+    result = engine.query(query_text, limit: clamped_limit)
     result.merge(
       'status' => 'ok',
       'catalog' => {

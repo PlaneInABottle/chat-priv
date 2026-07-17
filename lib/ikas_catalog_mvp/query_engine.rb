@@ -13,13 +13,11 @@ module IkasCatalogMvp
       @sqlite_path = sqlite_path
     end
 
-    def query(text, limit: DEFAULT_LIMIT, context_texts: [])
+    def query(text, limit: DEFAULT_LIMIT)
       with_db do |db|
-        plan = query_plan_for(db, text, context_texts)
-        return needs_scope_payload(text, plan.fetch('parsed')) if plan.fetch('needs_scope')
-
-        parsed = plan.fetch('parsed')
-        return unsupported_payload(plan.fetch('query'), parsed) if parsed.fetch('unsupported_constraints').any?
+        parsed = query_parser(db).parse(text)
+        return needs_scope_payload(text, parsed) if scope_required?(db, parsed)
+        return unsupported_payload(text, parsed) if parsed.fetch('unsupported_constraints').any?
 
         root = matched_root(db, category_scope_terms_for(db, parsed))
         buckets = root ? type_buckets(db, root.fetch('id')) : []
@@ -30,14 +28,7 @@ module IkasCatalogMvp
         root_category_ids = root ? category_subtree_ids(db, root.fetch('id')) : []
         candidates = candidates_for(db, parsed, root, root_category_ids, limit)
 
-        result_payload(plan.fetch('query'), parsed, root, candidates)
-      end
-    end
-
-    def context_required_for?(text)
-      with_db do |db|
-        parsed = query_parser(db).parse(text)
-        scope_required?(db, parsed)
+        result_payload(text, parsed, root, candidates)
       end
     end
 
@@ -47,17 +38,6 @@ module IkasCatalogMvp
 
     def query_parser(db)
       QueryParser.new(facet_vocabulary: facet_vocabulary(db))
-    end
-
-    def query_plan_for(db, text, context_texts)
-      parsed = query_parser(db).parse(text)
-      return { 'query' => text, 'parsed' => parsed, 'needs_scope' => false } unless scope_required?(db, parsed)
-
-      context_terms = latest_context_scope_terms(db, context_texts)
-      return { 'query' => text, 'parsed' => parsed, 'needs_scope' => true } if context_terms.empty?
-
-      query = scoped_constraint_query(context_terms, parsed)
-      { 'query' => query, 'parsed' => query_parser(db).parse(query), 'needs_scope' => false }
     end
 
     def needs_scope_payload(text, parsed)
@@ -76,22 +56,8 @@ module IkasCatalogMvp
       parsed.fetch('constraints').any? && scope_terms_for(db, parsed).empty?
     end
 
-    def latest_context_scope_terms(db, context_texts)
-      Array(context_texts).reverse_each do |context_text|
-        terms = scope_terms_for(db, query_parser(db).parse(context_text), include_item_scope: false)
-        terms = terms.select { |term| Text.fold(term).length >= 3 }
-        return terms if terms.any?
-      end
-      []
-    end
-
-    def scope_terms_for(db, parsed, include_item_scope: true)
-      parsed.fetch('terms').select { |term| catalog_scope_term?(db, term, include_item_scope: include_item_scope) }
-    end
-
-    def scoped_constraint_query(scope_terms, parsed)
-      constraint_text = parsed.fetch('constraints').filter_map { |constraint| constraint['raw'] }.join(' ')
-      [scope_terms.join(' '), constraint_text].reject { |value| value.to_s.empty? }.join(' ').split.join(' ')
+    def scope_terms_for(db, parsed)
+      parsed.fetch('terms').select { |term| catalog_scope_term?(db, term) }
     end
 
     def clarification_needed?(parsed, buckets)
@@ -695,8 +661,8 @@ module IkasCatalogMvp
       end
     end
 
-    def catalog_scope_term?(db, term, include_item_scope: true)
-      category_scope_term?(db, term) || (include_item_scope && selective_item_scope_term?(db, term))
+    def catalog_scope_term?(db, term)
+      category_scope_term?(db, term) || selective_item_scope_term?(db, term)
     end
 
     def category_scope_term?(db, term)
@@ -706,14 +672,19 @@ module IkasCatalogMvp
     end
 
     def selective_item_scope_term?(db, term)
-      total = db.get_first_value('SELECT COUNT(DISTINCT group_id) FROM catalog_items').to_i
-      return false if total.zero?
+      folded_term = Text.fold(term)
+      cache_fetch(:selective_item_scope_terms, folded_term) do
+        total = cache_fetch(:query, :catalog_group_count) do
+          db.get_first_value('SELECT COUNT(DISTINCT group_id) FROM catalog_items').to_i
+        end
+        next false if total.zero?
 
-      matches = db.get_first_value(
-        'SELECT COUNT(DISTINCT group_id) FROM catalog_items WHERE search_text_folded LIKE ?',
-        ["%#{Text.fold(term)}%"]
-      ).to_i
-      matches.positive? && matches <= [(total * 0.2).ceil, 5].max
+        matches = db.get_first_value(
+          'SELECT COUNT(DISTINCT group_id) FROM catalog_items WHERE search_text_folded LIKE ?',
+          ["%#{folded_term}%"]
+        ).to_i
+        matches.positive? && matches <= [(total * 0.2).ceil, 5].max
+      end
     end
 
     def category_token_variants(value)

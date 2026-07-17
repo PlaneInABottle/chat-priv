@@ -59,20 +59,18 @@ module IkasCatalogMvp
       raise Error, "eval case ##{index + 1} is missing id" if row['id'].to_s.empty?
       raise Error, "eval case #{row['id']} is missing query" if row['query'].to_s.empty?
 
-      row['context_texts'] = Array(row['context_texts']).map(&:to_s)
       row['expect'] = deep_stringify_keys(row['expect'] || {})
       row
     end
 
     def evaluate_case(row)
-      result = query_engine.query(row.fetch('query'), limit: limit, context_texts: row.fetch('context_texts'))
+      result = query_engine.query(row.fetch('query'), limit: limit)
       result = deep_stringify_keys(result)
       failures = failures_for(row.fetch('expect'), result)
 
       {
         'id' => row.fetch('id'),
         'query' => row.fetch('query'),
-        'context_texts' => row.fetch('context_texts'),
         'status' => failures.empty? ? 'passed' : 'failed',
         'failures' => failures,
         'result_type' => result['result_type'],
@@ -86,7 +84,6 @@ module IkasCatalogMvp
       {
         'id' => row.fetch('id'),
         'query' => row.fetch('query'),
-        'context_texts' => row.fetch('context_texts'),
         'status' => 'failed',
         'failures' => ["query_error: #{e.class}: #{e.message}"],
         'result_type' => nil,

@@ -543,17 +543,6 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
     end
   end
 
-  it 'requires conversation context for dimension-only follow-up queries' do
-    with_snapshot do |sqlite_path|
-      engine = described_class.new(sqlite_path: sqlite_path)
-
-      expect(engine.context_required_for?('70x80')).to be(true)
-      expect(engine.context_required_for?('70x80 link fiyat')).to be(true)
-      expect(engine.context_required_for?('akordiyon sineklik 70x80')).to be(false)
-      expect(engine.context_required_for?('blackout perde 70x80')).to be(false)
-    end
-  end
-
   it 'asks for product scope instead of searching all dimension-compatible products' do
     with_snapshot do |sqlite_path|
       payload = described_class.new(sqlite_path: sqlite_path).query('70x80')
@@ -564,19 +553,17 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
     end
   end
 
-  it 'uses the latest catalog-scoped context without carrying old constraints' do
-    with_snapshot do |sqlite_path|
-      payload = described_class.new(sqlite_path: sqlite_path).query(
-        '70x80',
-        context_texts: ['sineklik var mi', 'akordiyon sineklikler', '70x100 olsun link ve fiyat verir misin']
-      )
-      product_ids = payload.fetch('candidates').map { |candidate| candidate.fetch('product_id') }
-
-      expect(payload.fetch('query')).to eq('akordiyon sineklikler 70x80')
-      expect(payload.fetch('result_type')).to eq('show_compatible_candidates')
-      expect(product_ids).to include('p-sineklik-akordiyon')
-      expect(payload.fetch('query')).not_to include('70x100')
+  it 'caches selective item-scope lookups within a query' do
+    engine = described_class.new(sqlite_path: 'unused.sqlite3')
+    db = instance_double(SQLite3::Database)
+    allow(db).to receive(:get_first_value) do |sql, *_bindings|
+      sql.include?('WHERE search_text_folded') ? 3 : 100
     end
+    engine.instance_variable_set(:@query_cache, {})
+
+    2.times { engine.send(:selective_item_scope_term?, db, 'sineklik') }
+
+    expect(db).to have_received(:get_first_value).twice
   end
 
   it 'matches multiple catalog-declared variant facets' do
