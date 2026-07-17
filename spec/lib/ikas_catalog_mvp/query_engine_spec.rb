@@ -857,6 +857,14 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
     end
   end
 
+  it 'does not treat a short shared prefix as a category match' do
+    with_snapshot do |sqlite_path|
+      payload = described_class.new(sqlite_path: sqlite_path).query('mental sineklik')
+
+      expect(payload.dig('matched_scope', 'id')).not_to eq('sineklik-hinged')
+    end
+  end
+
   it 'does not remove purchase quantity words through a static dictionary' do
     with_snapshot do |sqlite_path|
       payload = described_class.new(sqlite_path: sqlite_path).query('70x90 sineklik 2 tane')

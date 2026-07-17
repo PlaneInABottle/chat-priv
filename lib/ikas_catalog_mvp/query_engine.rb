@@ -392,7 +392,9 @@ module IkasCatalogMvp
     end
 
     def facts_for(db, item_id)
-      db.execute('SELECT * FROM catalog_facts WHERE item_id = ? ORDER BY confidence ASC, type ASC', [item_id])
+      cache_fetch(:facts, item_id) do
+        db.execute('SELECT * FROM catalog_facts WHERE item_id = ? ORDER BY confidence ASC, type ASC', [item_id])
+      end
     end
 
     def fact_values(fact)
@@ -590,7 +592,9 @@ module IkasCatalogMvp
     end
 
     def item_category_ids(db, item_id)
-      db.execute('SELECT category_id FROM catalog_item_categories WHERE item_id = ?', [item_id]).map { |row| row.fetch('category_id') }
+      cache_fetch(:item_category_ids, item_id) do
+        db.execute('SELECT category_id FROM catalog_item_categories WHERE item_id = ?', [item_id]).map { |row| row.fetch('category_id') }
+      end
     end
 
     def category_paths_for(db, item_category_ids)
@@ -603,14 +607,16 @@ module IkasCatalogMvp
     end
 
     def facet_vocabulary(db)
-      db.execute('SELECT key, value FROM catalog_facets GROUP BY key, value').group_by { |row| row.fetch('key') }
-        .transform_values { |rows| rows.map { |row| row.fetch('value') } }
+      cache_fetch(:query, :facet_vocabulary) do
+        db.execute('SELECT key, value FROM catalog_facets GROUP BY key, value').group_by { |row| row.fetch('key') }
+          .transform_values { |rows| rows.map { |row| row.fetch('value') } }
+      end
     end
 
     def matched_root(db, terms)
       return nil if terms.empty?
 
-      candidates = db.execute('SELECT id, parent_id, name FROM raw_categories').select do |row|
+      candidates = category_rows(db).select do |row|
         folded_words = category_path_tokens(db, row.fetch('id'))
         terms.all? { |term| folded_words.any? { |word| category_token_match?(term, word) } }
       end
@@ -683,7 +689,8 @@ module IkasCatalogMvp
           minimum_length = [left_token.length, right_token.length].min
           common_prefix_length = left_token.chars.zip(right_token.chars).take_while { |left_char, right_char| left_char == right_char }.length
 
-          minimum_length >= 6 && common_prefix_length >= 4 && common_prefix_length * 3 >= minimum_length * 2
+          close_short_stem = common_prefix_length >= 4 && levenshtein_distance(left_token, right_token) <= 3
+          minimum_length >= 6 && (common_prefix_length >= 5 || close_short_stem) && common_prefix_length * 3 >= minimum_length * 2
         end
       end
     end
@@ -693,7 +700,7 @@ module IkasCatalogMvp
     end
 
     def category_scope_term?(db, term)
-      db.execute('SELECT id FROM raw_categories').any? do |row|
+      category_rows(db).any? do |row|
         category_path_tokens(db, row.fetch('id')).any? { |word| category_token_match?(term, word) }
       end
     end
@@ -742,53 +749,36 @@ module IkasCatalogMvp
     def common_ancestor_for(db, categories)
       paths = categories.map { |row| category_path_ids(db, row.fetch('id')) }
       ancestor_id = paths.first.find { |candidate_id| paths.all? { |path| path.include?(candidate_id) } }
-      db.get_first_row('SELECT id, parent_id, name FROM raw_categories WHERE id = ?', [ancestor_id]) if ancestor_id
+      category_rows_by_id(db)[ancestor_id] if ancestor_id
     end
 
     def category_path_ids(db, category_id)
-      db.execute(
-        <<~SQL,
-          WITH RECURSIVE ancestors(id, parent_id) AS (
-            SELECT id, parent_id FROM raw_categories WHERE id = ?
-            UNION ALL
-            SELECT c.id, c.parent_id FROM raw_categories c INNER JOIN ancestors a ON a.parent_id = c.id
-          )
-          SELECT id FROM ancestors
-        SQL
-        [category_id]
-      ).map { |row| row.fetch('id') }
+      cache_fetch(:category_path_ids, category_id) do
+        rows_by_id = category_rows_by_id(db)
+        path = []
+        current = rows_by_id[category_id]
+        while current
+          path << current.fetch('id')
+          current = rows_by_id[current['parent_id']]
+        end
+        path
+      end
     end
 
     def category_path_tokens(db, category_id)
-      db.execute(
-        <<~SQL,
-          WITH RECURSIVE ancestors(id, parent_id, name) AS (
-            SELECT id, parent_id, name FROM raw_categories WHERE id = ?
-            UNION ALL
-            SELECT c.id, c.parent_id, c.name FROM raw_categories c INNER JOIN ancestors a ON a.parent_id = c.id
-          )
-          SELECT name FROM ancestors
-        SQL
-        [category_id]
-      ).flat_map { |row| Text.tokens(row.fetch('name')) }
+      cache_fetch(:category_path_tokens, category_id) do
+        category_path_ids(db, category_id).flat_map { |id| Text.tokens(category_rows_by_id(db).fetch(id).fetch('name')) }
+      end
     end
 
     def category_path_names(db, category_id)
-      db.execute(
-        <<~SQL,
-          WITH RECURSIVE ancestors(id, parent_id, name) AS (
-            SELECT id, parent_id, name FROM raw_categories WHERE id = ?
-            UNION ALL
-            SELECT c.id, c.parent_id, c.name FROM raw_categories c INNER JOIN ancestors a ON a.parent_id = c.id
-          )
-          SELECT name FROM ancestors
-        SQL
-        [category_id]
-      ).map { |row| row.fetch('name') }.reverse
+      cache_fetch(:category_path_names, category_id) do
+        category_path_ids(db, category_id).reverse.map { |id| category_rows_by_id(db).fetch(id).fetch('name') }
+      end
     end
 
     def type_buckets(db, category_id)
-      children = db.execute('SELECT id, name FROM raw_categories WHERE parent_id = ? ORDER BY name ASC', [category_id])
+      children = child_categories(db, category_id)
       children.filter_map do |row|
         ids = category_subtree_ids(db, row.fetch('id'))
         count = group_count_for_categories(db, ids)
@@ -807,7 +797,7 @@ module IkasCatalogMvp
     end
 
     def child_type_buckets(db, category_id)
-      children = db.execute('SELECT id, name FROM raw_categories WHERE parent_id = ? ORDER BY name ASC', [category_id])
+      children = child_categories(db, category_id)
       children.filter_map do |row|
         ids = category_subtree_ids(db, row.fetch('id'))
         count = group_count_for_categories(db, ids)
@@ -819,7 +809,7 @@ module IkasCatalogMvp
     end
 
     def hidden_children_count(db, category_id, visible_count)
-      total = db.execute('SELECT id FROM raw_categories WHERE parent_id = ?', [category_id]).count do |row|
+      total = child_categories(db, category_id).count do |row|
         group_count_for_categories(db, category_subtree_ids(db, row.fetch('id'))).positive?
       end
       hidden_count = total - visible_count
@@ -827,26 +817,55 @@ module IkasCatalogMvp
     end
 
     def category_subtree_ids(db, category_id)
-      db.execute(
-        <<~SQL,
-          WITH RECURSIVE subtree(id) AS (
-            SELECT id FROM raw_categories WHERE id = ?
-            UNION ALL
-            SELECT c.id FROM raw_categories c INNER JOIN subtree ON c.parent_id = subtree.id
-          )
-          SELECT id FROM subtree
-        SQL
-        [category_id]
-      ).map { |row| row.fetch('id') }
+      cache_fetch(:category_subtree_ids, category_id) do
+        descendants = [category_id]
+        cursor = 0
+        while cursor < descendants.length
+          descendants.concat(child_categories(db, descendants[cursor]).map { |row| row.fetch('id') })
+          cursor += 1
+        end
+        descendants
+      end
     end
 
     def group_count_for_categories(db, category_ids)
       return 0 if category_ids.empty?
 
-      db.get_first_value(
-        "SELECT COUNT(DISTINCT group_id) FROM catalog_group_categories WHERE category_id IN (#{placeholders(category_ids)})",
-        category_ids
-      ).to_i
+      cache_fetch(:category_group_counts, category_ids.sort) do
+        db.get_first_value(
+          "SELECT COUNT(DISTINCT group_id) FROM catalog_group_categories WHERE category_id IN (#{placeholders(category_ids)})",
+          category_ids
+        ).to_i
+      end
+    end
+
+    def category_rows(db)
+      cache_fetch(:query, :category_rows) do
+        db.execute('SELECT id, parent_id, name FROM raw_categories')
+      end
+    end
+
+    def category_rows_by_id(db)
+      cache_fetch(:query, :category_rows_by_id) do
+        category_rows(db).index_by { |row| row.fetch('id') }
+      end
+    end
+
+    def child_categories(db, category_id)
+      cache_fetch(:child_categories, category_id) do
+        category_rows(db).select { |row| row['parent_id'] == category_id }.sort_by { |row| row.fetch('name') }
+      end
+    end
+
+    def cache_fetch(namespace, key)
+      namespace_cache = query_cache[namespace] ||= {}
+      return namespace_cache[key] if namespace_cache.key?(key)
+
+      namespace_cache[key] = yield
+    end
+
+    def query_cache
+      @query_cache ||= {}
     end
 
     def placeholders(values)
@@ -856,8 +875,10 @@ module IkasCatalogMvp
     def with_db
       db = SQLite3::Database.new(sqlite_path.to_s)
       db.results_as_hash = true
+      @query_cache = {}
       yield db
     ensure
+      @query_cache = nil
       db&.close
     end
   end

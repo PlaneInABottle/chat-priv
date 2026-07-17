@@ -63,6 +63,46 @@ RSpec.describe AiAgents::LiveProcessor do
       'budget_exhausted' => false,
       'final_answer_source' => 'model_only'
     )
+    expect(outgoing.content_attributes.dig('ai_agent', 'trigger_message_id')).to eq(message.id)
+  end
+
+  it 'does not generate another reply when the same customer message is delivered twice' do
+    message = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming', sender: conversation.contact,
+                               content: 'Hello again')
+    allow(adapter).to receive(:perform).and_return({ assistant_text: 'Hi there', tool_calls: [], finish_reason: 'stop' })
+
+    2.times { described_class.new(message: message, adapter: adapter).perform }
+
+    replies = conversation.messages.where(message_type: 'outgoing', private: false, sender: ai_agent.agent_bot)
+    expect(replies.count).to eq(1)
+    expect(adapter).to have_received(:perform).once
+  end
+
+  it 'rolls back the outgoing reply when usage consumption fails before retry' do
+    account.update!(ai_agent_conversation_limit: 2, ai_agent_conversation_reuse_window_hours: 24)
+    message = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming', sender: conversation.contact,
+                               content: 'Hello with accounting')
+    allow(adapter).to receive(:perform).and_return({ assistant_text: 'Hi there', tool_calls: [], finish_reason: 'stop' })
+    consume_attempts = 0
+    allow(AiAgents::Usage::Limiter).to receive(:new).and_wrap_original do |method, **args|
+      limiter = method.call(**args)
+      allow(limiter).to receive(:consume!).and_wrap_original do |consume_method, *consume_args|
+        consume_attempts += 1
+        raise ActiveRecord::ConnectionTimeoutError, 'temporary database failure' if consume_attempts == 1
+
+        consume_method.call(*consume_args)
+      end
+      limiter
+    end
+
+    expect do
+      described_class.new(message: message, adapter: adapter).perform
+    end.to raise_error(ActiveRecord::ConnectionTimeoutError, 'temporary database failure')
+    expect(conversation.messages.where(message_type: 'outgoing', private: false, sender: ai_agent.agent_bot)).to be_empty
+
+    described_class.new(message: message, adapter: adapter).perform
+
+    expect(conversation.messages.where(message_type: 'outgoing', private: false, sender: ai_agent.agent_bot).count).to eq(1)
   end
 
   it 'persists one outgoing input selection for a supported live widget inbox' do
