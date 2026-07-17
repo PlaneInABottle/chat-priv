@@ -586,7 +586,8 @@ module AiAgents
       sanitized_answer = sanitize_reference_prices(retry_answer, tool_events)
       return sanitized_answer if sanitized_answer && safe_customer_facing_answer?(sanitized_answer, tool_events)
 
-      catalog_evidence_fallback_answer(tool_events, request_messages: request_messages) ||
+      catalog_mixed_scope_fallback_answer(tool_events, request_messages: request_messages) ||
+        catalog_evidence_fallback_answer(tool_events, request_messages: request_messages) ||
         catalog_clarification_fallback_answer(tool_events, request_messages: request_messages)
     end
 
@@ -703,12 +704,55 @@ module AiAgents
       return if candidates.empty?
 
       lines = candidates.map { |candidate| catalog_fallback_candidate_line(candidate) }
-      price_note = if candidates.any? { |candidate| catalog_fallback_reference_price(candidate).present? }
-                     "\n\nListelenen referans tutarlar nihai fiyat değildir; ölçü ve seçeneklere göre değişir."
-                   else
-                     ''
-                   end
+      price_note = catalog_fallback_price_note(candidates)
       "Şu ürün seçeneklerini buldum:\n\n#{lines.join("\n")}#{price_note}\n\nHangisini daha ayrıntılı incelemek istersiniz?"
+    end
+
+    def catalog_mixed_scope_fallback_answer(tool_events, request_messages: [])
+      candidate_groups = scoped_catalog_fallback_groups(catalog_fallback_candidate_groups(tool_events), request_messages)
+      clarification_groups = scoped_catalog_fallback_groups(catalog_clarification_fallback_groups(tool_events), request_messages)
+      requested_scopes = requested_catalog_clarification_scopes(clarification_groups, request_messages)
+      return if requested_scopes.length < 2
+
+      candidates = diverse_catalog_fallback_candidates(candidate_groups)
+      return if candidates.empty?
+
+      candidate_tokens = catalog_fallback_candidate_scope_tokens(candidates)
+      covered_scopes, missing_scopes = requested_scopes.partition { |scope| scope[:tokens].intersect?(candidate_tokens) }
+      return if covered_scopes.empty? || missing_scopes.empty?
+
+      category_options = missing_scopes.filter_map { |scope| scope.dig(:group, :options)&.first }.uniq.first(2)
+      selected_candidates = candidates.first(3 - category_options.length)
+      lines = selected_candidates.map { |candidate| catalog_fallback_candidate_line(candidate) }
+      lines.concat(category_options.map { |option| "- Kategori: #{option}" })
+      price_note = catalog_fallback_price_note(selected_candidates)
+
+      "Şu seçenekleri buldum:\n\n#{lines.join("\n")}#{price_note}\n\nHangisini daha ayrıntılı incelemek istersiniz?"
+    end
+
+    def requested_catalog_clarification_scopes(groups, request_messages)
+      latest_tokens = Set.new(catalog_scope_tokens(latest_customer_message(request_messages)))
+      query_token_sets = groups.map { |group| Set.new(catalog_scope_tokens(group[:query])) }
+      common_tokens = query_token_sets.reduce { |common, tokens| common & tokens } || Set.new
+
+      groups.zip(query_token_sets).filter_map do |group, query_tokens|
+        distinguishing_tokens = query_tokens - common_tokens
+        next if distinguishing_tokens.empty? || !distinguishing_tokens.intersect?(latest_tokens)
+
+        { group: group, tokens: distinguishing_tokens }
+      end
+    end
+
+    def catalog_fallback_candidate_scope_tokens(candidates)
+      Set.new(candidates.flat_map do |candidate|
+        catalog_scope_tokens([candidate['display_name'], *Array(candidate['category_paths'])].join(' '))
+      end)
+    end
+
+    def catalog_fallback_price_note(candidates)
+      return '' unless candidates.any? { |candidate| catalog_fallback_reference_price(candidate).present? }
+
+      "\n\nListelenen referans tutarlar nihai fiyat değildir; ölçü ve seçeneklere göre değişir."
     end
 
     def catalog_clarification_fallback_answer(tool_events, request_messages: [])
