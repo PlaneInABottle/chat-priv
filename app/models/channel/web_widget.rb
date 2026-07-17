@@ -61,6 +61,10 @@ class Channel::WebWidget < ApplicationRecord
     'Website'
   end
 
+  def supports_ai_input_select?
+    true
+  end
+
   def web_widget_script
     "
     <script>

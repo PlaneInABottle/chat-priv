@@ -579,13 +579,13 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
     end
   end
 
-  it 'handles apparel size and color variants generically' do
+  it 'matches multiple catalog-declared variant facets' do
     with_snapshot do |sqlite_path|
       payload = described_class.new(sqlite_path: sqlite_path).query('black m shirt')
 
       expect(payload.fetch('result_type')).to eq('show_candidates')
       expect(payload.fetch('candidates').first.fetch('variant_id')).to eq('v-shirt-black-m')
-      expect(payload.fetch('candidates').first.fetch('match_reasons')).to include('matched size', 'matched color')
+      expect(payload.fetch('candidates').first.fetch('match_reasons')).to include('matched facet')
       expect(payload.dig('candidates', 0, 'link', 'url')).to include('%22Size%22=M', '%22Color%22=Black')
     end
   end
@@ -596,7 +596,7 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
 
       expect(payload.fetch('result_type')).to eq('show_candidates')
       expect(payload.fetch('candidates').first.fetch('product_id')).to eq('p-honey')
-      expect(payload.fetch('candidates').first.fetch('match_reasons')).to include('catalog indicates organic or natural product', 'matched weight')
+      expect(payload.fetch('candidates').first.fetch('match_reasons')).to include('matched facet', 'matched weight')
     end
   end
 
@@ -629,16 +629,6 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
     end
   end
 
-  it 'handles Turkish organic wording without leaving it as a search term' do
-    with_snapshot do |sqlite_path|
-      payload = described_class.new(sqlite_path: sqlite_path).query('doğal honey 500g')
-
-      expect(payload.fetch('result_type')).to eq('show_candidates')
-      expect(payload.fetch('parsed').fetch('terms')).to eq(['honey'])
-      expect(payload.fetch('candidates').first.fetch('product_id')).to eq('p-honey')
-    end
-  end
-
   it 'matches products by category path when product names do not repeat the category' do
     with_snapshot do |sqlite_path|
       payload = described_class.new(sqlite_path: sqlite_path).query('blackout perde')
@@ -666,7 +656,7 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
       candidate = payload.fetch('candidates').find { |row| row.fetch('product_id') == 'p-title-color-curtain' }
 
       expect(payload.fetch('result_type')).to eq('show_candidates')
-      expect(candidate.fetch('match_reasons')).to include('matched color')
+      expect(candidate.fetch('match_reasons')).to include('matched facet')
       expect(candidate.fetch('evidence').first.fetch('source')).to eq('display_name')
     end
   end
@@ -779,7 +769,7 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
     end
   end
 
-  it 'keeps Turkish singular and plural category wording aligned for scoped searches' do
+  it 'matches concise catalog scope terms with structured dimensions' do
     with_snapshot do |sqlite_path|
       payload = described_class.new(sqlite_path: sqlite_path).query('kedi için pencere sinekliği 70x90', limit: 10)
       product_ids = payload.fetch('candidates').map { |candidate| candidate.fetch('product_id') }
@@ -818,31 +808,42 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
     end
   end
 
-  it 'recovers door scopes when a contextual location compound has no exact catalog match' do
+  it 'relaxes over-specific catalog phrases without language-specific rewrites' do
     with_snapshot do |sqlite_path|
       engine = described_class.new(sqlite_path: sqlite_path)
       cases = {
-        'balkon kapısı sineklik akordiyon' => %w[sineklik-akordiyon-door p-sineklik-akordiyon],
-        'balkon kapısı sineklik menteşeli' => %w[sineklik-hinged-door p-sineklik-hinged-door],
-        'balkon kapısı sineklik kedi' => %w[sineklik-kedi-door p-sineklik-kedi]
+        'balkon kapısı kedi tüllü sineklik' => 'p-sineklik-kedi',
+        'akordiyon sineklik balkon kapısı' => 'p-sineklik-akordiyon',
+        'menteşeli sineklik balkon kapısı' => 'p-sineklik-hinged-door'
       }
 
       aggregate_failures do
-        cases.each do |query, (scope_id, product_id)|
+        cases.each do |query, product_id|
           payload = engine.query(query)
 
-          expect(payload.fetch('query')).to eq(query)
           expect(payload.fetch('result_type')).to eq('show_candidates')
-          expect(payload.dig('matched_scope', 'id')).to eq(scope_id)
           expect(payload.fetch('candidates').map { |candidate| candidate.fetch('product_id') }).to include(product_id)
-          expect(payload.dig('parsed', 'terms')).not_to include('balkon')
+          expect(payload.dig('parsed', 'terms')).to include('balkon')
         end
-
-        broad_payload = engine.query('balkon kapısı')
-        expect(broad_payload.fetch('result_type')).to eq('no_match')
-        expect(broad_payload.dig('parsed', 'terms')).to include('balkon')
       end
     end
+  end
+
+  it 'does not relax a query when only half of its terms match' do
+    with_snapshot do |sqlite_path|
+      payload = described_class.new(sqlite_path: sqlite_path).query('mor sineklik')
+
+      expect(payload.fetch('result_type')).to eq('no_match')
+      expect(payload.fetch('candidates')).to be_empty
+    end
+  end
+
+  it 'parses free-form words without static language dictionaries' do
+    parsed = IkasCatalogMvp::QueryParser.new.parse('show available organic product')
+
+    expect(parsed.fetch('terms')).to contain_exactly('show', 'available', 'organic', 'product')
+    expect(parsed.fetch('constraints')).to be_empty
+    expect(parsed.fetch('unsupported_constraints')).to be_empty
   end
 
   it 'uses cautious fuzzy matching for catalog scope typos' do
@@ -856,13 +857,12 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
     end
   end
 
-  it 'ignores purchase quantity units that are not catalog terms' do
+  it 'does not remove purchase quantity words through a static dictionary' do
     with_snapshot do |sqlite_path|
       payload = described_class.new(sqlite_path: sqlite_path).query('70x90 sineklik 2 tane')
 
-      expect(payload.fetch('result_type')).to eq('show_compatible_candidates')
-      expect(payload.fetch('candidates')).not_to be_empty
-      expect(payload.fetch('parsed').fetch('terms')).not_to include('tane')
+      expect(payload.fetch('result_type')).to eq('no_match')
+      expect(payload.fetch('parsed').fetch('terms')).to include('tane')
     end
   end
 
@@ -897,7 +897,7 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
 
       expect(engine.query('blackout perde').fetch('candidates').first.fetch('product_id')).to eq('p-blackout')
       expect(engine.query('akordeon sineklik 70x80').fetch('candidates').map { |row| row.fetch('product_id') }).to include('p-sineklik-akordiyon')
-      expect(engine.query('en ucuz beyaz perde').fetch('candidates').map { |row| row.fetch('product_id') }).to include(
+      expect(engine.query('beyaz perdeler').fetch('candidates').map { |row| row.fetch('product_id') }).to include(
         'p-structured-color-curtain',
         'p-title-color-curtain'
       )

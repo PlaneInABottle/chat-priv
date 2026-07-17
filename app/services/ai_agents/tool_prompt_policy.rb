@@ -33,7 +33,8 @@ class AiAgents::ToolPromptPolicy
     - Use previous product/category context only when the latest message is ambiguous and does not name a new product/category.
     - When the latest message introduces another named product/category, treat it as a new topic unless the customer explicitly asks to compare or combine it with the previous topic.
     - For a new named topic, do not add the previous product/category as an extra `queries` entry and do not answer the previous topic.
-    - Keep only catalog terms and hard constraints in the query. Drop filler/action words unless they are part of a real product name.
+    - Write catalog search terms rather than copying the customer's sentence. Include product/category terms and catalog-identifying attributes or measurements.
+    - For budget or availability preferences, search the product scope and reason over the returned price and stock fields instead of putting natural-language conditions into the query.
     - Do not include purchase quantity words in catalog queries unless the quantity is part of the product name, pack size, or requested dimensions.
     - Prefer one precise catalog search. If it returns `no_match`, you may make at most one simpler fallback search that keeps the main product/category and hard constraints.
     - Use returned catalog entries for product names, prices, links, identifiers, and other concrete catalog fields instead of inventing entries. You may add your own reasoning, comparisons, and recommendations.

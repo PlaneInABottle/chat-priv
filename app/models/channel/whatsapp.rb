@@ -45,6 +45,10 @@ class Channel::Whatsapp < ApplicationRecord
     'Whatsapp'
   end
 
+  def supports_ai_input_select?
+    true
+  end
+
   # Mirrors Channel::TwilioSms#voice_enabled? so the call subsystem can duck-type across providers.
   # Meta's Calling API is available to any whatsapp_cloud inbox (embedded-signup or manual keys);
   # only 360dialog (default provider) can't reach the call APIs.

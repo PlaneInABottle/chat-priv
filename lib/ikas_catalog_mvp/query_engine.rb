@@ -21,7 +21,7 @@ module IkasCatalogMvp
         parsed = plan.fetch('parsed')
         return unsupported_payload(plan.fetch('query'), parsed) if parsed.fetch('unsupported_constraints').any?
 
-        root = matched_root(db, category_scope_terms_for(parsed))
+        root = matched_root(db, category_scope_terms_for(db, parsed))
         buckets = root ? type_buckets(db, root.fetch('id')) : []
         if clarification_needed?(parsed, buckets)
           return clarify_payload(text, parsed, root, buckets)
@@ -29,23 +29,6 @@ module IkasCatalogMvp
 
         root_category_ids = root ? category_subtree_ids(db, root.fetch('id')) : []
         candidates = candidates_for(db, parsed, root, root_category_ids, limit)
-
-        if candidates.empty?
-          fallback_parsed = QueryNormalizer.contextual_location_fallback(plan.fetch('query'), parsed)
-          if fallback_parsed
-            fallback_root = matched_root(db, category_scope_terms_for(fallback_parsed))
-            fallback_buckets = fallback_root ? type_buckets(db, fallback_root.fetch('id')) : []
-            return clarify_payload(text, fallback_parsed, fallback_root, fallback_buckets) if clarification_needed?(fallback_parsed, fallback_buckets)
-
-            fallback_root_category_ids = fallback_root ? category_subtree_ids(db, fallback_root.fetch('id')) : []
-            fallback_candidates = candidates_for(db, fallback_parsed, fallback_root, fallback_root_category_ids, limit)
-            if fallback_candidates.any?
-              parsed = fallback_parsed
-              root = fallback_root
-              candidates = fallback_candidates
-            end
-          end
-        end
 
         result_payload(plan.fetch('query'), parsed, root, candidates)
       end
@@ -166,7 +149,10 @@ module IkasCatalogMvp
 
       raise Error, 'Ikas catalog FTS index is missing. Sync the catalog again.' unless fts5_available?(db)
 
-      fts5_matching_rows(db, fts5_terms, limit, category_ids: category_ids)
+      rows = fts5_matching_rows(db, fts5_terms, limit, category_ids: category_ids)
+      return rows if rows.any? || fts5_terms.length < 3
+
+      relaxed_fts5_matching_rows(db, fts5_terms, limit, category_ids: category_ids)
     end
 
     def candidates_for(db, parsed, root, root_category_ids, limit)
@@ -188,11 +174,27 @@ module IkasCatalogMvp
       db.get_first_value("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'catalog_items_fts'").to_s != ''
     end
 
-    def fts5_matching_rows(db, fts5_terms, limit, category_ids:)
-      bindings = [fts5_query_for(fts5_terms)]
+    def fts5_matching_rows(db, fts5_terms, limit, category_ids:, operator: 'AND')
+      bindings = [fts5_query_for(fts5_terms, operator: operator)]
       bindings.concat(category_ids)
       bindings << [limit * 8, 50].max
       db.execute(fts5_matching_rows_sql(category_ids), bindings)
+    end
+
+    def relaxed_fts5_matching_rows(db, fts5_terms, limit, category_ids:)
+      fts5_matching_rows(db, fts5_terms, limit, category_ids: category_ids, operator: 'OR').select do |row|
+        sufficient_query_term_coverage?(row, fts5_terms)
+      end
+    end
+
+    def sufficient_query_term_coverage?(row, terms)
+      searchable_tokens = Text.tokens(row.fetch('search_text_folded'))
+      unique_terms = terms.uniq
+      matched_count = unique_terms.count do |term|
+        searchable_tokens.any? { |token| category_token_match?(term, token) }
+      end
+
+      matched_count >= 2 && matched_count * 2 > unique_terms.length
     end
 
     def fts5_matching_rows_sql(category_ids)
@@ -211,8 +213,8 @@ module IkasCatalogMvp
       SQL
     end
 
-    def fts5_query_for(fts5_terms)
-      fts5_terms.map { |term| fts5_term_query(term) }.join(' AND ')
+    def fts5_query_for(fts5_terms, operator: 'AND')
+      fts5_terms.map { |term| fts5_term_query(term) }.join(" #{operator} ")
     end
 
     def fts5_term_query(term)
@@ -295,12 +297,8 @@ module IkasCatalogMvp
       item_id = row.fetch('item_id')
       case constraint.fetch('type')
       when 'dimension_pair' then dimension_match(db, item_id, constraint)
-      when 'custom_size_requested' then fact_match(db, item_id, 'custom_size_supported')
-      when 'stock' then fact_match(db, item_id, 'stock', numeric: 1)
-      when 'price' then price_match(db, item_id, constraint)
       when 'weight', 'volume' then numeric_match(db, item_id, constraint)
-      when 'organic' then fact_match(db, item_id, 'organic', numeric: 1)
-      when 'size', 'color', 'facet' then value_match(db, row, constraint)
+      when 'facet' then value_match(db, row, constraint)
       else
         nil
       end
@@ -328,11 +326,6 @@ module IkasCatalogMvp
       nil
     end
 
-    def price_match(db, item_id, constraint)
-      fact = facts_for(db, item_id).find { |row| row.fetch('type') == 'price' && row['numeric_value'].to_f <= constraint.fetch('value').to_f }
-      match('exact', fact) if fact
-    end
-
     def numeric_match(db, item_id, constraint)
       fact = facts_for(db, item_id).find do |row|
         row.fetch('type') == constraint.fetch('type') &&
@@ -348,22 +341,20 @@ module IkasCatalogMvp
       fact = typed_facts.find do |typed_fact|
         typed_fact['value_folded'].to_s == folded
       end
-      fact ||= typed_facts.find do |typed_fact|
-        constraint.fetch('type') == 'color' && text_contains_value?(typed_fact['value_text'], folded)
-      end
+      fact ||= typed_facts.find { |typed_fact| text_contains_value?(typed_fact['value_text'], folded) }
       return match('exact', fact) if fact
 
-      title_color_match(row, constraint, folded) if constraint.fetch('type') == 'color' && typed_facts.empty?
+      title_facet_match(row, constraint, folded) if typed_facts.empty?
     end
 
-    def title_color_match(row, constraint, folded)
+    def title_facet_match(row, constraint, folded)
       return nil unless text_contains_value?(row.fetch('display_name'), folded)
 
       match(
         'exact',
         {
           'source' => 'display_name',
-          'type' => 'color',
+          'type' => 'facet',
           'key' => constraint['key'],
           'value_text' => constraint.fetch('value'),
           'value_folded' => folded,
@@ -379,13 +370,6 @@ module IkasCatalogMvp
 
       folded_text = " #{Text.fold(text)} "
       folded_text.include?(" #{folded_value} ")
-    end
-
-    def fact_match(db, item_id, type, numeric: nil)
-      fact = facts_for(db, item_id).find do |row|
-        row.fetch('type') == type && (numeric.nil? || row['numeric_value'].to_i == numeric)
-      end
-      match(type == 'custom_size_supported' ? 'compatible' : 'exact', fact) if fact
     end
 
     def match(kind, fact)
@@ -450,8 +434,6 @@ module IkasCatalogMvp
         when 'dimension_exact' then 'requested dimensions exactly match catalog dimensions'
         when 'dimension_max' then 'requested dimensions fit product max dimensions'
         when 'dimension_range' then 'requested dimensions fit catalog range'
-        when 'custom_size_supported' then 'catalog indicates custom size support'
-        when 'organic' then 'catalog indicates organic or natural product'
         else "matched #{row.fetch('fact')}"
         end
       end.uniq
@@ -559,11 +541,16 @@ module IkasCatalogMvp
       terms.select { |term| tokens.any? { |token| category_token_match?(term, token) } }.uniq
     end
 
-    def category_scope_terms_for(parsed)
+    def category_scope_terms_for(db, parsed)
       constraint_tokens = parsed.fetch('constraints').flat_map do |constraint|
         Text.tokens([constraint['raw'], constraint['value']].compact.join(' '))
       end
-      parsed.fetch('terms').reject { |term| constraint_tokens.any? { |token| category_token_match?(term, token) } }
+      terms = parsed.fetch('terms').reject do |term|
+        constraint_tokens.any? { |token| category_token_match?(term, token) }
+      end
+      category_terms = terms.select { |term| category_scope_term?(db, term) }
+
+      category_terms.length * 2 > terms.length ? category_terms : []
     end
 
     def price_payload_for(db, row)
@@ -672,9 +659,32 @@ module IkasCatalogMvp
       left_variants = category_token_variants(left)
       right_variants = category_token_variants(right)
       return true if (left_variants & right_variants).any?
+      return true if inflected_category_token_match?(left_variants, right_variants)
+      return true if shared_stem_category_token_match?(left_variants, right_variants)
 
       left_variants.any? do |left_token|
         right_variants.any? { |right_token| similar_category_token?(left_token, right_token) }
+      end
+    end
+
+    def inflected_category_token_match?(left_variants, right_variants)
+      left_variants.any? do |left_token|
+        right_variants.any? do |right_token|
+          shorter, longer = [left_token, right_token].sort_by(&:length)
+          max_suffix_length = shorter.length == 4 ? 2 : 3
+          shorter.length >= 4 && longer.start_with?(shorter) && longer.length - shorter.length <= max_suffix_length
+        end
+      end
+    end
+
+    def shared_stem_category_token_match?(left_variants, right_variants)
+      left_variants.any? do |left_token|
+        right_variants.any? do |right_token|
+          minimum_length = [left_token.length, right_token.length].min
+          common_prefix_length = left_token.chars.zip(right_token.chars).take_while { |left_char, right_char| left_char == right_char }.length
+
+          minimum_length >= 6 && common_prefix_length >= 4 && common_prefix_length * 3 >= minimum_length * 2
+        end
       end
     end
 
@@ -701,38 +711,7 @@ module IkasCatalogMvp
 
     def category_token_variants(value)
       token = Text.fold(value)
-      return [] if token.empty?
-
-      stemmed_category_tokens(token).flat_map { |candidate| softened_turkish_final_variants(candidate) }
-                                   .uniq
-    end
-
-    def stemmed_category_tokens(token)
-      candidates = [token, singular_category_token(token)]
-      suffixes = %w[leri lari ler lar nden ndan den dan nin nun in un si su yi yu ye ya de da i u a e]
-      suffixes.each do |suffix|
-        next unless token.end_with?(suffix)
-
-        stem = token.delete_suffix(suffix)
-        candidates << singular_category_token(stem) if stem.length >= 3
-      end
-      candidates.reject(&:empty?).uniq
-    end
-
-    def softened_turkish_final_variants(token)
-      variants = [token]
-      final_map = { 'b' => 'p', 'd' => 't', 'g' => 'k' }
-      replacement = final_map[token[-1]]
-      variants << "#{token[0...-1]}#{replacement}" if replacement && token.length > 3
-      variants
-    end
-
-    def singular_category_token(token)
-      return token.delete_suffix('ler') if token.length > 5 && token.end_with?('ler')
-      return token.delete_suffix('lar') if token.length > 5 && token.end_with?('lar')
-      return token.delete_suffix('s') if token.length > 3 && token.end_with?('s') && !token.end_with?('ss')
-
-      token
+      token.empty? ? [] : [token]
     end
 
     def similar_category_token?(left, right)
