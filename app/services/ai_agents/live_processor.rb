@@ -10,6 +10,7 @@ class AiAgents::LiveProcessor
   def perform
     return unless eligible_message?
     return if handoff_completed?
+    return false if response_already_persisted?
 
     usage_result = usage_limiter.reserve!
     return handle_usage_exhausted!(usage_result) if usage_result.exhausted?
@@ -19,8 +20,7 @@ class AiAgents::LiveProcessor
     if handoff_result?(result)
       consume_usage!(usage_result, result)
     else
-      post_assistant_message!(result[:assistant_message])
-      consume_usage!(usage_result, result)
+      persist_assistant_response!(result, usage_result)
     end
 
     handoff_result?(result)
@@ -106,6 +106,22 @@ class AiAgents::LiveProcessor
     Messages::MessageBuilder.new(nil, conversation.reload, assistant_message_params(assistant_message)).perform
   end
 
+  def persist_assistant_response!(result, usage_result)
+    conversation.with_lock do
+      post_assistant_message!(result[:assistant_message]) unless response_already_persisted?
+      consume_usage!(usage_result, result)
+    end
+  end
+
+  def response_already_persisted?
+    conversation.messages.outgoing
+                .where(private: false, sender: ai_agent.agent_bot)
+                .where('id > ?', message.id)
+                .any? do |reply|
+      reply.content_attributes.dig('ai_agent', 'trigger_message_id').to_i == message.id
+    end
+  end
+
   def usage_limiter
     @usage_limiter ||= AiAgents::Usage::Limiter.new(ai_agent: ai_agent, message: message)
   end
@@ -142,10 +158,10 @@ class AiAgents::LiveProcessor
     telemetry = assistant_message['turn_telemetry'] || assistant_message[:turn_telemetry]
     source_attributions = assistant_message['source_attributions'] || assistant_message[:source_attributions]
     presentation = assistant_message.dig('tool_result', 'presentation') || assistant_message.dig(:tool_result, :presentation)
-    attributes = {}
+    attributes = { ai_agent: { trigger_message_id: message.id } }
     if presentation.present?
       attributes[:items] = presentation['items'] || presentation[:items]
-      attributes[:ai_agent] = { selection: { version: 1 } }
+      attributes[:ai_agent][:selection] = { version: 1 }
     end
     return attributes if telemetry.blank? && source_attributions.blank?
 

@@ -36,6 +36,23 @@ RSpec.describe AiAgents::Orchestrator do
     expect(AiAgentLlmCall.last.response).to include('assistant_text' => 'Hello there', 'finish_reason' => 'stop')
   end
 
+  it 'propagates provider failures so the background job can retry' do
+    allow(adapter).to receive(:perform).and_raise(Net::ReadTimeout, 'temporary provider timeout')
+
+    expect do
+      described_class.new(
+        ai_agent: ai_agent,
+        messages: [{ role: 'user', content: 'Hi' }],
+        mode: :live,
+        conversation: conversation,
+        trigger_message: trigger_message,
+        adapter: adapter
+      ).perform
+    end.to raise_error(Net::ReadTimeout)
+
+    expect(AiAgentLlmCall.last).to have_attributes(status: 'failed', error_code: 'Net::ReadTimeout')
+  end
+
   it 'regenerates model-only replies that contain internal tool protocol markup' do
     allow(adapter).to receive(:perform).and_return(
       { assistant_text: '<tool_calls>ikas_catalog_search</tool_calls>', tool_calls: [], finish_reason: 'stop' },
@@ -440,6 +457,60 @@ RSpec.describe AiAgents::Orchestrator do
     expect(AiAgentLlmCall.pluck(:step)).not_to include('customer_facing_finalizer', 'customer_facing_finalizer_retry')
   end
 
+  it 'passes compact catalog context to the model while retaining the complete tool event' do
+    ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'] } })
+    candidates = Array.new(12) do |index|
+      {
+        item_id: "item-#{index}",
+        product_id: "product-#{index}",
+        display_name: "Product #{index}",
+        relevance_score: 50 - index,
+        relevance_signals: [{ kind: 'fts_bm25_match', score: 10 }],
+        link: { url: "https://example.test/products/#{index}" }
+      }
+    end
+    tool_result = { status: 'ok', result_type: 'show_candidates', result_count: 12, candidates: candidates }
+    tool_execution = AiAgents::ToolExecutor::Result.new(
+      status: 'executed',
+      tool_event: {
+        'tool' => 'ikas_catalog_search',
+        'status' => 'ok',
+        'tool_call_id' => 'catalog-compact',
+        'result' => tool_result.deep_stringify_keys
+      },
+      tool_result: tool_result
+    )
+    allow(AiAgents::ToolExecutor).to receive(:new).and_return(
+      instance_double(AiAgents::ToolExecutor, execute: tool_execution)
+    )
+    calls = []
+    allow(adapter).to receive(:perform) do |payload|
+      calls << payload
+      if calls.one?
+        {
+          assistant_text: nil,
+          tool_calls: [{ id: 'catalog-compact', type: 'function', name: 'ikas_catalog_search', arguments: { query: 'door screen' }.to_json }],
+          finish_reason: 'tool_calls'
+        }
+      else
+        { assistant_text: 'Product 0 is a concise option.', tool_calls: [], finish_reason: 'stop' }
+      end
+    end
+
+    result = described_class.new(
+      ai_agent: ai_agent.reload,
+      messages: [{ role: 'user', content: 'Show me a door screen.' }],
+      mode: :test,
+      adapter: adapter
+    ).perform
+
+    model_result = JSON.parse(calls.second[:messages].find { |message| message[:role] == 'tool' }.fetch(:content))
+    expect(model_result.fetch('candidates').size).to eq(8)
+    expect(model_result.fetch('candidates_omitted')).to eq(4)
+    expect(model_result.fetch('candidates').first).not_to include('relevance_score', 'relevance_signals')
+    expect(result.dig(:tool_events, 0, 'result', 'candidates').size).to eq(12)
+  end
+
   it 'tolerates legacy human handoff config keys when generating responses' do
     ai_agent.update_column(:config, {
                              'tools' => {
@@ -476,6 +547,67 @@ RSpec.describe AiAgents::Orchestrator do
     expect(result[:assistant_message]['tool_result']['labels_requested']).to eq(['vip'])
     expect(result[:assistant_message]['tool_result']['labels_ignored']).to eq([])
     expect(result[:assistant_message]['tool_result']['conversation_status']).to eq('open')
+  end
+
+  it 'applies structural URL safety before persisting a live terminal tool message' do
+    allow(adapter).to receive(:perform).and_return({
+      assistant_text: nil,
+      tool_calls: [{
+        id: 'call_1',
+        type: 'function',
+        name: 'human_handoff',
+        arguments: {
+          reason: 'Need help',
+          customer_message: 'Continue at [this page](https://invented.example.test/path).',
+          internal_note: 'Escalate',
+          labels: ['vip']
+        }.to_json
+      }],
+      finish_reason: 'tool_calls'
+    })
+
+    result = described_class.new(
+      ai_agent: ai_agent,
+      messages: [{ role: 'user', content: 'Hi' }],
+      mode: :live,
+      conversation: conversation,
+      trigger_message: trigger_message,
+      adapter: adapter
+    ).perform
+
+    expect(result[:assistant_message]['content']).to eq('Continue at this page.')
+    expect(conversation.messages.outgoing.where(private: false, sender: ai_agent.agent_bot).last.content).to eq('Continue at this page.')
+  end
+
+  it 'replaces internal protocol markup before persisting a live terminal tool message' do
+    allow(adapter).to receive(:perform).and_return({
+      assistant_text: nil,
+      tool_calls: [{
+        id: 'call_1',
+        type: 'function',
+        name: 'human_handoff',
+        arguments: {
+          reason: 'Need help',
+          customer_message: '<tool_calls>human_handoff</tool_calls>',
+          internal_note: 'Escalate',
+          labels: ['vip']
+        }.to_json
+      }],
+      finish_reason: 'tool_calls'
+    })
+
+    result = described_class.new(
+      ai_agent: ai_agent,
+      messages: [{ role: 'user', content: 'Hi' }],
+      mode: :live,
+      conversation: conversation,
+      trigger_message: trigger_message,
+      adapter: adapter
+    ).perform
+
+    expected_message = 'Sizi bir temsilciye aktarıyorum. Ekibimiz yardımcı olacak.'
+    expect(result[:assistant_message]['content']).to eq(expected_message)
+    expect(conversation.messages.outgoing.where(private: false, sender: ai_agent.agent_bot).last.content).to eq(expected_message)
   end
 
   it 'returns a terminal option presentation in test mode' do
@@ -1158,25 +1290,6 @@ RSpec.describe AiAgents::Orchestrator do
     ).perform
 
     expect(result[:assistant_message]['content']).to end_with("[Ürüne git](#{product_url})")
-  end
-
-  it 'does not expand a catalog link fragment that does not identify the product path' do
-    orchestrator = described_class.new(
-      ai_agent: ai_agent,
-      messages: [{ role: 'user', content: 'Ürünü gösterir misin?' }],
-      mode: :test,
-      adapter: adapter
-    )
-    tool_events = [{
-      'tool' => 'ikas_catalog_search',
-      'result' => {
-        'candidates' => [{ 'link' => { 'url' => 'https://example.test/products/door?color=grey' } }]
-      }
-    }]
-
-    answer = '[Ürüne git](https://example.test'
-
-    expect(orchestrator.send(:sanitize_catalog_links, answer, tool_events)).to eq(answer)
   end
 
   it 'allows bounded catalog follow-up tool calls before the final answer' do

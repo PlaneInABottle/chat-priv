@@ -164,13 +164,20 @@ RSpec.describe AiAgents::ToolExecutor do
     account.save!
     create(:integrations_hook, :ikas, account: account)
     ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'], 'ikas_catalog_search' => {} } })
-    service = instance_double(AiAgents::Tools::IkasCatalogSearchService, call: { status: 'ok', result_type: 'show_candidates' })
+    full_result = {
+      status: 'ok',
+      result_type: 'show_candidates',
+      candidates: Array.new(10) { |index| { display_name: "Product #{index}", relevance_score: index } }
+    }
+    service = instance_double(AiAgents::Tools::IkasCatalogSearchService, call: full_result)
     allow(AiAgents::Tools::IkasCatalogSearchService).to receive(:new).and_return(service)
 
     result = executor.execute(tool_call(name: 'ikas_catalog_search', arguments: { query: '70x90 sineklik' }))
 
     expect(result.status).to eq('executed')
     expect(AiAgentToolExecution.last.tool_key).to eq('ikas_catalog_search')
+    expect(AiAgentToolExecution.last.result.fetch('candidates').size).to eq(10)
+    expect(AiAgentToolExecution.last.result.dig('candidates', 0, 'relevance_score')).to eq(0)
   end
 
   it 'allows repeated ikas catalog searches in one orchestrated turn' do

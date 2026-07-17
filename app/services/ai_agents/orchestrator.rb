@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require 'set'
-require 'uri'
 
 module AiAgents
   class Orchestrator
@@ -119,11 +118,6 @@ module AiAgents
       end
 
       final_answer_result(request_messages, tool_events, TOOL_BUDGET_EXHAUSTED_PROMPT, budget_exhausted: true)
-    rescue AiImprovements::Usage::Exhausted
-      raise
-    rescue StandardError => e
-      Rails.logger.error("[AiAgents::Orchestrator] #{e.class}: #{e.message}")
-      failure_result
     end
 
     private
@@ -347,8 +341,9 @@ module AiAgents
       terminal_action = tool_execution.tool_result[:terminal_action]
       telemetry_source = terminal_action == 'handoff' ? 'handoff' : 'tool_presentation'
       telemetry = turn_telemetry(tool_events: tool_events, final_answer_source: telemetry_source)
+      customer_message = tool_execution.tool_result[:customer_message] || response[:assistant_text] || fallback_assistant_message
       assistant_message = build_assistant_message(
-        content: tool_execution.tool_result[:customer_message] || response[:assistant_text] || fallback_assistant_message,
+        content: sanitize_tool_output(customer_message, tool_events),
         tool_events: tool_events,
         terminal_action: terminal_action,
         tool_result: tool_execution.tool_result,
@@ -374,7 +369,7 @@ module AiAgents
         return incomplete_final_answer_result(tool_events)
       end
       public_answer = if response[:assistant_text].blank? && response[:tool_calls].present?
-                        sanitize_catalog_links(finalize_customer_facing_answer(request_messages: request_messages), tool_events)
+                        sanitize_tool_output(finalize_customer_facing_answer(request_messages: request_messages), tool_events)
                       elsif response[:assistant_text].present?
                         customer_facing_answer(response[:assistant_text], request_messages: request_messages, tool_events: tool_events)
                       end
@@ -405,71 +400,11 @@ module AiAgents
                else
                  finalize_customer_facing_answer(request_messages: request_messages)
                end
-      sanitize_catalog_links(answer, tool_events)
+      sanitize_tool_output(answer, tool_events)
     end
 
-    def sanitize_catalog_links(answer, tool_events)
-      sanitized = answer.to_s.strip.presence
-      return sanitized if sanitized.blank?
-
-      trusted_urls = catalog_link_urls(tool_events)
-      return sanitized if trusted_urls.empty?
-
-      sanitized = sanitized.gsub(/\]\((https?:\/\/[^\s)]*)\)/) do |markdown_link|
-        raw_url = Regexp.last_match(1)
-        normalized_url = normalize_catalog_url(raw_url)
-        trusted_urls.include?(normalized_url) ? markdown_link.sub(raw_url, normalized_url) : markdown_link
-      end
-
-      trailing_link = sanitized.match(/\[[^\]\n]+\]\((?<url>https?:\/\/[^\s)]*)\z/)
-      return sanitized unless trailing_link
-
-      normalized_prefix = normalize_catalog_url(trailing_link[:url])
-      matches = trusted_urls.select { |url| url.start_with?(normalized_prefix) }
-      return sanitized unless matches.one? && catalog_url_prefix_identifies_product?(normalized_prefix, matches.first)
-
-      "#{sanitized[0...trailing_link.begin(:url)]}#{matches.first})"
-    end
-
-    def catalog_url_prefix_identifies_product?(prefix, trusted_url)
-      product_url = URI.parse(trusted_url)
-      return false if product_url.path.blank? || product_url.path == '/'
-
-      product_identity = trusted_url.split(/[?#]/, 2).first
-      prefix.start_with?(product_identity)
-    rescue URI::InvalidURIError
-      false
-    end
-
-    def catalog_link_urls(tool_events)
-      catalog_results(tool_events).flat_map { |result| catalog_link_urls_in(result) }.uniq
-    end
-
-    def catalog_results(tool_events)
-      Array(tool_events).filter_map do |event|
-        next unless event['tool'] == AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL
-
-        event['result'] || event[:result]
-      end
-    end
-
-    def catalog_link_urls_in(value)
-      case value
-      when Hash
-        value = value.deep_stringify_keys
-        urls = []
-        urls << normalize_catalog_url(value.dig('link', 'url')) if value.dig('link', 'url').present?
-        urls.concat(value.each_value.flat_map { |child| catalog_link_urls_in(child) })
-        urls
-      when Array
-        value.flat_map { |child| catalog_link_urls_in(child) }
-      else
-        []
-      end
-    end
-
-    def normalize_catalog_url(url)
-      URI::DEFAULT_PARSER.escape(url.to_s, /[" <>\\()]/)
+    def sanitize_tool_output(answer, tool_events)
+      AiAgents::ToolOutputSanitizer.new(tool_events: tool_events).sanitize(answer)
     end
 
     def finalize_customer_facing_answer(request_messages:)
@@ -617,11 +552,28 @@ module AiAgents
     end
 
     def execute_tool_call(tool_call, tool_events)
+      tool_call = sanitize_terminal_customer_message(tool_call, tool_events)
       tool_execution = tool_executor(tool_events).execute(tool_call)
       if AiAgents::ToolRegistry.find(tool_call[:name])
         executed_tool_counts[tool_key_for(tool_call)] += tool_call_budget_cost(tool_call)
       end
       tool_execution
+    end
+
+    def sanitize_terminal_customer_message(tool_call, tool_events)
+      definition = AiAgents::ToolRegistry.find(tool_call[:name])
+      return tool_call unless definition&.terminal
+
+      args = parsed_tool_arguments(tool_call)
+      return tool_call unless args.key?('customer_message')
+
+      customer_message = args['customer_message'].to_s.strip
+      customer_message = safety_handoff_message if customer_message.blank? || unsafe_customer_facing_answer?(customer_message)
+      args['customer_message'] = AiAgents::ToolOutputSanitizer.new(
+        tool_events: tool_events,
+        enforce_url_allowlist: true
+      ).sanitize(customer_message).presence || safety_handoff_message
+      tool_call.merge(arguments: args.to_json)
     end
 
     def tool_key_for(tool_call_or_name)
@@ -761,7 +713,10 @@ module AiAgents
         {
           role: 'tool',
           tool_call_id: tool_execution.tool_event['tool_call_id'],
-          content: tool_execution.tool_result.to_json
+          content: AiAgents::LlmToolResultPresenter.new(
+            tool_key: tool_execution.tool_event['tool'],
+            result: tool_execution.tool_result
+          ).call.to_json
         }
       end
     end
