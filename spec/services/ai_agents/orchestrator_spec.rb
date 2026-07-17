@@ -652,6 +652,116 @@ RSpec.describe AiAgents::Orchestrator do
     expect(adapter).to have_received(:perform).exactly(4).times
   end
 
+  it 'preserves explicitly requested category coverage in mixed catalog fallback' do
+    ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'] } })
+    tool_result = {
+      status: 'ok',
+      result_type: 'multi_search',
+      result_count: 3,
+      candidates: [],
+      queries: [
+        {
+          query: 'balkon kapısı sineklik',
+          result_type: 'show_candidates',
+          result_count: 3,
+          candidates: [
+            {
+              display_name: 'Akordeon Kapı Sineklik Altınmeşe',
+              category_paths: ['Sineklikler > Akordiyon Sineklikler > Pileli Kapı Sineklikleri']
+            },
+            {
+              display_name: 'Akordeon Kapı Sineklik Antrasit',
+              category_paths: ['Sineklikler > Akordiyon Sineklikler > Pileli Kapı Sineklikleri']
+            },
+            {
+              display_name: 'Akordeon Kapı Sineklik Beyaz',
+              category_paths: ['Sineklikler > Akordiyon Sineklikler > Pileli Kapı Sineklikleri']
+            }
+          ]
+        },
+        {
+          query: 'akordiyon sineklik',
+          result_type: 'clarify_category',
+          result_count: 0,
+          candidates: [],
+          buckets: [
+            { label: 'Double Akordiyon Kapı Sineklikleri', group_count: 6 },
+            { label: 'Double Akordiyon Pencere Sineklikleri', group_count: 4 },
+            { label: 'Pileli Kapı Sineklikleri', group_count: 3 }
+          ]
+        },
+        {
+          query: 'menteşeli sineklik',
+          result_type: 'clarify_category',
+          result_count: 0,
+          candidates: [],
+          buckets: [
+            { label: 'Menteşeli Kapı Sineklikleri', group_count: 3 },
+            { label: 'Menteşeli Pencere Sinekliği', group_count: 2 }
+          ]
+        }
+      ]
+    }
+    tool_execution = AiAgents::ToolExecutor::Result.new(
+      status: 'executed',
+      tool_event: {
+        'tool' => 'ikas_catalog_search',
+        'status' => 'ok',
+        'tool_call_id' => 'mixed-catalog',
+        'result' => tool_result.deep_stringify_keys
+      },
+      tool_result: tool_result
+    )
+    allow(AiAgents::ToolExecutor).to receive(:new).and_return(
+      instance_double(AiAgents::ToolExecutor, execute: tool_execution)
+    )
+    unsafe_claim = 'Menteşeli modeller daha dayanıklıdır; akordiyon modeller açılıp kapanma kolaylığı sağlar.'
+    allow(adapter).to receive(:perform).and_return(
+      {
+        assistant_text: nil,
+        tool_calls: [{
+          id: 'mixed-catalog',
+          type: 'function',
+          name: 'ikas_catalog_search',
+          arguments: {
+            queries: ['balkon kapısı sineklik', 'akordiyon sineklik', 'menteşeli sineklik']
+          }.to_json
+        }],
+        finish_reason: 'tool_calls'
+      },
+      { assistant_text: unsafe_claim, tool_calls: [], finish_reason: 'stop' },
+      { assistant_text: unsafe_claim, tool_calls: [], finish_reason: 'stop' },
+      { assistant_text: unsafe_claim, tool_calls: [], finish_reason: 'stop' }
+    )
+
+    result = described_class.new(
+      ai_agent: ai_agent.reload,
+      messages: [{ role: 'user', content: 'Balkon kapısı için akordiyon mu menteşeli mi, ikisini de göster.' }],
+      mode: :test,
+      adapter: adapter
+    ).perform
+
+    content = result[:assistant_message]['content']
+
+    expect(result[:terminal_action]).to be_nil
+    expect(result[:tool_events].map { |event| event['tool'] }).to eq(['ikas_catalog_search'])
+    expect(content).to include(
+      'Akordeon Kapı Sineklik Altınmeşe',
+      'Akordeon Kapı Sineklik Antrasit',
+      'Menteşeli Kapı Sineklikleri'
+    )
+    expect(content).not_to include(
+      'Akordeon Kapı Sineklik Beyaz',
+      'Double Akordiyon Kapı Sineklikleri',
+      'Menteşeli Pencere Sinekliği',
+      'dayanıklıdır',
+      'açılıp kapanma kolaylığı'
+    )
+    expect(content.lines.grep(/^- /).size).to eq(3)
+    expect(content.count('?')).to eq(1)
+    expect(adapter).to have_received(:perform).exactly(4).times
+  end
+
   it 'requires evidence and at most one question for category-only answers' do
     orchestrator = described_class.new(ai_agent: ai_agent, messages: [], mode: :test, adapter: adapter)
     tool_events = [{
