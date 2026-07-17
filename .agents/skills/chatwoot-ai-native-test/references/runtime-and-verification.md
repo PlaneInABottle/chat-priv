@@ -29,6 +29,20 @@ curl -sSf http://localhost:3000/health
 
 - Use `pm2 logs <name> --lines N --nostream` for worker/backend evidence. Prefer persisted DB evidence for final claims when logs are noisy.
 
+## Production and task-process isolation
+
+- This workstation's `kozmopath-web`/`kozmopath-worker` production roles and `chatwoot-backend`/`chatwoot-worker` development roles use the same checkout and currently reach the same PostgreSQL and Redis services. Treat them as mutually exclusive owners during branch-specific live QA.
+- Before deterministic queue testing, inspect `pm2 list`, the process working directories, `ss -ltn`, and `Sidekiq::ProcessSet`. Stop only the conflicting named production role, then start or restart the matching task-owned role through `with-chatwoot-env.sh`.
+- Never leave both `kozmopath-worker` and `chatwoot-worker` consuming the shared queues. A second worker makes message ownership and branch-code evidence nondeterministic.
+- Port `3000` likewise has one owner. Do not claim feature code is loaded until the serving Rails process points at the expected checkout/HEAD and `/health` passes.
+- When QA ends, stop the task worker, resume `kozmopath-worker`, restore `kozmopath-web` if it was displaced, and verify the production health boundary. Leave unrelated PM2 processes untouched.
+- Check the active Sidekiq process count without dumping configuration:
+
+```bash
+.agents/skills/chatwoot-ai-native-test/scripts/with-chatwoot-env.sh bundle exec rails runner \
+  'puts({ process_count: Sidekiq::ProcessSet.new.size }.to_json)'
+```
+
 ## Checked-in runtime files
 
 - Process orchestration: `Procfile.dev` (Rails, Sidekiq, Vite)
@@ -67,3 +81,4 @@ curl -sSf http://localhost:3000/health
 - Run `curl http://localhost:3000/health` after boot.
 - Run a real browser login check with `agent-browser` using the seeded user.
 - Re-run the browser check after later runtime or auth-affecting changes.
+- For inbox-bound AI tests, verify one intended Sidekiq consumer before traffic and restore the production worker afterward.

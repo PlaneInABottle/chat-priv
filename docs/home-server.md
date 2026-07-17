@@ -76,6 +76,8 @@ pm2 list
 
 The shared PM2 daemon also owns other projects. Project deployment must never run `pm2 reload all`, `pm2 restart all`, `pm2 kill`, or `pm2 save`. The checked-in ecosystem and wrapper target only `kozmopath-web`, `kozmopath-worker`, and `kozmopath-voice`. Saving PM2 startup state is a deliberate host-wide operation performed only after every live process has been audited. Stopping `pm2-mirza.service` intentionally stops every PM2-managed project.
 
+Development AI-agent QA may temporarily replace `kozmopath-web`/`kozmopath-worker` with task-owned `chatwoot-backend`/`chatwoot-worker`. These roles share the same checkout, PostgreSQL, and Redis, so never run both workers during deterministic live tests. Stop only the conflicting named role, verify the branch-serving process and exactly one Sidekiq process, then restore `kozmopath-web` and `kozmopath-worker` before ending the session. The detailed sequence is maintained in `.agents/skills/chatwoot-ai-native-test/references/runtime-and-verification.md`.
+
 Readiness checks:
 
 ```bash

@@ -88,6 +88,16 @@
 - **[Frontend] Sync i18n**: run `pnpm sync:i18n` when the dashboard English `index.js` import list changes; the script copies that import manifest to the other dashboard locale folders and stages them.
 - **[Frontend] Message bubbles**: use `app/javascript/dashboard/components-next/` because legacy message bubbles are being deprecated.
 
+## AI Agent Catalog and Interactive Options
+
+- **[Backend] Catalog response contract**: `ikas_catalog_search` is a normal tool. After a successful result, the model may answer in natural free-form language using catalog fields plus its own reasoning. Do not reintroduce semantic keyword regexes, evidence-only prose authorization, or a deterministic catalog-answer renderer unless the product requirement explicitly changes.
+- **[Backend] Structural safeguards**: keep catalog query/tool budgets, bounded empty/truncated-output retries, one bounded unknown-tool correction, internal protocol leakage checks, trusted URL sanitization, live-response idempotency, and tool-side validation. These are operational or structural controls, not semantic claim policing.
+- **[Backend] LLM payload boundary**: full sanitized tool events remain available for persistence and debugging; `AiAgents::LlmToolResultPresenter` creates the smaller model-facing catalog payload. Keep compaction separate from `IkasCatalogMvp::QueryEngine` and do not discard fields required by prompts or customer answers without updating its focused specs.
+- **[Both] Option contract**: `present_options` is enabled by default unless the agent configuration explicitly disables it. Capability is decided by `supports_ai_input_select?` (default false); test conversations, Web Widget, and WhatsApp support it, while `Channel::Api` currently receives normal text fallback. Do not add a static channel-class allowlist.
+- **[Both] Selection safety**: preserve selection contract version `1`, opaque option values, catalog-ID validation at creation, and stale-prompt rejection after later customer input. Widget retries of the same selection return the existing response, duplicate WhatsApp deliveries do not create another message, and the test panel permits only one submission; every path rejects a conflicting second selection.
+- **[Both] Realistic verification**: load `chatwoot-ai-agent-local-testing` for stateful catalog/options/API testing. Use discoverable account/agent/inbox records rather than hardcoded IDs, verify public messages plus `AiAgentToolExecution`/`AiAgentLlmCall` persistence, and include typo-heavy input, changed constraints, no-match, free-form continuation, toggle-off, stale selection, repeated selection, and unsupported-channel text fallback.
+- **[Both] Architecture reference**: read `docs/ai-agent-catalog-runtime.md` before changing Orchestrator, catalog result presentation, output sanitation, option capabilities, or selection handling.
+
 ## Home Server Production Runtime
 
 - **[Both] Canonical topology**: use `docker-compose.server.yaml` only for PostgreSQL and Redis, and `ecosystem.server.config.cjs` for the PM2-managed Rails web, Sidekiq worker, and Python Voice worker. Do not recreate the obsolete all-in-Docker Chatwoot runtime for this host.
@@ -150,5 +160,5 @@ Practical checklist for any change impacting core logic or public APIs
 - **[Both] Translation process**: README section "Translation process" because it links to Crowdin guidelines.
 
 ## Last Verified
-- **Date**: 2026-07-16
-- **Context**: Verified `package.json` scripts, `Procfile.dev`, `Procfile.test`, the development and home-server Compose profiles, PM2 web/worker/Voice roles, loopback listeners and readiness probes, the stable named Cloudflare Tunnel, private EU R2 attachment/Voice storage, production asset compilation, PostgreSQL/Redis persistence, rbenv and Node toolchains, dashboard English/Turkish locale composition, migration/schema workflow, Tailwind pipeline files, and Enterprise overlay hooks.
+- **Date**: 2026-07-17
+- **Context**: Verified `package.json` scripts, `Procfile.dev`, `Procfile.test`, the development and home-server Compose profiles, PM2 web/worker/Voice roles, loopback listeners and readiness probes, the stable named Cloudflare Tunnel, private EU R2 attachment/Voice storage, production asset compilation, PostgreSQL/Redis persistence, rbenv and Node toolchains, dashboard English/Turkish locale composition, migration/schema workflow, Tailwind pipeline files, Enterprise overlay hooks, and the AI-agent catalog/options orchestration and real-inbox verification boundaries.
