@@ -561,6 +561,43 @@ RSpec.describe Message do
         expect(SendReplyJob).to have_received(:perform_later).with(message.id)
       end
     end
+
+    context 'with a catalog presentation' do
+      before do
+        ActiveJob::Base.queue_adapter = :test
+        message.message_type = 'outgoing'
+        message.content_attributes = {
+          'ai_agent' => {
+            'catalog_presentation' => {
+              'id' => 'presentation-1',
+              'sequence' => sequence,
+              'total' => 2
+            }
+          }
+        }
+      end
+
+      context 'when the presentation is incomplete' do
+        let(:sequence) { 1 }
+
+        it 'waits for the final presentation message' do
+          message.save!
+
+          enqueued_job_classes = enqueued_jobs.pluck(:job)
+          expect(enqueued_job_classes).not_to include(SendReplyJob, AiAgents::CatalogPresentationDeliveryJob)
+        end
+      end
+
+      context 'when the final presentation message is persisted' do
+        let(:sequence) { 2 }
+
+        it 'schedules the ordered presentation delivery' do
+          expect { message.save! }
+            .to have_enqueued_job(AiAgents::CatalogPresentationDeliveryJob)
+            .with(message.conversation_id, 'presentation-1')
+        end
+      end
+    end
   end
 
   context 'when content_type is blank' do

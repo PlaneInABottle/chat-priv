@@ -60,6 +60,10 @@
       "PRESENT_OPTIONS": {
         "LABEL": "Clickable choices",
         "HELP": "Let the assistant present single-choice buttons or lists when choosing an option will help the customer continue."
+      },
+      "PRESENT_CATALOG_PRODUCTS": {
+        "LABEL": "Product images",
+        "HELP": "Let the assistant send images for up to three relevant catalog products, or multiple views of one product, when visuals help the customer."
       }
     },
     "USAGE_REPORT": {

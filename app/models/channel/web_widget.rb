@@ -65,6 +65,10 @@ class Channel::WebWidget < ApplicationRecord
     true
   end
 
+  def supports_ai_catalog_product_images?
+    true
+  end
+
   def web_widget_script
     "
     <script>

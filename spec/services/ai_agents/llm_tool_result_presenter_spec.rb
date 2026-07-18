@@ -13,6 +13,7 @@ RSpec.describe AiAgents::LlmToolResultPresenter do
       evidence: [{ fact: 'color', value: 'Grey' }],
       relevance_score: 42,
       relevance_signals: [{ kind: 'fts_bm25_match', raw_score: 2.1, score: 4 }],
+      image: { available: true, count: 2, scope: 'variant' },
       link: { url: "https://example.test/products/#{index}" }
     }
   end
@@ -33,13 +34,15 @@ RSpec.describe AiAgents::LlmToolResultPresenter do
     expect(presented.fetch('candidates').size).to eq(8)
     expect(presented.fetch('candidates').first).to include(
       'display_name' => 'Product 0',
+      'item_id' => 'item-0',
       'price' => { 'amount' => 100, 'currency' => 'TRY' },
+      'image' => { 'available' => true, 'count' => 2, 'scope' => 'variant' },
       'link' => { 'url' => 'https://example.test/products/0' }
     )
     expect(presented).to include('result_count' => 20, 'candidates_omitted' => 12)
     expect(presented).not_to include('parsed', 'search_backend', 'catalog')
     expect(presented.fetch('candidates').first).not_to include(
-      'item_id', 'product_id', 'variant_id', 'confidence', 'match_kind', 'match_reasons', 'relevance_score', 'relevance_signals'
+      'product_id', 'variant_id', 'confidence', 'match_kind', 'match_reasons', 'relevance_score', 'relevance_signals'
     )
     expect(presented.dig('candidates', 0, 'stock')).to eq('sellable' => true)
     expect(result.fetch(:candidates)).to have_attributes(size: 20).and start_with(include(:relevance_score, :relevance_signals))

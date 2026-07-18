@@ -4,7 +4,7 @@ class AiAgents::LlmToolResultPresenter
   SINGLE_QUERY_CANDIDATE_LIMIT = 8
   BATCH_QUERY_CANDIDATE_LIMIT = 4
   CATALOG_DEBUG_KEYS = %w[parsed search_backend catalog].freeze
-  CANDIDATE_FIELDS = %w[display_name category_paths price stock evidence link].freeze
+  CANDIDATE_FIELDS = %w[item_id display_name category_paths price stock evidence image link].freeze
   STOCK_FIELDS = %w[sellable quantity].freeze
 
   def initialize(tool_key:, result:)

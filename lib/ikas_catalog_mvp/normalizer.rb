@@ -5,12 +5,13 @@ require 'set'
 
 module IkasCatalogMvp
   class Normalizer
-    def initialize(categories:, variant_types:, product_attributes:, product_option_sets: [], storefronts: [])
+    def initialize(categories:, variant_types:, product_attributes:, product_option_sets: [], storefronts: [], merchant_id: nil)
       @categories = Array(categories)
       @variant_types = Array(variant_types)
       @product_attributes = Array(product_attributes)
       @product_option_sets = Array(product_option_sets)
       @product_link_builder = ProductLinkBuilder.new(storefronts: storefronts)
+      @image_link_builder = ImageLinkBuilder.new(merchant_id: merchant_id)
     end
 
     def product_visible?(product)
@@ -24,6 +25,7 @@ module IkasCatalogMvp
         items: items,
         facets: items.flat_map { |item| item.fetch('facets') },
         facts: items.flat_map { |item| item.fetch('facts') },
+        images: items.flat_map { |item| item.fetch('images') },
         categories: item_categories(product, items),
         group_categories: group_categories(product)
       }
@@ -31,7 +33,7 @@ module IkasCatalogMvp
 
     private
 
-    attr_reader :categories, :variant_types, :product_attributes, :product_option_sets, :product_link_builder
+    attr_reader :categories, :variant_types, :product_attributes, :product_option_sets, :product_link_builder, :image_link_builder
 
     def normalized_items(product)
       variants = Array(product['variants']).select { |variant| variant['isActive'] != false }
@@ -48,8 +50,10 @@ module IkasCatalogMvp
       price = price_for(variant)
       link_fields = product_link_builder.link_fields_for(product, option_facets: variant_facets)
       search_text = search_text_for(product, name, facets)
+      item_id = variant ? "variant:#{variant.fetch('id')}" : "product:#{product.fetch('id')}"
+      images = images_for(product, variant, item_id)
       item = {
-        'item_id' => variant ? "variant:#{variant.fetch('id')}" : "product:#{product.fetch('id')}",
+        'item_id' => item_id,
         'group_id' => group_id(product),
         'product_id' => product.fetch('id'),
         'variant_id' => variant&.[]('id'),
@@ -63,13 +67,14 @@ module IkasCatalogMvp
         'stock_quantity' => stock.fetch('quantity'),
         'in_stock' => stock.fetch('in_stock') ? 1 : 0,
         'sellable' => stock.fetch('sellable') ? 1 : 0,
-        'image_id' => image_id_for(variant),
+        'image_id' => images.first&.fetch('image_id', nil),
         'search_text' => search_text,
         'search_text_folded' => Text.fold(search_text),
         'raw_json' => Text.json(variant || product)
       }.merge(link_fields)
       item['facets'] = facets.map { |facet| facet.merge('item_id' => item.fetch('item_id')) }
       item['facts'] = facts_for(product, variant, item, facets)
+      item['images'] = images
       item
     end
 
@@ -333,9 +338,12 @@ module IkasCatalogMvp
       { 'quantity' => quantity, 'in_stock' => in_stock, 'sellable' => sellable }
     end
 
-    def image_id_for(variant)
-      image = Array(variant&.[]('images')).find { |row| row['isMain'] } || Array(variant&.[]('images')).first
-      image&.[]('imageId')
+    def images_for(product, variant, item_id)
+      variant_images = Array(variant&.[]('images'))
+      return image_link_builder.rows_for(item_id: item_id, images: variant_images, scope: 'variant') if variant_images.any?
+
+      representative_images = Array(product['variants']).lazy.map { |candidate| Array(candidate['images']) }.find(&:present?) || []
+      image_link_builder.rows_for(item_id: item_id, images: representative_images, scope: 'representative_product')
     end
 
     def clean_text(value)

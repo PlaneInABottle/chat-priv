@@ -410,6 +410,17 @@ class Message < ApplicationRecord
   end
 
   def send_reply
+    catalog_presentation = content_attributes.dig('ai_agent', 'catalog_presentation')
+    if catalog_presentation.present?
+      return unless catalog_presentation['sequence'].to_i == catalog_presentation['total'].to_i
+
+      ::AiAgents::CatalogPresentationDeliveryJob.set(wait: 2.seconds).perform_later(
+        conversation_id,
+        catalog_presentation.fetch('id')
+      )
+      return
+    end
+
     # FIXME: Giving it few seconds for the attachment to be uploaded to the service
     # active storage attaches the file only after commit
     attachments.blank? ? ::SendReplyJob.perform_later(id) : ::SendReplyJob.set(wait: 2.seconds).perform_later(id)

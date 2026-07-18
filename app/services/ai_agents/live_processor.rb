@@ -1,10 +1,12 @@
 class AiAgents::LiveProcessor
   HANDOFF_COMPLETED_KEY = 'ai_handoff_completed'.freeze
   HISTORY_MESSAGE_LIMIT = 12
+  RAW_HISTORY_MESSAGE_LIMIT = HISTORY_MESSAGE_LIMIT * AiAgents::Tools::PresentCatalogProductsService::MAX_PRODUCTS
 
-  def initialize(message:, adapter: nil)
+  def initialize(message:, adapter: nil, media_preparer: nil)
     @message = message
     @adapter = adapter
+    @media_preparer = media_preparer
   end
 
   def perform
@@ -59,12 +61,16 @@ class AiAgents::LiveProcessor
   end
 
   def orchestrator_messages
-    recent_messages.map do |entry|
-      {
+    messages = recent_messages.map do |entry|
+      message = {
         role: entry.message_type == 'incoming' ? 'user' : 'assistant',
         content: entry.content_for_llm
       }
+      presentation = entry.content_attributes.dig('ai_agent', 'catalog_presentation')
+      message[:catalog_presentation] = presentation if presentation.present?
+      message
     end
+    AiAgents::ConversationHistoryCompactor.new(messages).call.last(HISTORY_MESSAGE_LIMIT)
   end
 
   def orchestrator_result
@@ -90,7 +96,7 @@ class AiAgents::LiveProcessor
                 .where(private: false, message_type: %i[incoming outgoing])
                 .where(id: ..message.id)
                 .reorder(id: :desc)
-                .limit(HISTORY_MESSAGE_LIMIT)
+                .limit(RAW_HISTORY_MESSAGE_LIMIT)
                 .to_a
                 .reverse
                 .reject { |entry| entry.content_for_llm.blank? }
@@ -103,10 +109,35 @@ class AiAgents::LiveProcessor
   end
 
   def persist_assistant_response!(result, usage_result)
+    return persist_catalog_product_response!(result, usage_result) if catalog_product_result?(result)
+
     conversation.with_lock do
       post_assistant_message!(result[:assistant_message]) unless response_already_persisted?
       consume_usage!(usage_result, result)
     end
+  end
+
+  def persist_catalog_product_response!(result, usage_result)
+    prepared_messages = catalog_presentation_builder(result.fetch(:assistant_message)).call
+    conversation.with_lock do
+      unless response_already_persisted?
+        prepared_messages.each do |message_spec|
+          Messages::MessageBuilder.new(nil, conversation.reload, message_spec.fetch(:message_params)).perform
+        end
+      end
+      consume_usage!(usage_result, result)
+    end
+  ensure
+    prepared_messages&.each { |message_spec| message_spec[:prepared_image]&.close! }
+  end
+
+  def catalog_presentation_builder(assistant_message)
+    AiAgents::CatalogPresentationBuilder.new(
+      assistant_message: assistant_message,
+      ai_agent: ai_agent,
+      trigger_message_id: message.id,
+      media_preparer: @media_preparer
+    )
   end
 
   def response_already_persisted?
@@ -171,5 +202,9 @@ class AiAgents::LiveProcessor
 
   def handoff_result?(result)
     result[:terminal_action] == 'handoff'
+  end
+
+  def catalog_product_result?(result)
+    result[:terminal_action] == AiAgents::Config::PRESENT_CATALOG_PRODUCTS_TOOL
   end
 end

@@ -49,4 +49,18 @@ RSpec.describe AiAgents::ToolPromptPolicy do
     expect(instructions).to include('Shared conversation rules:')
     expect(instructions).not_to include('Customer option rules:', '`present_options`')
   end
+
+  it 'teaches merchant-native display-only catalog image behavior when enabled' do
+    instructions = described_class.new(%w[ikas_catalog_search present_catalog_products]).instructions
+
+    expect(instructions).to include(
+      'Catalog product image rules:',
+      "Speak as a member of the merchant's shop",
+      'Never tell the customer that you found, searched for, looked up, or retrieved the products',
+      'The presentation is display-only',
+      'Do not call `present_catalog_products` and `present_options` in the same response',
+      'set `continue_previous` to true'
+    )
+    expect(instructions).to match(/explicitly asks.*must call `present_catalog_products`.*do not replace.*text-only/i)
+  end
 end

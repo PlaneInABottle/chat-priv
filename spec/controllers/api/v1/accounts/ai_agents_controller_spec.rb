@@ -25,7 +25,8 @@ RSpec.describe 'Ai Agents API', type: :request do
       counts: { 'products' => 1, 'catalog_items' => 1 },
       error_message: nil,
       failed?: false,
-      sqlite_exists?: true
+      sqlite_exists?: true,
+      sqlite_path: '/missing/catalog.sqlite3'
     )
     snapshots = double
     allow(snapshots).to receive(:order).and_return(double(first: snapshot))

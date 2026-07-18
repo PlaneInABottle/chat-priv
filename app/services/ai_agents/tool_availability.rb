@@ -47,18 +47,33 @@ class AiAgents::ToolAvailability
     return false unless account.feature_enabled?('ikas_integration')
     return false unless ikas_summary[:state] == 'connected'
 
+    return ikas_catalog_images_ready? if definition.key == AiAgents::Config::PRESENT_CATALOG_PRODUCTS_TOOL
     return ikas_catalog_ready? if definition.key == AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL
 
     true
   end
 
   def ikas_catalog_ready?
-    ikas_summary[:hook]
-      &.ikas_catalog_snapshots
-      &.storefront_catalog
-      &.latest_completed
-      &.first
-      &.sqlite_exists?
+    catalog_snapshot&.sqlite_exists?
+  end
+
+  def ikas_catalog_images_ready?
+    return false unless ikas_catalog_ready?
+
+    db = SQLite3::Database.new(catalog_snapshot.sqlite_path)
+    db.get_first_value('SELECT 1 FROM catalog_item_images LIMIT 1') == 1
+  rescue SQLite3::Exception, Errno::ENOENT
+    false
+  ensure
+    db&.close
+  end
+
+  def catalog_snapshot
+    @catalog_snapshot ||= ikas_summary[:hook]
+                          &.ikas_catalog_snapshots
+                          &.storefront_catalog
+                          &.latest_completed
+                          &.first
   end
 
   def ikas_summary

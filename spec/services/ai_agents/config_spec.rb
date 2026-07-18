@@ -2,37 +2,37 @@ require 'rails_helper'
 
 RSpec.describe AiAgents::Config do
   describe '#valid?' do
-    it 'defaults human handoff and clickable options on when config is nil' do
+    it 'defaults human handoff, clickable options, and product images on when config is nil' do
       config = described_class.new(nil)
 
-      expect(config.enabled_tool_keys).to eq(%w[human_handoff present_options])
+      expect(config.enabled_tool_keys).to eq(%w[human_handoff present_options present_catalog_products])
     end
 
     it 'defaults human handoff on when config is not an object' do
       config = described_class.new('bad')
 
-      expect(config.enabled_tool_keys).to eq(%w[human_handoff present_options])
+      expect(config.enabled_tool_keys).to eq(%w[human_handoff present_options present_catalog_products])
     end
 
     it 'defaults human handoff on when tools config is missing' do
       config = described_class.new({ 'other' => true })
 
-      expect(config.tools_summary['enabled']).to eq(%w[human_handoff present_options])
-      expect(config.normalized_config['tools']['enabled']).to eq(%w[human_handoff present_options])
+      expect(config.tools_summary['enabled']).to eq(%w[human_handoff present_options present_catalog_products])
+      expect(config.normalized_config['tools']['enabled']).to eq(%w[human_handoff present_options present_catalog_products])
     end
 
     it 'defaults human handoff on when tools enabled is missing' do
       config = described_class.new({ 'tools' => { 'human_handoff' => { 'allowed_labels' => ['vip'] } } })
 
-      expect(config.enabled_tool_keys).to eq(%w[human_handoff present_options])
-      expect(config.normalized_config['tools']['enabled']).to eq(%w[human_handoff present_options])
+      expect(config.enabled_tool_keys).to eq(%w[human_handoff present_options present_catalog_products])
+      expect(config.normalized_config['tools']['enabled']).to eq(%w[human_handoff present_options present_catalog_products])
     end
 
     it 'keeps human handoff enabled when the enabled array is explicitly empty' do
       config = described_class.new({ 'tools' => { 'enabled' => [] } })
 
-      expect(config.enabled_tool_keys).to eq(%w[human_handoff present_options])
-      expect(config.tools_summary['enabled']).to eq(%w[human_handoff present_options])
+      expect(config.enabled_tool_keys).to eq(%w[human_handoff present_options present_catalog_products])
+      expect(config.tools_summary['enabled']).to eq(%w[human_handoff present_options present_catalog_products])
     end
 
     it 'does not default-enable ikas lookup order' do
@@ -46,7 +46,7 @@ RSpec.describe AiAgents::Config do
       config = described_class.new({ 'tools' => { 'enabled' => ['ikas_catalog_search'], 'ikas_catalog_search' => {} } })
 
       expect(config).to be_valid
-      expect(config.enabled_tool_keys).to eq(%w[human_handoff ikas_catalog_search present_options])
+      expect(config.enabled_tool_keys).to eq(%w[human_handoff ikas_catalog_search present_options present_catalog_products])
       expect(config.tools_summary['ikas_catalog_search']).to eq({})
     end
 
@@ -59,7 +59,7 @@ RSpec.describe AiAgents::Config do
                                    })
 
       expect(config).to be_valid
-      expect(config.enabled_tool_keys).to eq(%w[human_handoff ikas_lookup_order present_options])
+      expect(config.enabled_tool_keys).to eq(%w[human_handoff ikas_lookup_order present_options present_catalog_products])
       expect(config.tools_summary['ikas_lookup_order']).to eq({ 'enabled' => true })
     end
 
@@ -74,7 +74,7 @@ RSpec.describe AiAgents::Config do
       config = described_class.new({ 'foo' => { 'bar' => true }, 'tools' => { 'enabled' => ['human_handoff'] } })
 
       expect(config.normalized_config['foo']).to eq({ 'bar' => true })
-      expect(config.enabled_tool_keys).to eq(%w[human_handoff present_options])
+      expect(config.enabled_tool_keys).to eq(%w[human_handoff present_options present_catalog_products])
     end
 
     it 'rejects removed human handoff config keys' do
@@ -135,7 +135,7 @@ RSpec.describe AiAgents::Config do
 
       expect(config).to be_valid
       expect(config.tools_summary).to include(
-        'enabled' => %w[human_handoff present_options],
+        'enabled' => %w[human_handoff present_options present_catalog_products],
         'human_handoff' => { 'allowed_labels' => %w[vip billing] }
       )
       expect(config.normalized_config['foo']).to eq({ 'bar' => true })
@@ -150,8 +150,21 @@ RSpec.describe AiAgents::Config do
                                    })
 
       expect(config).to be_valid
-      expect(config.enabled_tool_keys).to eq(['human_handoff'])
+      expect(config.enabled_tool_keys).to eq(%w[human_handoff present_catalog_products])
       expect(config.tools_summary['present_options']).to eq({ 'enabled' => false })
+    end
+
+    it 'allows merchants to disable product images explicitly' do
+      config = described_class.new({
+                                     'tools' => {
+                                       'enabled' => %w[human_handoff present_options],
+                                       'present_catalog_products' => { 'enabled' => false }
+                                     }
+                                   })
+
+      expect(config).to be_valid
+      expect(config.enabled_tool_keys).to eq(%w[human_handoff present_options])
+      expect(config.tools_summary['present_catalog_products']).to eq({ 'enabled' => false })
     end
   end
 end

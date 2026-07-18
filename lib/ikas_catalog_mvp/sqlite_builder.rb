@@ -18,6 +18,7 @@ module IkasCatalogMvp
     FACT_COLUMNS = %w[
       item_id type key value_text value_folded numeric_value numeric_value_2 unit source confidence raw
     ].freeze
+    IMAGE_COLUMNS = %w[item_id image_id file_name canonical_url is_main position image_scope].freeze
 
     def initialize(snapshot_dir:, sqlite_path: nil)
       @snapshot_dir = Pathname.new(snapshot_dir)
@@ -51,6 +52,7 @@ module IkasCatalogMvp
     def schema_sql
       <<~SQL
         CREATE TABLE raw_categories (id TEXT PRIMARY KEY, parent_id TEXT, name TEXT, raw_json TEXT NOT NULL);
+        CREATE TABLE raw_merchants (id TEXT PRIMARY KEY, raw_json TEXT NOT NULL);
         CREATE TABLE raw_variant_types (id TEXT PRIMARY KEY, name TEXT, raw_json TEXT NOT NULL);
         CREATE TABLE raw_product_attributes (id TEXT PRIMARY KEY, name TEXT, type TEXT, raw_json TEXT NOT NULL);
         CREATE TABLE raw_product_option_sets (id TEXT PRIMARY KEY, name TEXT, raw_json TEXT NOT NULL);
@@ -110,6 +112,16 @@ module IkasCatalogMvp
           raw_json TEXT NOT NULL
         );
         CREATE TABLE catalog_item_categories (item_id TEXT NOT NULL, category_id TEXT NOT NULL);
+        CREATE TABLE catalog_item_images (
+          item_id TEXT NOT NULL,
+          image_id TEXT NOT NULL,
+          file_name TEXT NOT NULL,
+          canonical_url TEXT NOT NULL,
+          is_main INTEGER NOT NULL,
+          position INTEGER NOT NULL,
+          image_scope TEXT NOT NULL,
+          PRIMARY KEY (item_id, image_id)
+        );
         CREATE TABLE catalog_group_categories (group_id TEXT NOT NULL, category_id TEXT NOT NULL);
         CREATE TABLE catalog_facets (
           item_id TEXT NOT NULL,
@@ -140,6 +152,7 @@ module IkasCatalogMvp
         );
         CREATE INDEX index_catalog_items_on_search ON catalog_items(search_text_folded);
         CREATE INDEX index_catalog_items_on_group ON catalog_items(group_id);
+        CREATE INDEX index_catalog_item_images_on_item_position ON catalog_item_images(item_id, position);
         CREATE INDEX index_catalog_item_categories_on_category ON catalog_item_categories(category_id, item_id);
         CREATE INDEX index_catalog_group_categories_on_category ON catalog_group_categories(category_id, group_id);
         CREATE INDEX index_catalog_facets_on_key_value ON catalog_facets(key_folded, value_folded, item_id);
@@ -149,12 +162,19 @@ module IkasCatalogMvp
     end
 
     def insert_raw_rows
+      insert_raw_merchants
       insert_raw_categories
       insert_raw_variant_types
       insert_raw_product_attributes
       insert_raw_product_option_sets
       insert_raw_storefronts
       insert_raw_products
+    end
+
+    def insert_raw_merchants
+      each_jsonl('merchants') do |row|
+        db.execute('INSERT INTO raw_merchants (id, raw_json) VALUES (?, ?)', [row['id'], Text.json(row)])
+      end
     end
 
     def insert_raw_categories
@@ -211,20 +231,25 @@ module IkasCatalogMvp
         variant_types: load_jsonl('variant_types'),
         product_attributes: load_jsonl('product_attributes'),
         product_option_sets: load_jsonl('product_option_sets'),
-        storefronts: load_jsonl('storefronts')
+        storefronts: load_jsonl('storefronts'),
+        merchant_id: load_jsonl('merchants').first&.[]('id')
       )
 
       each_jsonl('products') do |product|
         next unless normalizer.product_visible?(product)
 
-        normalized = normalizer.normalize_product(product)
-        insert_group(normalized.fetch(:group))
-        normalized.fetch(:items).each { |item| insert_item(item) }
-        normalized.fetch(:categories).each { |row| insert_item_category(row) }
-        normalized.fetch(:group_categories).each { |row| insert_group_category(row) }
-        normalized.fetch(:facets).each { |row| insert_facet(row) }
-        normalized.fetch(:facts).each { |row| insert_fact(row) }
+        insert_normalized_product(normalizer.normalize_product(product))
       end
+    end
+
+    def insert_normalized_product(normalized)
+      insert_group(normalized.fetch(:group))
+      normalized.fetch(:items).each { |item| insert_item(item) }
+      normalized.fetch(:categories).each { |row| insert_item_category(row) }
+      normalized.fetch(:group_categories).each { |row| insert_group_category(row) }
+      normalized.fetch(:facets).each { |row| insert_facet(row) }
+      normalized.fetch(:facts).each { |row| insert_fact(row) }
+      normalized.fetch(:images).each { |row| insert_image(row) }
     end
 
     def insert_group(row)
@@ -258,6 +283,10 @@ module IkasCatalogMvp
       insert_hash_row('catalog_facts', FACT_COLUMNS, row)
     end
 
+    def insert_image(row)
+      insert_hash_row('catalog_item_images', IMAGE_COLUMNS, row)
+    end
+
     def insert_hash_row(table, columns, row)
       db.execute(
         "INSERT INTO #{table} (#{columns.join(', ')}) VALUES (#{Array.new(columns.length, '?').join(', ')})",
@@ -266,7 +295,7 @@ module IkasCatalogMvp
     end
 
     def stats
-      %w[raw_products raw_storefronts catalog_groups catalog_items catalog_facets catalog_facts].to_h do |table|
+      %w[raw_products raw_storefronts catalog_groups catalog_items catalog_item_images catalog_facets catalog_facts].to_h do |table|
         [table, db.get_first_value("SELECT COUNT(*) FROM #{table}")]
       end.merge(
         'products_with_links' => db.get_first_value('SELECT COUNT(DISTINCT product_id) FROM catalog_groups WHERE product_url IS NOT NULL').to_i

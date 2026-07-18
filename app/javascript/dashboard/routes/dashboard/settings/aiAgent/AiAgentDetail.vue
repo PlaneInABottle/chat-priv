@@ -30,7 +30,7 @@ import {
 } from './helpers/instructionDocument';
 
 const defaultToolsState = () => ({
-  enabled: ['human_handoff', 'present_options'],
+  enabled: ['human_handoff', 'present_options', 'present_catalog_products'],
   human_handoff: {
     allowed_labels: [],
   },
@@ -39,6 +39,9 @@ const defaultToolsState = () => ({
   },
   ikas_catalog_search: {},
   present_options: {
+    enabled: true,
+  },
+  present_catalog_products: {
     enabled: true,
   },
 });
@@ -53,14 +56,22 @@ const normalizeToolsState = toolsConfig => {
         ...(tools.present_options?.enabled === false
           ? []
           : ['present_options']),
+        ...(tools.present_catalog_products?.enabled === false
+          ? []
+          : ['present_catalog_products']),
         ...(tools.enabled || []),
       ])
     )
       .filter(Boolean)
-      .filter(
-        tool =>
-          tool !== 'present_options' || tools.present_options?.enabled !== false
-      ),
+      .filter(tool => {
+        if (tool === 'present_options') {
+          return tools.present_options?.enabled !== false;
+        }
+        if (tool === 'present_catalog_products') {
+          return tools.present_catalog_products?.enabled !== false;
+        }
+        return true;
+      }),
     human_handoff: {
       allowed_labels: Array.from(
         new Set(tools.human_handoff?.allowed_labels || [])
@@ -72,6 +83,9 @@ const normalizeToolsState = toolsConfig => {
     ikas_catalog_search: {},
     present_options: {
       enabled: tools.present_options?.enabled !== false,
+    },
+    present_catalog_products: {
+      enabled: tools.present_catalog_products?.enabled !== false,
     },
   };
 };
@@ -387,6 +401,12 @@ const toggleTool = toolKey => {
             ? enabled.has(toolKey)
             : formState.value.tools.present_options.enabled,
       },
+      present_catalog_products: {
+        enabled:
+          toolKey === 'present_catalog_products'
+            ? enabled.has(toolKey)
+            : formState.value.tools.present_catalog_products.enabled,
+      },
     },
   };
 };
@@ -479,6 +499,9 @@ const connectionSaveData = () => {
         ikas_catalog_search: {},
         present_options: {
           enabled: tools.enabled.includes('present_options'),
+        },
+        present_catalog_products: {
+          enabled: tools.enabled.includes('present_catalog_products'),
         },
       },
     },
@@ -940,7 +963,10 @@ watch(agentId, async (newAgentId, oldAgentId) => {
                           t(`AI_AGENT.TOOLS.${tool.key.toUpperCase()}.LABEL`)
                         "
                         :disabled="
-                          tool.key === 'ikas_catalog_search'
+                          [
+                            'ikas_catalog_search',
+                            'present_catalog_products',
+                          ].includes(tool.key)
                             ? !isIkasAvailable || !isIkasCatalogReady
                             : tool.key === 'ikas_lookup_order' &&
                               !isIkasAvailable

@@ -7,6 +7,7 @@ require 'time'
 module IkasCatalogMvp
   class RawSync
     DATASETS = {
+      'merchants' => :merchants,
       'categories' => :categories,
       'variant_types' => :variant_types,
       'product_attributes' => :product_attributes,

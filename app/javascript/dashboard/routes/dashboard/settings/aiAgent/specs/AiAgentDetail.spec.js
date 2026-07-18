@@ -61,13 +61,14 @@ const buildAiAgent = overrides => ({
   available_inboxes: [],
   config: {},
   tools_config: {
-    enabled: ['present_options'],
+    enabled: ['present_options', 'present_catalog_products'],
     human_handoff: {
       allowed_labels: [],
     },
     ikas_lookup_order: { enabled: false },
     ikas_catalog_search: {},
     present_options: { enabled: true },
+    present_catalog_products: { enabled: true },
   },
   available_tools: [
     { key: 'human_handoff' },
@@ -758,6 +759,7 @@ describe('AiAgentDetail.vue', () => {
     expect(wrapper.vm.formState.tools.enabled).toEqual([
       'human_handoff',
       'present_options',
+      'present_catalog_products',
     ]);
     expect(wrapper.vm.formState.tools.human_handoff.allowed_labels).toEqual([
       'vip',
@@ -771,7 +773,11 @@ describe('AiAgentDetail.vue', () => {
       data: expect.objectContaining({
         config: expect.objectContaining({
           tools: expect.objectContaining({
-            enabled: ['human_handoff', 'present_options'],
+            enabled: [
+              'human_handoff',
+              'present_options',
+              'present_catalog_products',
+            ],
             human_handoff: expect.objectContaining({
               allowed_labels: ['vip', 'billing'],
             }),
@@ -799,6 +805,50 @@ describe('AiAgentDetail.vue', () => {
     const [, payload] = actionMocks.update.mock.calls.at(-1);
     expect(payload.data.config.tools.enabled).not.toContain('present_options');
     expect(payload.data.config.tools.present_options).toEqual({
+      enabled: false,
+    });
+  });
+
+  it('enables product images by default and saves an explicit disabled toggle', async () => {
+    const { wrapper, actionMocks } = mountComponent({
+      aiAgentRecord: buildAiAgent({
+        available_tools: [
+          { key: 'human_handoff' },
+          { key: 'present_options' },
+          { key: 'present_catalog_products' },
+        ],
+        ikas_integration: {
+          feature_enabled: true,
+          state: 'connected',
+          can_connect: true,
+          catalog_sync: { status: 'completed' },
+        },
+      }),
+    });
+
+    await flushPromises();
+    expect(wrapper.vm.formState.tools.enabled).toContain(
+      'present_catalog_products'
+    );
+    expect(
+      wrapper
+        .find('[data-testid="tool-toggle-present_catalog_products"]')
+        .exists()
+    ).toBe(true);
+
+    await wrapper
+      .find('[data-testid="tool-toggle-present_catalog_products"]')
+      .trigger('change');
+    expect(wrapper.vm.formState.tools.enabled).not.toContain(
+      'present_catalog_products'
+    );
+    await wrapper.vm.handleSave();
+
+    const [, payload] = actionMocks.update.mock.calls.at(-1);
+    expect(payload.data.config.tools.enabled).not.toContain(
+      'present_catalog_products'
+    );
+    expect(payload.data.config.tools.present_catalog_products).toEqual({
       enabled: false,
     });
   });

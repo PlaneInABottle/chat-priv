@@ -13,6 +13,10 @@ This document describes the current production contract. Historical `*.plan.md` 
 | `AiAgents::ToolOutputSanitizer` | Repairs or removes customer-visible HTTP links that are not present in tool output. It does not judge natural-language claims. |
 | `AiAgents::LiveProcessor` | Loads bounded conversation history, prevents duplicate live replies, persists the outgoing message, and accounts for usage. |
 | `AiAgents::Tools::PresentOptionsService` | Validates and creates a terminal `input_select` response with 2–10 choices. |
+| `AiAgents::Tools::PresentCatalogProductsService` | Validates a display-only image presentation against the latest catalog candidates and prior presentation state. |
+| `AiAgents::CatalogImagePreparer` | Fetches only trusted ikas CDN images, enforces byte/pixel/type limits, and normalizes them to bounded JPEG attachments. |
+| `AiAgents::CatalogPresentationDeliveryJob` | Sends a persisted image-message group sequentially so channel providers preserve its order. |
+| `AiAgents::ConversationHistoryCompactor` | Represents a multi-message image group as one assistant history entry for follow-up turns. |
 | `AiAgents::OptionSelectionService` | Validates live widget/WhatsApp selections, rejects stale or conflicting submissions, and preserves idempotency. |
 | `AiAgentTestConversation` | Implements the equivalent persisted selection contract for the dashboard simulator. |
 
@@ -25,6 +29,21 @@ This document describes the current production contract. Historical `*.plan.md` 
 5. Concrete catalog fields should come from tool output by prompt contract. Customer-visible HTTP links are structurally restricted to URLs returned by tools. Structured catalog options accept only identifiers returned by the latest successful catalog event.
 6. `LiveProcessor` persists at most one public AgentBot response for the triggering incoming message.
 
+## Catalog product image contract
+
+`present_catalog_products` is enabled by default when the merchant has a completed image-capable ikas snapshot. Merchants may disable it independently. Test conversations, `Channel::WebWidget`, and `Channel::Whatsapp` support the presentation; `Channel::Api` remains text-only.
+
+The tool is available only after catalog sync has stored canonical image metadata. The model must call `ikas_catalog_search` first and may pass only returned item IDs. It has two modes:
+
+- `products`: one main image for each of one to three distinct products.
+- `product_gallery`: up to three ordered images for one exact product.
+
+The presentation is display-only and has no option values or selection callback. A customer sees every image in the group without choosing images one at a time. When the customer asks for more, `continue_previous: true` excludes already presented products or advances past already presented image positions. A fresh catalog search is still required in that turn.
+
+Live delivery never sends the ikas CDN URL directly to the customer. The server fetches from the strict HTTPS `cdn.myikas.com` origin, validates type/size/dimensions, strips metadata, converts to JPEG, and persists a normal Chatwoot attachment. Each image is one outgoing message because the WhatsApp providers send one attachment per message. The group job delivers those messages in sequence and relies on the existing provider `source_id` check for retry idempotency.
+
+Variant images are preferred. A product-level representative image is marked in presentation metadata and customer copy must not claim it is the exact variant or color. Image groups are compacted to one logical assistant history entry so later phrases such as “the second one” or “show more” retain context without consuming three history slots.
+
 The compact model payload is not the audit record. Do not replace the persisted tool result with the compact form, and do not move presentation-only limits into the query engine.
 
 ## Recovery and safety boundaries
@@ -36,6 +55,7 @@ The compact model payload is not the audit record. Do not replace the persisted 
 - Tool results are untrusted model context. Prompt instructions embedded in catalog data do not override the system policy.
 - Provider or persistence exceptions remain visible to the queue retry path. Do not convert operational failures into a successful empty response.
 - Human handoff remains the terminal recovery when no customer-safe response exists. Invalid `present_options` may be restated by the model as plain text without inventing catalog options.
+- Catalog image download failures fall back to verified product text/links; delivery and persistence exceptions remain retryable instead of being reported as successful image sends.
 
 ## Interactive option contract
 
@@ -60,6 +80,7 @@ A selection is valid only for the original conversation/contact and active promp
 - `AiAgentToolExecution` stores tool key, sanitized arguments/result, status, duration, mode, and conversation context.
 - `AiAgentLlmCall` stores bounded request/response metadata, finish reason, step name, and retry request options.
 - Live outgoing messages store the triggering message ID, option-selection metadata when present, and safe turn telemetry/source attribution.
+- Catalog image messages additionally store presentation version/ID, sequence/total, item identity, display name, image scope, and whether an attachment was actually persisted. Source CDN URLs are redacted from tool-execution logs.
 - Merchant-facing message bubbles must not expose raw tool arguments, tool events, model-provider metadata, or internal identifiers. Use the Super Admin tool-execution/LLM-call surfaces or bounded sanitized Rails/PM2 inspection for debugging.
 
 Never log or document authentication headers, integration credentials, environment values, full customer data, or temporary fixture identifiers.
@@ -76,7 +97,11 @@ bundle exec rspec \
   spec/services/ai_agents/tool_output_sanitizer_spec.rb \
   spec/services/ai_agents/tool_executor_spec.rb \
   spec/services/ai_agents/tool_prompt_policy_spec.rb \
+  spec/services/ai_agents/tools/present_catalog_products_service_spec.rb \
+  spec/services/ai_agents/catalog_image_preparer_spec.rb \
+  spec/services/ai_agents/conversation_history_compactor_spec.rb \
+  spec/jobs/ai_agents/catalog_presentation_delivery_job_spec.rb \
   spec/lib/ikas_catalog_mvp/query_engine_spec.rb
 ```
 
-For options, add the present-options, option-selection, channel-capability, test-conversation controller, widget, and WhatsApp request/provider specs. Run focused dashboard/widget component tests for rendering changes. Then use `chatwoot-ai-agent-local-testing` for real stateful messages; native specs alone do not prove queue, persistence, channel capability, and browser behavior together.
+For options, add the present-options, option-selection, channel-capability, test-conversation controller, widget, and WhatsApp request/provider specs. For product images, cover catalog ingestion, trusted media preparation, terminal orchestration, grouped persistence/delivery, continuation, test-panel cards, widget attachments, and locally simulated WhatsApp provider payloads. Then use `chatwoot-ai-agent-local-testing` for real stateful messages; native specs alone do not prove queue, persistence, channel capability, and browser behavior together.
