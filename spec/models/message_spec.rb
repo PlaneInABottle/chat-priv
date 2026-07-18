@@ -153,6 +153,32 @@ RSpec.describe Message do
       expect(push_event_data).to eq(expected_data)
     end
 
+    context 'when the message contains internal AI metadata' do
+      let(:message) do
+        create(
+          :message,
+          content_attributes: {
+            items: [{ title: 'Sales', value: 'sales-id' }],
+            ai_agent: {
+              trigger_message_id: 123,
+              turn_telemetry: { final_answer_source: 'tool_context' },
+              source_attributions: [{ source_id: 456 }],
+              selection: { version: 1, response_message_id: 789 },
+              catalog_presentation: { id: 'presentation-1', item_id: 'variant:internal' }
+            }
+          }
+        )
+      end
+
+      it 'exposes only customer-facing AI selection metadata' do
+        expect(push_event_data[:content_attributes]).to eq(
+          'items' => [{ 'title' => 'Sales', 'value' => 'sales-id' }],
+          'ai_agent' => { 'selection' => { 'version' => 1 } }
+        )
+        expect(message.content_attributes.dig('ai_agent', 'catalog_presentation', 'item_id')).to eq('variant:internal')
+      end
+    end
+
     context 'when the message contains a voice call for an API inbox' do
       let(:account) { create(:account) }
       let(:api_channel) { create(:channel_api, account: account) }

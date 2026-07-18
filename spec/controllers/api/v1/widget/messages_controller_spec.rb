@@ -30,6 +30,30 @@ RSpec.describe '/api/v1/widget/messages', type: :request do
         expect(json_response['meta']).not_to be_empty
       end
 
+      it 'does not expose internal AI metadata' do
+        internal_message = create(
+          :message,
+          account: account,
+          inbox: web_widget.inbox,
+          conversation: conversation,
+          content_attributes: {
+            ai_agent: {
+              trigger_message_id: 123,
+              turn_telemetry: { final_answer_source: 'tool_context' },
+              catalog_presentation: { id: 'presentation-1', item_id: 'variant:internal' }
+            }
+          }
+        )
+
+        get api_v1_widget_messages_url,
+            params: { website_token: web_widget.website_token },
+            headers: { 'X-Auth-Token' => token },
+            as: :json
+
+        serialized = response.parsed_body['payload'].find { |item| item['id'] == internal_message.id }
+        expect(serialized['content_attributes']).not_to have_key('ai_agent')
+      end
+
       it 'returns empty messages', :skip_before do
         get api_v1_widget_messages_url,
             params: { website_token: web_widget.website_token },
