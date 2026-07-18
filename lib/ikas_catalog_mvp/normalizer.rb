@@ -339,11 +339,17 @@ module IkasCatalogMvp
     end
 
     def images_for(product, variant, item_id)
-      variant_images = Array(variant&.[]('images'))
-      return image_link_builder.rows_for(item_id: item_id, images: variant_images, scope: 'variant') if variant_images.any?
+      variant_rows = image_link_builder.rows_for(item_id: item_id, images: variant&.[]('images'), scope: 'variant')
+      return variant_rows if variant_rows.any?
 
-      representative_images = Array(product['variants']).lazy.map { |candidate| Array(candidate['images']) }.find(&:present?) || []
-      image_link_builder.rows_for(item_id: item_id, images: representative_images, scope: 'representative_product')
+      Array(product['variants']).each do |candidate|
+        next if candidate['isActive'] == false
+
+        rows = image_link_builder.rows_for(item_id: item_id, images: candidate['images'], scope: 'representative_product')
+        return rows if rows.any?
+      end
+
+      []
     end
 
     def clean_text(value)

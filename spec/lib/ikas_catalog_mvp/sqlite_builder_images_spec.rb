@@ -11,7 +11,7 @@ RSpec.describe IkasCatalogMvp::SqliteBuilder do
     end
   end
 
-  def build_catalog
+  def build_catalog(products: self.products)
     Dir.mktmpdir do |dir|
       raw_dir = File.join(dir, 'raw')
       FileUtils.mkdir_p(raw_dir)
@@ -33,11 +33,7 @@ RSpec.describe IkasCatalogMvp::SqliteBuilder do
     build_catalog do |sqlite_path|
       db = SQLite3::Database.new(sqlite_path)
       db.results_as_hash = true
-      rows = db.execute(<<~SQL.squish)
-        SELECT item_id, image_id, canonical_url, is_main, position, image_scope
-        FROM catalog_item_images
-        ORDER BY position
-      SQL
+      rows = db.execute('SELECT item_id, image_id, canonical_url, is_main, position, image_scope FROM catalog_item_images ORDER BY position')
 
       expect(rows).to contain_exactly(
         include(
@@ -61,6 +57,42 @@ RSpec.describe IkasCatalogMvp::SqliteBuilder do
       candidate = IkasCatalogMvp::QueryEngine.new(sqlite_path: sqlite_path).query('Balcony screen').fetch('candidates').first
       expect(candidate.fetch('image')).to eq('available' => true, 'count' => 2, 'scope' => 'variant')
       expect(candidate.to_json).not_to include('cdn.myikas.com', 'main-image.webp')
+    ensure
+      db&.close
+    end
+  end
+
+  it 'uses a usable active-variant image when the exact variant has no valid still image' do
+    variants = [
+      variant('video-only', images: [{
+                'imageId' => '49c3d09c-a4c2-4352-b6c3-0352651e3883', 'fileName' => 'demo', 'isVideo' => true
+              }]),
+      variant('inactive', active: false, images: [{
+                'imageId' => '6fa399f1-f8d4-4371-ac1c-8dd55f388543', 'fileName' => 'inactive'
+              }]),
+      variant('usable', images: [{
+                'imageId' => '1813a270-8ce1-48ef-a25b-bdeba1c4dc06', 'fileName' => 'usable'
+              }])
+    ]
+    product = products.first.merge('variants' => variants)
+
+    build_catalog(products: [product]) do |sqlite_path|
+      db = SQLite3::Database.new(sqlite_path)
+      db.results_as_hash = true
+      rows = db.execute('SELECT item_id, image_id, image_scope FROM catalog_item_images ORDER BY item_id')
+
+      expect(rows).to contain_exactly(
+        include(
+          'item_id' => 'variant:usable',
+          'image_id' => '1813a270-8ce1-48ef-a25b-bdeba1c4dc06',
+          'image_scope' => 'variant'
+        ),
+        include(
+          'item_id' => 'variant:video-only',
+          'image_id' => '1813a270-8ce1-48ef-a25b-bdeba1c4dc06',
+          'image_scope' => 'representative_product'
+        )
+      )
     ensure
       db&.close
     end
@@ -104,5 +136,16 @@ RSpec.describe IkasCatalogMvp::SqliteBuilder do
       { 'imageId' => 'video-id', 'fileName' => 'demo-video', 'isMain' => false, 'isVideo' => true, 'order' => 0 },
       { 'imageId' => '5a9ebce4-8b06-4b92-9ed2-a8ffadb435de', 'fileName' => 'main image', 'isMain' => true, 'isVideo' => false, 'order' => 2 }
     ]
+  end
+
+  def variant(id, images:, active: true)
+    {
+      'id' => id,
+      'isActive' => active,
+      'variantValueIds' => [],
+      'prices' => [{ 'sellPrice' => 499, 'currencyCode' => 'TRY' }],
+      'stocks' => [{ 'stockCount' => 5 }],
+      'images' => images
+    }
   end
 end
