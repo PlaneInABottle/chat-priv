@@ -38,7 +38,7 @@ The tool is available only after catalog sync has stored canonical image metadat
 - `products`: one main image for each of one to three distinct products.
 - `product_gallery`: up to three ordered images for one exact product.
 
-The presentation is display-only and has no option values or selection callback. A customer sees every image in the group without choosing images one at a time. When the customer asks for more, `continue_previous: true` excludes already presented products or advances past already presented image positions. A fresh catalog search is still required in that turn.
+The presentation is display-only and has no option values or selection callback. A customer sees every image in the group without choosing images one at a time. When the customer asks for more, `continue_previous: true` excludes already presented products or images by stable internal identity, so a partial media failure cannot make a later gallery repeat an image that was already delivered. A fresh catalog search is still required in that turn.
 
 Live delivery never sends the ikas CDN URL directly to the customer. The server fetches from the strict HTTPS `cdn.myikas.com` origin, validates type/size/dimensions, strips metadata, converts to JPEG, and persists a normal Chatwoot attachment. Each image is one outgoing message because the WhatsApp providers send one attachment per message. The group job delivers those messages in sequence and relies on the existing provider `source_id` check for retry idempotency.
 

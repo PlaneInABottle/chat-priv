@@ -228,6 +228,52 @@ RSpec.describe AiAgents::Tools::PresentCatalogProductsService do
     expect(result.dig(:presentation, :continuation_of)).to eq('live-presentation')
   end
 
+  it 'continues a live gallery by image identity after a partial preparation failure' do
+    conversation = create(:conversation, account: account)
+    %w[https://cdn.myikas.com/2.webp https://cdn.myikas.com/3.webp].each_with_index do |image_url, index|
+      create(
+        :message,
+        account: account,
+        inbox: conversation.inbox,
+        conversation: conversation,
+        message_type: 'outgoing',
+        content_attributes: {
+          'ai_agent' => {
+            'catalog_presentation' => {
+              'id' => 'partial-gallery',
+              'sequence' => index + 1,
+              'total' => 2,
+              'item_id' => 'variant:red',
+              'image_attached' => true,
+              'image_key' => Digest::SHA256.hexdigest(image_url)
+            }
+          }
+        }
+      )
+    end
+    gallery_service = described_class.new(
+      account: account,
+      conversation: conversation,
+      tool_events: tool_events,
+      resolver: resolver
+    )
+    allow(resolver).to receive(:resolve).with(item_ids: ['variant:red']).and_return([
+                                                                                      catalog_item('variant:red', 'Red Screen', gallery_images)
+                                                                                    ])
+
+    result = gallery_service.call(args: {
+                                    mode: 'product_gallery',
+                                    catalog_item_ids: ['variant:red'],
+                                    customer_message: 'Kalan görsellerimiz aşağıda.',
+                                    continue_previous: true
+                                  })
+
+    expect(result.dig(:presentation, :items, 0, :images)).to contain_exactly(
+      'https://cdn.myikas.com/1.webp',
+      'https://cdn.myikas.com/4.webp'
+    )
+  end
+
   def catalog_item(item_id, name, images)
     {
       item_id: item_id,
