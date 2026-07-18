@@ -135,6 +135,7 @@ class AiAgents::LiveProcessor
     AiAgents::CatalogPresentationBuilder.new(
       assistant_message: assistant_message,
       ai_agent: ai_agent,
+      conversation: conversation,
       trigger_message_id: message.id,
       media_preparer: @media_preparer
     )

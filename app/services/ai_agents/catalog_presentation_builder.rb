@@ -1,10 +1,13 @@
 # frozen_string_literal: true
 
 class AiAgents::CatalogPresentationBuilder
-  def initialize(assistant_message:, ai_agent:, trigger_message_id:, media_preparer: nil)
+  SUPPORTED_LOCALES = %w[en tr].freeze
+
+  def initialize(assistant_message:, ai_agent:, trigger_message_id:, conversation: nil, media_preparer: nil)
     @assistant_message = assistant_message.deep_stringify_keys
     @ai_agent = ai_agent
     @trigger_message_id = trigger_message_id
+    @conversation = conversation
     @media_preparer = media_preparer || AiAgents::CatalogImagePreparer.new
   end
 
@@ -19,7 +22,7 @@ class AiAgents::CatalogPresentationBuilder
 
   private
 
-  attr_reader :assistant_message, :ai_agent, :trigger_message_id, :media_preparer
+  attr_reader :assistant_message, :ai_agent, :trigger_message_id, :conversation, :media_preparer
 
   def item_specs(item)
     image_urls = Array(item['images'])
@@ -112,7 +115,21 @@ class AiAgents::CatalogPresentationBuilder
   end
 
   def locale
-    @locale ||= ai_agent.account.locale.to_s.in?(%w[en tr]) ? ai_agent.account.locale.to_s : 'en'
+    @locale ||= locale_candidates.filter_map { |candidate| normalized_locale(candidate) }.first || 'en'
+  end
+
+  def locale_candidates
+    [
+      conversation&.language,
+      conversation&.additional_attributes&.dig('browser_language'),
+      conversation&.contact&.additional_attributes&.dig('language_code'),
+      ai_agent.account.locale
+    ]
+  end
+
+  def normalized_locale(value)
+    language = value.to_s.downcase.tr('_', '-').split('-').first
+    language if SUPPORTED_LOCALES.include?(language)
   end
 
   def formatted_amount(amount)
