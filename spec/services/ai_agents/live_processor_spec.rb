@@ -197,6 +197,59 @@ RSpec.describe AiAgents::LiveProcessor do
     expect(replies.map { |reply| reply.content_attributes.dig('ai_agent', 'catalog_presentation', 'id') }.uniq).to eq(['presentation-1'])
   end
 
+  it 'records the identities of images that survive partial media preparation' do
+    widget = create(:channel_widget, account: account)
+    widget_conversation = create(:conversation, account: account, inbox: widget.inbox, status: 'pending')
+    create(:agent_bot_inbox, inbox: widget.inbox, agent_bot: ai_agent.agent_bot, status: 'active')
+    message = create(
+      :message,
+      account: account,
+      inbox: widget.inbox,
+      conversation: widget_conversation,
+      message_type: 'incoming',
+      sender: widget_conversation.contact,
+      content: 'Bu ürünün diğer görsellerini göster'
+    )
+    image_urls = %w[
+      https://cdn.myikas.com/1.webp
+      https://cdn.myikas.com/2.webp
+      https://cdn.myikas.com/3.webp
+    ]
+    assistant_message = {
+      'content' => 'Ürünümüzün diğer görselleri aşağıda.',
+      'terminal_action' => 'present_catalog_products',
+      'tool_result' => {
+        'presentation' => {
+          'id' => 'partial-gallery',
+          'content_type' => 'catalog_products',
+          'mode' => 'product_gallery',
+          'items' => [catalog_presentation_item('variant:red', 'Kırmızı Sineklik', image_urls)]
+        }
+      }
+    }
+    allow(AiAgents::Orchestrator).to receive(:new).and_return(
+      instance_double(AiAgents::Orchestrator, perform: {
+                        assistant_message: assistant_message,
+                        tool_events: [],
+                        terminal_action: 'present_catalog_products'
+                      })
+    )
+    preparer = instance_double(AiAgents::CatalogImagePreparer)
+    allow(preparer).to receive(:prepare) do |url|
+      raise AiAgents::CatalogImagePreparer::InvalidImage if url == image_urls.first
+
+      prepared_image
+    end
+
+    described_class.new(message: message, media_preparer: preparer).perform
+
+    replies = widget_conversation.messages.outgoing.where(private: false, sender: ai_agent.agent_bot).order(:id).to_a
+    expect(replies.size).to eq(2)
+    expect(replies.map { |reply| reply.content_attributes.dig('ai_agent', 'catalog_presentation', 'image_key') }).to eq(
+      image_urls.drop(1).map { |url| Digest::SHA256.hexdigest(url) }
+    )
+  end
+
   def catalog_presentation_item(item_id, name, image_url)
     {
       'item_id' => item_id,
@@ -204,7 +257,7 @@ RSpec.describe AiAgents::LiveProcessor do
       'price' => { 'amount' => 499, 'currency' => 'TRY', 'final_total_known' => true },
       'link' => { 'url' => "https://store.example/#{item_id}" },
       'image_scope' => 'variant',
-      'images' => [image_url]
+      'images' => Array(image_url)
     }
   end
 

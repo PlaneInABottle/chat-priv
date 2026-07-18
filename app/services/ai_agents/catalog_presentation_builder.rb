@@ -25,10 +25,13 @@ class AiAgents::CatalogPresentationBuilder
     image_urls = Array(item['images'])
     return [{ item: item }] if image_urls.empty?
 
-    prepared_images = image_urls.filter_map { |image_url| prepare_image(image_url) }
+    prepared_images = image_urls.filter_map do |image_url|
+      prepared_image = prepare_image(image_url)
+      { prepared_image: prepared_image, image_key: AiAgents::CatalogImageIdentity.for(image_url) } if prepared_image
+    end
     return [{ item: item }] if prepared_images.empty?
 
-    prepared_images.map { |prepared_image| { item: item, prepared_image: prepared_image } }
+    prepared_images.map { |prepared| { item: item, **prepared } }
   end
 
   def prepare_image(image_url)
@@ -76,7 +79,7 @@ class AiAgents::CatalogPresentationBuilder
       ai_agent: {
         trigger_message_id: trigger_message_id,
         turn_telemetry: assistant_message['turn_telemetry'],
-        catalog_presentation: catalog_presentation_attributes(item, presentation, spec[:prepared_image].present?, index, total)
+        catalog_presentation: catalog_presentation_attributes(item, presentation, spec, index, total)
       }.compact
     }
   end
@@ -93,7 +96,7 @@ class AiAgents::CatalogPresentationBuilder
     params
   end
 
-  def catalog_presentation_attributes(item, presentation, image_attached, index, total)
+  def catalog_presentation_attributes(item, presentation, spec, index, total)
     {
       version: 1,
       id: presentation['id'],
@@ -102,7 +105,8 @@ class AiAgents::CatalogPresentationBuilder
       total: total,
       item_id: item['item_id'],
       display_name: item['display_name'],
-      image_attached: image_attached,
+      image_attached: spec[:prepared_image].present?,
+      image_key: spec[:image_key],
       image_scope: item['image_scope']
     }.compact
   end
