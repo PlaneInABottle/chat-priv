@@ -7,9 +7,10 @@ module AiAgents
     IKAS_CATALOG_SEARCH_TOOL = 'ikas_catalog_search'.freeze
     KNOWLEDGE_SEARCH_TOOL = 'search_knowledge'.freeze
     PRESENT_OPTIONS_TOOL = 'present_options'.freeze
+    PRESENT_CATALOG_PRODUCTS_TOOL = 'present_catalog_products'.freeze
     TOOLS_KEY = 'tools'.freeze
     ENABLED_KEY = 'enabled'.freeze
-    DEFAULT_ENABLED_TOOL_KEYS = [HUMAN_HANDOFF_TOOL, PRESENT_OPTIONS_TOOL].freeze
+    DEFAULT_ENABLED_TOOL_KEYS = [HUMAN_HANDOFF_TOOL, PRESENT_OPTIONS_TOOL, PRESENT_CATALOG_PRODUCTS_TOOL].freeze
     HUMAN_HANDOFF_SETTINGS_KEYS = ['allowed_labels'].freeze
     LEGACY_HUMAN_HANDOFF_SETTINGS_KEYS = %w[preview_only transfer_message].freeze
 
@@ -38,10 +39,8 @@ module AiAgents
     def enabled_tool_keys
       @enabled_tool_keys ||= begin
         keys = [HUMAN_HANDOFF_TOOL, *Array(enabled_tools_value)].filter_map(&:presence).map(&:to_s).uniq
-        if present_options_settings['enabled']
-          keys << PRESENT_OPTIONS_TOOL
-        else
-          keys.delete(PRESENT_OPTIONS_TOOL)
+        [PRESENT_OPTIONS_TOOL, PRESENT_CATALOG_PRODUCTS_TOOL].each do |tool_key|
+          enabled_setting(tool_key)['enabled'] ? keys.append(tool_key) : keys.delete(tool_key)
         end
         keys & AiAgents::ToolRegistry.keys
       end
@@ -61,7 +60,8 @@ module AiAgents
         HUMAN_HANDOFF_TOOL => human_handoff_settings,
         IKAS_LOOKUP_ORDER_TOOL => ikas_lookup_order_settings,
         IKAS_CATALOG_SEARCH_TOOL => ikas_catalog_search_settings,
-        PRESENT_OPTIONS_TOOL => present_options_settings
+        PRESENT_OPTIONS_TOOL => enabled_setting(PRESENT_OPTIONS_TOOL),
+        PRESENT_CATALOG_PRODUCTS_TOOL => enabled_setting(PRESENT_CATALOG_PRODUCTS_TOOL)
       }
     end
 
@@ -80,7 +80,8 @@ module AiAgents
         HUMAN_HANDOFF_TOOL => human_handoff_settings,
         IKAS_LOOKUP_ORDER_TOOL => ikas_lookup_order_settings,
         IKAS_CATALOG_SEARCH_TOOL => ikas_catalog_search_settings,
-        PRESENT_OPTIONS_TOOL => present_options_settings
+        PRESENT_OPTIONS_TOOL => enabled_setting(PRESENT_OPTIONS_TOOL),
+        PRESENT_CATALOG_PRODUCTS_TOOL => enabled_setting(PRESENT_CATALOG_PRODUCTS_TOOL)
       }
     end
 
@@ -113,8 +114,8 @@ module AiAgents
       settings.is_a?(Hash) ? settings.deep_stringify_keys : {}
     end
 
-    def present_options_settings
-      settings = tools_config&.dig(PRESENT_OPTIONS_TOOL)
+    def enabled_setting(tool_key)
+      settings = tools_config&.dig(tool_key)
       settings = settings.deep_stringify_keys if settings.is_a?(Hash)
 
       {
@@ -135,6 +136,7 @@ module AiAgents
         messages.concat(validate_ikas_lookup_order_settings)
         messages.concat(validate_ikas_catalog_search_settings)
         messages.concat(validate_present_options_settings)
+        messages.concat(validate_present_catalog_products_settings)
       end
     end
 
@@ -189,15 +191,23 @@ module AiAgents
     end
 
     def validate_present_options_settings
-      settings = tools_config[PRESENT_OPTIONS_TOOL]
+      validate_enabled_setting(PRESENT_OPTIONS_TOOL)
+    end
+
+    def validate_present_catalog_products_settings
+      validate_enabled_setting(PRESENT_CATALOG_PRODUCTS_TOOL)
+    end
+
+    def validate_enabled_setting(tool_key)
+      settings = tools_config[tool_key]
       return [] if settings.nil?
-      return ['config.tools.present_options must be an object'] unless settings.is_a?(Hash)
+      return ["config.tools.#{tool_key} must be an object"] unless settings.is_a?(Hash)
 
       unknown_keys = settings.keys - ['enabled']
-      return ["config.tools.present_options contains unknown keys: #{unknown_keys.join(', ')}"] if unknown_keys.present?
+      return ["config.tools.#{tool_key} contains unknown keys: #{unknown_keys.join(', ')}"] if unknown_keys.present?
       return [] unless settings.key?('enabled') && !boolean?(settings['enabled'])
 
-      ['config.tools.present_options.enabled must be true or false']
+      ["config.tools.#{tool_key}.enabled must be true or false"]
     end
 
     def allowed_human_handoff_settings_keys
@@ -209,6 +219,5 @@ module AiAgents
     def boolean?(value)
       [true, false].include?(value)
     end
-
   end
 end

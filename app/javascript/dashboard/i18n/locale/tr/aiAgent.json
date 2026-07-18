@@ -66,6 +66,10 @@
       "PRESENT_OPTIONS": {
         "LABEL": "Tıklanabilir seçenekler",
         "HELP": "Bir seçenek belirlemek müşterinin ilerlemesine yardımcı olduğunda asistanın tek seçimli düğmeler veya listeler sunmasını sağlar."
+      },
+      "PRESENT_CATALOG_PRODUCTS": {
+        "LABEL": "Ürün görselleri",
+        "HELP": "Görseller müşteriye yardımcı olduğunda asistanın en fazla üç katalog ürününü veya tek ürünün farklı görsellerini göndermesini sağlar."
       }
     },
     "USAGE_REPORT": {

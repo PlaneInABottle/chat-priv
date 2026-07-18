@@ -29,6 +29,19 @@ RSpec.describe AiAgents::ToolAvailability do
       keys = described_class.new(account: account).available_keys(AiAgents::ToolRegistry.available_definitions)
 
       expect(keys).to include('human_handoff', 'ikas_lookup_order', 'ikas_catalog_search')
+      expect(keys).not_to include('present_catalog_products')
+    end
+
+    it 'shows product images only when the catalog snapshot contains image rows' do
+      account.enable_features('ikas_integration')
+      snapshot = image_catalog_snapshot
+      stub_ikas_status(state: 'connected', hook: ikas_hook_with_catalog(snapshot))
+
+      keys = described_class.new(account: account).available_keys(AiAgents::ToolRegistry.available_definitions)
+
+      expect(keys).to include('ikas_catalog_search', 'present_catalog_products')
+    ensure
+      snapshot&.sqlite_path&.then { |path| FileUtils.rm_f(path) }
     end
   end
 
@@ -60,11 +73,21 @@ RSpec.describe AiAgents::ToolAvailability do
     )
   end
 
-  def ikas_hook_with_catalog
-    snapshot = instance_double(IkasCatalogSnapshot, sqlite_exists?: true)
+  def ikas_hook_with_catalog(snapshot = instance_double(IkasCatalogSnapshot, sqlite_exists?: true, sqlite_path: '/missing/catalog.sqlite3'))
     snapshots = double
     allow(snapshots).to receive_message_chain(:storefront_catalog, :latest_completed, :first).and_return(snapshot)
 
     instance_double(Integrations::Hook, ikas_catalog_snapshots: snapshots)
+  end
+
+  def image_catalog_snapshot
+    tempfile = Tempfile.new(['catalog', '.sqlite3'])
+    path = tempfile.path
+    tempfile.close
+    db = SQLite3::Database.new(path)
+    db.execute('CREATE TABLE catalog_item_images (item_id TEXT)')
+    db.execute("INSERT INTO catalog_item_images (item_id) VALUES ('variant:1')")
+    db.close
+    instance_double(IkasCatalogSnapshot, sqlite_exists?: true, sqlite_path: path)
   end
 end

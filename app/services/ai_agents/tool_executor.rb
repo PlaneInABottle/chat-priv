@@ -67,6 +67,9 @@ class AiAgents::ToolExecutor
     if tool_key == AiAgents::Config::PRESENT_OPTIONS_TOOL
       return config.enabled_tool?(tool_key) && AiAgents::ChannelCapabilities.present_options?(mode: mode, conversation: conversation)
     end
+    if tool_key == AiAgents::Config::PRESENT_CATALOG_PRODUCTS_TOOL
+      return config.enabled_tool?(tool_key) && AiAgents::ChannelCapabilities.catalog_product_images?(mode: mode, conversation: conversation)
+    end
 
     config.enabled_tool?(tool_key)
   end
@@ -87,7 +90,9 @@ class AiAgents::ToolExecutor
       trigger_message: trigger_message
     }
     context[:knowledge_sources] = knowledge_sources if definition.key == AiAgents::Config::KNOWLEDGE_SEARCH_TOOL
-    context[:tool_events] = tool_events if definition.key == AiAgents::Config::PRESENT_OPTIONS_TOOL
+    if definition.key.in?([AiAgents::Config::PRESENT_OPTIONS_TOOL, AiAgents::Config::PRESENT_CATALOG_PRODUCTS_TOOL])
+      context[:tool_events] = tool_events
+    end
     definition.service_class.constantize.new(**context)
   end
 
@@ -159,7 +164,12 @@ class AiAgents::ToolExecutor
   end
 
   def sanitize_result(tool_result)
-    tool_result.except(:raw_response).deep_stringify_keys
+    result = tool_result.except(:raw_response).deep_stringify_keys
+    return result unless result['terminal_action'] == AiAgents::Config::PRESENT_CATALOG_PRODUCTS_TOOL
+
+    result.deep_dup.tap do |sanitized|
+      Array(sanitized.dig('presentation', 'items')).each { |item| item['images'] = Array.new(Array(item['images']).length, '[stored image]') }
+    end
   end
 
   def rejected_result(tool_call, error_code, started_at: nil, definition: nil, args: nil)
@@ -174,12 +184,7 @@ class AiAgents::ToolExecutor
   end
 
   def rejected_tool_event(tool_call, error_code)
-    {
-      'tool' => tool_call[:name].to_s,
-      'status' => 'rejected',
-      'tool_call_id' => tool_call[:id],
-      'error_code' => error_code
-    }
+    { 'tool' => tool_call[:name].to_s, 'status' => 'rejected', 'tool_call_id' => tool_call[:id], 'error_code' => error_code }
   end
 
   def rejection_log_payload(tool_call, tool_result, args, started_at, definition)
@@ -197,11 +202,7 @@ class AiAgents::ToolExecutor
   end
 
   def rejected_tool_result(error_code)
-    {
-      status: 'error',
-      error_code: error_code,
-      error_message: 'Tool execution was rejected.'
-    }
+    { status: 'error', error_code: error_code, error_message: 'Tool execution was rejected.' }
   end
 
   def sanitize_parsed_args(args, definition)

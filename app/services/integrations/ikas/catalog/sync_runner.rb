@@ -83,21 +83,22 @@ class Integrations::Ikas::Catalog::SyncRunner
     indexed_products = stats['raw_products'].to_i
     fetched_products = raw_counts['products'].to_i
 
-    {
+    raw_dataset_counts(raw_counts).merge(
       'products' => indexed_products,
       'products_fetched' => fetched_products,
       'products_skipped' => [fetched_products - indexed_products, 0].max,
       'products_with_links' => stats['products_with_links'].to_i,
       'storefronts' => Array(build_result['storefronts']).length,
       'storefronts_fetched' => raw_counts['storefronts'].to_i,
-      'categories' => raw_counts['categories'].to_i,
-      'variant_types' => raw_counts['variant_types'].to_i,
-      'product_attributes' => raw_counts['product_attributes'].to_i,
-      'product_option_sets' => raw_counts['product_option_sets'].to_i,
       'catalog_groups' => stats['catalog_groups'].to_i,
       'catalog_items' => stats['catalog_items'].to_i,
+      'catalog_images' => stats['catalog_item_images'].to_i,
       'catalog_facts' => stats['catalog_facts'].to_i
-    }
+    )
+  end
+
+  def raw_dataset_counts(raw_counts)
+    %w[categories variant_types product_attributes product_option_sets].index_with { |key| raw_counts[key].to_i }
   end
 
   def metadata_for(manifest, build_result)

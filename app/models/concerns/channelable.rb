@@ -12,6 +12,10 @@ module Channelable
   def supports_ai_input_select?
     false
   end
+
+  def supports_ai_catalog_product_images?
+    false
+  end
 end
 
 Channelable.prepend_mod_with('Channelable')

@@ -125,6 +125,7 @@ class AiAgents::ToolRegistry
 
   def self.available_definitions
     @available_definitions ||= [human_handoff_definition, AiAgents::ToolDefinitions::PresentOptions.build(Definition),
+                                AiAgents::ToolDefinitions::PresentCatalogProducts.build(Definition),
                                 ikas_lookup_order_definition, ikas_catalog_search_definition]
   end
 
@@ -132,9 +133,7 @@ class AiAgents::ToolRegistry
     @runtime_definitions ||= [*available_definitions, knowledge_search_definition]
   end
 
-  def self.keys
-    available_definitions.map(&:key)
-  end
+  def self.keys = available_definitions.map(&:key)
 
   def self.find(tool_key)
     runtime_definitions.find { |definition| definition.key == tool_key.to_s || definition.name == tool_key.to_s }

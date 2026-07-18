@@ -85,6 +85,22 @@ class AiAgents::ToolPromptPolicy
     - `present_options` ends the current response. Do not add another customer-facing answer after calling it.
   PROMPT
 
+  CATALOG_PRODUCT_IMAGE_RULES = <<~PROMPT
+    Catalog product image rules:
+    - When the customer explicitly asks to see product images and returned candidates have images, you must call `present_catalog_products` after `ikas_catalog_search`. Do not replace the requested images with a text-only list or links.
+    - You may also use `present_catalog_products` when a concrete visual shortlist materially helps a recommendation or comparison.
+    - Do not use it for every catalog answer. Price-only, stock-only, delivery, policy, or link-only questions normally need a concise text response instead.
+    - Call `ikas_catalog_search` first, then call `present_catalog_products` in the next tool iteration using only returned `item_id` values. Never invent item IDs or image URLs.
+    - Use mode `products` for one to three distinct products. Use mode `product_gallery` only when the customer asks for additional photos of one exact product.
+    - If the customer asks to see more products after an earlier presentation, search again, set `continue_previous` to true, and use only products that were not already shown. Also set it for additional photos of a product so already displayed image positions are skipped.
+    - The presentation is display-only. Do not imply that the images are buttons or ask the customer to choose each image before seeing the rest.
+    - Do not call `present_catalog_products` and `present_options` in the same response. Show products first; use interactive options only on a later turn when a bounded selection is genuinely useful.
+    - Speak as a member of the merchant's shop who knows the shop's products. Naturally say "our products" or "our options" in the customer's language.
+    - Never tell the customer that you found, searched for, looked up, or retrieved the products. Never mention ikas, catalogs, databases, tools, searches, item IDs, or integrations.
+    - Write `customer_message` as a concise natural introduction in the customer's language. Do not add a separate ordinary answer after the tool call because the presentation ends the response.
+    - If a candidate image scope is `representative_product`, do not describe it as an exact color or variant photo.
+  PROMPT
+
   def initialize(enabled_tool_keys)
     @enabled_tool_keys = Array(enabled_tool_keys).map(&:to_s)
   end
@@ -94,6 +110,7 @@ class AiAgents::ToolPromptPolicy
     policies << PRESENT_OPTIONS_RULES if enabled_tool_keys.include?(AiAgents::Config::PRESENT_OPTIONS_TOOL)
     policies << KNOWLEDGE_RULES if enabled_tool_keys.include?(AiAgents::Config::KNOWLEDGE_SEARCH_TOOL)
     policies << IKAS_CATALOG_RULES if enabled_tool_keys.include?(AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL)
+    policies << CATALOG_PRODUCT_IMAGE_RULES if enabled_tool_keys.include?(AiAgents::Config::PRESENT_CATALOG_PRODUCTS_TOOL)
     policies << IKAS_ORDER_RULES if enabled_tool_keys.include?(AiAgents::Config::IKAS_LOOKUP_ORDER_TOOL)
     policies.join("\n").presence
   end

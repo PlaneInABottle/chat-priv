@@ -40,6 +40,12 @@ Use fresh conversations and stateful follow-ups. Vary wording; do not assert one
 10. Use a `Channel::Api` inbox to verify normal free-form catalog replies and text fallback; this channel does not currently opt into native `input_select`.
 11. Include catalog URLs with encoded query keys and verify customer Markdown links remain complete and canonical.
 12. Where practical, force adapter failures in specs: unknown tool once, empty output, and `finish_reason=length`. Verify bounded correction/retry and absence of fragments, duplicate execution, or infinite loops.
+13. Ask to see one, two, and three catalog products. Verify each displayed name/link maps to the latest catalog result and that no presentation requires image-by-image selection.
+14. Ask for more than three products over follow-up turns. Verify `continue_previous` produces a new group without repeating an earlier item, and that grouped history preserves ordinal references.
+15. Ask for additional photos of one displayed product. Verify the gallery advances past prior image positions, caps each group at three images, and reports no-more-images naturally when exhausted.
+16. Verify exact variant images when available and the representative-image notice when only another product variant supplies imagery.
+17. Disable `present_catalog_products`, verify the agent uses normal text/link responses, then restore the exact prior configuration. Verify `Channel::Api` remains text-only even when the tool is enabled.
+18. Simulate WhatsApp attachment delivery locally. Verify one normalized Chatwoot image attachment per provider message, stable sequence order, useful captions, no input-select payload, and retry idempotency without sending an external message.
 
 DeepSeek Flash and other smaller models may vary in prose. Judge structural contracts, persisted state, tool grounding, and recovery boundaries; record non-contractual wording problems separately instead of weakening hard safety or idempotency checks.
 
@@ -54,6 +60,8 @@ For every live scenario, correlate the incoming message, queue execution, outgoi
 - An `input_select` outgoing message contains 2–10 items, opaque values, and `content_attributes.ai_agent.selection.version == 1`.
 - Test, widget, and WhatsApp selections enforce their documented stale, ownership, single-submission, and duplicate-delivery rules.
 - The merchant UI shows a customer-friendly tool summary, while raw diagnostics remain restricted to admin/debug surfaces.
+- A catalog image group has one to three messages with one normalized image attachment each, shared presentation ID, contiguous sequence/total values, and no raw ikas CDN URL in customer payloads.
+- Image groups are display-only: no option UUID, callback, selected state, or requirement to choose before viewing the remaining images.
 
 Use bounded Rails runner queries or the Super Admin tool-execution/LLM-call screens for persisted evidence. Redact message content and URLs when reporting outside the local session.
 

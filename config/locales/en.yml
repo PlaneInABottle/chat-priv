@@ -33,6 +33,9 @@ en:
   hello: 'Hello world'
   ai_agents:
     safety_handoff_message: 'I am transferring you to a team member. Our team will help you.'
+    catalog_products:
+      reference_price: "Reference price: %{amount} %{currency}"
+      representative_image: "Representative product image"
   inbox:
     reauthorization:
       success: 'Channel reauthorized successfully'

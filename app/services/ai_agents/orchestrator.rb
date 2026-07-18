@@ -167,12 +167,7 @@ module AiAgents
     end
 
     def normalized_messages
-      messages.map do |message|
-        {
-          role: message[:role] || message['role'],
-          content: message[:content] || message['content']
-        }
-      end
+      AiAgents::ConversationHistoryCompactor.new(messages).call.map { |message| message.slice(:role, :content) }
     end
 
     def llm_tools
@@ -195,6 +190,12 @@ module AiAgents
       keys = config.enabled_tool_keys
       keys = [*keys, AiAgents::Config::KNOWLEDGE_SEARCH_TOOL] if runtime_knowledge_sources.present?
       keys -= [AiAgents::Config::PRESENT_OPTIONS_TOOL] unless AiAgents::ChannelCapabilities.present_options?(mode: mode, conversation: conversation)
+      if keys.include?(AiAgents::Config::PRESENT_CATALOG_PRODUCTS_TOOL)
+        image_definition = AiAgents::ToolRegistry.find(AiAgents::Config::PRESENT_CATALOG_PRODUCTS_TOOL)
+        image_available = AiAgents::ToolAvailability.new(account: ai_agent.account).available_keys([image_definition]).present?
+        image_capable = AiAgents::ChannelCapabilities.catalog_product_images?(mode: mode, conversation: conversation)
+        keys.delete(AiAgents::Config::PRESENT_CATALOG_PRODUCTS_TOOL) unless image_capable && image_available
+      end
       keys.uniq
     end
 

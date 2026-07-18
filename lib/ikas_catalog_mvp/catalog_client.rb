@@ -7,6 +7,12 @@ module IkasCatalogMvp
   class CatalogClient
     DEFAULT_PAGE_LIMIT = 200
 
+    GET_MERCHANT_QUERY = <<~GRAPHQL.freeze
+      query IkasCatalogMvpMerchant {
+        getMerchant { id }
+      }
+    GRAPHQL
+
     LIST_CATEGORIES_QUERY = <<~GRAPHQL.freeze
       query IkasCatalogMvpCategories {
         listCategory {
@@ -146,6 +152,13 @@ module IkasCatalogMvp
 
     def categories
       execute_graphql(LIST_CATEGORIES_QUERY).fetch('listCategory')
+    end
+
+    def merchants
+      merchant = execute_graphql(GET_MERCHANT_QUERY).fetch('getMerchant')
+      raise Error, 'Ikas merchant response missing id' if merchant&.fetch('id', nil).to_s.empty?
+
+      [merchant]
     end
 
     def variant_types

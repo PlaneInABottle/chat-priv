@@ -246,8 +246,31 @@ module IkasCatalogMvp
         'relevance_score' => relevance.fetch('score'),
         'relevance_signals' => relevance.fetch('signals')
       }
+      image = image_payload_for(db, row.fetch('item_id'))
+      candidate['image'] = image if image
       candidate['link'] = link_for(row) if row['product_url'].to_s != ''
       candidate
+    end
+
+    def image_payload_for(db, item_id)
+      return unless table_exists?(db, 'catalog_item_images')
+
+      row = db.get_first_row(<<~SQL, [item_id])
+        SELECT COUNT(*) AS image_count, MIN(image_scope) AS image_scope
+        FROM catalog_item_images
+        WHERE item_id = ?
+      SQL
+      count = row&.fetch('image_count', 0).to_i
+      return if count.zero?
+
+      { 'available' => true, 'count' => count, 'scope' => row.fetch('image_scope') }
+    end
+
+    def table_exists?(db, table_name)
+      query_cache[[:table_exists, table_name]] ||= db.get_first_value(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1",
+        [table_name]
+      ) == 1
     end
 
     def link_for(row)

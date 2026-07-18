@@ -184,6 +184,46 @@ describe('TestConversationChatPanel.vue', () => {
     ]);
   });
 
+  it('renders catalog product images without selection controls', () => {
+    const wrapper = mountComponent({
+      conversation: {
+        ...conversation,
+        messages: [
+          {
+            id: 'products-1',
+            role: 'assistant',
+            content: 'Balkon kapınız için uygun ürünlerimiz aşağıda.',
+            terminal_action: 'present_catalog_products',
+            tool_result: {
+              presentation: {
+                content_type: 'catalog_products',
+                items: [
+                  {
+                    item_id: 'variant:red',
+                    display_name: 'Kırmızı Sineklik',
+                    images: ['https://cdn.myikas.com/red.webp'],
+                    price: { amount: 499, currency: 'TRY' },
+                    link: { url: 'https://store.example/red' },
+                  },
+                ],
+              },
+            },
+          },
+        ],
+        messages_count: 1,
+      },
+    });
+
+    expect(wrapper.text()).toContain(
+      'Balkon kapınız için uygun ürünlerimiz aşağıda.'
+    );
+    expect(wrapper.text()).toContain('Kırmızı Sineklik');
+    expect(wrapper.find('img').attributes('src')).toBe(
+      'https://cdn.myikas.com/red.webp'
+    );
+    expect(wrapper.get('article').findAll('button')).toHaveLength(0);
+  });
+
   it('disables a persisted option preview after it has been answered', () => {
     const wrapper = mountComponent({
       conversation: {

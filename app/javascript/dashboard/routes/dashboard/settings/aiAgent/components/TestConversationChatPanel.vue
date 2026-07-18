@@ -45,6 +45,9 @@ const isHandoffPreview = message => message?.terminal_action === 'handoff';
 const isOptionsPreview = message =>
   message?.terminal_action === 'present_options' &&
   message?.tool_result?.presentation?.content_type === 'input_select';
+const isCatalogProductsPreview = message =>
+  message?.terminal_action === 'present_catalog_products' &&
+  message?.tool_result?.presentation?.content_type === 'catalog_products';
 
 const isOptionPromptStale = message => {
   const messages = props.conversation?.messages || [];
@@ -239,6 +242,44 @@ const handleOptionSelect = (message, option) => {
                 >
                   {{ option.title }}
                 </button>
+              </div>
+            </template>
+            <template v-else-if="isCatalogProductsPreview(msg)">
+              <p class="whitespace-pre-wrap">{{ msg.content }}</p>
+              <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                <article
+                  v-for="item in msg.tool_result.presentation.items"
+                  :key="item.item_id"
+                  class="overflow-hidden rounded-xl border border-n-weak bg-n-background"
+                >
+                  <img
+                    v-for="image in item.images"
+                    :key="image"
+                    :src="image"
+                    :alt="item.display_name"
+                    class="aspect-square w-full object-cover"
+                  />
+                  <div class="space-y-1.5 p-3">
+                    <p class="font-medium text-n-slate-12">
+                      {{ item.display_name }}
+                    </p>
+                    <p
+                      v-if="item.price?.amount && item.price?.currency"
+                      class="text-xs text-n-slate-11"
+                    >
+                      {{ item.price.amount }} {{ item.price.currency }}
+                    </p>
+                    <a
+                      v-if="item.link?.url"
+                      :href="item.link.url"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="inline-block text-xs text-n-brand hover:underline"
+                    >
+                      {{ item.display_name }}
+                    </a>
+                  </div>
+                </article>
               </div>
             </template>
             <template v-else-if="msg.role === 'user'">

@@ -20,6 +20,9 @@ tr:
   hello: 'Merhaba Dünya'
   ai_agents:
     safety_handoff_message: 'Sizi bir temsilciye aktarıyorum. Ekibimiz yardımcı olacak.'
+    catalog_products:
+      reference_price: "Referans fiyat: %{amount} %{currency}"
+      representative_image: "Temsili ürün görseli"
   inbox:
     reauthorization:
       success: 'Kanal başarıyla yeniden yetkilendirildi'

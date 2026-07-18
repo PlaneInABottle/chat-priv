@@ -680,6 +680,84 @@ RSpec.describe AiAgents::Orchestrator do
     expect(result[:assistant_message]['turn_telemetry']['final_answer_source']).to eq('tool_presentation')
   end
 
+  it 'ends the turn with a catalog product presentation after a successful catalog search' do
+    ai_agent.update!(
+      config: {
+        'tools' => {
+          'enabled' => %w[ikas_catalog_search present_catalog_products],
+          'present_catalog_products' => { 'enabled' => true }
+        }
+      }
+    )
+    availability = instance_double(AiAgents::ToolAvailability, available_keys: ['present_catalog_products'])
+    allow(AiAgents::ToolAvailability).to receive(:new).and_return(availability)
+    catalog_result = {
+      status: 'ok',
+      result_type: 'show_candidates',
+      candidates: [{ item_id: 'variant:red', display_name: 'Kırmızı Sineklik', image: { available: true, count: 1 } }]
+    }
+    presentation_result = {
+      status: 'ok',
+      terminal_action: 'present_catalog_products',
+      customer_message: 'Balkon kapınız için uygun ürünümüz aşağıda.',
+      presentation: {
+        id: 'presentation-1',
+        content_type: 'catalog_products',
+        mode: 'products',
+        items: [{ item_id: 'variant:red', display_name: 'Kırmızı Sineklik', images: ['https://cdn.myikas.com/red.webp'] }]
+      }
+    }
+    executor = instance_double(AiAgents::ToolExecutor)
+    allow(AiAgents::ToolExecutor).to receive(:new).and_return(executor)
+    allow(executor).to receive(:execute) do |tool_call|
+      result = tool_call[:name] == 'ikas_catalog_search' ? catalog_result : presentation_result
+      AiAgents::ToolExecutor::Result.new(
+        status: 'executed',
+        tool_event: {
+          'tool' => tool_call[:name],
+          'status' => 'ok',
+          'tool_call_id' => tool_call[:id],
+          'result' => result.deep_stringify_keys
+        },
+        tool_result: result
+      )
+    end
+    allow(adapter).to receive(:perform).and_return(
+      {
+        assistant_text: nil,
+        tool_calls: [{ id: 'catalog-1', type: 'function', name: 'ikas_catalog_search', arguments: { query: 'kırmızı sineklik' }.to_json }],
+        finish_reason: 'tool_calls'
+      },
+      {
+        assistant_text: nil,
+        tool_calls: [{
+          id: 'images-1',
+          type: 'function',
+          name: 'present_catalog_products',
+          arguments: {
+            mode: 'products',
+            catalog_item_ids: ['variant:red'],
+            customer_message: 'Balkon kapınız için uygun ürünümüz aşağıda.'
+          }.to_json
+        }],
+        finish_reason: 'tool_calls'
+      }
+    )
+
+    result = described_class.new(
+      ai_agent: ai_agent.reload,
+      messages: [{ role: 'user', content: 'Kırmızı balkon sinekliğinin görselini göster' }],
+      mode: :test,
+      adapter: adapter
+    ).perform
+
+    expect(result[:terminal_action]).to eq('present_catalog_products')
+    expect(result[:assistant_message]['content']).to eq('Balkon kapınız için uygun ürünümüz aşağıda.')
+    expect(result[:assistant_message].dig('tool_result', 'presentation', 'items', 0, 'display_name')).to eq('Kırmızı Sineklik')
+    expect(result[:tool_events].pluck('tool')).to eq(%w[ikas_catalog_search present_catalog_products])
+    expect(adapter).to have_received(:perform).twice
+  end
+
   it 'omits option presentation and its prompt rules when the merchant disables it' do
     ai_agent.update!(config: {
                        'tools' => {

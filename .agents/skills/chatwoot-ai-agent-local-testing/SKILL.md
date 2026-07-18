@@ -1,6 +1,6 @@
 ---
 name: chatwoot-ai-agent-local-testing
-description: Verify Chatwoot OSS AI-agent behavior against real local customer messages, persisted tool/LLM evidence, and channel UI behavior. Use for inbox-bound catalog searches, recommendations, interactive options and stale selections, public API text fallback, human handoff, quota accounting, or truthful stateful demos without hardcoded fixture IDs.
+description: Verify Chatwoot OSS AI-agent behavior against real local customer messages, persisted tool/LLM evidence, and channel UI behavior. Use for inbox-bound catalog searches, recommendations, product image presentations, interactive options and stale selections, public API text fallback, human handoff, quota accounting, or truthful stateful demos without hardcoded fixture IDs.
 ---
 
 # Chatwoot AI Agent Local Testing

@@ -70,12 +70,12 @@ RSpec.describe AiAgents::EffectivePromptPreview do
       preview = described_class.new(ai_agent: ai_agent)
 
       expect(preview.enabled_tool_definitions.map(&:key)).to eq(
-        %w[human_handoff ikas_lookup_order ikas_catalog_search present_options]
+        %w[human_handoff ikas_lookup_order ikas_catalog_search present_options present_catalog_products]
       )
       expect(preview.integration_gates.map { |gate| gate[:tool_key] }).to eq(
-        %w[human_handoff ikas_lookup_order ikas_catalog_search present_options]
+        %w[human_handoff ikas_lookup_order ikas_catalog_search present_options present_catalog_products]
       )
-      expect(preview.integration_gates.map { |gate| gate[:app_id] }).to eq([nil, 'ikas', 'ikas', nil])
+      expect(preview.integration_gates.map { |gate| gate[:app_id] }).to eq([nil, 'ikas', 'ikas', nil, 'ikas'])
     end
   end
 

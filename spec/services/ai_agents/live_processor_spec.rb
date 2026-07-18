@@ -147,6 +147,78 @@ RSpec.describe AiAgents::LiveProcessor do
     expect(outgoing.content_attributes.to_json).not_to include('present_options', 'tool_events')
   end
 
+  it 'persists a catalog product presentation as one ordered image-message group' do
+    widget = create(:channel_widget, account: account)
+    widget_conversation = create(:conversation, account: account, inbox: widget.inbox, status: 'pending')
+    create(:agent_bot_inbox, inbox: widget.inbox, agent_bot: ai_agent.agent_bot, status: 'active')
+    message = create(
+      :message,
+      account: account,
+      inbox: widget.inbox,
+      conversation: widget_conversation,
+      message_type: 'incoming',
+      sender: widget_conversation.contact,
+      content: 'Balkon kapısı için ürün görsellerini göster'
+    )
+    presentation = {
+      'id' => 'presentation-1',
+      'content_type' => 'catalog_products',
+      'mode' => 'products',
+      'items' => [
+        catalog_presentation_item('variant:red', 'Kırmızı Sineklik', 'https://cdn.myikas.com/red.webp'),
+        catalog_presentation_item('variant:blue', 'Mavi Sineklik', 'https://cdn.myikas.com/blue.webp')
+      ]
+    }
+    assistant_message = {
+      'content' => 'Balkon kapınız için uygun ürünlerimiz aşağıda.',
+      'terminal_action' => 'present_catalog_products',
+      'tool_result' => { 'presentation' => presentation },
+      'turn_telemetry' => { 'final_answer_source' => 'tool_context' }
+    }
+    allow(AiAgents::Orchestrator).to receive(:new).and_return(
+      instance_double(AiAgents::Orchestrator, perform: {
+                        assistant_message: assistant_message,
+                        tool_events: [],
+                        terminal_action: 'present_catalog_products'
+                      })
+    )
+    preparer = instance_double(AiAgents::CatalogImagePreparer)
+    allow(preparer).to receive(:prepare).and_return(prepared_image, prepared_image)
+
+    expect do
+      described_class.new(message: message, media_preparer: preparer).perform
+    end.to change { widget_conversation.messages.outgoing.where(private: false, sender: ai_agent.agent_bot).count }.by(2)
+
+    replies = widget_conversation.messages.outgoing.where(private: false, sender: ai_agent.agent_bot).order(:id).to_a
+    expect(replies.first.content).to include('Balkon kapınız için uygun ürünlerimiz aşağıda.', 'Kırmızı Sineklik', '499 TRY')
+    expect(replies.second.content).not_to include('Balkon kapınız için uygun ürünlerimiz aşağıda.')
+    expect(replies.map { |reply| reply.attachments.size }).to eq([1, 1])
+    expect(replies.map { |reply| reply.content_attributes.dig('ai_agent', 'catalog_presentation', 'sequence') }).to eq([1, 2])
+    expect(replies.map { |reply| reply.content_attributes.dig('ai_agent', 'catalog_presentation', 'id') }.uniq).to eq(['presentation-1'])
+  end
+
+  def catalog_presentation_item(item_id, name, image_url)
+    {
+      'item_id' => item_id,
+      'display_name' => name,
+      'price' => { 'amount' => 499, 'currency' => 'TRY', 'final_total_known' => true },
+      'link' => { 'url' => "https://store.example/#{item_id}" },
+      'image_scope' => 'variant',
+      'images' => [image_url]
+    }
+  end
+
+  def prepared_image
+    tempfile = Tempfile.new(['catalog-product', '.jpg'], binmode: true)
+    tempfile.write(File.binread(Rails.root.join('spec/assets/sample.png')))
+    tempfile.rewind
+    AiAgents::CatalogImagePreparer::PreparedImage.new(
+      tempfile: tempfile,
+      filename: 'catalog-product.png',
+      content_type: 'image/png'
+    )
+  end
+
   it 'uses shared recommendation rules without native option mechanics on API channels' do
     api_channel = create(:channel_api, account: account)
     api_conversation = create(:conversation, account: account, inbox: api_channel.inbox, status: 'pending')
@@ -171,9 +243,9 @@ RSpec.describe AiAgents::LiveProcessor do
 
     llm_call = AiAgentLlmCall.last
     system_prompt = llm_call.request_messages.first.fetch('content')
-    expect(llm_call.request_tool_names).not_to include('present_options')
+    expect(llm_call.request_tool_names).not_to include('present_options', 'present_catalog_products')
     expect(system_prompt).to include('Shared conversation rules:', 'interactive choices are unavailable')
-    expect(system_prompt).not_to include('Customer option rules:', '`present_options`')
+    expect(system_prompt).not_to include('Customer option rules:', '`present_options`', 'Catalog product image rules:')
     expect(adapter_options.dig(:llm_options, :system_prompt)).to eq(system_prompt)
   end
 
@@ -351,6 +423,59 @@ RSpec.describe AiAgents::LiveProcessor do
                                                                    'content' => 'Akordeon Pencere Sineklik Beyaz is one option.' },
                                                                  { 'role' => 'user', 'content' => latest.content }
                                                                ])
+  end
+
+  it 'counts an ordered catalog image group as one bounded history entry' do
+    12.times do |index|
+      create(
+        :message,
+        account: account,
+        inbox: inbox,
+        conversation: conversation,
+        message_type: 'incoming',
+        sender: conversation.contact,
+        content: "Earlier message #{index + 1}"
+      )
+    end
+    3.times { |index| create_catalog_history_message(index) }
+    latest = create(
+      :message,
+      account: account,
+      inbox: inbox,
+      conversation: conversation,
+      message_type: 'incoming',
+      sender: conversation.contact,
+      content: 'Başka ürünlerimizi de göster'
+    )
+    captured_messages = nil
+    allow(adapter).to receive(:perform) do |payload|
+      captured_messages = payload[:messages]
+      { assistant_text: 'Elbette.', tool_calls: [], finish_reason: 'stop' }
+    end
+
+    described_class.new(message: latest, adapter: adapter).perform
+
+    expect(captured_messages.length).to eq(described_class::HISTORY_MESSAGE_LIMIT)
+    grouped_message = captured_messages.find { |entry| entry[:role] == 'assistant' }
+    expect(grouped_message[:content]).to include('Product 1', 'Product 2', 'Product 3')
+    expect(captured_messages.last).to eq(role: 'user', content: 'Başka ürünlerimizi de göster')
+  end
+
+  def create_catalog_history_message(index)
+    create(
+      :message,
+      account: account,
+      inbox: inbox,
+      conversation: conversation,
+      message_type: 'outgoing',
+      sender: ai_agent.agent_bot,
+      content: "Product #{index + 1}",
+      content_attributes: {
+        'ai_agent' => {
+          'catalog_presentation' => { 'id' => 'history-presentation', 'sequence' => index + 1, 'total' => 3, 'item_id' => "variant:#{index + 1}" }
+        }
+      }
+    )
   end
 
   it 'does not execute for private notes' do
