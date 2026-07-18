@@ -42,7 +42,7 @@ The presentation is display-only and has no option values or selection callback.
 
 Live delivery never sends the ikas CDN URL directly to the customer. The server fetches from the strict HTTPS `cdn.myikas.com` origin, validates type/size/dimensions, strips metadata, converts to JPEG, and persists a normal Chatwoot attachment. Each image is one outgoing message because the WhatsApp providers send one attachment per message. The group job delivers those messages in sequence and relies on the existing provider `source_id` check for retry idempotency.
 
-Variant images are preferred. A product-level representative image is marked in presentation metadata and customer copy must not claim it is the exact variant or color. Image groups are compacted to one logical assistant history entry so later phrases such as “the second one” or “show more” retain context without consuming three history slots.
+Variant images are preferred. A product-level representative image is marked in presentation metadata and customer copy must not claim it is the exact variant or color. Fixed price and representative-image labels use the detected conversation/customer language, then the account locale as a fallback. Image groups are compacted to one logical assistant history entry so later phrases such as “the second one” or “show more” retain context without consuming three history slots.
 
 The compact model payload is not the audit record. Do not replace the persisted tool result with the compact form, and do not move presentation-only limits into the query engine.
 
