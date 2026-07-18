@@ -17,6 +17,27 @@ RSpec.describe 'Public Inbox Contact Conversation Messages API', type: :request 
       expect(data.length).to eq 2
     end
 
+    it 'does not expose internal AI metadata' do
+      message = create(
+        :message,
+        account: conversation.account,
+        inbox: conversation.inbox,
+        conversation: conversation,
+        content_attributes: {
+          ai_agent: {
+            trigger_message_id: 123,
+            turn_telemetry: { final_answer_source: 'tool_context' },
+            catalog_presentation: { id: 'presentation-1', item_id: 'variant:internal' }
+          }
+        }
+      )
+
+      get "/public/api/v1/inboxes/#{api_channel.identifier}/contacts/#{contact_inbox.source_id}/conversations/#{conversation.display_id}/messages"
+
+      serialized = response.parsed_body.find { |item| item['id'] == message.id }
+      expect(serialized['content_attributes']).not_to have_key('ai_agent')
+    end
+
     it 'does not return messages from a conversation in another inbox even when both share the same contact' do
       other_channel = create(:channel_api, account: conversation.account)
       other_contact_inbox = create(:contact_inbox, contact: contact, inbox: other_channel.inbox)

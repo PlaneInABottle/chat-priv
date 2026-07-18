@@ -44,6 +44,7 @@ class Message < ApplicationRecord
   include MessageFilterHelpers
   include Liquidable
   NUMBER_OF_PERMITTED_ATTACHMENTS = 15
+  PUBLIC_AI_AGENT_SELECTION_KEYS = %w[version].freeze
 
   TEMPLATE_PARAMS_SCHEMA = {
     'type': 'object',
@@ -207,9 +208,18 @@ class Message < ApplicationRecord
   end
 
   def public_content_attributes
-    return content_attributes unless content_type == 'voice_call' && call.present?
+    attributes = content_attributes.deep_dup
+    attributes = call.public_content_attributes(attributes) if content_type == 'voice_call' && call.present?
+    ai_agent_attributes = attributes['ai_agent']
+    return attributes unless ai_agent_attributes.is_a?(Hash)
 
-    call.public_content_attributes(content_attributes)
+    selection = ai_agent_attributes['selection']
+    if selection.is_a?(Hash) && selection.key?('version')
+      attributes['ai_agent'] = { 'selection' => selection.slice(*PUBLIC_AI_AGENT_SELECTION_KEYS) }
+    else
+      attributes.delete('ai_agent')
+    end
+    attributes
   end
 
   # Method to get content with survey URL for outgoing channel delivery
