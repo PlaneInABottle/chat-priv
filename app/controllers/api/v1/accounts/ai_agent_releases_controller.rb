@@ -1,4 +1,6 @@
 class Api::V1::Accounts::AiAgentReleasesController < Api::V1::Accounts::BaseController
+  RESULTS_PER_PAGE = 25
+
   before_action :current_account
   before_action :check_admin_authorization?
   before_action :ensure_ai_agent_enabled
@@ -6,7 +8,12 @@ class Api::V1::Accounts::AiAgentReleasesController < Api::V1::Accounts::BaseCont
   before_action :set_release, only: [:show, :rollback]
 
   def index
-    releases = @ai_agent.releases.includes(:created_by).order(revision: :desc)
+    releases = @ai_agent.releases
+                        .includes(:created_by)
+                        .order(revision: :desc)
+                        .page(params[:page])
+                        .per(RESULTS_PER_PAGE)
+    response.headers['X-Total-Count'] = @ai_agent.releases.count.to_s
     render json: releases.map { |release| AssistantReleases::Serializer.new(release).payload }
   end
 
