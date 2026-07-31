@@ -23,6 +23,29 @@ RSpec.describe 'AI agent releases API', type: :request do
     expect(response.parsed_body['snapshot']).to eq(release.snapshot)
   end
 
+  it 'paginates the release history newest first' do
+    26.times { |index| create(:ai_agent_release, ai_agent: ai_agent, revision: index + 2) }
+
+    get "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/releases",
+        headers: admin.create_new_auth_token,
+        as: :json
+
+    expect(response.parsed_body.length).to eq(described_class_page_size)
+    expect(response.parsed_body.first['revision']).to eq(27)
+    expect(response.headers['X-Total-Count']).to eq('27')
+
+    get "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/releases?page=2",
+        headers: admin.create_new_auth_token,
+        as: :json
+
+    expect(response.parsed_body.length).to eq(2)
+    expect(response.parsed_body.last['revision']).to eq(1)
+  end
+
+  def described_class_page_size
+    Api::V1::Accounts::AiAgentReleasesController::RESULTS_PER_PAGE
+  end
+
   it 'rolls back account-owned releases and rejects cross-account releases' do
     ai_agent.update!(current_release: release, published_revision: 1)
     foreign_release = create(:ai_agent_release)
@@ -37,7 +60,8 @@ RSpec.describe 'AI agent releases API', type: :request do
          as: :json
 
     expect(response).to have_http_status(:created)
-    expect(response.parsed_body).to include('revision' => 2, 'source' => 'rollback')
+    expect(response.parsed_body).to include('revision' => 2,
+                                            'source' => 'rollback')
     expect(ai_agent.reload.current_release_id).to eq(response.parsed_body['id'])
   end
 end
