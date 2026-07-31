@@ -83,6 +83,7 @@ RUN rm -rf /gems/ruby/*/cache/*.gem \
   && find /gems \( -name "*.c" -o -name "*.o" \) -delete 2>/dev/null || true
 
 COPY package.json pnpm-lock.yaml ./
+COPY patches ./patches
 # Disable Husky git hooks in Docker builds (no .git directory in final image)
 ENV HUSKY=0
 RUN pnpm i --frozen-lockfile
@@ -146,6 +147,9 @@ RUN apk add --no-cache \
   vips \
   libstdc++ \
   && gem install bundler -v 4.0.3 --no-document
+
+# Alpine 3.21 provides libvips 8.15. Restrict image variants to trusted loaders.
+ENV VIPS_BLOCK_UNTRUSTED=1
 
 COPY --from=node /usr/local/bin/node /usr/local/bin/
 COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
