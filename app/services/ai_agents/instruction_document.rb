@@ -4,6 +4,10 @@
 # rubocop:disable Metrics/ClassLength
 class AiAgents::InstructionDocument
   VERSION = 4
+  # Documents written at or after this version default to DEFAULT_LOCALE when they carry no
+  # explicit locale. It must stay pinned to the version that introduced the default so bumping
+  # VERSION never reinterprets the locale of already stored documents.
+  DEFAULT_LOCALE_SINCE_VERSION = 4
   DEFAULT_LOCALE = 'tr'
   SUPPORTED_LOCALES = %w[tr en].freeze
   SECTION_ORDER = %w[identity business_context tasks rules handoff examples additional].freeze
@@ -145,7 +149,7 @@ class AiAgents::InstructionDocument
     profile_language = document.dig('profile', 'language').to_s
     return profile_language if SUPPORTED_LOCALES.include?(profile_language)
 
-    document['version'].to_i >= VERSION ? DEFAULT_LOCALE : 'en'
+    document['version'].to_i >= DEFAULT_LOCALE_SINCE_VERSION ? DEFAULT_LOCALE : 'en'
   end
 
   def normalized_profile

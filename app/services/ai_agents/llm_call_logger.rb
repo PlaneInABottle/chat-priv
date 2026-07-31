@@ -25,7 +25,7 @@ class AiAgents::LlmCallLogger
       usage: response[:usage] || response['usage'] || {},
       finish_reason: response[:finish_reason] || response['finish_reason'],
       error_code: error&.class&.name,
-      error_message: error&.message,
+      error_message: error && AiAgents::PrivacyRedactor.redact_text(error.message),
       duration_ms: duration_ms
     )
   end
@@ -44,7 +44,8 @@ class AiAgents::LlmCallLogger
 
   def sanitized_messages(messages)
     Array(messages).map do |message|
-      message.deep_stringify_keys.slice('role', 'content', 'tool_calls', 'tool_call_id')
+      payload = message.deep_stringify_keys.slice('role', 'content', 'tool_calls', 'tool_call_id')
+      AiAgents::PrivacyRedactor.redact(payload)
     end
   end
 
@@ -56,6 +57,6 @@ class AiAgents::LlmCallLogger
     payload = response.except(:raw_response, 'raw_response', :usage, 'usage').deep_stringify_keys
     options = request_options.to_h.deep_stringify_keys.slice('max_tokens')
     payload['request_options'] = options if options.present?
-    payload
+    AiAgents::PrivacyRedactor.redact(payload)
   end
 end

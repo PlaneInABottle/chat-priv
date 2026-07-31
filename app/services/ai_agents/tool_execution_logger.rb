@@ -20,9 +20,9 @@ class AiAgents::ToolExecutionLogger
       mode: mode.to_s,
       status: status,
       error_code: error_code(payload[:tool_result]),
-      error_message: error_message(payload[:tool_result]),
+      error_message: sanitized_error_message(payload[:tool_result]),
       tool_call_id: tool_call[:id],
-      arguments: payload[:args] || {},
+      arguments: AiAgents::PrivacyRedactor.redact(payload[:args] || {}),
       result: sanitized_result(payload[:tool_result]),
       terminal: definition&.terminal || false,
       duration_ms: payload[:duration_ms]
@@ -54,6 +54,12 @@ class AiAgents::ToolExecutionLogger
   end
 
   def sanitized_result(tool_result)
-    tool_result.except(:raw_response, 'raw_response').deep_stringify_keys
+    result = tool_result.except(:raw_response, 'raw_response').deep_stringify_keys
+    AiAgents::PrivacyRedactor.redact(result)
+  end
+
+  def sanitized_error_message(tool_result)
+    message = error_message(tool_result)
+    AiAgents::PrivacyRedactor.redact_text(message) if message.present?
   end
 end

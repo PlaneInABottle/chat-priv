@@ -72,6 +72,12 @@ purge_expired_ai_data_job:
   class: 'AiDataRetention::SchedulePurgeJob'
   queue: scheduled_jobs
 
+# executed daily at 0345 UTC to re-crawl website knowledge sources that have gone stale
+refresh_ai_knowledge_website_sources_job:
+  cron: '45 3 * * *'
+  class: 'AiKnowledgeSources::ScheduleWebsiteSyncJob'
+  queue: scheduled_jobs
+
 # executed daily at 2230 UTC
 # removes old notifications (>1 month) and trims to 300 per user
 remove_old_notification_job:

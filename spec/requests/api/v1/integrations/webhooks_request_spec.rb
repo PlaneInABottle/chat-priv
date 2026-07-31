@@ -31,6 +31,33 @@ RSpec.describe 'Api::V1::Integrations::Webhooks' do
       expect(response.parsed_body).to eq('challenge' => payload[:challenge])
     end
 
+    it 'preserves the fields required to deliver signed link unfurls' do
+      link_payload = {
+        type: 'event_callback',
+        event: {
+          type: 'link_shared',
+          channel: 'C123',
+          user: 'U123',
+          unfurl_id: 'unfurl-123',
+          source: 'conversations_history',
+          links: [{ domain: 'app.example.com', url: 'https://app.example.com/accounts/1/conversations/2' }]
+        }
+      }
+      link_body = link_payload.to_json
+      builder = instance_double(Integrations::Slack::IncomingMessageBuilder, perform: nil)
+      expect(Integrations::Slack::IncomingMessageBuilder).to receive(:new) do |permitted_params|
+        expect(permitted_params.to_h.dig('event', 'unfurl_id')).to eq('unfurl-123')
+        expect(permitted_params.to_h.dig('event', 'source')).to eq('conversations_history')
+        builder
+      end
+
+      post '/api/v1/integrations/webhooks',
+           params: link_body,
+           headers: signed_headers(timestamp, link_body)
+
+      expect(response).to have_http_status(:success)
+    end
+
     it 'rejects requests without a signature' do
       expect(Integrations::Slack::IncomingMessageBuilder).not_to receive(:new)
 
@@ -69,8 +96,8 @@ RSpec.describe 'Api::V1::Integrations::Webhooks' do
 
   private
 
-  def signed_headers(request_timestamp = timestamp)
-    signature_base = "v0:#{request_timestamp}:#{body}"
+  def signed_headers(request_timestamp = timestamp, request_body = body)
+    signature_base = "v0:#{request_timestamp}:#{request_body}"
     signature = OpenSSL::HMAC.hexdigest('SHA256', signing_secret, signature_base)
 
     {

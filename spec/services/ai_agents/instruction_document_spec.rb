@@ -105,4 +105,13 @@ RSpec.describe AiAgents::InstructionDocument do
     expect(document['locale']).to eq('en')
     expect(described_class.new(document).compile).to include('## Rules and boundaries')
   end
+
+  it 'keeps the stored locale of existing documents when the document version is bumped' do
+    stored = described_class.new('version' => described_class::VERSION, 'sections' => { 'rules' => 'Keep this.' }).normalized
+    expect(stored['locale']).to eq('tr')
+
+    stub_const("#{described_class}::VERSION", described_class::VERSION + 1)
+
+    expect(described_class.new('version' => stored['version'], 'sections' => stored['sections']).normalized['locale']).to eq('tr')
+  end
 end
