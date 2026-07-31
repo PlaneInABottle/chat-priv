@@ -33,6 +33,11 @@
 #  fk_rails_...  (current_release_id => ai_agent_releases.id) ON DELETE => nullify
 #
 class AiAgent < ApplicationRecord
+  # `prompt` is the compiled output of `config.instructions`, so the JSONB column has to hold
+  # roughly the same content plus tool settings. The cap keeps a single agent from bloating the
+  # row (and every release snapshot derived from it) without constraining legitimate use.
+  MAX_CONFIG_BYTES = 200_000
+
   belongs_to :account
   belongs_to :agent_bot, optional: true
   belongs_to :current_release, class_name: 'AiAgentRelease', optional: true
@@ -53,6 +58,7 @@ class AiAgent < ApplicationRecord
   validates :prompt, length: { maximum: 50_000 }
   validate :inbox_ids_conflict, if: -> { inbox_ids.present? }
   validate :tools_config_must_be_valid
+  validate :config_within_size_limit
 
   attr_accessor :inbox_ids
 
@@ -219,6 +225,13 @@ class AiAgent < ApplicationRecord
     parsed_config.errors.each do |message|
       errors.add(:config, message)
     end
+  end
+
+  def config_within_size_limit
+    return if config.blank?
+    return if JSON.generate(config).bytesize <= MAX_CONFIG_BYTES
+
+    errors.add(:config, "must be smaller than #{MAX_CONFIG_BYTES} bytes")
   end
 
   def destroy_linked_agent_bot
