@@ -187,16 +187,18 @@ module AiAgents
     end
 
     def runtime_tool_keys
-      keys = config.enabled_tool_keys
-      keys = [*keys, AiAgents::Config::KNOWLEDGE_SEARCH_TOOL] if runtime_knowledge_sources.present?
-      keys -= [AiAgents::Config::PRESENT_OPTIONS_TOOL] unless AiAgents::ChannelCapabilities.present_options?(mode: mode, conversation: conversation)
-      if keys.include?(AiAgents::Config::PRESENT_CATALOG_PRODUCTS_TOOL)
-        image_definition = AiAgents::ToolRegistry.find(AiAgents::Config::PRESENT_CATALOG_PRODUCTS_TOOL)
-        image_available = AiAgents::ToolAvailability.new(account: ai_agent.account).available_keys([image_definition]).present?
-        image_capable = AiAgents::ChannelCapabilities.catalog_product_images?(mode: mode, conversation: conversation)
-        keys.delete(AiAgents::Config::PRESENT_CATALOG_PRODUCTS_TOOL) unless image_capable && image_available
+      @runtime_tool_keys ||= begin
+        keys = config.enabled_tool_keys
+        keys = [*keys, AiAgents::Config::KNOWLEDGE_SEARCH_TOOL] if runtime_knowledge_sources.present?
+        definitions = keys.filter_map { |tool_key| AiAgents::ToolRegistry.find(tool_key) }
+        keys &= AiAgents::ToolAvailability.new(account: ai_agent.account).available_keys(definitions)
+        keys -= [AiAgents::Config::PRESENT_OPTIONS_TOOL] unless AiAgents::ChannelCapabilities.present_options?(mode: mode, conversation: conversation)
+        if keys.include?(AiAgents::Config::PRESENT_CATALOG_PRODUCTS_TOOL)
+          image_capable = AiAgents::ChannelCapabilities.catalog_product_images?(mode: mode, conversation: conversation)
+          keys.delete(AiAgents::Config::PRESENT_CATALOG_PRODUCTS_TOOL) unless image_capable
+        end
+        keys.uniq
       end
-      keys.uniq
     end
 
     def perform_llm_call(step:, request_messages:, tools: llm_tools, incomplete_retry_max_tokens: nil)
@@ -327,7 +329,7 @@ module AiAgents
 
     def text_result(response, request_messages:, tool_events: [])
       return safety_handoff_result(reason: 'incomplete_llm_response', tool_events: tool_events) if response[:incomplete_response]
-      return failure_result if response[:assistant_text].blank?
+      return safety_handoff_result(reason: 'empty_llm_response', tool_events: tool_events) if response[:assistant_text].blank?
       public_answer = customer_facing_answer(response[:assistant_text], request_messages: request_messages, tool_events: tool_events)
       return safety_handoff_result(reason: 'empty_customer_facing_answer', tool_events: tool_events) if public_answer.blank?
 
@@ -488,7 +490,9 @@ module AiAgents
       selected_calls = tool_calls_to_execute(tool_calls)
       return [selected_calls, 'too_many_tool_calls'] if selected_calls.size > MAX_TOOL_CALLS_PER_RESPONSE
 
-      fitted_calls = fit_catalog_search_calls_to_remaining_budget(selected_calls)
+      fitted_calls = fit_tool_calls_to_remaining_budget(selected_calls)
+      return [fitted_calls, 'tool_budget_exhausted'] if fitted_calls.empty? && selected_calls.present?
+
       [fitted_calls, tool_request_rejection_code(fitted_calls)]
     end
 
@@ -500,28 +504,24 @@ module AiAgents
       nil
     end
 
-    def fit_catalog_search_calls_to_remaining_budget(tool_calls)
-      remaining_units = remaining_tool_budget(AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL)
-      return tool_calls unless remaining_units.positive?
-
-      requested_units = tool_calls.sum do |tool_call|
-        tool_key_for(tool_call) == AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL ? tool_call_budget_cost(tool_call) : 0
-      end
-      return tool_calls if requested_units <= remaining_units
-
+    def fit_tool_calls_to_remaining_budget(tool_calls)
+      remaining_units = {}
       tool_calls.filter_map do |tool_call|
-        next tool_call unless tool_key_for(tool_call) == AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL
+        tool_key = tool_key_for(tool_call)
+        remaining_units[tool_key] ||= remaining_tool_budget(tool_key)
 
         requested_call_units = tool_call_budget_cost(tool_call)
-        if requested_call_units <= remaining_units
-          remaining_units -= requested_call_units
+        if requested_call_units <= remaining_units[tool_key]
+          remaining_units[tool_key] -= requested_call_units
           next tool_call
         end
 
-        retained_call = catalog_search_tool_call_with_query_limit(tool_call, remaining_units)
+        next unless tool_key == AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL
+
+        retained_call = catalog_search_tool_call_with_query_limit(tool_call, remaining_units[tool_key])
         retained_units = retained_call ? tool_call_budget_cost(retained_call) : 0
         @catalog_search_queries_truncated += requested_call_units - retained_units
-        remaining_units -= retained_units
+        remaining_units[tool_key] -= retained_units
         retained_call
       end
     end

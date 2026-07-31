@@ -11,6 +11,14 @@ RSpec.describe AiAgents::Orchestrator do
     create(:message, account: account, inbox: conversation.inbox, conversation: conversation, message_type: 'incoming', sender: conversation.contact)
   end
   let(:adapter) { instance_double(AiAgents::LlmAdapters::OpenAiCompatibleAdapter) }
+  let(:tool_availability) { instance_double(AiAgents::ToolAvailability) }
+
+  before do
+    allow(tool_availability).to receive(:available_keys) do |definitions|
+      definitions.map(&:key) - [AiAgents::Config::PRESENT_CATALOG_PRODUCTS_TOOL]
+    end
+    allow(AiAgents::ToolAvailability).to receive(:new).with(account: account).and_return(tool_availability)
+  end
 
   it 'does not call the adapter when AI Agent is disabled for the account' do
     account.update!(ai_agent_enabled: false)
@@ -130,6 +138,74 @@ RSpec.describe AiAgents::Orchestrator do
     expect(adapter).to have_received(:perform).twice
     expect(AiAgentLlmCall.last.step).to eq('initial_retry')
     expect(AiAgentLlmCall.last.request_messages.last['content']).to include('previous AI response was empty')
+  end
+
+  it 'hands off instead of silently dropping the turn when the empty-response retry is also empty' do
+    allow(adapter).to receive(:perform).and_return(
+      { assistant_text: nil, tool_calls: [], finish_reason: 'stop' },
+      { assistant_text: nil, tool_calls: [], finish_reason: 'stop' }
+    )
+
+    result = described_class.new(
+      ai_agent: ai_agent,
+      messages: [{ role: 'user', content: 'Hi' }],
+      mode: :test,
+      adapter: adapter
+    ).perform
+
+    expect(result[:terminal_action]).to eq('handoff')
+    expect(result[:assistant_message]['content']).to be_present
+    expect(adapter).to have_received(:perform).twice
+  end
+
+  it 'does not advertise integration tools that are unavailable at runtime' do
+    allow(tool_availability).to receive(:available_keys).and_return(['human_handoff'])
+    ai_agent.update!(config: { 'tools' => { 'enabled' => %w[human_handoff ikas_lookup_order ikas_catalog_search] } })
+    calls = []
+    allow(adapter).to receive(:perform) do |payload|
+      calls << payload
+      { assistant_text: 'Hello', tool_calls: [], finish_reason: 'stop' }
+    end
+
+    described_class.new(
+      ai_agent: ai_agent.reload,
+      messages: [{ role: 'user', content: 'Where is my order?' }],
+      mode: :live,
+      conversation: conversation,
+      trigger_message: trigger_message,
+      adapter: adapter
+    ).perform
+
+    advertised_names = calls.first.fetch(:tools).pluck(:function).pluck(:name)
+    expect(advertised_names).to eq(['human_handoff'])
+  end
+
+  it 'keeps valid mixed tool calls when another tool budget is exhausted' do
+    orchestrator = described_class.new(
+      ai_agent: ai_agent,
+      messages: [{ role: 'user', content: 'Check both sources.' }],
+      mode: :test,
+      adapter: adapter
+    )
+    counts = orchestrator.send(:executed_tool_counts)
+    counts[AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL] = described_class::MAX_CATALOG_SEARCH_QUERY_UNITS
+    catalog_call = {
+      id: 'catalog-over-budget',
+      type: 'function',
+      name: 'ikas_catalog_search',
+      arguments: { query: 'door screen' }.to_json
+    }
+    knowledge_call = {
+      id: 'knowledge-with-budget',
+      type: 'function',
+      name: 'search_knowledge',
+      arguments: { query: 'return policy' }.to_json
+    }
+
+    calls, rejection_code = orchestrator.send(:bounded_tool_calls, [catalog_call, knowledge_call])
+
+    expect(calls).to eq([knowledge_call])
+    expect(rejection_code).to be_nil
   end
 
   it 'retries a catalog answer cut off by the provider output limit' do
@@ -689,8 +765,7 @@ RSpec.describe AiAgents::Orchestrator do
         }
       }
     )
-    availability = instance_double(AiAgents::ToolAvailability, available_keys: ['present_catalog_products'])
-    allow(AiAgents::ToolAvailability).to receive(:new).and_return(availability)
+    allow(tool_availability).to receive(:available_keys).and_return(%w[ikas_catalog_search present_catalog_products])
     catalog_result = {
       status: 'ok',
       result_type: 'show_candidates',

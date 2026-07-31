@@ -44,7 +44,7 @@ RSpec.describe AiAgents::LlmToolResultPresenter do
     expect(presented.fetch('candidates').first).not_to include(
       'product_id', 'variant_id', 'confidence', 'match_kind', 'match_reasons', 'relevance_score', 'relevance_signals'
     )
-    expect(presented.dig('candidates', 0, 'stock')).to eq('sellable' => true)
+    expect(presented.dig('candidates', 0, 'stock')).to eq('in_stock' => true, 'sellable' => true)
     expect(result.fetch(:candidates)).to have_attributes(size: 20).and start_with(include(:relevance_score, :relevance_signals))
   end
 
