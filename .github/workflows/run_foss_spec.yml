@@ -100,7 +100,7 @@ jobs:
 
     services:
       postgres:
-        image: pgvector/pgvector:pg16
+        image: pgvector/pgvector:pg16@sha256:1d533553fefe4f12e5d80c7b80622ba0c382abb5758856f52983d8789179f0fb
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: ${{ github.run_id }}
@@ -114,7 +114,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
       redis:
-        image: redis:alpine
+        image: redis:8.8-alpine@sha256:9d317178eceac8454a2284a9e6df2466b93c745529947f0cd42a0fa9609d7005
         ports:
           - 6379:6379
         options: --entrypoint redis-server
