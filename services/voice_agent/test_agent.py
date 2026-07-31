@@ -90,6 +90,59 @@ class WorkerOptionsTest(unittest.TestCase):
         self.assertEqual(options.prometheus_port, 9191)
         self.assertEqual(options.load_threshold, 0.95)
 
+    @patch.dict(os.environ, {}, clear=True)
+    def test_worker_options_default_health_server_to_loopback(self) -> None:
+        options = agent.build_worker_options()
+
+        self.assertEqual(options.host, "127.0.0.1")
+
+
+class ChatwootClientTest(unittest.TestCase):
+    @patch.dict(
+        os.environ,
+        {
+            "CHATWOOT_INTERNAL_API_URL": "http://127.0.0.1:3000",
+            "VOICE_AGENT_INTERNAL_TOKEN": "test-token",
+        },
+        clear=True,
+    )
+    @patch.object(agent.aiohttp, "ClientSession")
+    def test_loopback_http_marks_requests_as_forwarded_https(self, client_session: Mock) -> None:
+        session = SimpleNamespace(closed=False)
+        client_session.return_value = session
+
+        client = agent.ChatwootClient()
+
+        self.assertIs(client.session, session)
+        client_session.assert_called_once_with(
+            headers={
+                "X-Voice-Agent-Token": "test-token",
+                "X-Forwarded-Proto": "https",
+            },
+            raise_for_status=True,
+        )
+
+    @patch.dict(
+        os.environ,
+        {
+            "CHATWOOT_INTERNAL_API_URL": "https://app.kozmopath.com",
+            "VOICE_AGENT_INTERNAL_TOKEN": "test-token",
+        },
+        clear=True,
+    )
+    @patch.object(agent.aiohttp, "ClientSession")
+    def test_https_endpoint_does_not_add_forwarded_proto(self, client_session: Mock) -> None:
+        session = SimpleNamespace(closed=False)
+        client_session.return_value = session
+
+        client = agent.ChatwootClient()
+
+        self.assertIs(client.session, session)
+        client_session.assert_called_once_with(
+            headers={"X-Voice-Agent-Token": "test-token"},
+            raise_for_status=True,
+        )
+
 
 class VoiceAssistantTest(unittest.TestCase):
     def test_default_greeting_matches_language(self) -> None:
