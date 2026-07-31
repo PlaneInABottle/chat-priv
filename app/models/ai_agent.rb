@@ -192,28 +192,14 @@ class AiAgent < ApplicationRecord
     [releases.maximum(:revision).to_i, published_revision.to_i].max + 1
   end
 
+  # Draft and release fingerprints must be produced by exactly one implementation, otherwise
+  # `draft_changes?` starts comparing hashes that were built by two subtly different rules.
   def release_digest(prompt_value, config_value)
-    payload = {
+    AiAgents::ReleaseSnapshot.fingerprint(
       'prompt' => prompt_value.to_s,
-      'config' => runtime_config(config_value),
+      'config' => config_value.is_a?(Hash) ? config_value : {},
       'knowledge_sources' => AiKnowledgeSources::Snapshot.for(self)
-    }
-    Digest::SHA256.hexdigest(JSON.generate(canonicalize(payload)))
-  end
-
-  def runtime_config(value)
-    value.is_a?(Hash) ? value.deep_stringify_keys.except('instructions') : {}
-  end
-
-  def canonicalize(value)
-    case value
-    when Hash
-      value.keys.sort.index_with { |key| canonicalize(value[key]) }
-    when Array
-      value.map { |item| canonicalize(item) }
-    else
-      value
-    end
+    )
   end
 
   def inbox_ids_conflict
