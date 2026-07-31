@@ -5,6 +5,7 @@ class SafeFetch::RequestOptions
     max_bytes: nil,
     open_timeout: SafeFetch::DEFAULT_OPEN_TIMEOUT,
     read_timeout: SafeFetch::DEFAULT_READ_TIMEOUT,
+    max_redirects: SsrfFilter::DEFAULT_MAX_REDIRECTS,
     headers: nil,
     sensitive_headers: [],
     http_basic_authentication: nil,
@@ -14,7 +15,7 @@ class SafeFetch::RequestOptions
   }.freeze
 
   attr_reader :allowed_content_type_prefixes, :allowed_content_types, :body, :headers,
-              :http_basic_authentication, :method, :open_timeout, :read_timeout, :sensitive_headers, :uri, :url
+              :http_basic_authentication, :max_redirects, :method, :open_timeout, :read_timeout, :sensitive_headers, :uri, :url
 
   def initialize(url:, **options)
     config = DEFAULTS.merge(options)
@@ -25,6 +26,7 @@ class SafeFetch::RequestOptions
     @max_bytes = config[:max_bytes]
     @open_timeout = config[:open_timeout]
     @read_timeout = config[:read_timeout]
+    @max_redirects = config[:max_redirects]
     @headers = normalize_headers(config[:headers])
     @sensitive_headers = normalize_sensitive_headers(config[:sensitive_headers])
     @http_basic_authentication = config[:http_basic_authentication]
@@ -47,6 +49,7 @@ class SafeFetch::RequestOptions
       body: body,
       request_proc: request_proc,
       sensitive_headers: sensitive_headers,
+      max_redirects: max_redirects,
       http_options: { open_timeout: open_timeout, read_timeout: read_timeout }
     }
   end

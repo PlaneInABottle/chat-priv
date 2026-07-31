@@ -81,7 +81,85 @@ RSpec.describe AiAgents::CatalogPresentationDeliveryJob do
       expect(sent_bodies).to all(include('to' => '123456789', 'type' => 'image'))
       expect(sent_bodies.map { |body| body.dig('image', 'link') }).to all(be_present)
       expect(messages.map { |message| message.reload.source_id }).to eq(%w[external-1 external-2])
+      expect(messages.map { |message| delivery_status(message) }).to all(eq('delivered'))
     end
+  end
+
+  it 'stops after a provider failure and resumes the group in order on retry' do
+    channel = create(:channel_whatsapp, provider: 'default', sync_templates: false, validate_provider_config: false)
+    contact_inbox = create(:contact_inbox, inbox: channel.inbox, source_id: '123456789')
+    whatsapp_conversation = create(
+      :conversation,
+      account: channel.account,
+      inbox: channel.inbox,
+      contact: contact_inbox.contact,
+      contact_inbox: contact_inbox
+    )
+    create(:message, conversation: whatsapp_conversation, account: channel.account, inbox: channel.inbox, message_type: :incoming)
+    presentation_id = 'presentation-retry'
+    messages = catalog_image_captions.each_with_index.map do |content, index|
+      catalog_image_message(whatsapp_conversation, content, presentation_id, index + 1)
+    end
+    sent_captions = []
+    request_count = 0
+    stub_request(:post, 'https://waba.360dialog.io/v1/messages').to_return do |request|
+      request_count += 1
+      sent_captions << JSON.parse(request.body).dig('image', 'caption')
+      if request_count == 1
+        {
+          status: 503,
+          body: { meta: { developer_message: 'temporarily unavailable' } }.to_json,
+          headers: { 'Content-Type' => 'application/json' }
+        }
+      else
+        {
+          status: 200,
+          body: { messages: [{ id: "external-retry-#{request_count}" }] }.to_json,
+          headers: { 'Content-Type' => 'application/json' }
+        }
+      end
+    end
+
+    expect do
+      described_class.new.perform(whatsapp_conversation.id, presentation_id)
+    end.to raise_error(described_class::DeliveryError)
+
+    expect(sent_captions).to eq(['First'])
+    expect(messages.first.reload).to be_failed
+
+    described_class.new.perform(whatsapp_conversation.id, presentation_id)
+
+    expect(sent_captions).to eq(%w[First First Second])
+    expect(messages.map { |message| message.reload.source_id }).to eq(%w[external-retry-2 external-retry-3])
+    expect(messages.map(&:reload)).to all(be_sent)
+    expect(messages.map { |message| delivery_status(message) }).to all(eq('delivered'))
+  end
+
+  it 'does not send while another worker owns the presentation lock' do
+    create(
+      :message,
+      conversation: conversation,
+      account: conversation.account,
+      inbox: conversation.inbox,
+      message_type: 'outgoing',
+      content_attributes: {
+        'ai_agent' => {
+          'catalog_presentation' => {
+            'id' => 'presentation-locked',
+            'sequence' => 1,
+            'total' => 1
+          }
+        }
+      }
+    )
+    lock_manager = instance_double(Redis::LockManager, lock: false)
+    allow(Redis::LockManager).to receive(:new).and_return(lock_manager)
+    allow(SendReplyJob).to receive(:perform_now)
+
+    expect do
+      described_class.new.perform(conversation.id, 'presentation-locked')
+    end.to raise_error(MutexApplicationJob::LockAcquisitionError)
+    expect(SendReplyJob).not_to have_received(:perform_now)
   end
 
   def catalog_image_message(conversation, content, presentation_id, sequence)
@@ -111,6 +189,10 @@ RSpec.describe AiAgents::CatalogPresentationDeliveryJob do
         }
       }
     }
+  end
+
+  def delivery_status(message)
+    message.reload.content_attributes.dig('ai_agent', 'catalog_presentation', 'delivery_status')
   end
 
   def stub_provider_requests(channel, sent_bodies)

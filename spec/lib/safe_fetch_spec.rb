@@ -365,6 +365,34 @@ RSpec.describe SafeFetch do
       end
     end
 
+    context 'with redirect limits' do
+      it 'does not follow redirects when max_redirects is zero' do
+        redirect_url = 'http://example.com/redirected.png'
+        stub_request(:get, url).to_return(status: 302, headers: { 'Location' => redirect_url })
+        redirected_request = stub_request(:get, redirect_url)
+
+        expect { described_class.fetch(url, max_redirects: 0) { nil } }.to raise_error do |error|
+          expect(error.class.name).to eq('SafeFetch::UnsafeUrlError')
+          expect(error.message).to include('Got 0 redirects')
+        end
+        expect(redirected_request).not_to have_been_requested
+      end
+
+      it 'honors max_redirects when private network access is enabled' do
+        redirect_url = 'http://example.com/redirected.png'
+        stub_request(:get, url).to_return(status: 302, headers: { 'Location' => redirect_url })
+        redirected_request = stub_request(:get, redirect_url)
+
+        with_modified_env('SAFE_FETCH_ALLOW_PRIVATE_NETWORK' => 'true') do
+          expect { described_class.fetch(url, max_redirects: 0) { nil } }.to raise_error do |error|
+            expect(error.class.name).to eq('SafeFetch::UnsafeUrlError')
+            expect(error.message).to include('Got 0 redirects')
+          end
+        end
+        expect(redirected_request).not_to have_been_requested
+      end
+    end
+
     context 'with custom request options' do
       let(:post_body) { { hello: 'world' }.to_json }
       let(:headers) do
