@@ -10,6 +10,19 @@ class AiAgents::PrivacyRedactor
          .gsub(PHONE_REGEX, '[phone redacted]')
   end
 
+  def self.redact(value)
+    case value
+    when Hash
+      value.transform_values { |child| redact(child) }
+    when Array
+      value.map { |child| redact(child) }
+    when String
+      redact_text(value)
+    else
+      value
+    end
+  end
+
   def self.mask_email(value)
     local, domain = value.to_s.split('@', 2)
     return '[redacted]' if local.blank? || domain.blank?

@@ -49,4 +49,28 @@ RSpec.describe AiAgents::LlmCallLogger do
     llm_call = AiAgentLlmCall.last
     expect(llm_call).to have_attributes(status: 'failed', error_code: 'RuntimeError', error_message: 'timeout')
   end
+
+  it 'redacts customer identifiers from persisted request, response, and error payloads' do
+    logger.call(
+      step: 'order_lookup',
+      model: 'openai/gpt-5.1',
+      request_messages: [{
+        role: 'user',
+        content: 'buyer@example.com +90 555 123 45 67',
+        tool_calls: [{ function: { arguments: { email: 'buyer@example.com' }.to_json } }]
+      }],
+      request_tools: [],
+      status: 'failed',
+      response: {
+        assistant_text: 'Call +90 555 123 45 67',
+        tool_calls: [{ function: { arguments: { email: 'buyer@example.com' }.to_json } }]
+      },
+      error: RuntimeError.new('Failed for buyer@example.com')
+    )
+
+    llm_call = AiAgentLlmCall.last
+    persisted_payload = [llm_call.request_messages, llm_call.response, llm_call.error_message].to_json
+    expect(persisted_payload).to include('[email redacted]', '[phone redacted]')
+    expect(persisted_payload).not_to include('buyer@example.com', '+90 555 123 45 67')
+  end
 end
