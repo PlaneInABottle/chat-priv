@@ -45,4 +45,25 @@ RSpec.describe AiAgents::ToolExecutionLogger do
     expect(execution.tool_key).to eq('missing_tool')
     expect(execution.error_code).to eq('unknown_tool')
   end
+
+  it 'redacts customer identifiers from persisted arguments, results, and errors' do
+    logger.call(
+      tool_call: { id: 'call_3', name: 'human_handoff' },
+      definition: definition,
+      status: 'error',
+      payload: {
+        tool_result: {
+          status: 'error',
+          error_message: 'Failed for buyer@example.com',
+          customer_message: 'Call +90 555 123 45 67'
+        },
+        args: { 'email' => 'buyer@example.com', 'phone' => '+90 555 123 45 67' }
+      }
+    )
+
+    execution = AiAgentToolExecution.last
+    persisted_payload = [execution.arguments, execution.result, execution.error_message].to_json
+    expect(persisted_payload).to include('[email redacted]', '[phone redacted]')
+    expect(persisted_payload).not_to include('buyer@example.com', '+90 555 123 45 67')
+  end
 end
