@@ -16,6 +16,17 @@ RSpec.describe AiAgent do
     it { is_expected.to validate_presence_of(:name) }
     it { is_expected.to validate_length_of(:prompt).is_at_most(50_000) }
 
+    it 'rejects a config payload larger than the size limit' do
+      agent = build(:ai_agent, config: { 'instructions' => { 'sections' => { 'rules' => 'x' * (described_class::MAX_CONFIG_BYTES + 1) } } })
+
+      expect(agent).not_to be_valid
+      expect(agent.errors[:config]).to include("must be smaller than #{described_class::MAX_CONFIG_BYTES} bytes")
+    end
+
+    it 'accepts a config payload within the size limit' do
+      expect(build(:ai_agent, config: { 'instructions' => { 'sections' => { 'rules' => 'x' * 1_000 } } })).to be_valid
+    end
+
     context 'when multiple agents per account' do
       let(:account) { create(:account) }
 
