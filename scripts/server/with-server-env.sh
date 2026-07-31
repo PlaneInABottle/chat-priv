@@ -36,5 +36,12 @@ exec rbenv exec bundle exec ruby -e '
   end
   abort "Missing required server environment variables: #{missing.join(", ")}" if missing.any?
 
+  if %w[web worker].include?(ENV["SERVER_ROLE"])
+    abort "VIPS_BLOCK_UNTRUSTED must be set to 1" unless ENV["VIPS_BLOCK_UNTRUSTED"] == "1"
+
+    require "ruby-vips"
+    abort "libvips 8.13 or newer and ruby-vips 2.2.1 or newer are required" unless Vips.respond_to?(:block_untrusted)
+  end
+
   exec(*ARGV)
 ' "$@"

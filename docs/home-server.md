@@ -24,7 +24,7 @@ cp .env.server.example .env.server.local
 chmod 600 .env.server.local
 ```
 
-Fill every blank value required by the enabled integrations. Web and worker must use the same `SECRET_KEY_BASE`. Keep `CHATWOOT_INTERNAL_API_URL=http://127.0.0.1:3000` because the Voice worker runs on the same host. For Cloudflare R2, replace `<cloudflare-account-id>` with the account identifier and use an Object Read & Write token restricted to only the configured bucket. Keep the bucket private, with its `r2.dev` URL and custom domains disabled.
+Fill every blank value required by the enabled integrations. Web and worker must use the same `SECRET_KEY_BASE`. Keep `VIPS_BLOCK_UNTRUSTED=1`; startup also requires libvips 8.13 or newer so untrusted Active Storage uploads cannot use unsafe image loaders. Keep `CHATWOOT_INTERNAL_API_URL=http://127.0.0.1:3000` because the Voice worker runs on the same host. For Cloudflare R2, replace `<cloudflare-account-id>` with the account identifier and use an Object Read & Write token restricted to only the configured bucket. Keep the bucket private, with its `r2.dev` URL and custom domains disabled.
 
 The attachment and Voice-recording variables intentionally use the same private bucket and separate Voice objects under `voice-recordings/`. R2's browser CORS policy must allow only `https://app.kozmopath.com`, methods `GET`, `HEAD`, and `PUT`, headers `Content-Type`, `Content-MD5`, and `Content-Disposition`, and may expose `ETag`. The `AWS_*CHECKSUM*` settings keep Rails' existing MD5 integrity check while preventing the AWS SDK from adding a second checksum that R2 rejects.
 
@@ -43,7 +43,7 @@ Both published ports bind to loopback. Never expose PostgreSQL or Redis through 
 
 ## Host firewall
 
-Before leaving this machine unattended, enable the host firewall. The checked-in script denies inbound traffic by default and permits SSH only over `tailscale0`:
+Before leaving this machine unattended, enable the host firewall. The checked-in script denies inbound traffic by default, permits SSH over `tailscale0`, and permits only `192.0.2.12` on `wlo1` to establish the Beszel reverse tunnel:
 
 ```bash
 sudo scripts/server/secure-host.sh
@@ -85,6 +85,8 @@ curl -fsS -H 'X-Forwarded-Proto: https' http://127.0.0.1:3000/health
 curl -fsS http://127.0.0.1:9090/
 curl -fsS http://127.0.0.1:9091/metrics
 ```
+
+The Voice worker calls Rails over loopback HTTP. Its client marks only loopback HTTP requests with `X-Forwarded-Proto: https` so production SSL enforcement does not redirect those requests to a nonexistent TLS listener on port 3000.
 
 The server profile disables `sidekiq_alive`: PM2 supervises the worker directly, so a second Sidekiq capsule and port 7433 would only add threads and attack surface.
 

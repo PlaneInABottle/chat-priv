@@ -5,6 +5,7 @@ import logging
 import os
 import uuid
 from typing import Any
+from urllib.parse import urlsplit
 
 import aiohttp
 from dotenv import load_dotenv
@@ -63,8 +64,13 @@ class ChatwootClient:
     @property
     def session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
+            headers = {"X-Voice-Agent-Token": self.token}
+            endpoint = urlsplit(self.base_url)
+            if endpoint.scheme == "http" and endpoint.hostname in {"127.0.0.1", "::1", "localhost"}:
+                headers["X-Forwarded-Proto"] = "https"
+
             self._session = aiohttp.ClientSession(
-                headers={"X-Voice-Agent-Token": self.token},
+                headers=headers,
                 raise_for_status=True,
             )
         return self._session
@@ -758,7 +764,7 @@ def build_worker_options() -> agents.WorkerOptions:
         "agent_name": os.getenv("VOICE_AGENT_NAME", "kozmopath-voice-agent"),
         "load_fnc": worker_load,
         "load_threshold": 0.95,
-        "host": os.getenv("VOICE_AGENT_HEALTH_HOST", "0.0.0.0"),
+        "host": os.getenv("VOICE_AGENT_HEALTH_HOST", "127.0.0.1"),
         "port": int(os.getenv("VOICE_AGENT_HEALTH_PORT", "9090")),
         "drain_timeout": int(os.getenv("VOICE_AGENT_DRAIN_TIMEOUT_SECONDS", "1200")),
     }
