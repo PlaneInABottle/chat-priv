@@ -39,7 +39,18 @@ RSpec.describe AiAgents::WebsiteCrawler do
     expect { described_class.new('javascript:alert(1)') }.to raise_error(described_class::InvalidWebsite)
   end
 
-  it 'blocks private network websites through SafeFetch' do
-    expect { described_class.new('http://127.0.0.1/internal').perform }.to raise_error(SafeFetch::UnsafeUrlError)
+  it 'rejects private network websites before any request is made' do
+    expect { described_class.new('http://127.0.0.1/internal') }
+      .to raise_error(described_class::InvalidWebsite, 'Website must use a public domain.')
+    expect { described_class.normalize_url('http://192.168.1.10') }
+      .to raise_error(described_class::InvalidWebsite, 'Website must use a public domain.')
+    expect { described_class.normalize_url('http://localhost:3000') }
+      .to raise_error(described_class::InvalidWebsite, 'Website must use a public domain.')
+  end
+
+  it 'still leaves SafeFetch as the backstop when private networks are explicitly allowed' do
+    with_modified_env SAFE_FETCH_ALLOW_PRIVATE_NETWORK: 'true' do
+      expect(described_class.normalize_url('http://localhost:3000')).to eq('http://localhost:3000/')
+    end
   end
 end
