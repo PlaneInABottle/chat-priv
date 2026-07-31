@@ -420,6 +420,59 @@ describe Whatsapp::IncomingMessageService do
         expect(conversation.messages.find_by(source_id: 'wamid.stale-option-response')).to be_nil
         expect(prompt.reload.content_attributes['submitted_values']).to be_blank
       end
+
+      it 'rejects a selection that becomes stale after initial resolution without failing ingestion' do
+        contact_inbox = create(:contact_inbox, inbox: whatsapp_channel.inbox, source_id: wa_id)
+        conversation = create(:conversation, inbox: whatsapp_channel.inbox, contact_inbox: contact_inbox)
+        prompt = create(
+          :message,
+          account: whatsapp_channel.account, inbox: whatsapp_channel.inbox, conversation: conversation,
+          message_type: :outgoing, content_type: :input_select, source_id: 'wamid.racing-option-prompt',
+          content: 'Bir seçenek belirleyin',
+          content_attributes: {
+            items: [{ title: 'Pencere ürünleri', value: 'windows' }, { title: 'Kapı ürünleri', value: 'doors' }],
+            ai_agent: { selection: { version: 1 } }
+          }
+        )
+        interactive_params = {
+          'contacts' => [{ 'profile' => { 'name' => 'Sojan Jose' }, 'wa_id' => wa_id }],
+          'messages' => [{
+            'from' => wa_id,
+            'id' => 'wamid.racing-option-response',
+            'context' => { 'id' => prompt.source_id },
+            'interactive' => {
+              'button_reply' => { 'id' => 'windows', 'title' => 'Eski pencere seçeneği' },
+              'type' => 'button_reply'
+            },
+            'timestamp' => '1633034394',
+            'type' => 'interactive'
+          }]
+        }.with_indifferent_access
+        allow(AiAgents::OptionSelectionService).to receive(:new).and_wrap_original do |original, **args|
+          service = original.call(**args)
+          allow(service).to receive(:selected_item).and_wrap_original do |resolve|
+            item = resolve.call
+            create(
+              :message,
+              account: whatsapp_channel.account,
+              inbox: whatsapp_channel.inbox,
+              conversation: conversation,
+              sender: contact_inbox.contact,
+              message_type: :incoming,
+              content: 'Aslında gri balkon kapısı arıyorum'
+            )
+            item
+          end
+          service
+        end
+
+        expect do
+          described_class.new(inbox: whatsapp_channel.inbox, params: interactive_params).perform
+        end.to change(conversation.messages.incoming, :count).by(1)
+
+        expect(conversation.messages.find_by(source_id: 'wamid.racing-option-response')).to be_nil
+        expect(prompt.reload.content_attributes['submitted_values']).to be_blank
+      end
     end
 
     # ref: https://github.com/chatwoot/chatwoot/issues/3795#issuecomment-1018057318
