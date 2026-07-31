@@ -244,5 +244,33 @@ RSpec.describe AiAgent do
         [[1, 'publish'], [2, 'publish'], [3, 'rollback']]
       )
     end
+
+    it 'keeps a paused assistant paused when rolling back' do
+      inbox = create(:inbox, account: account)
+      AgentBotInbox.create!(agent_bot: ai_agent.agent_bot, inbox: inbox, account: account)
+      ai_agent.publish!
+      first_release = ai_agent.current_release
+      ai_agent.update!(prompt: 'Second release')
+      ai_agent.publish!
+      ai_agent.pause!
+
+      ai_agent.rollback_to!(first_release)
+
+      expect(ai_agent.reload).not_to be_enabled
+      expect(ai_agent.lifecycle_status).to eq('paused')
+    end
+
+    it 'keeps an active assistant active when rolling back' do
+      inbox = create(:inbox, account: account)
+      AgentBotInbox.create!(agent_bot: ai_agent.agent_bot, inbox: inbox, account: account)
+      ai_agent.publish!
+      first_release = ai_agent.current_release
+      ai_agent.update!(prompt: 'Second release')
+      ai_agent.publish!
+
+      ai_agent.rollback_to!(first_release)
+
+      expect(ai_agent.reload).to be_enabled
+    end
   end
 end

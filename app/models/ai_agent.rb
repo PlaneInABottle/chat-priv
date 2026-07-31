@@ -96,7 +96,8 @@ class AiAgent < ApplicationRecord
         created_by: created_by
       )
       AiKnowledgeSources::ReleaseAssignmentRestore.new(assistant: self, snapshot: release.snapshot).perform
-      activate_release!(restored, restore_draft: true)
+      # A rollback restores configuration; it must not resume an assistant an admin deliberately paused.
+      activate_release!(restored, restore_draft: true, enable: enabled?)
       restored
     end
   end
@@ -165,9 +166,9 @@ class AiAgent < ApplicationRecord
     )
   end
 
-  def activate_release!(release, restore_draft: false)
+  def activate_release!(release, restore_draft: false, enable: true)
     attributes = {
-      enabled: true,
+      enabled: enable,
       published_at: Time.current,
       published_prompt: release.prompt,
       published_config: release.config,
