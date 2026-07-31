@@ -4,7 +4,7 @@ class AiImprovements::Usage::Limiter
   RESERVATION_TTL = 1.hour
 
   def self.release_stale_reservations!(account:, now: Time.current)
-    account.ai_improvement_usage_events.reserved.where('updated_at < ?', now - RESERVATION_TTL).find_each do |event|
+    account.ai_improvement_usage_events.reserved.where('updated_at < ?', now - RESERVATION_TTL).includes(:call).find_each do |event|
       next if event.call.present? && !event.call.terminal?
 
       event.update!(status: :released)
@@ -94,7 +94,9 @@ class AiImprovements::Usage::Limiter
   attr_reader :account, :operation, :ai_agent, :voice_agent, :initiated_by, :now, :period
 
   def summary
-    AiImprovements::Usage::Summary.new(account: account, now: now)
+    # Stale reservations are already released once per operation, so the summaries built while
+    # holding the account lock must not repeat that scan.
+    AiImprovements::Usage::Summary.new(account: account, now: now, release_stale_reservations: false)
   end
 
   def result(status, event: nil)
