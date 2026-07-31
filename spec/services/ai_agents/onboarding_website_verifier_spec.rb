@@ -6,8 +6,8 @@ RSpec.describe AiAgents::OnboardingWebsiteVerifier do
   before do
     allow(Resolv).to receive(:getaddresses).and_call_original
     allow(Resolv).to receive(:getaddresses).with('example.com').and_return(['93.184.216.34'])
+    allow(Redis::Alfred).to receive(:set)
     allow(Redis::Alfred).to receive(:incr).and_return(1)
-    allow(Redis::Alfred).to receive(:expire)
     allow(Redis::Alfred).to receive(:ttl).and_return(described_class::RATE_LIMIT_WINDOW.to_i)
   end
 
@@ -57,7 +57,7 @@ RSpec.describe AiAgents::OnboardingWebsiteVerifier do
     expect(WebMock).not_to have_requested(:get, 'https://example.com/')
   end
 
-  it 'starts the account rate-limit window on the first verification' do
+  it 'atomically initializes the account rate-limit window' do
     stub_request(:get, 'https://example.com/').to_return(
       status: 200,
       body: '<title>Example</title>',
@@ -67,7 +67,12 @@ RSpec.describe AiAgents::OnboardingWebsiteVerifier do
 
     described_class.new(account: account, website_url: 'example.com').perform
 
-    expect(Redis::Alfred).to have_received(:expire).with(expected_key, described_class::RATE_LIMIT_WINDOW.to_i)
+    expect(Redis::Alfred).to have_received(:set).with(
+      expected_key,
+      0,
+      nx: true,
+      ex: described_class::RATE_LIMIT_WINDOW.to_i
+    )
   end
 
   it 'does not accept another account or changed URL with the signed verification' do

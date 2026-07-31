@@ -56,8 +56,8 @@ class AiAgents::OnboardingWebsiteVerifier
   attr_reader :account, :website_url
 
   def enforce_rate_limit!
+    Redis::Alfred.set(rate_limit_key, 0, nx: true, ex: RATE_LIMIT_WINDOW.to_i)
     count = Redis::Alfred.incr(rate_limit_key)
-    Redis::Alfred.expire(rate_limit_key, RATE_LIMIT_WINDOW.to_i) if count == 1
     return if count <= RATE_LIMIT
 
     retry_after = Redis::Alfred.ttl(rate_limit_key).to_i.clamp(1, RATE_LIMIT_WINDOW.to_i)

@@ -14,20 +14,9 @@ class Api::V1::Integrations::WebhooksController < ApplicationController
 
   def permitted_params
     params.permit(
-      :api_app_id,
-      :challenge,
-      :event_id,
-      :event_time,
-      :team_id,
-      :type,
+      :api_app_id, :challenge, :event_id, :event_time, :team_id, :type,
       event: [
-        :channel,
-        :subtype,
-        :text,
-        :thread_ts,
-        :ts,
-        :type,
-        :user,
+        :channel, :subtype, :source, :text, :thread_ts, :ts, :type, :unfurl_id, :user,
         { blocks: [:type], files: [:filetype, :mimetype, :url_private], links: [:domain, :url] }
       ]
     )
