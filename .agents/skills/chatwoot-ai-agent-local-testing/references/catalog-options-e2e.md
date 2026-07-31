@@ -45,7 +45,7 @@ Use fresh conversations and stateful follow-ups. Vary wording; do not assert one
 15. Ask for additional photos of one displayed product. Verify the gallery advances past prior image positions, caps each group at three images, and reports no-more-images naturally when exhausted.
 16. Verify exact variant images when available and the representative-image notice when only another product variant supplies imagery.
 17. Disable `present_catalog_products`, verify the agent uses normal text/link responses, then restore the exact prior configuration. Verify `Channel::Api` remains text-only even when the tool is enabled.
-18. Simulate WhatsApp attachment delivery locally. Verify one normalized Chatwoot image attachment per provider message, stable sequence order, useful captions, no input-select payload, and retry idempotency without sending an external message.
+18. Simulate WhatsApp attachment delivery locally. Verify one normalized Chatwoot image attachment per provider message, stable sequence order, useful captions, no input-select payload, and retry idempotency without sending an external message. Force one provider failure and verify the group stops, the failed image is not counted as presented, and a retry resumes in order without duplicating delivered images.
 
 DeepSeek Flash and other smaller models may vary in prose. Judge structural contracts, persisted state, tool grounding, and recovery boundaries; record non-contractual wording problems separately instead of weakening hard safety or idempotency checks.
 

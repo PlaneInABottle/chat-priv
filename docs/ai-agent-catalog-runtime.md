@@ -22,9 +22,9 @@ This document describes the current production contract. Historical `*.plan.md` 
 
 ## Catalog flow
 
-1. The model receives only enabled tools that still fit the turn budget.
+1. The model receives only configured tools that pass current account/runtime availability and channel capability checks, and still fit the turn budget.
 2. `ikas_catalog_search` accepts one query or an ordered `queries` batch. The orchestrator caps total catalog query units per customer turn and records truncation telemetry when only a prefix fits.
-3. The full sanitized tool event is persisted for admin debugging. `LlmToolResultPresenter` separately supplies a compact result to the next model call: up to eight candidates for a single result and four per child of a batch, with only customer-useful candidate fields.
+3. The full sanitized tool event is persisted for admin debugging. `LlmToolResultPresenter` separately supplies a compact result to the next model call: up to eight candidates for a single result and four per child of a batch, with only customer-useful candidate fields. Compact stock data retains `in_stock`, `sellable`, and `quantity`.
 4. The model writes the customer answer in natural language. It may reason, compare, and recommend; catalog prose is not authorized or rejected through semantic regular expressions.
 5. Concrete catalog fields should come from tool output by prompt contract. Customer-visible HTTP links are structurally restricted to URLs returned by tools. Structured catalog options accept only identifiers returned by the latest successful catalog event.
 6. `LiveProcessor` persists at most one public AgentBot response for the triggering incoming message.
@@ -38,9 +38,9 @@ The tool is available only after catalog sync has stored canonical image metadat
 - `products`: one main image for each of one to three distinct products.
 - `product_gallery`: up to three ordered images for one exact product.
 
-The presentation is display-only and has no option values or selection callback. A customer sees every image in the group without choosing images one at a time. When the customer asks for more, `continue_previous: true` excludes already presented products or images by stable internal identity, so a partial media failure cannot make a later gallery repeat an image that was already delivered. A fresh catalog search is still required in that turn.
+The presentation is display-only and has no option values or selection callback. A customer sees every image in the group without choosing images one at a time. When the customer asks for more, `continue_previous: true` excludes only delivered products or images by stable internal identity. A failed provider delivery remains eligible for a later continuation, while a successfully delivered image is not repeated. A fresh catalog search is still required in that turn.
 
-Live delivery never sends the ikas CDN URL directly to the customer. The server fetches from the strict HTTPS `cdn.myikas.com` origin, validates type/size/dimensions, strips metadata, converts to JPEG, and persists a normal Chatwoot attachment. Each image is one outgoing message because the WhatsApp providers send one attachment per message. The group job delivers those messages in sequence and relies on the existing provider `source_id` check for retry idempotency.
+Live delivery never sends the ikas CDN URL directly to the customer. The server fetches from the strict HTTPS `cdn.myikas.com` origin, validates type/size/dimensions, strips metadata, converts to JPEG, and persists a normal Chatwoot attachment. Each image is one outgoing message because the WhatsApp providers send one attachment per message. A presentation-scoped mutex serializes duplicate group jobs. Each successful message receives an explicit delivery marker; provider failures stop the group and remain visible to the bounded queue retry.
 
 Variant images are preferred. A product-level representative image is marked in presentation metadata and customer copy must not claim it is the exact variant or color. Fixed price and representative-image labels use the detected conversation/customer language, then the account locale as a fallback. Image groups are compacted to one logical assistant history entry so later phrases such as “the second one” or “show more” retain context without consuming three history slots.
 
@@ -73,12 +73,12 @@ The terminal message uses:
 
 General conversational choices may use model-provided labels. Product, category, color, size, and variant choices must be resolved from catalog identifiers by `PresentOptionsService`; only the returned label and an opaque UUID are exposed to the customer.
 
-A selection is valid only for the original conversation/contact and active prompt. Any later incoming customer message supersedes the prompt. A repeated widget request for the same value returns the existing incoming message, and duplicate WhatsApp deliveries do not create another message. The dashboard simulator permits only one submission. Every path rejects a conflicting second answer.
+A selection is valid only for the original conversation/contact and active prompt. Live submissions lock the conversation before the prompt so a concurrent customer message cannot race the stale-prompt check. Any later incoming customer message supersedes the prompt. A repeated widget request for the same value returns the existing incoming message, and duplicate WhatsApp deliveries do not create another message. The dashboard simulator permits only one submission. Every path rejects a conflicting second answer.
 
 ## Observability
 
-- `AiAgentToolExecution` stores tool key, sanitized arguments/result, status, duration, mode, and conversation context.
-- `AiAgentLlmCall` stores bounded request/response metadata, finish reason, step name, and retry request options.
+- `AiAgentToolExecution` stores tool key, recursively redacted arguments/result, status, duration, mode, and conversation context.
+- `AiAgentLlmCall` stores bounded, recursively redacted request/response metadata, finish reason, step name, and retry request options.
 - Live outgoing messages store the triggering message ID, option-selection metadata when present, and safe turn telemetry/source attribution.
 - Catalog image messages additionally store presentation version/ID, sequence/total, item identity, display name, image scope, and whether an attachment was actually persisted. Source CDN URLs are redacted from tool-execution logs.
 - Merchant-facing message bubbles must not expose raw tool arguments, tool events, model-provider metadata, or internal identifiers. Use the Super Admin tool-execution/LLM-call surfaces or bounded sanitized Rails/PM2 inspection for debugging.
