@@ -45,4 +45,33 @@ RSpec.describe AiKnowledgeSources::ScheduleWebsiteSyncJob do
 
     expect { described_class.perform_now }.not_to have_enqueued_job(AiKnowledgeSources::WebsiteSyncJob)
   end
+
+  it 'restores the previous state when Active Job reports that enqueueing failed' do
+    source = website_source(sync_status: 'failed', last_synced_at: nil)
+    source.update_columns(sync_error: 'Previous crawl failed') # rubocop:disable Rails/SkipsModelValidations
+    allow(AiKnowledgeSources::WebsiteSyncJob).to receive(:perform_later).with(source.id).and_return(false)
+
+    expect { described_class.perform_now }.to raise_error(described_class::EnqueueError)
+
+    expect(source.reload).to be_sync_failed
+    expect(source.sync_error).to eq('Previous crawl failed')
+  end
+
+  it 'restores the previous state when the queue adapter raises' do
+    source = website_source(sync_status: 'ready', last_synced_at: 10.days.ago)
+    allow(AiKnowledgeSources::WebsiteSyncJob).to receive(:perform_later).with(source.id).and_raise(ActiveJob::EnqueueError, 'offline')
+
+    expect { described_class.perform_now }.to raise_error(ActiveJob::EnqueueError, 'offline')
+
+    expect(source.reload).to be_sync_ready
+  end
+
+  it 'rechecks eligibility under lock before enqueueing' do
+    source = website_source(sync_status: 'ready', last_synced_at: 10.days.ago)
+    source.update_columns(sync_status: AiKnowledgeSource.sync_statuses.fetch('pending')) # rubocop:disable Rails/SkipsModelValidations
+
+    expect do
+      described_class.new.send(:enqueue_sync, source, 7.days.ago)
+    end.not_to have_enqueued_job(AiKnowledgeSources::WebsiteSyncJob)
+  end
 end

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_07_18_000000) do
+ActiveRecord::Schema[7.1].define(version: 2026_07_31_121000) do
   # These extensions should be enabled to support this database
   enable_extension "pg_stat_statements"
   enable_extension "pg_trgm"
@@ -494,6 +494,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_18_000000) do
     t.index ["account_id", "name"], name: "index_ai_knowledge_sources_on_account_id_and_name"
     t.index ["account_id", "source_type"], name: "index_ai_knowledge_sources_on_account_id_and_source_type"
     t.index ["account_id"], name: "index_ai_knowledge_sources_on_account_id"
+    t.index ["source_type", "sync_status", "last_synced_at"], name: "idx_ai_knowledge_sources_on_website_sync_schedule"
     t.check_constraint "char_length(name::text) >= 1 AND char_length(name::text) <= 120", name: "ai_knowledge_sources_name_length_check"
     t.check_constraint "source_type::text <> 'website'::text OR website_url IS NOT NULL", name: "ai_knowledge_sources_website_url_check"
     t.check_constraint "source_type::text = 'manual'::text AND char_length(content) >= 1 AND char_length(content) <= 100000 OR source_type::text = 'website'::text AND char_length(content) >= 0 AND char_length(content) <= 100000", name: "ai_knowledge_sources_content_length_check"
