@@ -16,9 +16,26 @@ RSpec.describe AiAgents::CatalogImagePreparer do
     expect(prepared).to have_attributes(content_type: 'image/jpeg')
     expect(prepared.tempfile.size).to be <= described_class::MAX_OUTPUT_BYTES
     expect(Marcel::MimeType.for(prepared.tempfile, name: prepared.filename)).to eq('image/jpeg')
+    expect(SafeFetch).to have_received(:fetch).with(
+      anything,
+      hash_including(max_redirects: 0)
+    )
   ensure
     prepared&.close!
     source&.close!
+  end
+
+  it 'rejects redirects instead of fetching from an untrusted image origin' do
+    trusted_url =
+      'https://cdn.myikas.com/images/05d8a2b7-89af-41b3-b47f-b091868cfd8c/5a9ebce4-8b06-4b92-9ed2-a8ffadb435de/1080/sample.webp'
+    redirected_url = 'https://example.com/sample.webp'
+    allow(Resolv).to receive(:getaddresses).with('cdn.myikas.com').and_return(['93.184.216.34'])
+    stub_request(:get, trusted_url).to_return(status: 302, headers: { 'Location' => redirected_url })
+    redirected_request = stub_request(:get, redirected_url)
+
+    expect { described_class.new.prepare(trusted_url) }
+      .to raise_error(AiAgents::CatalogImagePreparer::InvalidImage, /0 redirects/)
+    expect(redirected_request).not_to have_been_requested
   end
 
   it 'rejects non-Ikas and non-HTTPS image origins before fetching' do

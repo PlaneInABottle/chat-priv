@@ -30,8 +30,8 @@ RSpec.describe AiAgents::CatalogPresentationBuilder do
 
     content = build_content
 
-    expect(content).to include('Reference price: 499 TRY', 'Representative product image')
-    expect(content).not_to include('Referans fiyat', 'Temsili ürün görseli')
+    expect(content).to include('Reference price: 499 TRY')
+    expect(content).not_to include('Referans fiyat', 'Representative product image', 'Temsili ürün görseli')
   end
 
   it 'normalizes the widget browser language before falling back to the account locale' do
@@ -40,16 +40,48 @@ RSpec.describe AiAgents::CatalogPresentationBuilder do
 
     content = build_content
 
-    expect(content).to include('Referans fiyat: 499 TRY', 'Temsili ürün görseli')
-    expect(content).not_to include('Reference price', 'Representative product image')
+    expect(content).to include('Referans fiyat: 499 TRY')
+    expect(content).not_to include('Reference price', 'Representative product image', 'Temsili ürün görseli')
+  end
+
+  it 'uses a conversation language persisted after the builder was initialized' do
+    account.update!(locale: 'en')
+    builder = build_builder
+    conversation.class.find(conversation.id).update!(
+      additional_attributes: conversation.additional_attributes.merge('conversation_language' => 'tr')
+    )
+
+    content = builder.call.first.fetch(:content)
+
+    expect(content).to include('Referans fiyat: 499 TRY')
+    expect(content).not_to include('Reference price')
+  end
+
+  it 'does not describe a representative image when preparation fails' do
+    assistant_message.dig(:tool_result, :presentation, :items).first[:images] = [
+      'https://cdn.myikas.com/images/05d8a2b7-89af-41b3-b47f-b091868cfd8c/5a9ebce4-8b06-4b92-9ed2-a8ffadb435de/1080/sample.webp'
+    ]
+    media_preparer = instance_double(AiAgents::CatalogImagePreparer)
+    allow(media_preparer).to receive(:prepare).and_raise(AiAgents::CatalogImagePreparer::InvalidImage, 'unavailable')
+
+    spec = build_builder(media_preparer: media_preparer).call.first
+
+    expect(spec.fetch(:content)).not_to include('Temsili ürün görseli')
+    expect(spec.dig(:content_attributes, :ai_agent, :catalog_presentation, :image_attached)).to be(false)
+    expect(spec.fetch(:message_params)).not_to have_key(:attachments)
   end
 
   def build_content
+    build_builder.call.first.fetch(:content)
+  end
+
+  def build_builder(media_preparer: nil)
     described_class.new(
       assistant_message: assistant_message,
       ai_agent: ai_agent,
       conversation: conversation,
-      trigger_message_id: 123
-    ).call.first.fetch(:content)
+      trigger_message_id: 123,
+      media_preparer: media_preparer
+    )
   end
 end

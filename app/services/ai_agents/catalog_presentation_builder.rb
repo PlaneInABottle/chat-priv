@@ -48,18 +48,25 @@ class AiAgents::CatalogPresentationBuilder
     described_items = Set.new
     specs.each_with_index do |spec, index|
       include_details = described_items.add?(spec.dig(:item, 'item_id'))
-      spec[:content] = caption(spec.fetch(:item), introduction: index.zero? ? assistant_message['content'] : nil, include_details: include_details)
+      spec[:content] = caption(
+        spec.fetch(:item),
+        introduction: index.zero? ? assistant_message['content'] : nil,
+        include_details: include_details,
+        image_attached: spec[:prepared_image].present?
+      )
       spec[:content_attributes] = message_attributes(spec, presentation, index, specs.length)
       spec[:message_params] = message_params(spec)
     end
   end
 
-  def caption(item, introduction:, include_details:)
+  def caption(item, introduction:, include_details:, image_attached:)
     lines = [introduction.to_s.strip.presence, item.fetch('display_name')]
     return lines.compact.join("\n\n") unless include_details
 
     lines << localized_price(item['price'].to_h)
-    lines << I18n.t('ai_agents.catalog_products.representative_image', locale: locale) if item['image_scope'] == 'representative_product'
+    if image_attached && item['image_scope'] == 'representative_product'
+      lines << I18n.t('ai_agents.catalog_products.representative_image', locale: locale)
+    end
     lines << item.dig('link', 'url').to_s.presence
     lines.compact.join("\n\n")
   end
@@ -120,11 +127,15 @@ class AiAgents::CatalogPresentationBuilder
 
   def locale_candidates
     [
-      conversation&.language,
-      conversation&.additional_attributes&.dig('browser_language'),
-      conversation&.contact&.additional_attributes&.dig('language_code'),
+      current_conversation&.language,
+      current_conversation&.additional_attributes&.dig('browser_language'),
+      current_conversation&.contact&.additional_attributes&.dig('language_code'),
       ai_agent.account.locale
     ]
+  end
+
+  def current_conversation
+    @current_conversation ||= conversation&.reload
   end
 
   def normalized_locale(value)

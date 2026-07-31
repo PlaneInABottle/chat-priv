@@ -31,6 +31,7 @@ class AiAgents::CatalogImagePreparer
     SafeFetch.fetch(
       url,
       max_bytes: MAX_INPUT_BYTES,
+      max_redirects: 0,
       allowed_content_type_prefixes: [],
       allowed_content_types: ALLOWED_CONTENT_TYPES
     ) do |source|
