@@ -4,15 +4,16 @@ class AiImprovements::Usage::Summary
   WARNING_REMAINING_RATIO = 0.2
   RECENT_EVENTS_LIMIT = 20
 
-  def initialize(account:, now: Time.current, include_recent_events: false)
+  def initialize(account:, now: Time.current, include_recent_events: false, release_stale_reservations: true)
     @account = account
     @now = now
     @include_recent_events = include_recent_events
+    @release_stale_reservations = release_stale_reservations
     @period = AiAgents::Usage::Period.new(account: account, now: now)
   end
 
   def payload
-    AiImprovements::Usage::Limiter.release_stale_reservations!(account: account, now: now)
+    AiImprovements::Usage::Limiter.release_stale_reservations!(account: account, now: now) if release_stale_reservations
 
     {
       period: 'monthly',
@@ -38,7 +39,7 @@ class AiImprovements::Usage::Summary
 
   private
 
-  attr_reader :account, :now, :include_recent_events, :period
+  attr_reader :account, :now, :include_recent_events, :release_stale_reservations, :period
 
   def limit
     @limit ||= account.ai_improvement_monthly_credit_limit
