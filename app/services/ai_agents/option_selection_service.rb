@@ -21,7 +21,7 @@ class AiAgents::OptionSelectionService
   end
 
   def create_widget_response!(contact:)
-    prompt_message.with_lock do
+    with_selection_lock do
       validate_prompt!
       next existing_response if same_selection_submitted?
 
@@ -38,7 +38,7 @@ class AiAgents::OptionSelectionService
   end
 
   def record_response!(response_message)
-    prompt_message.with_lock do
+    with_selection_lock do
       validate_prompt!
       next existing_response if same_selection_submitted?
 
@@ -59,6 +59,12 @@ class AiAgents::OptionSelectionService
   private
 
   attr_reader :prompt_message, :selected_value
+
+  def with_selection_lock(&)
+    prompt_message.conversation.with_lock do
+      prompt_message.with_lock(&)
+    end
+  end
 
   def validate_prompt!
     valid = prompt_message.outgoing? && !prompt_message.private? && prompt_message.content_type == 'input_select' &&

@@ -189,6 +189,8 @@ class Whatsapp::IncomingMessageBaseService
     @message = @interactive_selection_service.record_response!(@message)
   rescue AiAgents::OptionSelectionService::AlreadySubmitted
     Rails.logger.info('[Whatsapp::IncomingMessage] Interactive selection was already submitted')
+  rescue AiAgents::OptionSelectionService::InvalidSelection => e
+    Rails.logger.warn("[Whatsapp::IncomingMessage] Interactive selection could not be recorded: #{e.class.name}")
   end
 
   def attach_contact(contact)

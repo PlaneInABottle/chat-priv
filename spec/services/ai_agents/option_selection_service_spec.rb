@@ -52,6 +52,18 @@ RSpec.describe AiAgents::OptionSelectionService do
     expect(prompt_message.reload.content_attributes['submitted_values']).to be_blank
   end
 
+  it 'locks the conversation before recording a selection' do
+    service = described_class.new(prompt_message: prompt_message, selected_value: 'sales-id')
+    allow(prompt_message).to receive(:conversation).and_return(conversation)
+
+    expect(conversation).to receive(:with_lock).ordered.and_call_original
+    expect(prompt_message).to receive(:with_lock).ordered.and_call_original
+
+    response = service.record_response!(incoming_message('locked-response'))
+
+    expect(response).to be_persisted
+  end
+
   private
 
   def incoming_message(source_id)
