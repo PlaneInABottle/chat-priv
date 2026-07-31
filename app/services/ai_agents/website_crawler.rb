@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+require 'ipaddr'
+require 'public_suffix'
+
 class AiAgents::WebsiteCrawler
   Result = Data.define(:pages, :source_urls, :knowledge_content)
 
@@ -27,6 +30,7 @@ class AiAgents::WebsiteCrawler
     candidate = "https://#{candidate}" unless candidate.match?(%r{\Ahttps?://}i)
     uri = URI.parse(candidate)
     validate_uri!(uri)
+    validate_public_host!(uri.host)
 
     uri.fragment = nil
     uri.path = '/' if uri.path.blank?
@@ -39,6 +43,23 @@ class AiAgents::WebsiteCrawler
     raise InvalidWebsite, 'Website must use HTTP or HTTPS.' unless uri.is_a?(URI::HTTP) || uri.is_a?(URI::HTTPS)
     raise InvalidWebsite, 'Website must include a host.' if uri.host.blank?
     raise InvalidWebsite, 'Website must not include credentials.' if uri.userinfo.present?
+  end
+
+  # SafeFetch already refuses to connect to private addresses, but rejecting them here turns a
+  # late, opaque fetch failure into an immediate validation error on the field the user typed into.
+  def self.validate_public_host!(host)
+    return if SafeFetch.allow_private_network?
+
+    hostname = host.to_s.downcase
+    raise InvalidWebsite, 'Website must use a public domain.' if ip_address?(hostname)
+    raise InvalidWebsite, 'Website must use a public domain.' unless PublicSuffix.valid?(hostname)
+  end
+
+  def self.ip_address?(hostname)
+    IPAddr.new(hostname)
+    true
+  rescue IPAddr::InvalidAddressError
+    false
   end
 
   def initialize(website_url)

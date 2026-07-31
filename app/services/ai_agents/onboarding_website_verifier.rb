@@ -41,7 +41,6 @@ class AiAgents::OnboardingWebsiteVerifier
     enforce_rate_limit!
     normalized_url = AiAgents::WebsiteCrawler.normalize_url(website_url)
     hostname = URI.parse(normalized_url).host.downcase
-    validate_public_domain!(hostname)
     document = fetch_homepage(normalized_url)
 
     Result.new(
@@ -82,20 +81,6 @@ class AiAgents::OnboardingWebsiteVerifier
   end
 
   private_class_method :issue_token, :verifier
-
-  def validate_public_domain!(hostname)
-    raise AiAgents::WebsiteCrawler::InvalidWebsite, 'Website must use a public domain.' if ip_address?(hostname)
-    return if PublicSuffix.valid?(hostname)
-
-    raise AiAgents::WebsiteCrawler::InvalidWebsite, 'Website must use a public domain.'
-  end
-
-  def ip_address?(hostname)
-    IPAddr.new(hostname)
-    true
-  rescue IPAddr::InvalidAddressError
-    false
-  end
 
   def fetch_homepage(url)
     html = nil
