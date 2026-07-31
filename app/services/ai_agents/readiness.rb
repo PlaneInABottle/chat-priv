@@ -19,7 +19,9 @@ class AiAgents::Readiness
   def checks
     @checks ||= [
       check('instructions', ai_agent.prompt.present?, 'Add instructions for how the assistant should respond.'),
-      check('inbox', ai_agent.agent_bot&.inboxes&.exists?, 'Connect at least one inbox.')
+      # `any?` reuses an already preloaded inboxes association; `exists?` would always hit the
+      # database and turn the assistants listing into an N+1.
+      check('inbox', ai_agent.agent_bot&.inboxes&.any? || false, 'Connect at least one inbox.')
     ]
   end
 
