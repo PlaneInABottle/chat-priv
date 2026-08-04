@@ -58,9 +58,11 @@ describe('#validateRouteAccess', () => {
   });
 
   it('redirects to login if signup is disabled', () => {
-    validateRouteAccess({ meta: { requireSignupEnabled: true } }, next, {
-      signupEnabled: 'true',
-    });
+    validateRouteAccess(
+      { name: 'auth_signup', meta: { requireSignupEnabled: true } },
+      next,
+      { signupEnabled: 'false' }
+    );
     expect(clearBrowserSessionCookies).not.toHaveBeenCalled();
     expect(next).toHaveBeenCalledWith('/app/login');
   });

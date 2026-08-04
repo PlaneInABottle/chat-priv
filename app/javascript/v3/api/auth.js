@@ -9,6 +9,7 @@ import {
   getLoginRedirectURL,
   getCredentialsFromEmail,
 } from '../helpers/AuthHelper';
+import { replaceRouteWithReload } from '../helpers/CommonHelper';
 
 export const login = async ({
   ssoAccountId,
@@ -59,7 +60,16 @@ export const register = async creds => {
       password: creds.password,
       h_captcha_client_response: creds.hCaptchaClientResponse,
     });
-    return response.data;
+    const authenticated = Boolean(
+      response.headers?.['access-token'] && response.data?.data
+    );
+    if (authenticated) {
+      setAuthCredentials(response);
+      clearLocalStorageOnLogout();
+      replaceRouteWithReload(getLoginRedirectURL({ user: response.data.data }));
+      return { authenticated: true };
+    }
+    return { ...response.data, authenticated: false };
   } catch (error) {
     throwErrorMessage(error);
   }

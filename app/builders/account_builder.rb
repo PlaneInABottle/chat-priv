@@ -36,7 +36,7 @@ class AccountBuilder
   end
 
   def validate_user
-    if User.exists?(email: @email)
+    if User.from_email(@email)
       raise UserExists.new(email: @email)
     else
       true
@@ -48,7 +48,7 @@ class AccountBuilder
       name: account_name,
       locale: account_locale,
       custom_attributes: { 'onboarding_step' => 'account_details' },
-      settings: { 'ai_agent_enabled' => true }
+      settings: { 'ai_agent_enabled' => true, 'voice_ai_enabled' => false }
     )
     Current.account = @account
   end
@@ -76,7 +76,7 @@ class AccountBuilder
   end
 
   def create_user
-    @user = User.new(email: @email,
+    @user = User.new(email: @email.try(:downcase),
                      password: user_password,
                      password_confirmation: user_password,
                      name: user_full_name)

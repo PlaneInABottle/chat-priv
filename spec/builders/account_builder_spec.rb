@@ -63,6 +63,13 @@ RSpec.describe AccountBuilder do
         expect(account).to be_ai_agent_enabled
       end
 
+      it 'explicitly disables Voice AI for the new account' do
+        _user, account = account_builder.perform
+        expect(account.settings).to include('voice_ai_enabled' => false)
+        expect(account).not_to be_voice_ai_enabled
+        expect(account.feature_enabled?('channel_voice')).to be(false)
+      end
+
       it 'uses a supplied account locale' do
         _user, account = described_class.new(
           account_name: account_name,
@@ -74,6 +81,43 @@ RSpec.describe AccountBuilder do
         ).perform
 
         expect(account.locale).to eq('tr')
+      end
+    end
+
+    context 'when auto-confirming a mixed-case email' do
+      let(:email) { 'MixedCaseUser@Example.COM' }
+
+      it 'normalizes the user before confirming without creating confirmation state', :aggregate_failures do
+        normalized_email = email.downcase
+        user = nil
+        account = nil
+
+        expect do
+          user, account = account_builder.perform
+        end.not_to have_enqueued_mail(Devise::Mailer, :confirmation_instructions)
+
+        expect(user).to be_confirmed
+        expect(user).to have_attributes(
+          email: normalized_email,
+          uid: normalized_email,
+          unconfirmed_email: nil,
+          confirmation_token: nil,
+          confirmation_sent_at: nil
+        )
+        expect(User.from_email(normalized_email)).to eq(user)
+        expect(account.settings).to include('voice_ai_enabled' => false)
+      end
+    end
+
+    context 'when a user exists with a differently cased email' do
+      let(:email) { 'ExistingUser@Example.COM' }
+
+      before do
+        create(:user, email: email.downcase)
+      end
+
+      it 'raises the handled user-exists error' do
+        expect { account_builder.perform }.to raise_error(CustomExceptions::Account::UserExists)
       end
     end
   end
