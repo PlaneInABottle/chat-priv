@@ -36,7 +36,7 @@ class AccountBuilder
   end
 
   def validate_user
-    if User.exists?(email: @email)
+    if User.from_email(@email)
       raise UserExists.new(email: @email)
     else
       true
