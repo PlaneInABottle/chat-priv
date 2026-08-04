@@ -48,7 +48,7 @@ class AccountBuilder
       name: account_name,
       locale: account_locale,
       custom_attributes: { 'onboarding_step' => 'account_details' },
-      settings: { 'ai_agent_enabled' => true }
+      settings: { 'ai_agent_enabled' => true, 'voice_ai_enabled' => false }
     )
     Current.account = @account
   end

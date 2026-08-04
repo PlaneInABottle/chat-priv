@@ -79,7 +79,9 @@ const isFormValid = computed(() => !v$.value.$invalid);
 const performRegistration = async () => {
   isSignupInProgress.value = true;
   try {
-    await register(credentials);
+    const result = await register(credentials);
+    if (result.authenticated) return;
+
     router.push({
       name: 'auth_verify_email',
       state: { email: credentials.email },

@@ -24,7 +24,9 @@ RSpec.describe 'Accounts API', type: :request do
                params: params,
                as: :json
 
-          expect(AccountBuilder).to have_received(:new).with(params.except(:password).merge(user_password: params[:password]))
+          expect(AccountBuilder).to have_received(:new).with(
+            params.except(:password).merge(user_password: params[:password], confirmed: false)
+          )
           expect(account_builder).to have_received(:perform)
           expect(response.headers.keys).not_to include('access-token', 'token-type', 'client', 'expiry', 'uid')
           expect(response.parsed_body['email']).to eq(email)
@@ -65,6 +67,78 @@ RSpec.describe 'Accounts API', type: :request do
           expect(response).to have_http_status(:forbidden)
           expect(response.body).to eq({ message: I18n.t('errors.signup.invalid_params') }.to_json)
         end
+      end
+    end
+
+    context 'when email confirmation is disabled' do
+      let(:email) { "signup-#{SecureRandom.hex(8)}@example.com" }
+      let(:params) do
+        {
+          account_name: 'Immediate Access',
+          email: email,
+          user_full_name: 'Immediate Access Owner',
+          password: 'Password1!'
+        }
+      end
+
+      it 'confirms and authenticates the user without sending confirmation mail' do
+        with_modified_env ENABLE_ACCOUNT_SIGNUP: 'true', REQUIRE_EMAIL_CONFIRMATION: 'false' do
+          expect do
+            post api_v1_accounts_url, params: params, as: :json
+          end.not_to have_enqueued_mail(Devise::Mailer, :confirmation_instructions)
+        end
+
+        user = User.find_by!(email: email)
+        account = user.accounts.first
+
+        expect(response).to have_http_status(:success)
+        expect(response.headers.keys).to include('access-token', 'token-type', 'client', 'expiry', 'uid')
+        expect(response.parsed_body.dig('data', 'account_id')).to eq(account.id)
+        expect(user).to be_confirmed
+        expect(account).to be_ai_agent_enabled
+        expect(account).not_to be_voice_ai_enabled
+      end
+    end
+
+    context 'when email confirmation is required' do
+      let(:email) { "signup-#{SecureRandom.hex(8)}@example.com" }
+
+      it 'preserves the confirmation-mail and verify-email response' do
+        with_modified_env ENABLE_ACCOUNT_SIGNUP: 'true', REQUIRE_EMAIL_CONFIRMATION: 'true' do
+          expect do
+            post api_v1_accounts_url,
+                 params: {
+                   account_name: 'Confirmation Required',
+                   email: email,
+                   user_full_name: 'Confirmation Required Owner',
+                   password: 'Password1!'
+                 },
+                 as: :json
+          end.to have_enqueued_mail(Devise::Mailer, :confirmation_instructions)
+        end
+
+        expect(response).to have_http_status(:success)
+        expect(response.headers.keys).not_to include('access-token', 'token-type', 'client', 'expiry', 'uid')
+        expect(response.parsed_body).to eq('email' => email)
+        expect(User.find_by!(email: email)).not_to be_confirmed
+      end
+
+      it 'defaults to requiring confirmation when the setting is absent' do
+        with_modified_env ENABLE_ACCOUNT_SIGNUP: 'true', REQUIRE_EMAIL_CONFIRMATION: nil do
+          post api_v1_accounts_url,
+               params: {
+                 account_name: 'Safe Default',
+                 email: email,
+                 user_full_name: 'Safe Default Owner',
+                 password: 'Password1!'
+               },
+               as: :json
+        end
+
+        expect(response).to have_http_status(:success)
+        expect(response.headers.keys).not_to include('access-token', 'token-type', 'client', 'expiry', 'uid')
+        expect(response.parsed_body).to eq('email' => email)
+        expect(User.find_by!(email: email)).not_to be_confirmed
       end
     end
 
