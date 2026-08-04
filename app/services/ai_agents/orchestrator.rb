@@ -45,7 +45,7 @@ module AiAgents
     MAX_TOOL_ITERATIONS = 4
     MAX_TOOL_CALLS_PER_RESPONSE = 4
     MAX_UNKNOWN_TOOL_CORRECTION_ATTEMPTS = 1
-    INCOMPLETE_FINAL_RETRY_MAX_TOKENS = 4_096
+    INCOMPLETE_RETRY_MAX_TOKENS = 4_096
     MAX_CATALOG_SEARCH_QUERY_UNITS = 3
     MAX_KNOWLEDGE_SEARCH_CALLS = 2
     MAX_ORDER_LOOKUP_CALLS = 1
@@ -201,7 +201,7 @@ module AiAgents
       end
     end
 
-    def perform_llm_call(step:, request_messages:, tools: llm_tools, incomplete_retry_max_tokens: nil)
+    def perform_llm_call(step:, request_messages:, tools: llm_tools, incomplete_retry_max_tokens: INCOMPLETE_RETRY_MAX_TOKENS)
       started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       response = adapter.perform(
         messages: request_messages,
@@ -366,7 +366,7 @@ module AiAgents
         step: 'tool_final',
         request_messages: [*request_messages, { role: 'system', content: instruction }],
         tools: [],
-        incomplete_retry_max_tokens: INCOMPLETE_FINAL_RETRY_MAX_TOKENS
+        incomplete_retry_max_tokens: INCOMPLETE_RETRY_MAX_TOKENS
       )
       if response[:incomplete_response]
         return incomplete_final_answer_result(tool_events)
@@ -419,8 +419,10 @@ module AiAgents
         step: 'customer_facing_finalizer',
         request_messages: finalizer_messages,
         tools: [],
-        incomplete_retry_max_tokens: INCOMPLETE_FINAL_RETRY_MAX_TOKENS
+        incomplete_retry_max_tokens: INCOMPLETE_RETRY_MAX_TOKENS
       )
+      return if response[:incomplete_response]
+
       answer = response[:assistant_text].to_s.strip.presence
       return answer if answer && safe_customer_facing_answer?(answer)
 
@@ -431,7 +433,7 @@ module AiAgents
           { role: 'system', content: CUSTOMER_FACING_FINALIZER_RETRY_PROMPT }
         ],
         tools: [],
-        incomplete_retry_max_tokens: INCOMPLETE_FINAL_RETRY_MAX_TOKENS
+        incomplete_retry_max_tokens: INCOMPLETE_RETRY_MAX_TOKENS
       )
       retry_answer = retry_response[:assistant_text].to_s.strip.presence
       return retry_answer if retry_answer && safe_customer_facing_answer?(retry_answer)

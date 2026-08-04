@@ -3,7 +3,7 @@
 class AiAgents::LlmAdapters::OpenAiCompatibleAdapter < AiAgents::LlmAdapters::BaseAdapter
   class RequestFailed < StandardError; end
 
-  DEFAULT_COMPLETION_TOKEN_LIMIT = 1_024
+  DEFAULT_COMPLETION_TOKEN_LIMIT = 2_048
   MAX_COMPLETION_TOKEN_LIMIT = 4_096
 
   def perform(messages:, tools:, tool_choice: 'auto', max_tokens: nil)
