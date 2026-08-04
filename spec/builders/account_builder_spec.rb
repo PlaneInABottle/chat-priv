@@ -63,6 +63,13 @@ RSpec.describe AccountBuilder do
         expect(account).to be_ai_agent_enabled
       end
 
+      it 'explicitly disables Voice AI for the new account' do
+        _user, account = account_builder.perform
+        expect(account.settings).to include('voice_ai_enabled' => false)
+        expect(account).not_to be_voice_ai_enabled
+        expect(account.feature_enabled?('channel_voice')).to be(false)
+      end
+
       it 'uses a supplied account locale' do
         _user, account = described_class.new(
           account_name: account_name,
