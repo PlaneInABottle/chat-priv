@@ -108,5 +108,17 @@ RSpec.describe AccountBuilder do
         expect(account.settings).to include('voice_ai_enabled' => false)
       end
     end
+
+    context 'when a user exists with a differently cased email' do
+      let(:email) { 'ExistingUser@Example.COM' }
+
+      before do
+        create(:user, email: email.downcase)
+      end
+
+      it 'raises the handled user-exists error' do
+        expect { account_builder.perform }.to raise_error(CustomExceptions::Account::UserExists)
+      end
+    end
   end
 end
