@@ -76,7 +76,7 @@ class AccountBuilder
   end
 
   def create_user
-    @user = User.new(email: @email,
+    @user = User.new(email: @email.try(:downcase),
                      password: user_password,
                      password_confirmation: user_password,
                      name: user_full_name)
