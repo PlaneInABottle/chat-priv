@@ -20,6 +20,12 @@ This document describes the current production contract. Historical `*.plan.md` 
 | `AiAgents::OptionSelectionService` | Validates live widget/WhatsApp selections, rejects stale or conflicting submissions, and preserves idempotency. |
 | `AiAgentTestConversation` | Implements the equivalent persisted selection contract for the dashboard simulator. |
 
+## Model checkpoint
+
+The account default and Super Admin allowlist pin `deepseek/deepseek-v4-flash-0731`. OpenRouter keeps the unversioned `deepseek/deepseek-v4-flash` slug on the superseded 2026-04-23 preview, so do not use it as an implicit latest alias. Existing accounts explicitly configured with the preview must be updated to the pinned checkpoint when this change is deployed.
+
+The 0731 checkpoint may spend a substantial share of the completion allowance on reasoning for harder tool follow-ups. Normal calls therefore use a balanced 2,048-token completion budget. The first truncated response remains discarded; its single bounded retry uses up to 4,096 completion tokens so internal reasoning cannot repeatedly consume the normal allowance and force an unnecessary handoff. The hard cap remains 4,096 for cost control.
+
 ## Catalog flow
 
 1. The model receives only configured tools that pass current account/runtime availability and channel capability checks, and still fit the turn budget.
@@ -50,7 +56,7 @@ The compact model payload is not the audit record. Do not replace the persisted 
 
 - Model/tool work is bounded by iteration, calls-per-response, and per-tool budgets.
 - One unknown tool call may be returned to the model with the exact available tool names for correction. Repeated invalid calls fail closed.
-- Empty output receives one bounded retry. A `finish_reason=length` response is never exposed as a fragment; the incomplete retry may use the explicit hard-capped larger completion allowance.
+- Empty output receives one bounded retry. A `finish_reason=length` response is never exposed as a fragment; every incomplete retry uses the explicit hard-capped 4,096-token completion allowance.
 - Customer-facing finalization exists for internal tool/protocol leakage, not to enforce semantic evidence rules.
 - Tool results are untrusted model context. Prompt instructions embedded in catalog data do not override the system policy.
 - Provider or persistence exceptions remain visible to the queue retry path. Do not convert operational failures into a successful empty response.

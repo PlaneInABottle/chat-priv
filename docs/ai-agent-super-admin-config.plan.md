@@ -14,7 +14,7 @@ Store per-account AI configuration in `account.settings` (JSONB), expose it thro
 - [ ] AI Asistan dashboard page shows the configured model name read-only
 - [ ] AI response service reads the model from account config
 - [ ] Conversation usage counter respects the configured limit
-- [ ] Default model: `deepseek/deepseek-v4-flash`; default limit: `0` (unlimited)
+- [ ] Default model: `deepseek/deepseek-v4-flash-0731`; default limit: `0` (unlimited)
 - [ ] No new `accounts` columns; only existing JSONB `settings` is used
 - [ ] Only English i18n source files are updated
 
@@ -26,7 +26,8 @@ Store per-account AI configuration in `account.settings` (JSONB), expose it thro
 |---|---|
 | Storage | `account.settings` JSONB — not `limits`, not new columns |
 | Settings keys | `ai_agent_model` (string), `ai_agent_conversation_limit` (integer) |
-| Default model | `deepseek/deepseek-v4-flash` |
+| Default model | `deepseek/deepseek-v4-flash-0731` |
+| Model version policy | Pin the explicit `0731` checkpoint; OpenRouter's unversioned `deepseek/deepseek-v4-flash` slug remains the superseded 2026-04-23 preview, while the moving `~deepseek/deepseek-v4-flash-latest` alias is intentionally not used. |
 | Default limit | `0` meaning unlimited |
 | Model selection | Static dropdown of common OpenRouter models; not customer-editable |
 | Super admin surface | Custom Administrate field on `AccountDashboard` edit/show pages |
@@ -115,7 +116,7 @@ Store per-account AI configuration in `account.settings` (JSONB), expose it thro
     - Rationale: Virtual attribute is simpler than controller param merging and avoids accidentally wiping existing `settings` keys.
 
 4. **Default values**
-   - Model default: `deepseek/deepseek-v4-flash` via overridden getter on Account.
+   - Model default: `deepseek/deepseek-v4-flash-0731` via overridden getter on Account.
    - Limit default: `0` (unlimited) via overridden getter on Account.
    - Rationale: Zero is a conventional "unset/unlimited" sentinel for limits in this codebase; the frontend already treats `null`/`0` as unlimited in `usageDisplay`.
 
@@ -141,7 +142,7 @@ Store per-account AI configuration in `account.settings` (JSONB), expose it thro
 - [ ] Add `store_accessor :settings, :ai_agent_model, :ai_agent_conversation_limit` to `Account`.
 - [ ] Add `attr_accessor :ai_agent_settings` virtual attribute for Administrate binding.
 - [ ] Add `ai_agent_settings` getter/setter that surfaces the two store accessors as a hash.
-- [ ] Override `ai_agent_model` getter to return `'deepseek/deepseek-v4-flash'` when blank.
+- [ ] Override `ai_agent_model` getter to return `'deepseek/deepseek-v4-flash-0731'` when blank.
 - [ ] Override `ai_agent_conversation_limit` getter to return `0` when blank and cast strings to integers.
 - [ ] Add `AI_AGENT_MODELS` constant with static OpenRouter model list.
 - [ ] Write/update `spec/models/account_spec.rb` for default behavior and virtual attribute round-trip.
@@ -212,7 +213,7 @@ Store per-account AI configuration in `account.settings` (JSONB), expose it thro
 #### Acceptance Criteria
 - [ ] `GET /api/v1/accounts/:id/ai_agent` response includes `model`
 - [ ] Dashboard AI page shows the model name in a non-editable field
-- [ ] If model is not configured, the default `deepseek/deepseek-v4-flash` is shown
+- [ ] If model is not configured, the default `deepseek/deepseek-v4-flash-0731` is shown
 - [ ] API spec asserts model presence
 
 ---
@@ -284,7 +285,7 @@ Store per-account AI configuration in `account.settings` (JSONB), expose it thro
 | Existing webhook agent bots keep working | Super admin change must not regress bot delivery | Existing bot specs pass unchanged |
 | Enterprise `limits` schema is untouched | Avoids Enterprise validation breakage | Enterprise `validate_limit_keys` still only allows its 5 keys |
 | Model selection is super-admin only | Product requirement | Dashboard page has no model `<select>`; API does not accept `model` param |
-| Default model is `deepseek/deepseek-v4-flash` | Consistent baseline for all accounts | Getter returns default when settings key is absent |
+| Default model is `deepseek/deepseek-v4-flash-0731` | Consistent baseline for all accounts | Getter returns default when settings key is absent |
 | Limit of `0` means unlimited | Matches frontend expectation and avoids accidental lockout | Getter returns `0`; enforcement logic treats `0` as no-op |
 
 ---
@@ -325,7 +326,7 @@ Store per-account AI configuration in `account.settings` (JSONB), expose it thro
 | Frontend `usageDisplay` treats `0` incorrectly | LOW | MEDIUM | Verify frontend logic: `usageLimit.value` is `null`/`0`/falsy → unlimited; `0` from backend must match this |
 | Conversation limit enforcement races under concurrent jobs | MEDIUM | HIGH | Phase 4 requires atomic counting (unique index + `create_or_find_by` or `upsert`) |
 | Scope drift into building full AI response service | MEDIUM | HIGH | Keep Phase 4 scoped to counting/limit plumbing only; defer generation service to v1 rebuild plan |
-| Default model `deepseek/deepseek-v4-flash` is an external OpenRouter ID | LOW | MEDIUM | Not in `config/llm.yml` (Captain-only); AI Agent uses OpenRouter directly; document as external ID |
+| Default model `deepseek/deepseek-v4-flash-0731` is an external OpenRouter ID | LOW | MEDIUM | Not in `config/llm.yml` (Captain-only); AI Agent uses OpenRouter directly; document as external ID |
 
 ---
 
@@ -335,7 +336,7 @@ Store per-account AI configuration in `account.settings` (JSONB), expose it thro
 |---|---|---|---|---|
 | Storage location | `account.settings` | `account.limits` | `limits` has Enterprise `additionalProperties: false` validation; modifying it requires Enterprise code changes | `enterprise/app/models/enterprise/account/plan_usage_and_limits.rb:133-151` |
 | Super admin field pattern | Single custom `AccountAiAgentSettingsField` | Two separate fields or exposing all `settings` | Keeps related AI config together; follows `AccountLimitsField` precedent | `enterprise/app/fields/account_limits_field.rb` |
-| Default model | `deepseek/deepseek-v4-flash` | `openai/gpt-4o` or `anthropic/claude-3.5-sonnet` | External OpenRouter ID selected by product team; not in `config/llm.yml` because AI Agent uses OpenRouter directly, not Captain's `Llm::Models` | Product requirement |
+| Default model | `deepseek/deepseek-v4-flash-0731` | `openai/gpt-4o` or `anthropic/claude-3.5-sonnet` | External OpenRouter ID selected by product team; not in `config/llm.yml` because AI Agent uses OpenRouter directly, not Captain's `Llm::Models` | Product requirement |
 | Default limit | `0` (unlimited) | `nil` or a fixed number | `0` is unambiguous and matches existing frontend unlimited logic | `app/javascript/dashboard/routes/dashboard/settings/aiAgent/Index.vue:65-73` |
 | Customer model access | Read-only display | Editable dropdown | Product requirement: model selection is super-admin only | Requirement #6 |
 | Model list source | Static constant in field/account class | Database table or env var | Simplest viable; easy to make dynamic later if needed | YAGNI |

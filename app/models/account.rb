@@ -32,8 +32,9 @@ class Account < ApplicationRecord
   include AccountEmailRateLimitable
   include AccountSettingsSchema
 
+  DEFAULT_AI_AGENT_MODEL = 'deepseek/deepseek-v4-flash-0731'.freeze
   AI_AGENT_MODELS = [
-    'deepseek/deepseek-v4-flash',
+    DEFAULT_AI_AGENT_MODEL,
     'openai/gpt-4o',
     'openai/gpt-4o-mini',
     'anthropic/claude-3.5-sonnet',
@@ -217,7 +218,7 @@ class Account < ApplicationRecord
   end
 
   def ai_agent_model
-    super.presence || 'deepseek/deepseek-v4-flash'
+    super.presence || DEFAULT_AI_AGENT_MODEL
   end
 
   def ai_agent_conversation_limit

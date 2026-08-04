@@ -79,6 +79,27 @@ RSpec.describe AiAgents::Orchestrator do
     expect(AiAgentLlmCall.pluck(:step)).to include('customer_facing_finalizer')
   end
 
+  it 'does not start another finalizer after its bounded truncation retry' do
+    allow(adapter).to receive(:perform).and_return(
+      { assistant_text: '<tool_calls>ikas_catalog_search</tool_calls>', tool_calls: [], finish_reason: 'stop' },
+      { assistant_text: 'Partial customer answer', tool_calls: [], finish_reason: 'length' },
+      { assistant_text: 'Still partial', tool_calls: [], finish_reason: 'length' },
+      { assistant_text: 'Unexpected extra finalizer answer', tool_calls: [], finish_reason: 'stop' }
+    )
+
+    result = described_class.new(
+      ai_agent: ai_agent,
+      messages: [{ role: 'user', content: 'Hi' }],
+      mode: :test,
+      adapter: adapter
+    ).perform
+
+    expect(result[:terminal_action]).to eq('handoff')
+    expect(adapter).to have_received(:perform).exactly(3).times
+    expect(adapter).to have_received(:perform).with(hash_including(max_tokens: 4_096)).once
+    expect(AiAgentLlmCall.pluck(:step)).not_to include('customer_facing_finalizer_retry')
+  end
+
   it 'searches runtime knowledge and attributes the sources used in the final answer' do
     calls = []
     allow(adapter).to receive(:perform) do |payload|
@@ -208,7 +229,7 @@ RSpec.describe AiAgents::Orchestrator do
     expect(rejection_code).to be_nil
   end
 
-  it 'retries a catalog answer cut off by the provider output limit' do
+  it 'retries a catalog answer cut off by the provider output limit with a larger token budget' do
     ai_agent.update!(config: { 'tools' => { 'enabled' => ['ikas_catalog_search'] } })
     tool_result = {
       status: 'ok',
@@ -265,6 +286,8 @@ RSpec.describe AiAgents::Orchestrator do
     expect(AiAgentLlmCall.order(:id).last(2).map(&:finish_reason)).to eq(%w[length stop])
     expect(AiAgentLlmCall.last.step).to eq('tool_follow_up_incomplete_retry')
     expect(AiAgentLlmCall.last.request_messages.last['content']).to include('cut off by the output limit')
+    expect(AiAgentLlmCall.last.response['request_options']).to eq('max_tokens' => 4_096)
+    expect(adapter).to have_received(:perform).with(hash_including(max_tokens: 4_096)).once
   end
 
   it 'uses a larger final retry budget and hands off when it remains truncated' do

@@ -345,8 +345,13 @@ RSpec.describe Account do
   describe 'ai_agent_settings' do
     let(:account) { create(:account) }
 
-    it 'returns default model when absent' do
-      expect(account.ai_agent_model).to eq('deepseek/deepseek-v4-flash')
+    it 'returns the DeepSeek V4 Flash 0731 model when absent' do
+      expect(account.ai_agent_model).to eq('deepseek/deepseek-v4-flash-0731')
+    end
+
+    it 'offers the DeepSeek V4 Flash 0731 model instead of the superseded preview' do
+      expect(Account::AI_AGENT_MODELS).to include('deepseek/deepseek-v4-flash-0731')
+      expect(Account::AI_AGENT_MODELS).not_to include('deepseek/deepseek-v4-flash')
     end
 
     it 'returns default limit when absent' do
@@ -394,7 +399,7 @@ RSpec.describe Account do
     it 'returns ai_agent_settings as a hash' do
       expect(account.ai_agent_settings).to eq(
         enabled: false,
-        model: 'deepseek/deepseek-v4-flash',
+        model: 'deepseek/deepseek-v4-flash-0731',
         conversation_limit: 0,
         conversation_reuse_window_hours: 24,
         data_retention_days: 30

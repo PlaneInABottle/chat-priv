@@ -182,6 +182,19 @@ RSpec.describe AiAgents::LlmAdapters::OpenAiCompatibleAdapter do
     configured_adapter.perform(messages: [{ role: 'user', content: 'Return JSON' }], tools: [], tool_choice: 'auto')
   end
 
+  it 'uses a balanced 2,048-token default completion budget' do
+    response_payload = {
+      'choices' => [{ 'finish_reason' => 'stop', 'message' => { 'content' => 'Merhaba' } }]
+    }
+    allow(http).to receive(:request).and_return(http_response(response_payload))
+
+    expect(request).to receive(:body=) do |body|
+      expect(JSON.parse(body)['max_tokens']).to eq(2_048)
+    end
+
+    adapter.perform(messages: [{ role: 'user', content: 'Hi' }], tools: [])
+  end
+
   it 'applies and hard-caps a per-call completion-token override' do
     response_payload = {
       'choices' => [{ 'finish_reason' => 'stop', 'message' => { 'content' => 'Merhaba' } }]
@@ -194,7 +207,7 @@ RSpec.describe AiAgents::LlmAdapters::OpenAiCompatibleAdapter do
     adapter.perform(messages: [{ role: 'user', content: 'Hi again' }], tools: [], max_tokens: 100_000)
     adapter.perform(messages: [{ role: 'user', content: 'Default limit' }], tools: [])
 
-    expect(request_bodies.pluck('max_tokens')).to eq([4_096, 4_096, 1_024])
+    expect(request_bodies.pluck('max_tokens')).to eq([4_096, 4_096, 2_048])
   end
 
   it 'does not stringify nil assistant content for tool call messages' do
