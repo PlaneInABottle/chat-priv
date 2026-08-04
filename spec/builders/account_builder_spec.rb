@@ -83,5 +83,30 @@ RSpec.describe AccountBuilder do
         expect(account.locale).to eq('tr')
       end
     end
+
+    context 'when auto-confirming a mixed-case email' do
+      let(:email) { 'MixedCaseUser@Example.COM' }
+
+      it 'normalizes the user before confirming without creating confirmation state', :aggregate_failures do
+        normalized_email = email.downcase
+        user = nil
+        account = nil
+
+        expect do
+          user, account = account_builder.perform
+        end.not_to have_enqueued_mail(Devise::Mailer, :confirmation_instructions)
+
+        expect(user).to be_confirmed
+        expect(user).to have_attributes(
+          email: normalized_email,
+          uid: normalized_email,
+          unconfirmed_email: nil,
+          confirmation_token: nil,
+          confirmation_sent_at: nil
+        )
+        expect(User.from_email(normalized_email)).to eq(user)
+        expect(account.settings).to include('voice_ai_enabled' => false)
+      end
+    end
   end
 end

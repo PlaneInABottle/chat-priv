@@ -71,7 +71,8 @@ RSpec.describe 'Accounts API', type: :request do
     end
 
     context 'when email confirmation is disabled' do
-      let(:email) { "signup-#{SecureRandom.hex(8)}@example.com" }
+      let(:email) { "Signup-#{SecureRandom.hex(8)}@Example.COM" }
+      let(:normalized_email) { email.downcase }
       let(:params) do
         {
           account_name: 'Immediate Access',
@@ -81,21 +82,30 @@ RSpec.describe 'Accounts API', type: :request do
         }
       end
 
-      it 'confirms and authenticates the user without sending confirmation mail' do
+      it 'confirms and authenticates the user without sending confirmation mail', :aggregate_failures do
         with_modified_env ENABLE_ACCOUNT_SIGNUP: 'true', REQUIRE_EMAIL_CONFIRMATION: 'false' do
           expect do
             post api_v1_accounts_url, params: params, as: :json
           end.not_to have_enqueued_mail(Devise::Mailer, :confirmation_instructions)
         end
 
-        user = User.find_by!(email: email)
+        user = User.find_by!(email: normalized_email)
         account = user.accounts.first
 
         expect(response).to have_http_status(:success)
         expect(response.headers.keys).to include('access-token', 'token-type', 'client', 'expiry', 'uid')
         expect(response.parsed_body.dig('data', 'account_id')).to eq(account.id)
         expect(user).to be_confirmed
+        expect(user).to have_attributes(
+          email: normalized_email,
+          uid: normalized_email,
+          unconfirmed_email: nil,
+          confirmation_token: nil,
+          confirmation_sent_at: nil
+        )
+        expect(User.from_email(normalized_email)).to eq(user)
         expect(account).to be_ai_agent_enabled
+        expect(account.settings).to include('voice_ai_enabled' => false)
         expect(account).not_to be_voice_ai_enabled
       end
     end
