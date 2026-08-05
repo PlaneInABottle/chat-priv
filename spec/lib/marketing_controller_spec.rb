@@ -2,7 +2,7 @@ require 'rails_helper'
 
 RSpec.describe MarketingController do
   contract_files = {
-    'app/javascript/entrypoints/marketing.scss' => 'b081e46aad1f1332f8f45309b4eba2870600f5c63280636b693c8c2dbd2594b4',
+    'app/javascript/entrypoints/marketing.scss' => '3273ac0abf2effc676dc571fc383130a2c8da524a82cb41ca565f4a2613a29d9',
     'public/marketing/assets/pexels-6046230-black-sweater-crop.jpg' =>
       '24bd0bd3e4a67f22e3ab1a7baefea24076e9846986f0bc1da545e0aac47d9fe0',
     'public/marketing/assets/ikas-official-wordmark.svg' =>
@@ -25,6 +25,51 @@ RSpec.describe MarketingController do
     expect(stylesheet).to include('@media (prefers-reduced-motion: reduce)')
     expect(stylesheet).to include('.control-grid article { min-height: 156px;')
     expect(stylesheet).to include('.text-link { display: none; }')
+  end
+
+  it 'keeps normal-size marketing text at WCAG AA contrast' do
+    stylesheet = Rails.root.join('app/javascript/entrypoints/marketing.scss').read
+    contrast_pairs = [
+      ['.contact-copy small', '#fefcf6'],
+      ['.demo-disclosure', '#f1eee6'],
+      ['.flow-strip span', '#fcfaf3'],
+      ['.section-index', '#f6cdbf'],
+      ['.section-copy > p:not(.section-index)', '#f6cdbf'],
+      ['.reasoning-steps small', '#fffdf7'],
+      ['.board-foot span', '#f4f2eb'],
+      ['.capability-list small', '#f0ede4'],
+      ['.fixture-label', '#edeae2'],
+      ['.catalog-query small', '#e7e9e4'],
+      ['.catalog-window-foot', '#f4f2eb'],
+      ['.device-head', '#fcfbf8'],
+      ['.phone-top small', '#fffdf7'],
+      ['.handoff-event small', '#f4f2eb']
+    ]
+    linearize = lambda do |channel|
+      value = channel / 255.0
+      value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055)**2.4
+    end
+    luminance = lambda do |hex|
+      red, green, blue = hex.delete_prefix('#').scan(/../).map { |part| linearize.call(part.to_i(16)) }
+      (0.2126 * red) + (0.7152 * green) + (0.0722 * blue)
+    end
+    contrast_ratio = lambda do |foreground, background|
+      lighter, darker = [luminance.call(foreground), luminance.call(background)].sort.reverse
+      (lighter + 0.05) / (darker + 0.05)
+    end
+
+    rules = stylesheet.scan(/(?<selectors>[^{}]+)\{(?<declarations>[^{}]+)\}/).map do |selectors, declarations|
+      [selectors.split(',').map(&:strip), declarations]
+    end
+    failures = contrast_pairs.filter_map do |selector, background|
+      rule = rules.find { |selectors, declarations| selectors.include?(selector) && declarations.match?(/color:\s*#[0-9a-f]{6}/i) }
+      foreground = rule&.last&.match(/color:\s*(#[0-9a-f]{6})/i)&.[](1)
+      ratio = contrast_ratio.call(foreground, background) if foreground
+
+      "#{selector}: #{foreground || 'missing color'} on #{background} = #{ratio&.round(4) || 'unmeasured'}" if ratio.nil? || ratio < 4.5
+    end
+
+    expect(failures).to be_empty, failures.join("\n")
   end
 
   it 'keeps English and Turkish marketing locale keys aligned' do
