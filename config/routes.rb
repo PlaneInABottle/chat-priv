@@ -14,6 +14,15 @@ Rails.application.routes.draw do
   if ActiveModel::Type::Boolean.new.cast(ENV.fetch('CW_API_ONLY_SERVER', false))
     root to: 'api#index'
   else
+    marketing_hosts = %w[kozmopath.com www.kozmopath.com]
+    marketing_hosts << 'marketing.localhost' unless Rails.env.production?
+    marketing_host = ->(request) { marketing_hosts.include?(request.host) }
+
+    constraints marketing_host do
+      get '/', to: 'marketing#home', as: :marketing_home
+      get '/sitemap.xml', to: 'marketing#sitemap', defaults: { format: :xml }, as: :marketing_sitemap
+    end
+
     root to: 'dashboard#index'
 
     get '/app', to: 'dashboard#index'

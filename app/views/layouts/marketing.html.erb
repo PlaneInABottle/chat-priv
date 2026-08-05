@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <meta name="theme-color" content="#f3efe6">
+    <meta name="robots" content="index,follow,max-image-preview:large">
+    <meta name="description" content="<%= t('marketing.meta.description') %>">
+    <meta name="kozmopath-design-contract" content="<%= MarketingController::DESIGN_CONTRACT_SHA %>">
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="tr_TR">
+    <meta property="og:site_name" content="Kozmopath">
+    <meta property="og:title" content="<%= t('marketing.meta.title') %>">
+    <meta property="og:description" content="<%= t('marketing.meta.description') %>">
+    <meta property="og:url" content="<%= MarketingController::CANONICAL_URL %>">
+    <link rel="canonical" href="<%= MarketingController::CANONICAL_URL %>">
+    <title><%= t('marketing.meta.title') %></title>
+    <%= vite_stylesheet_tag 'marketing.scss' %>
+    <script type="application/ld+json"><%= raw(json_escape(@structured_data.to_json)) %></script>
+  </head>
+  <body>
+    <%= yield %>
+  </body>
+</html>
