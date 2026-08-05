@@ -1,0 +1,328 @@
+<a class="skip-link" href="#main"><%= t('marketing.common.skip') %></a>
+
+<div class="announcement" role="note">
+  <span class="spark" aria-hidden="true">✦</span>
+  <span><strong><%= t('marketing.announcement.emphasis') %></strong> <%= t('marketing.announcement.detail') %></span>
+</div>
+
+<header class="site-header">
+  <a class="brand" href="#hero" aria-label="<%= t('marketing.common.home_label') %>">
+    <span class="brand-mark" aria-hidden="true">k</span>
+    <span>Kozmopath</span>
+  </a>
+
+  <nav class="desktop-nav" aria-label="<%= t('marketing.common.main_navigation') %>">
+    <a href="#how-it-works"><%= t('marketing.common.how_it_works') %></a>
+    <a href="#catalog-product-presentation"><%= t('marketing.common.product_flow') %></a>
+    <a href="#human-handoff"><%= t('marketing.common.human_handoff') %></a>
+    <a href="https://app.kozmopath.com/app/login"><%= t('marketing.common.login') %></a>
+    <a class="button button-small" href="#final-cta"><%= t('marketing.common.demo_info') %></a>
+  </nav>
+
+  <details class="mobile-menu">
+    <summary aria-label="<%= t('marketing.common.open_menu') %>"><span></span><span></span><span></span></summary>
+    <nav aria-label="<%= t('marketing.common.mobile_navigation') %>">
+      <a href="#how-it-works"><%= t('marketing.common.how_it_works') %></a>
+      <a href="#catalog-product-presentation"><%= t('marketing.common.product_flow') %></a>
+      <a href="#human-handoff"><%= t('marketing.common.human_handoff') %></a>
+      <a href="https://app.kozmopath.com/app/login"><%= t('marketing.common.login') %></a>
+    </nav>
+  </details>
+</header>
+
+<main id="main">
+  <section id="hero" class="hero" data-page-section aria-labelledby="hero-title">
+    <div class="ambient ambient-left" aria-hidden="true"></div>
+    <div class="ambient ambient-right" aria-hidden="true"></div>
+
+    <div class="hero-copy">
+      <p class="eyebrow"><%= t('marketing.hero.eyebrow') %></p>
+      <h1 id="hero-title"><%= t('marketing.hero.title_line_one') %><br> <%= t('marketing.hero.title_line_two') %></h1>
+      <p class="lede"><span class="lede-intro"><%= t('marketing.hero.lede_intro') %></span> <%= t('marketing.hero.lede_detail') %></p>
+      <div class="hero-actions">
+        <a class="button" href="#final-cta"><%= t('marketing.common.demo_info') %></a>
+        <a class="text-link" href="https://app.kozmopath.com/app/login"><%= t('marketing.common.existing_account_login') %> <span aria-hidden="true">↗</span></a>
+      </div>
+    </div>
+
+    <section class="product-proof hybrid-proof" data-runtime-contract="catalog_products" aria-label="<%= t('marketing.hero.proof_label') %>">
+      <div class="proof-toolbar">
+        <span class="contact-identity">
+          <span class="contact-avatar" aria-hidden="true">AY</span>
+          <span class="contact-copy"><strong class="contact-name"><%= t('marketing.demo.contact_name') %></strong><small><%= t('marketing.common.web_site') %></small></span>
+        </span>
+        <span class="connection">
+          <img src="/marketing/assets/ikas-official-wordmark.svg" alt="ikas" width="91" height="24" translate="no" fetchpriority="high">
+          <span class="connection-state"><i aria-hidden="true"></i> <%= t('marketing.common.connected') %></span>
+        </span>
+      </div>
+      <p class="demo-disclosure"><%= t('marketing.demo.disclosure') %></p>
+      <div class="conversation">
+        <div class="message customer" data-message-role="user">
+          <span class="message-author"><%= t('marketing.common.customer') %></span>
+          <p><%= t('marketing.demo.short_question') %></p>
+        </div>
+        <div class="message assistant compact" data-message-role="assistant">
+          <span class="message-author">Kozmopath</span>
+          <p><%= t('marketing.demo.product_answer') %></p>
+        </div>
+        <div class="catalog-presentation">
+          <div class="presentation-head"><strong><%= t('marketing.common.catalog_products') %></strong><span><%= t('marketing.common.one_product') %></span></div>
+          <article class="catalog-product-card">
+            <div class="product-thumb">
+              <img src="/marketing/assets/pexels-6046230-black-sweater-crop.jpg" alt="<%= t('marketing.product.thumbnail_alt') %>" width="54" height="54" loading="eager">
+            </div>
+            <div class="product-meta">
+              <strong class="product-title"><%= t('marketing.product.title') %></strong>
+              <span><%= t('marketing.product.stock_summary') %></span>
+              <span class="reference-price"><%= t('marketing.product.reference_price') %></span>
+            </div>
+          </article>
+        </div>
+      </div>
+      <div class="handoff" data-terminal-action="handoff"><span aria-hidden="true">↳</span> <%= t('marketing.hero.handoff_note') %></div>
+    </section>
+
+    <div class="flow-strip" aria-label="<%= t('marketing.hero.flow_label') %>">
+      <article><span>01</span><strong><%= t('marketing.hero.flow.connect') %></strong></article>
+      <article><span>02</span><strong><%= t('marketing.hero.flow.sync') %></strong></article>
+      <article><span>03</span><strong><%= t('marketing.hero.flow.answer') %></strong></article>
+      <article><span>04</span><strong><%= t('marketing.hero.flow.handoff') %></strong></article>
+    </div>
+  </section>
+
+  <section id="from-question-to-product" class="page-section reasoning-section" data-page-section aria-labelledby="reasoning-title">
+    <div class="section-shell split-layout">
+      <div class="section-copy sticky-copy">
+        <p class="section-index"><%= t('marketing.reasoning.index') %></p>
+        <h2 id="reasoning-title"><%= t('marketing.reasoning.title') %></h2>
+        <p><%= t('marketing.reasoning.description') %></p>
+        <div class="truth-note"><span aria-hidden="true">✓</span><strong><%= t('marketing.reasoning.truth') %></strong></div>
+      </div>
+
+      <div class="reasoning-board" aria-label="<%= t('marketing.reasoning.board_label') %>">
+        <div class="board-toolbar">
+          <span class="board-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span><%= t('marketing.reasoning.board_title') %></span>
+          <span class="board-status"><i aria-hidden="true"></i> <%= t('marketing.common.demo') %></span>
+        </div>
+        <p class="demo-disclosure"><%= t('marketing.demo.disclosure') %></p>
+        <ol class="reasoning-steps">
+          <li>
+            <span class="reasoning-number">01</span>
+            <div><small><%= t('marketing.reasoning.intent_label') %></small><strong><%= t('marketing.reasoning.intent') %></strong></div>
+            <span class="reasoning-state"><%= t('marketing.reasoning.natural_language') %></span>
+          </li>
+          <li>
+            <span class="reasoning-number">02</span>
+            <div><small><%= t('marketing.reasoning.search_label') %></small><strong><%= t('marketing.reasoning.search') %></strong><span class="query-tags"><i><%= t('marketing.product.black') %></i><i><%= t('marketing.product.crew_neck') %></i><i><%= t('marketing.product.in_stock') %></i></span></div>
+            <span class="reasoning-state"><%= t('marketing.reasoning.structured') %></span>
+          </li>
+          <li class="reasoning-answer">
+            <span class="reasoning-number">03</span>
+            <div><small><%= t('marketing.reasoning.answer_label') %></small><strong><%= t('marketing.reasoning.answer') %></strong></div>
+            <span class="reasoning-state"><%= t('marketing.reasoning.conversation_ready') %></span>
+          </li>
+        </ol>
+        <div class="board-foot"><span><%= t('marketing.reasoning.fields.name') %></span><span><%= t('marketing.reasoning.fields.price') %></span><span><%= t('marketing.reasoning.fields.stock') %></span><span><%= t('marketing.reasoning.fields.link') %></span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="how-it-works" class="page-section process-section" data-page-section aria-labelledby="process-title">
+    <div class="section-shell">
+      <div class="section-heading light-heading">
+        <p class="section-index"><%= t('marketing.process.index') %></p>
+        <h2 id="process-title"><%= t('marketing.process.title') %></h2>
+        <p><%= t('marketing.process.description') %></p>
+      </div>
+      <ol class="process-grid">
+        <% %w[connect sync answer handoff].each_with_index do |step, index| %>
+          <li>
+            <span class="process-number"><%= format('%02d', index + 1) %></span>
+            <div class="process-icon" aria-hidden="true"><%= %w[↗ ↻ ✦ ↳][index] %></div>
+            <h3><%= t("marketing.process.steps.#{step}.title") %></h3>
+            <p><%= t("marketing.process.steps.#{step}.description") %></p>
+            <span class="process-tag"><%= t("marketing.process.steps.#{step}.tag") %></span>
+          </li>
+        <% end %>
+      </ol>
+      <p class="process-boundary"><%= t('marketing.process.boundary') %></p>
+    </div>
+  </section>
+
+  <section id="catalog-product-presentation" class="page-section catalog-section" data-page-section aria-labelledby="catalog-title">
+    <div class="section-shell catalog-layout">
+      <div class="section-copy catalog-copy">
+        <p class="section-index"><%= t('marketing.catalog.index') %></p>
+        <h2 id="catalog-title"><%= t('marketing.catalog.title') %></h2>
+        <p><%= t('marketing.catalog.description') %></p>
+        <div class="capability-list" aria-label="<%= t('marketing.catalog.capability_label') %>">
+          <span><strong><%= t('marketing.catalog.capabilities.products.title') %></strong><small><%= t('marketing.catalog.capabilities.products.detail') %></small></span>
+          <span><strong><%= t('marketing.catalog.capabilities.images.title') %></strong><small><%= t('marketing.catalog.capabilities.images.detail') %></small></span>
+          <span><strong><%= t('marketing.catalog.capabilities.continue.title') %></strong><small><%= t('marketing.catalog.capabilities.continue.detail') %></small></span>
+        </div>
+      </div>
+
+      <div class="catalog-stage" aria-label="<%= t('marketing.catalog.stage_label') %>">
+        <div class="catalog-window">
+          <div class="catalog-window-head">
+            <span class="catalog-window-brand"><span class="mini-mark">k</span>Kozmopath</span>
+            <span class="fixture-label"><%= t('marketing.demo.fixture_label') %></span>
+          </div>
+          <div class="catalog-query"><small><%= t('marketing.common.customer') %></small><strong><%= t('marketing.catalog.question') %></strong></div>
+          <div class="catalog-reply"><small>Kozmopath</small><strong><%= t('marketing.demo.product_answer') %></strong></div>
+          <article class="feature-product">
+            <div class="feature-product-main">
+              <img src="/marketing/assets/pexels-6046230-black-sweater-crop.jpg" alt="<%= t('marketing.product.thumbnail_alt') %>" width="350" height="350" loading="eager">
+            </div>
+            <div class="feature-product-details">
+              <span class="stock-pill"><i aria-hidden="true"></i> <%= t('marketing.product.in_stock') %></span>
+              <h3><%= t('marketing.product.title') %></h3>
+              <p><%= t('marketing.product.controlled_summary') %></p>
+              <strong><%= t('marketing.product.reference_price') %></strong>
+            </div>
+          </article>
+          <div class="catalog-window-foot"><span>catalog_products</span><span>products · <%= t('marketing.common.one_product') %></span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="web-and-whatsapp" class="page-section channels-section" data-page-section aria-labelledby="channels-title">
+    <div class="section-shell">
+      <div class="section-heading centered-heading">
+        <p class="section-index"><%= t('marketing.channels.index') %></p>
+        <h2 id="channels-title"><%= t('marketing.channels.title') %></h2>
+        <p><%= t('marketing.channels.description') %></p>
+      </div>
+      <p class="demo-disclosure section-disclosure"><%= t('marketing.demo.disclosure') %></p>
+
+      <div class="channel-grid">
+        <article class="channel-device browser-device" data-channel="web-widget">
+          <div class="device-head">
+            <span class="channel-name"><i aria-hidden="true">●</i> <%= t('marketing.common.web_site') %></span>
+            <span><%= t('marketing.common.connected') %></span>
+          </div>
+          <div class="device-conversation">
+            <div class="channel-message customer-channel"><%= t('marketing.channels.web_question') %></div>
+            <div class="channel-message agent-channel"><%= t('marketing.channels.web_answer') %></div>
+            <div class="mini-product-row">
+              <img src="/marketing/assets/pexels-6046230-black-sweater-crop.jpg" alt="<%= t('marketing.product.small_alt') %>" width="72" height="72" loading="eager">
+              <span><strong><%= t('marketing.product.title') %></strong><small><%= t('marketing.product.stock_summary') %></small><b>1.249 TL</b></span>
+            </div>
+          </div>
+          <div class="device-input"><span><%= t('marketing.channels.message_placeholder') %></span><i aria-hidden="true">↑</i></div>
+        </article>
+
+        <article class="channel-device phone-device" data-channel="whatsapp">
+          <div class="phone-top"><span aria-hidden="true">‹</span><strong>Kozmopath</strong><small><%= t('marketing.channels.online') %></small><span aria-hidden="true">•••</span></div>
+          <div class="phone-conversation">
+            <div class="wa-message wa-customer"><%= t('marketing.channels.wa_question') %></div>
+            <div class="wa-message wa-agent"><%= t('marketing.channels.wa_answer') %></div>
+            <div class="option-stack" aria-label="<%= t('marketing.channels.options_label') %>">
+              <button type="button" disabled><%= t('marketing.product.black') %></button>
+              <button type="button" disabled><%= t('marketing.product.gray') %></button>
+              <button type="button" disabled><%= t('marketing.product.navy') %></button>
+            </div>
+          </div>
+          <div class="phone-input"><span aria-hidden="true">＋</span><i><%= t('marketing.channels.message') %></i><b aria-hidden="true">➤</b></div>
+        </article>
+      </div>
+      <p class="channel-boundary"><span aria-hidden="true">i</span> <%= t('marketing.channels.boundary') %></p>
+    </div>
+  </section>
+
+  <section id="human-handoff" class="page-section handoff-section" data-page-section aria-labelledby="handoff-title">
+    <div class="section-shell handoff-layout">
+      <div class="section-copy">
+        <p class="section-index"><%= t('marketing.handoff.index') %></p>
+        <h2 id="handoff-title"><%= t('marketing.handoff.title') %></h2>
+        <p><%= t('marketing.handoff.description') %></p>
+        <ul class="handoff-points">
+          <li><span aria-hidden="true">✓</span> <%= t('marketing.handoff.points.open') %></li>
+          <li><span aria-hidden="true">✓</span> <%= t('marketing.handoff.points.customer_message') %></li>
+          <li><span aria-hidden="true">✓</span> <%= t('marketing.handoff.points.private_note') %></li>
+        </ul>
+      </div>
+
+      <div class="handoff-board" data-terminal-action="handoff" aria-label="<%= t('marketing.handoff.board_label') %>">
+        <div class="handoff-board-head">
+          <span class="contact-identity">
+            <span class="contact-avatar" aria-hidden="true">AY</span>
+            <span class="contact-copy"><strong class="contact-name"><%= t('marketing.demo.contact_name') %></strong><small><%= t('marketing.handoff.contact_context') %></small></span>
+          </span>
+          <span class="open-state"><i aria-hidden="true"></i> <%= t('marketing.handoff.open_state') %></span>
+        </div>
+        <p class="demo-disclosure"><%= t('marketing.demo.disclosure') %></p>
+        <div class="handoff-timeline">
+          <div class="timeline-message">
+            <small>Kozmopath</small>
+            <p><%= t('marketing.handoff.transfer_message') %></p>
+          </div>
+          <div class="handoff-event"><span aria-hidden="true">↳</span><strong><%= t('marketing.handoff.event') %></strong><small><%= t('marketing.handoff.waiting') %></small></div>
+          <aside class="private-note">
+            <span class="private-label"><i aria-hidden="true">◉</i> <%= t('marketing.handoff.private_label') %></span>
+            <p><%= t('marketing.handoff.private_copy') %></p>
+            <div><span><%= t('marketing.handoff.tags.product_question') %></span><span><%= t('marketing.handoff.tags.handoff') %></span></div>
+          </aside>
+        </div>
+        <div class="handoff-composer"><span><%= t('marketing.handoff.reply_placeholder') %></span><button type="button" disabled><%= t('marketing.handoff.send') %></button></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="control-and-boundaries" class="page-section controls-section" data-page-section aria-labelledby="controls-title">
+    <div class="section-shell">
+      <div class="section-heading controls-heading">
+        <p class="section-index"><%= t('marketing.controls.index') %></p>
+        <h2 id="controls-title"><%= t('marketing.controls.title') %></h2>
+        <p><%= t('marketing.controls.description') %></p>
+      </div>
+      <div class="control-grid">
+        <% %w[catalog tool_budget current_selection text_fallback].each_with_index do |control, index| %>
+          <article>
+            <span class="control-symbol" aria-hidden="true"><%= %w[⌁ ◫ ↻ ↘][index] %></span>
+            <h3><%= t("marketing.controls.items.#{control}.title") %></h3>
+            <p><%= t("marketing.controls.items.#{control}.description") %></p>
+          </article>
+        <% end %>
+      </div>
+    </div>
+  </section>
+
+  <section id="final-cta" class="page-section final-cta" data-page-section aria-labelledby="final-title">
+    <div class="final-orb final-orb-one" aria-hidden="true"></div>
+    <div class="final-orb final-orb-two" aria-hidden="true"></div>
+    <div class="section-shell final-inner">
+      <p class="section-index">Kozmopath × İkas</p>
+      <h2 id="final-title"><%= t('marketing.final.title') %></h2>
+      <div class="final-proof-list" aria-label="<%= t('marketing.final.proof_label') %>">
+        <span><%= t('marketing.final.proofs.catalog') %></span>
+        <span><%= t('marketing.final.proofs.channels') %></span>
+        <span><%= t('marketing.final.proofs.handoff') %></span>
+      </div>
+      <div class="final-actions">
+        <span class="demo-availability" aria-disabled="true"><%= t('marketing.final.demo_unavailable') %></span>
+        <a class="final-login" href="https://app.kozmopath.com/app/login"><%= t('marketing.common.existing_account_login') %> <span aria-hidden="true">↗</span></a>
+      </div>
+      <p class="demo-availability-note"><%= t('marketing.final.demo_note') %></p>
+    </div>
+  </section>
+
+  <footer id="footer" class="site-footer" data-page-section>
+    <div class="footer-inner">
+      <a class="brand footer-brand" href="#hero" aria-label="<%= t('marketing.common.back_home_label') %>">
+        <span class="brand-mark" aria-hidden="true">k</span>
+        <span>Kozmopath</span>
+      </a>
+      <nav aria-label="<%= t('marketing.common.footer_navigation') %>">
+        <a href="#how-it-works"><%= t('marketing.common.how_it_works') %></a>
+        <a href="#catalog-product-presentation"><%= t('marketing.common.product_flow') %></a>
+        <a href="#human-handoff"><%= t('marketing.common.human_handoff') %></a>
+        <a href="https://app.kozmopath.com/app/login"><%= t('marketing.common.login') %></a>
+      </nav>
+      <p><%= t('marketing.footer.note') %></p>
+    </div>
+  </footer>
+</main>
