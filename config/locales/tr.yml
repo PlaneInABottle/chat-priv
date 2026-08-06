@@ -438,3 +438,184 @@ tr:
       subject: '%{custom_domain} kurulumunu tamamlayın'
     ssl_status:
       custom_domain_not_configured: 'Özel alan adı yapılandırılmamış'
+  marketing:
+    meta:
+      title: "Kozmopath — İkas mağazanı bilen müşteri iletişimi"
+      description: "ikas ürün kataloğunu bağla; web sitesi ve WhatsApp'ta ürün sorularını katalog bağlamıyla yanıtla, gerektiğinde ekibine devret."
+    common:
+      skip: "İçeriğe geç"
+      home_label: "Kozmopath ana sayfa"
+      back_home_label: "Kozmopath ana sayfaya dön"
+      main_navigation: "Ana navigasyon"
+      mobile_navigation: "Mobil navigasyon"
+      footer_navigation: "Alt navigasyon"
+      open_menu: "Menüyü aç"
+      how_it_works: "Nasıl çalışır?"
+      product_flow: "Ürün akışı"
+      human_handoff: "İnsan devri"
+      login: "Giriş yap"
+      demo_info: "Demo bilgisi"
+      existing_account_login: "Mevcut hesabına giriş yap"
+      web_site: "Web sitesi"
+      connected: "Bağlı"
+      customer: "Müşteri"
+      catalog_products: "Katalog ürünleri"
+      one_product: "1 ürün"
+      demo: "Demo"
+    announcement:
+      emphasis: "İkas mağazaları için"
+      detail: "katalog bağlamlı yapay zekâ desteği"
+    hero:
+      eyebrow: "Katalog bağlamlı müşteri iletişimi"
+      title_line_one: "Mağazanı bilen yapay zekâ,"
+      title_line_two: "müşterine doğru cevabı verir."
+      lede_intro: "İkas mağazanı bağla, kataloğunu senkronize et."
+      lede_detail: "Kozmopath ürün sorularını katalog bağlamıyla yanıtlar; gerektiğinde ekibin devralır."
+      proof_label: "Kozmopath katalog ürünleri demo akışı"
+      handoff_note: "Gerektiğinde konuşma ekibe devredilir"
+      flow_label: "Kozmopath çalışma akışı"
+      flow:
+        connect: "İkas’ı bağla"
+        sync: "Kataloğunu senkronize et"
+        answer: "Ürün bağlamıyla yanıtla"
+        handoff: "Gerekirse ekibe devret"
+    demo:
+      contact_name: "Ayşe Yılmaz"
+      disclosure: "Kontrollü demo verisi · gerçek müşteri kaydı değildir"
+      fixture_label: "Kontrollü demo verisi"
+      short_question: "Siyah sweatshirt var mı?"
+      product_answer: "Evet, siyah bisiklet yaka sweatshirt seçeneğimiz stokta. Referans fiyatı 1.249 TL."
+    product:
+      thumbnail_alt: "Askıda tek başına siyah bisiklet yaka sweatshirt"
+      small_alt: "Askıda siyah bisiklet yaka sweatshirt küçük ürün görseli"
+      title: "Siyah Bisiklet Yaka Sweatshirt"
+      stock_summary: "Siyah · Stokta"
+      reference_price: "Referans fiyat: 1.249 TL"
+      controlled_summary: "Siyah · Kontrollü ürün örneği"
+      black: "Siyah"
+      gray: "Gri"
+      navy: "Lacivert"
+      crew_neck: "bisiklet yaka"
+      in_stock: "Stokta"
+    reasoning:
+      index: "01 · Katalog bağlamı"
+      title: "Bir ürün sorusu, arama kutusundan fazlasıdır."
+      description: "Kozmopath müşterinin doğal dilini yapılandırılmış katalog adaylarıyla buluşturur. Yanıtı doğal kurar; ürün adı, stok ve bağlantı gibi somut alanları katalog sonucundan alır."
+      truth: "Ürün gerçeği katalogdan, anlatım konuşmanın bağlamından gelir."
+      board_label: "Müşteri sorusundan katalog yanıtına örnek akış"
+      board_title: "Örnek katalog akışı"
+      intent_label: "Müşteri niyeti"
+      intent: "“Siyah, bisiklet yaka ve stokta bir sweatshirt arıyorum.”"
+      natural_language: "Doğal dil"
+      search_label: "Katalog araması"
+      search: "Uygun ürün adayları ve stok bilgisi"
+      structured: "Yapılandırılmış"
+      answer_label: "Kozmopath yanıtı"
+      answer: "“Siyah bisiklet yaka sweatshirt seçeneğimiz stokta.”"
+      conversation_ready: "Konuşmaya uygun"
+      fields:
+        name: "İsim"
+        price: "Fiyat"
+        stock: "Stok"
+        link: "Ürün bağlantısı"
+    process:
+      index: "02 · Nasıl çalışır?"
+      title: "Mağazadan yanıta dört net adım."
+      description: "İkas bağlantısından katalog yanıtına ve insan devrine uzanan çalışma modeli dört net adımdan oluşur."
+      boundary: "Kullanılabilir araçlar hesap ayarına, katalog hazırlığına ve kanal desteğine göre çalışır."
+      steps:
+        connect:
+          title: "İkas’ı bağla"
+          description: "Mağaza bağlantısını kur ve Kozmopath’ın kullanacağı katalog kaynağını tanımla."
+          tag: "Bağlantı"
+        sync:
+          title: "Kataloğu hazırla"
+          description: "Görsel ve ürün bilgisi içeren katalog senkronizasyonunun tamamlanmasını bekle."
+          tag: "Senkronizasyon"
+        answer:
+          title: "Bağlamla yanıtla"
+          description: "Ürün sorularını katalog adaylarıyla değerlendir; karşılaştır ve doğal dille yanıtla."
+          tag: "Katalog araması"
+        handoff:
+          title: "Ekibe devret"
+          description: "İnsan kararı gerektiğinde konuşmayı müşteri mesajı ve özel notla ekibe aç."
+          tag: "İnsan devri"
+    catalog:
+      index: "03 · Ürün sunumu"
+      title: "Ürünü yalnız tarif etmez, gösterir."
+      description: "Uygun katalog hazır olduğunda müşteri, konuşmanın içinde ürün kartlarını veya tek ürünün görsel galerisini görebilir."
+      capability_label: "Doğrulanmış katalog sunumu sınırları"
+      stage_label: "Sentetik katalog ürün sunumu"
+      question: "“Siyah sweatshirtü gösterebilir misin?”"
+      capabilities:
+        products:
+          title: "1–3 ürün"
+          detail: "Bir yanıtta farklı ürünler"
+        images:
+          title: "3 görsele kadar"
+          detail: "Tek ürün galerisi"
+        continue:
+          title: "Devamını göster"
+          detail: "Başarıyla sunulanı tekrarlamadan"
+    channels:
+      index: "04 · Desteklenen kanallar"
+      title: "Aynı katalog bağlamı, müşterinin olduğu kanalda."
+      description: "Görselli ürün sunumu ve katalogdan doğrulanan seçimler web sitesi ile WhatsApp konuşmalarında kullanılabilir."
+      web_question: "Siyah olanı gösterebilir misin?"
+      web_answer: "Evet, siyah bisiklet yaka sweatshirt stokta."
+      message_placeholder: "Mesajınızı yazın…"
+      online: "çevrimiçi"
+      wa_question: "Hangi renkler var?"
+      wa_answer: "Siyah, gri ve lacivert renk seçenekleri mevcut."
+      options_label: "Katalogdan çözümlenmiş ürün seçenekleri"
+      message: "Mesaj"
+      boundary: "API kanalı metin yanıtı olarak kalır; burada görselli kanal gibi gösterilmez."
+    handoff:
+      index: "05 · İnsan devri"
+      title: "Gerektiğinde yapay zekâ durur, ekip bağlamıyla devam eder."
+      description: "Devir, konuşmayı insan için açabilir; müşteriye görünür bir mesaj ve ekip için ayrı bir özel not taşıyabilir."
+      board_label: "İnsan devri sonrası konuşma durumu"
+      contact_context: "Web sitesi · Ürün sorusu"
+      open_state: "Konuşma açık"
+      transfer_message: "Bu konuda ekip arkadaşım yardımcı olacak. Konuşmayı aktarıyorum."
+      event: "Konuşma ekibe devredildi"
+      waiting: "İnsan yanıtı bekleniyor"
+      private_label: "Özel not"
+      private_copy: "Müşteri siyah sweatshirt için ürün ve stok bilgisi istiyor. Katalogda bir seçenek gösterildi; ek beden sorusu için ekip desteği gerekiyor."
+      reply_placeholder: "Yanıt yaz…"
+      send: "Gönder"
+      points:
+        open: "Konuşma insan yanıtına açılır"
+        customer_message: "Müşteriye devir mesajı gösterilebilir"
+        private_note: "Özel not müşteri içeriğinden ayrılır"
+      tags:
+        product_question: "ürün-sorusu"
+        handoff: "insan-devri"
+    controls:
+      index: "06 · Kontrol katmanı"
+      title: "Kontrol, ürün deneyiminin parçası."
+      description: "Kozmopath’ın çalışma sınırları, konuşma akışının içinde görünür ve doğrulanabilir davranışlara dayanır."
+      items:
+        catalog:
+          title: "Katalog bağlamı"
+          description: "Somut ürün alanları ve müşteri bağlantıları, güncel araç sonucundaki doğrulanmış adaylarla sınırlıdır."
+        tool_budget:
+          title: "Sınırlı araç bütçesi"
+          description: "Model ve araç adımları, müşteri turu başına tanımlı çağrı ve iterasyon sınırlarıyla çalışır."
+        current_selection:
+          title: "Güncel seçim"
+          description: "Eski veya çakışan seçenek gönderimleri reddedilir; yeni müşteri mesajı önceki seçimi geçersiz kılabilir."
+        text_fallback:
+          title: "Görsel yoksa metin"
+          description: "Katalog görseli hazırlanamazsa akış, doğrulanmış ürün metni veya bağlantısına geri dönebilir."
+    final:
+      title: "Ürün sorusunu, katalog bağlamlı bir konuşmaya dönüştür."
+      proof_label: "Kozmopath ürün özeti"
+      proofs:
+        catalog: "Katalog bağlamlı yanıt"
+        channels: "Web sitesi ve WhatsApp ürün sunumu"
+        handoff: "Gerektiğinde insan devri"
+      demo_unavailable: "Demo bağlantısı yakında"
+      demo_note: "Demo talebi için gerçek satış bağlantısı ve sorumlusu henüz tanımlanmadı."
+    footer:
+      note: "Kontrollü demo verileriyle hazırlanmış tasarım çalışmasıdır."

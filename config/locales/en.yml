@@ -671,3 +671,184 @@ en:
       no_subscriptions_to_test: 'Select at least one subscription to test.'
       no_subscriptions_to_delete: 'Select at least one subscription to delete.'
       subscriptions_deleted: "Deleted %{count} subscription(s). The user's device(s) will re-register on next app launch."
+  marketing:
+    meta:
+      title: "Kozmopath — Customer communication that knows your ikas store"
+      description: "Connect your ikas product catalog to answer product questions with catalog context on your website and WhatsApp, with human handoff when needed."
+    common:
+      skip: "Skip to content"
+      home_label: "Kozmopath home"
+      back_home_label: "Back to Kozmopath home"
+      main_navigation: "Main navigation"
+      mobile_navigation: "Mobile navigation"
+      footer_navigation: "Footer navigation"
+      open_menu: "Open menu"
+      how_it_works: "How does it work?"
+      product_flow: "Product flow"
+      human_handoff: "Human handoff"
+      login: "Log in"
+      demo_info: "Demo information"
+      existing_account_login: "Log in to your existing account"
+      web_site: "Website"
+      connected: "Connected"
+      customer: "Customer"
+      catalog_products: "Catalog products"
+      one_product: "1 product"
+      demo: "Demo"
+    announcement:
+      emphasis: "For ikas stores"
+      detail: "catalog-context AI support"
+    hero:
+      eyebrow: "Catalog-context customer communication"
+      title_line_one: "AI that knows your store,"
+      title_line_two: "gives your customer the right answer."
+      lede_intro: "Connect your ikas store and synchronize your catalog."
+      lede_detail: "Kozmopath answers product questions with catalog context; your team takes over when needed."
+      proof_label: "Kozmopath catalog products demo flow"
+      handoff_note: "The conversation is handed to the team when needed"
+      flow_label: "Kozmopath workflow"
+      flow:
+        connect: "Connect ikas"
+        sync: "Synchronize your catalog"
+        answer: "Answer with product context"
+        handoff: "Hand off to the team when needed"
+    demo:
+      contact_name: "Ayşe Yılmaz"
+      disclosure: "Controlled demo data · not a real customer record"
+      fixture_label: "Controlled demo data"
+      short_question: "Do you have a black sweatshirt?"
+      product_answer: "Yes, the black crew-neck sweatshirt option is in stock. Its reference price is 1,249 TRY."
+    product:
+      thumbnail_alt: "A single black crew-neck sweatshirt on a hanger"
+      small_alt: "Small product image of a black crew-neck sweatshirt on a hanger"
+      title: "Black Crew-Neck Sweatshirt"
+      stock_summary: "Black · In stock"
+      reference_price: "Reference price: 1,249 TRY"
+      controlled_summary: "Black · Controlled product example"
+      black: "Black"
+      gray: "Gray"
+      navy: "Navy"
+      crew_neck: "crew neck"
+      in_stock: "In stock"
+    reasoning:
+      index: "01 · Catalog context"
+      title: "A product question is more than a search box."
+      description: "Kozmopath matches the customer's natural language with structured catalog candidates. It forms a natural answer while taking concrete fields such as product name, stock and link from the catalog result."
+      truth: "Product facts come from the catalog; the narration comes from the conversation context."
+      board_label: "Example flow from customer question to catalog answer"
+      board_title: "Example catalog flow"
+      intent_label: "Customer intent"
+      intent: "“I am looking for a black, crew-neck sweatshirt that is in stock.”"
+      natural_language: "Natural language"
+      search_label: "Catalog search"
+      search: "Suitable product candidates and stock information"
+      structured: "Structured"
+      answer_label: "Kozmopath answer"
+      answer: "“Our black crew-neck sweatshirt option is in stock.”"
+      conversation_ready: "Conversation ready"
+      fields:
+        name: "Name"
+        price: "Price"
+        stock: "Stock"
+        link: "Product link"
+    process:
+      index: "02 · How does it work?"
+      title: "Four clear steps from store to answer."
+      description: "The workflow from the ikas connection through a catalog answer and human handoff consists of four clear steps."
+      boundary: "Available tools operate according to account settings, catalog readiness and channel support."
+      steps:
+        connect:
+          title: "Connect ikas"
+          description: "Establish the store connection and define the catalog source Kozmopath will use."
+          tag: "Connection"
+        sync:
+          title: "Prepare the catalog"
+          description: "Wait for catalog synchronization, including product images and information, to complete."
+          tag: "Synchronization"
+        answer:
+          title: "Answer with context"
+          description: "Evaluate product questions against catalog candidates, compare them and answer in natural language."
+          tag: "Catalog search"
+        handoff:
+          title: "Hand off to the team"
+          description: "When human judgment is needed, open the conversation to the team with a customer message and private note."
+          tag: "Human handoff"
+    catalog:
+      index: "03 · Product presentation"
+      title: "It does not just describe the product; it shows it."
+      description: "When a suitable catalog is ready, the customer can see product cards or a single product's image gallery inside the conversation."
+      capability_label: "Verified catalog presentation boundaries"
+      stage_label: "Synthetic catalog product presentation"
+      question: "“Can you show me the black sweatshirt?”"
+      capabilities:
+        products:
+          title: "1–3 products"
+          detail: "Different products in one answer"
+        images:
+          title: "Up to 3 images"
+          detail: "Single-product gallery"
+        continue:
+          title: "Show more"
+          detail: "Without repeating what was presented successfully"
+    channels:
+      index: "04 · Supported channels"
+      title: "The same catalog context, in the customer's channel."
+      description: "Visual product presentation and catalog-validated selections can be used in website and WhatsApp conversations."
+      web_question: "Can you show me the black one?"
+      web_answer: "Yes, the black crew-neck sweatshirt is in stock."
+      message_placeholder: "Type your message…"
+      online: "online"
+      wa_question: "Which colors are available?"
+      wa_answer: "Black, gray and navy color options are available."
+      options_label: "Product options resolved from the catalog"
+      message: "Message"
+      boundary: "The API channel remains a text response; it is not shown here as a visual channel."
+    handoff:
+      index: "05 · Human handoff"
+      title: "When needed, AI stops and the team continues with context."
+      description: "A handoff can open the conversation for a person, carrying a customer-visible message and a separate private note for the team."
+      board_label: "Conversation state after human handoff"
+      contact_context: "Website · Product question"
+      open_state: "Conversation open"
+      transfer_message: "A teammate will help you with this. I am transferring the conversation."
+      event: "Conversation handed to the team"
+      waiting: "Waiting for a human response"
+      private_label: "Private note"
+      private_copy: "The customer wants product and stock information for a black sweatshirt. One catalog option was shown; team support is needed for the additional size question."
+      reply_placeholder: "Write a reply…"
+      send: "Send"
+      points:
+        open: "The conversation opens for a human response"
+        customer_message: "A handoff message can be shown to the customer"
+        private_note: "The private note remains separate from customer content"
+      tags:
+        product_question: "product-question"
+        handoff: "human-handoff"
+    controls:
+      index: "06 · Control layer"
+      title: "Control is part of the product experience."
+      description: "Kozmopath's operating boundaries rely on visible and verifiable behaviors inside the conversation flow."
+      items:
+        catalog:
+          title: "Catalog context"
+          description: "Concrete product fields and customer links are limited to verified candidates in the current tool result."
+        tool_budget:
+          title: "Bounded tool budget"
+          description: "Model and tool steps operate within defined call and iteration limits for each customer turn."
+        current_selection:
+          title: "Current selection"
+          description: "Stale or conflicting option submissions are rejected; a new customer message can invalidate the previous selection."
+        text_fallback:
+          title: "Text when no image"
+          description: "If a catalog image cannot be prepared, the flow can fall back to verified product text or a link."
+    final:
+      title: "Turn a product question into a catalog-context conversation."
+      proof_label: "Kozmopath product summary"
+      proofs:
+        catalog: "Catalog-context answer"
+        channels: "Website and WhatsApp product presentation"
+        handoff: "Human handoff when needed"
+      demo_unavailable: "Demo link coming soon"
+      demo_note: "A real sales link and owner for demo requests have not been defined yet."
+    footer:
+      note: "A design study prepared with controlled demo data."

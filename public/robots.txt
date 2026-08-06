@@ -2,5 +2,9 @@
 #
 
 User-agent: *
+Disallow: /app
+Disallow: /api
 Disallow: /widget
+Disallow: /super_admin
 
+Sitemap: https://www.kozmopath.com/sitemap.xml
