@@ -733,6 +733,29 @@ tr:
       capability_label: "Doğrulanmış katalog sunumu sınırları"
       stage_label: "Sentetik katalog ürün sunumu"
       question: "“Siyah sweatshirtü gösterebilir misin?”"
+      anatomy:
+        label: "Kontrollü katalog sonucunun ürün anatomisi ve sunum biçimleri"
+        controlled_product: "Kontrollü ürün örneği"
+        fields_kicker: "01 · Ürün anatomisi"
+        presentation_kicker: "02 · Sunum biçimleri"
+        result: "Doğrulanmış katalog sonucu · 1 eşleşen ürün"
+        presentation_boundary: "Sunum biçimi, hazır katalog sonucuna ve desteklenen müşteri yüzeyine göre seçilir."
+        disclosure_summary: "Görsel + alanlar + sunum sınırı"
+        fields:
+          product_id: "Ürün kimliği"
+          image_url: "Ana görsel"
+          price: "Referans fiyat"
+          product_url: "Ürün bağlantısı"
+        modes:
+          products:
+            title: "Farklı ürün"
+            detail: "Her ürün için ana görsel"
+          images:
+            title: "Tek ürün görseli"
+            detail: "Tek ürün galerisi"
+          continue:
+            title: "Devamını göster"
+            detail: "Gösterileni tekrarlamadan"
       capabilities:
         products:
           title: "1–3 ürün"
@@ -745,8 +768,9 @@ tr:
           detail: "Başarıyla sunulanı tekrarlamadan"
     channels:
       index: "04 · Desteklenen kanallar"
-      title: "Aynı katalog bağlamı, müşterinin olduğu kanalda."
-      description: "Görselli ürün sunumu ve katalogdan doğrulanan seçimler web sitesi ile WhatsApp konuşmalarında kullanılabilir."
+      title: "Web, WhatsApp ve Instagram; tek merkez, doğru kanal sınırı."
+      description: "Web sitesi, WhatsApp ve Instagram gelen kutularını bağla. Katalog görselleri ve doğrulanmış seçenekler Web sitesi ile WhatsApp’ta sunulur; Instagram mesaj akışı bağlı gelen kutusunda, API ise metin yanıtıyla çalışır."
+      proof_note: "Kanal bağlantısı ile görsel katalog yeteneği aynı şey değildir; her yüzey kendi doğrulanmış biçimini kullanır."
       web_question: "Siyah olanı gösterebilir misin?"
       web_answer: "Evet, siyah bisiklet yaka sweatshirt stokta."
       message_placeholder: "Mesajınızı yazın…"
@@ -755,12 +779,37 @@ tr:
       wa_answer: "Siyah, gri ve lacivert renk seçenekleri mevcut."
       options_label: "Katalogdan çözümlenmiş ürün seçenekleri"
       message: "Mesaj"
-      boundary: "API kanalı metin yanıtı olarak kalır; burada görselli kanal gibi gösterilmez."
+      boundary: "Zengin katalog sunumu Web sitesi ve WhatsApp ile sınırlıdır; Instagram için burada yalnızca doğrulanmış bağlantı ve mesajlaşma yeteneği anlatılır."
+      router:
+        label: "İkas katalog sonucunu kanal yeteneğine göre biçimlendiren Kozmopath yanıt yönlendiricisi"
+        source_title: "İkas katalog sinyali"
+        source_fields: "Ürün kimliği · görsel · fiyat · bağlantı"
+        core_kicker: "02 · Kozmopath yanıt yönlendirici"
+        core_title: "Tek katalog bağlamı, kanalına göre doğru biçim."
+        core_steps_label: "Katalog yanıtını hazırlama adımları"
+        rich_title: "Zengin ürün yanıtı"
+        rich_description: "Ürün görseli ve doğrulanmış seçimler yalnız desteklenen müşteri yüzeyine gider."
+        rich_detail: "Görsel ürün · seçenek"
+        steps:
+          verify: "Ürünü doğrula"
+          channel: "Kanalı tanı"
+          format: "Biçimi sınırla"
+        instagram:
+          kicker: "03B · Bağlı gelen kutusu"
+          title: "Instagram mesajı"
+          description: "Mesaj alma ve yanıtlama; burada zengin katalog kartı sözü yok."
+          state: "Bağlı"
+        api:
+          kicker: "03C · Metin yüzeyi"
+          title: "API yanıtı"
+          description: "Doğal metin; görsel ürün kartı gibi gösterilmez."
+          state: "Metin"
     handoff:
       index: "05 · İnsan devri"
       title: "Gerektiğinde yapay zekâ durur, ekip bağlamıyla devam eder."
       description: "Devir, konuşmayı insan için açabilir; müşteriye görünür bir mesaj ve ekip için ayrı bir özel not taşıyabilir."
-      board_label: "İnsan devri sonrası konuşma durumu"
+      board_label: "İnsan devri sonrası konuşma durumu ve taşınan bağlam"
+      context_label: "İnsan devrine taşınan bağlam ve sahiplik"
       contact_context: "Web sitesi · Ürün sorusu"
       open_state: "Konuşma açık"
       transfer_message: "Bu konuda ekip arkadaşım yardımcı olacak. Konuşmayı aktarıyorum."
@@ -777,10 +826,29 @@ tr:
       tags:
         product_question: "ürün-sorusu"
         handoff: "insan-devri"
+      context:
+        conversation: "Müşteri mesajı + gösterilen ürün"
+        reason: "Devir nedeni · ek beden sorusu"
+        ownership: "Sahiplik · ekip devralıyor"
+        queue: "Kuyruk · insan yanıtı bekleniyor"
+      continuity:
+        title: "Aynı konuşma açık kalır"
+        description: "Müşteriye görünür devir mesajı ile ekip içindeki özel not ayrıdır; insan yanıtı taşınan konuşma bağlamıyla sürer."
     controls:
       index: "06 · Kontrol katmanı"
       title: "Kontrol, ürün deneyiminin parçası."
       description: "Kozmopath’ın çalışma sınırları, konuşma akışının içinde görünür ve doğrulanabilir davranışlara dayanır."
+      console:
+        live_path: "Canlı yanıt yolu"
+        one_turn: "Bir müşteri turu"
+        boundaries_visible: "4 sınır görünür"
+        flow_label: "Bir müşteri turundaki kontrol adımları"
+        note: "Her sınır, müşteriye gösterilen sonuçtan önce aynı yanıt yolunda uygulanır."
+        steps:
+          question: "Soru"
+          catalog_search: "Katalog araması"
+          verification: "Doğrulama"
+          response: "Yanıt veya devir"
       items:
         catalog:
           title: "Katalog bağlamı"
