@@ -2,7 +2,7 @@ require 'rails_helper'
 
 RSpec.describe MarketingController do
   contract_files = {
-    'app/javascript/entrypoints/marketing.scss' => '3273ac0abf2effc676dc571fc383130a2c8da524a82cb41ca565f4a2613a29d9',
+    'app/javascript/entrypoints/marketing.scss' => 'f4249d2c7868bfd6d12667ec6e9431b0d277dc154abddb503ca63093e7770e1b',
     'public/marketing/assets/pexels-6046230-black-sweater-crop.jpg' =>
       '24bd0bd3e4a67f22e3ab1a7baefea24076e9846986f0bc1da545e0aac47d9fe0',
     'public/marketing/assets/ikas-official-wordmark.svg' =>
@@ -42,8 +42,12 @@ RSpec.describe MarketingController do
       ['.catalog-query small', '#e7e9e4'],
       ['.catalog-window-foot', '#f4f2eb'],
       ['.device-head', '#fcfbf8'],
+      ['.device-input', '#fcfbf8'],
       ['.phone-top small', '#fffdf7'],
-      ['.handoff-event small', '#f4f2eb']
+      ['.phone-input', '#fffdf7'],
+      ['.phone-input i', '#f0eee7', '.phone-input'],
+      ['.handoff-event small', '#f4f2eb'],
+      ['.handoff-composer', '#fffbf4']
     ]
     linearize = lambda do |channel|
       value = channel / 255.0
@@ -61,8 +65,11 @@ RSpec.describe MarketingController do
     rules = stylesheet.scan(/(?<selectors>[^{}]+)\{(?<declarations>[^{}]+)\}/).map do |selectors, declarations|
       [selectors.split(',').map(&:strip), declarations]
     end
-    failures = contrast_pairs.filter_map do |selector, background|
-      rule = rules.find { |selectors, declarations| selectors.include?(selector) && declarations.match?(/color:\s*#[0-9a-f]{6}/i) }
+    failures = contrast_pairs.filter_map do |selector, background, inherited_selector|
+      color_selectors = [selector, inherited_selector].compact
+      rule = color_selectors.filter_map do |color_selector|
+        rules.find { |selectors, declarations| selectors.include?(color_selector) && declarations.match?(/color:\s*#[0-9a-f]{6}/i) }
+      end.first
       foreground = rule&.last&.match(/color:\s*(#[0-9a-f]{6})/i)&.[](1)
       ratio = contrast_ratio.call(foreground, background) if foreground
 

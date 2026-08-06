@@ -559,7 +559,7 @@ a { color: inherit; }
 .mini-product-row strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .mini-product-row small { color: #6b7773; font-size: 10px; }
 .mini-product-row b { font-size: 11px; }
-.device-input { min-height: 62px; padding: 0 16px 0 22px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--line); color: #89928f; font-size: 11px; }
+.device-input { min-height: 62px; padding: 0 16px 0 22px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--line); color: #6a7572; font-size: 11px; }
 .device-input i { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 11px; background: var(--ink); color: white; font-size: 16px; font-style: normal; }
 .phone-device { max-width: 330px; justify-self: center; border: 8px solid var(--ink); border-radius: 38px; background: #f4f0e7; transform: rotate(1.8deg); }
 .phone-top { min-height: 68px; padding: 0 15px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; column-gap: 9px; background: #fffdf7; }
@@ -575,8 +575,8 @@ a { color: inherit; }
 .option-stack button { min-height: 38px; border: 1px solid #d5d8d1; border-radius: 9px; background: white; color: #346e59; font: inherit; font-size: 11px; font-weight: 750; }
 .option-stack button:disabled,
 .handoff-composer button:disabled { opacity: 1; cursor: default; }
-.phone-input { min-height: 58px; padding: 0 12px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 9px; background: #fffdf7; color: #89938e; }
-.phone-input i { padding: 9px 12px; border-radius: 16px; background: #f0eee7; font-size: 10px; font-style: normal; }
+.phone-input { min-height: 58px; padding: 0 12px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 9px; background: #fffdf7; color: #6b7772; }
+.phone-input i { padding: 9px 12px; border-radius: 16px; background: #f0eee7; color: #616d69; font-size: 10px; font-style: normal; }
 .phone-input b { width: 31px; height: 31px; display: grid; place-items: center; border-radius: 50%; background: #2a9c6c; color: white; font-size: 11px; }
 .channel-boundary { max-width: 620px; margin: 43px auto 0; display: flex; align-items: center; justify-content: center; gap: 10px; color: #5c6577; font-size: 12px; text-align: center; }
 .channel-boundary span { width: 23px; height: 23px; display: grid; place-items: center; flex: 0 0 auto; border: 1px solid rgba(16,33,31,.25); border-radius: 50%; font-family: Georgia, serif; font-style: italic; }
@@ -604,7 +604,7 @@ a { color: inherit; }
 .private-note p { margin: 10px 0 0; color: #4c493f; font-size: 11px; line-height: 1.5; }
 .private-note > div { margin-top: 12px; display: flex; gap: 6px; }
 .private-note > div span { padding: 5px 7px; border-radius: 7px; background: rgba(129,96,24,.08); color: #766127; font-size: 8px; font-weight: 750; }
-.handoff-composer { min-height: 64px; padding: 0 15px 0 22px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--line); color: #89928f; font-size: 11px; }
+.handoff-composer { min-height: 64px; padding: 0 15px 0 22px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--line); color: #6b7673; font-size: 11px; }
 .handoff-composer button { min-height: 38px; padding: 0 15px; border: 0; border-radius: 11px; background: var(--ink); color: white; font: inherit; font-size: 10px; font-weight: 800; }
 
 .controls-section { position: relative; padding: 128px 0; overflow: hidden; background: #faf7ef; }
