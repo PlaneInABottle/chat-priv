@@ -780,6 +780,29 @@ en:
       capability_label: "Verified catalog presentation boundaries"
       stage_label: "Synthetic catalog product presentation"
       question: "“Can you show me the black sweatshirt?”"
+      anatomy:
+        label: "Product anatomy and presentation modes for a controlled catalog result"
+        controlled_product: "Controlled product example"
+        fields_kicker: "01 · Product anatomy"
+        presentation_kicker: "02 · Presentation modes"
+        result: "Verified catalog result · 1 matching product"
+        presentation_boundary: "The presentation mode is selected according to the ready catalog result and supported customer surface."
+        disclosure_summary: "Image + fields + presentation boundary"
+        fields:
+          product_id: "Product identity"
+          image_url: "Primary image"
+          price: "Reference price"
+          product_url: "Product link"
+        modes:
+          products:
+            title: "Different products"
+            detail: "Primary image for each product"
+          images:
+            title: "Single-product images"
+            detail: "Single-product gallery"
+          continue:
+            title: "Show more"
+            detail: "Without repeating presented items"
       capabilities:
         products:
           title: "1–3 products"
@@ -792,8 +815,9 @@ en:
           detail: "Without repeating what was presented successfully"
     channels:
       index: "04 · Supported channels"
-      title: "The same catalog context, in the customer's channel."
-      description: "Visual product presentation and catalog-validated selections can be used in website and WhatsApp conversations."
+      title: "Web, WhatsApp and Instagram; one center, the right channel boundary."
+      description: "Connect website, WhatsApp and Instagram inboxes. Catalog images and verified selections are presented on the website and WhatsApp; Instagram messages use the connected inbox, while the API works with text responses."
+      proof_note: "Channel connectivity and visual catalog capability are not the same thing; each surface uses its own verified format."
       web_question: "Can you show me the black one?"
       web_answer: "Yes, the black crew-neck sweatshirt is in stock."
       message_placeholder: "Type your message…"
@@ -802,12 +826,37 @@ en:
       wa_answer: "Black, gray and navy color options are available."
       options_label: "Product options resolved from the catalog"
       message: "Message"
-      boundary: "The API channel remains a text response; it is not shown here as a visual channel."
+      boundary: "Rich catalog presentation is limited to the website and WhatsApp; Instagram is described here only through verified connectivity and messaging capability."
+      router:
+        label: "Kozmopath answer router that formats an ikas catalog result for each channel capability"
+        source_title: "ikas catalog signal"
+        source_fields: "Product identity · image · price · link"
+        core_kicker: "02 · Kozmopath answer router"
+        core_title: "One catalog context, the right format for its channel."
+        core_steps_label: "Steps for preparing a catalog answer"
+        rich_title: "Rich product answer"
+        rich_description: "Product images and verified selections go only to supported customer surfaces."
+        rich_detail: "Visual product · selection"
+        steps:
+          verify: "Verify the product"
+          channel: "Identify the channel"
+          format: "Bound the format"
+        instagram:
+          kicker: "03B · Connected inbox"
+          title: "Instagram message"
+          description: "Receive and answer messages; no rich catalog-card promise is made here."
+          state: "Connected"
+        api:
+          kicker: "03C · Text surface"
+          title: "API answer"
+          description: "Natural text; it is not presented like a visual product card."
+          state: "Text"
     handoff:
       index: "05 · Human handoff"
       title: "When needed, AI stops and the team continues with context."
       description: "A handoff can open the conversation for a person, carrying a customer-visible message and a separate private note for the team."
-      board_label: "Conversation state after human handoff"
+      board_label: "Conversation state and carried context after human handoff"
+      context_label: "Context and ownership carried into human handoff"
       contact_context: "Website · Product question"
       open_state: "Conversation open"
       transfer_message: "A teammate will help you with this. I am transferring the conversation."
@@ -824,10 +873,29 @@ en:
       tags:
         product_question: "product-question"
         handoff: "human-handoff"
+      context:
+        conversation: "Customer message + shown product"
+        reason: "Handoff reason · additional size question"
+        ownership: "Ownership · team taking over"
+        queue: "Queue · waiting for a human response"
+      continuity:
+        title: "The same conversation stays open"
+        description: "The customer-visible handoff message and the team's private note remain separate; the human response continues with the carried conversation context."
     controls:
       index: "06 · Control layer"
       title: "Control is part of the product experience."
       description: "Kozmopath's operating boundaries rely on visible and verifiable behaviors inside the conversation flow."
+      console:
+        live_path: "Live answer path"
+        one_turn: "One customer turn"
+        boundaries_visible: "4 boundaries visible"
+        flow_label: "Control steps in one customer turn"
+        note: "Every boundary is applied on the same answer path before the result is shown to the customer."
+        steps:
+          question: "Question"
+          catalog_search: "Catalog search"
+          verification: "Verification"
+          response: "Answer or handoff"
       items:
         catalog:
           title: "Catalog context"

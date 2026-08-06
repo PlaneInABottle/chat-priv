@@ -14,7 +14,7 @@ RSpec.describe 'Kozmopath marketing homepage', type: :request do
     footer
   ]
   login_url = 'https://app.kozmopath.com/app/login'
-  contract_html_sha = 'ffaf9119d2490eb64e4f3c4691ca84195c79170f06ffeb7cc44750430700e5fc'
+  contract_html_sha = '9643879c665fc4dffccbfc5e84b74ad57c7bb127b389f63865d2464c83c37d46'
 
   def document
     Nokogiri::HTML5(response.body)
@@ -33,11 +33,44 @@ RSpec.describe 'Kozmopath marketing homepage', type: :request do
       expect(document.at_css('h1').text.squish).to eq('Mağazanı bilen yapay zekâ, müşterine doğru cevabı verir.')
       expect(document.css('[data-page-section]').map { |section| section['id'] }).to eq(section_ids)
       expect(document.css('script:not([type="application/ld+json"])')).to be_empty
+      expect(response.body).not_to include('Translation missing')
     end
 
     it 'preserves the controlled product proof and its disclosure' do
       expect(document.text).to include('Siyah Bisiklet Yaka Sweatshirt')
       expect(document.text).to include('Kontrollü demo verisi · gerçek müşteri kaydı değildir')
+    end
+
+    it 'uses the authoritative wordmarks and no-badge router thumbnail' do
+      expect(document.at_css('header .brand-logo')['src']).to eq('/brand-assets/logo.svg')
+      expect(document.at_css('.router-brand-symbol')['src']).to eq('/brand-assets/logo_thumbnail.svg')
+      expect(document.at_css('footer .brand-logo')['src']).to eq('/brand-assets/logo_dark.svg')
+      expect(document.css('[src*="logo_thumbnail_badge"], .brand-mark, .mini-mark')).to be_empty
+    end
+
+    it 'renders the approved catalog anatomy, answer router, handoff dossier, and control console grammars' do
+      anatomy = document.at_css('[data-evidence-grammar="catalog-anatomy-sheet"]')
+      router = document.at_css('[data-signature-component="catalog-answer-router"]')
+      dossier = document.at_css('[data-evidence-grammar="context-handoff-dossier"]')
+
+      expect(anatomy.css('.anatomy-media, .anatomy-fields, .presentation-modes, .anatomy-disclosure').length).to eq(4)
+      expect(router.css('[data-route-node]').map { |node| node['data-route-node'] }).to eq(%w[source router rich inbox text])
+      expect(dossier.css('[data-context]').map { |node| node['data-context'] }).to include(
+        'conversation', 'reason', 'ownership', 'queue', 'status', 'continuity'
+      )
+      expect(document.at_css('.control-console')).to be_present
+      expect(document.css('.control-flow li').length).to eq(4)
+    end
+
+    it 'keeps rich catalog promises bounded to Web and WhatsApp' do
+      rich_output = document.at_css('[data-route-node="rich"]')
+      instagram = document.at_css('[data-route-node="inbox"][data-channel="instagram"]')
+      api = document.at_css('[data-route-node="text"][data-channel="api"]')
+
+      expect(rich_output.css('[data-channel]').map { |node| node['data-channel'] }).to eq(%w[web-widget whatsapp])
+      expect(instagram.text).to include('burada zengin katalog kartı sözü yok')
+      expect(api.text).to include('Doğal metin; görsel ürün kartı gibi gösterilmez')
+      expect(document.at_css('.channel-boundary').text).to include('Zengin katalog sunumu Web sitesi ve WhatsApp ile sınırlıdır')
     end
 
     it 'keeps the real login destination and exposes no dead demo destination' do
@@ -60,6 +93,7 @@ RSpec.describe 'Kozmopath marketing homepage', type: :request do
       expect(mobile_menu.at_css('summary')['aria-label']).to eq('Menüyü aç')
       expect(mobile_links.map { |link| link['href'] }).to eq(%w[#how-it-works #catalog-product-presentation #human-handoff])
       mobile_links.each { |link| expect(target_ids).to include(link['href'].delete_prefix('#')) }
+      expect(mobile_menu.at_css('summary').css('span').length).to eq(3)
     end
 
     it 'uses semantic landmarks, accessible images, and a logical heading outline' do

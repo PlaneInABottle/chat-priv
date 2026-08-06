@@ -2,11 +2,14 @@ require 'rails_helper'
 
 RSpec.describe MarketingController do
   contract_files = {
-    'app/javascript/entrypoints/marketing.scss' => 'f4249d2c7868bfd6d12667ec6e9431b0d277dc154abddb503ca63093e7770e1b',
+    'app/javascript/entrypoints/marketing.scss' => '6d4b4968bd8932e3130c9ebc11ce3a5c65e481f013542241107603b42199ef8a',
     'public/marketing/assets/pexels-6046230-black-sweater-crop.jpg' =>
       '24bd0bd3e4a67f22e3ab1a7baefea24076e9846986f0bc1da545e0aac47d9fe0',
     'public/marketing/assets/ikas-official-wordmark.svg' =>
-      '791cfbaa104fe90a9d11f57f8c7872be9b41fafd1a9a9aad0592e64fa2206ffc'
+      '791cfbaa104fe90a9d11f57f8c7872be9b41fafd1a9a9aad0592e64fa2206ffc',
+    'public/brand-assets/logo.svg' => '3542ae59bc8a922d7d51a31304d38e6bc360864ab7d8bdcf29a8d3ca7443d3af',
+    'public/brand-assets/logo_dark.svg' => '6e54b2f47d8a8329554f1261c360ea622a4e557d55569d09d86926a6427725dc',
+    'public/brand-assets/logo_thumbnail.svg' => '38a437c237431bdfc9a3e4e3cfa36c287aa2099a5cb5303b0b0985ab5a449f40'
   }
 
   it 'preserves the approved stylesheet and visual asset bytes' do
@@ -25,6 +28,8 @@ RSpec.describe MarketingController do
     expect(stylesheet).to include('@media (prefers-reduced-motion: reduce)')
     expect(stylesheet).to include('.control-grid article { min-height: 156px;')
     expect(stylesheet).to include('.text-link { display: none; }')
+    expect(stylesheet).to include('.catalog-answer-router { margin: 0; grid-template-columns: 1fr;')
+    expect(stylesheet).to include('.handoff-dossier-field { grid-template-columns: 1fr;')
   end
 
   it 'keeps normal-size marketing text at WCAG AA contrast' do
@@ -37,17 +42,20 @@ RSpec.describe MarketingController do
       ['.section-copy > p:not(.section-index)', '#f6cdbf'],
       ['.reasoning-steps small', '#fffdf7'],
       ['.board-foot span', '#f4f2eb'],
-      ['.capability-list small', '#f0ede4'],
-      ['.fixture-label', '#edeae2'],
-      ['.catalog-query small', '#e7e9e4'],
-      ['.catalog-window-foot', '#f4f2eb'],
-      ['.device-head', '#fcfbf8'],
-      ['.device-input', '#fcfbf8'],
-      ['.phone-top small', '#fffdf7'],
-      ['.phone-input', '#fffdf7'],
-      ['.phone-input i', '#f0eee7', '.phone-input'],
+      ['.anatomy-kicker', '#f0ede4'],
+      ['.anatomy-fields > p', '#f0ede4'],
+      ['.presentation-modes li small', '#f0ede4'],
+      ['.channel-proof-note', '#dfe4ff'],
+      ['.router-product small', '#ffffff'],
+      ['.router-core li', '#10211f'],
+      ['.router-rich-output > p', '#fffdf7'],
+      ['.router-compact-output p', '#fffdf7'],
+      ['.channel-boundary', '#dfe4ff'],
       ['.handoff-event small', '#f4f2eb'],
-      ['.handoff-composer', '#fffbf4']
+      ['.handoff-composer', '#fffdf7'],
+      ['.dossier-continuity p', '#f6cdbf'],
+      ['.control-grid p', '#10211f'],
+      ['.control-console-note', '#10211f']
     ]
     linearize = lambda do |channel|
       value = channel / 255.0
