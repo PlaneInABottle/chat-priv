@@ -4,9 +4,6 @@ require 'uri'
 
 module IkasCatalogMvp
   class ProductLinkBuilder
-    PUBLIC_STOREFRONT_TYPE = 'STOREFRONT'
-    READY_STATUS = 'READY'
-
     def initialize(storefronts:)
       @storefronts = Array(storefronts)
     end
@@ -49,7 +46,7 @@ module IkasCatalogMvp
     attr_reader :storefronts
 
     def normalize_storefront(storefront)
-      return unless storefront_public?(storefront)
+      return unless storefront_available?(storefront)
 
       domain = domain_for(storefront)
       sales_channel_id = storefront['salesChannelId'].to_s
@@ -59,8 +56,6 @@ module IkasCatalogMvp
       {
         'id' => storefront.fetch('id'),
         'name' => storefront['name'],
-        'type' => storefront['type'],
-        'status' => storefront['status'],
         'sales_channel_id' => sales_channel_id,
         'domain' => domain,
         'path' => normalize_path(routing&.[]('path')),
@@ -69,9 +64,12 @@ module IkasCatalogMvp
       }
     end
 
-    def storefront_public?(storefront)
-      storefront['type'].to_s.casecmp(PUBLIC_STOREFRONT_TYPE).zero? &&
-        storefront['status'].to_s.casecmp(READY_STATUS).zero?
+    def storefront_available?(storefront)
+      !deleted_flag?(storefront['deleted'])
+    end
+
+    def deleted_flag?(deleted)
+      %w[1 true].include?(deleted.to_s.downcase)
     end
 
     def domain_for(storefront)

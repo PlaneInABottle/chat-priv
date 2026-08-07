@@ -102,8 +102,7 @@ RSpec.describe IkasCatalogMvp::SqliteBuilder do
     [{
       'id' => 'storefront-public',
       'name' => 'Public Storefront',
-      'type' => 'STOREFRONT',
-      'status' => 'READY',
+      'deleted' => false,
       'salesChannelId' => 'sales-channel-public',
       'domains' => [{ 'id' => 'domain-public', 'name' => 'store.example.com', 'isDefault' => true }],
       'routings' => []

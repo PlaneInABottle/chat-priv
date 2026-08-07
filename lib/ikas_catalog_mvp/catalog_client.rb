@@ -78,8 +78,7 @@ module IkasCatalogMvp
         listStorefront {
           id
           name
-          type
-          status
+          deleted
           salesChannelId
           domains { id name isDefault redirectDomainName }
           routings { id domain path locale currencyCode currencySymbol countryCodes }

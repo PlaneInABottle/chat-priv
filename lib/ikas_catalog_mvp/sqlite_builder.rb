@@ -316,7 +316,7 @@ module IkasCatalogMvp
     def validate_storefront_scope!
       return if link_builder.eligible_storefronts.any?
 
-      raise Error, 'No READY public Ikas storefront found for catalog sync.'
+      raise Error, 'No available Ikas storefront found for catalog sync.'
     end
 
     def link_builder
