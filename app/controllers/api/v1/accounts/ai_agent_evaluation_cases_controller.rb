@@ -29,6 +29,7 @@ class Api::V1::Accounts::AiAgentEvaluationCasesController < Api::V1::Accounts::B
   end
 
   def generate
+    expire_stale_generations!
     available_slots = MAX_CASES - @ai_agent.evaluation_cases.count
     return render_case_limit_error unless available_slots.positive?
     return render_generation_running_error if active_generation
@@ -48,6 +49,7 @@ class Api::V1::Accounts::AiAgentEvaluationCasesController < Api::V1::Accounts::B
   end
 
   def generation
+    expire_stale_generations!
     latest_generation = @ai_agent.evaluation_generations.order(created_at: :desc).first
     render json: latest_generation ? generation_payload(latest_generation) : {}
   end
@@ -85,6 +87,17 @@ class Api::V1::Accounts::AiAgentEvaluationCasesController < Api::V1::Accounts::B
 
   def active_generation
     @active_generation ||= @ai_agent.evaluation_generations.pending.or(@ai_agent.evaluation_generations.running).first
+  end
+
+  def expire_stale_generations!
+    @ai_agent.evaluation_generations.pending.where('created_at < ?', AiAgentEvaluationGeneration::CLAIM_TIMEOUT.ago).find_each do |generation|
+      generation.update!(
+        status: :failed,
+        claim_id: nil,
+        error_message: AiAgentEvaluationGeneration::USER_FACING_FAILURE,
+        completed_at: Time.current
+      )
+    end
   end
 
   def generation_payload(generation)

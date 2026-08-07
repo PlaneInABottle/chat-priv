@@ -1,9 +1,6 @@
 # frozen_string_literal: true
 
 class AiAgents::EvaluationCaseGenerationJob < ApplicationJob
-  USER_FACING_FAILURE = 'Suggested scenarios could not be prepared. Please try again.'
-  CLAIM_TIMEOUT = 15.minutes
-
   queue_as :low
 
   def perform(generation)
@@ -38,7 +35,7 @@ class AiAgents::EvaluationCaseGenerationJob < ApplicationJob
   end
 
   def stale_running?(generation)
-    generation.running? && generation.started_at.present? && generation.started_at < CLAIM_TIMEOUT.ago
+    generation.running? && generation.started_at.present? && generation.started_at < AiAgentEvaluationGeneration::CLAIM_TIMEOUT.ago
   end
 
   def complete_generation(generation, scenarios, claim_id)
@@ -79,7 +76,7 @@ class AiAgents::EvaluationCaseGenerationJob < ApplicationJob
         generation.update!(
           status: :failed,
           claim_id: nil,
-          error_message: USER_FACING_FAILURE,
+          error_message: AiAgentEvaluationGeneration::USER_FACING_FAILURE,
           completed_at: Time.current
         )
       end
