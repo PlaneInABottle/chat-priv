@@ -2,61 +2,248 @@
 import { computed } from 'vue';
 import { useStore } from 'vuex';
 import SignupForm from './components/Signup/Form.vue';
-import signupBg from 'assets/images/auth/signup-bg.jpg';
 
 const store = useStore();
-
 const globalConfig = computed(() => store.getters['globalConfig/get']);
-const isDefaultInstallation = computed(
-  () => store.getters['globalConfig/isDefaultInstallation']
-);
+const IKAS_WORDMARK_URL = '/marketing/assets/ikas-official-wordmark.svg';
+const CONTROLLED_PRODUCT_URL =
+  '/marketing/assets/pexels-6046230-black-sweater-crop.jpg';
 </script>
 
 <template>
-  <div
-    class="relative w-full h-full min-h-screen flex items-center justify-center bg-cover bg-center bg-no-repeat p-4"
-    :style="{ backgroundImage: `url(${signupBg})` }"
+  <main
+    class="grid min-h-screen min-w-[320px] bg-[#fffdf7] text-[#10211f] lg:grid-cols-[minmax(520px,0.92fr)_minmax(620px,1.08fr)]"
   >
-    <div
-      class="absolute inset-0 bg-n-gray-12/60 dark:bg-n-gray-1/80 backdrop-blur-sm"
-    />
-    <div
-      class="relative flex w-auto max-w-[960px] bg-white dark:bg-n-solid-2 rounded-lg outline outline-1 outline-n-container shadow-sm"
+    <section
+      data-testid="signup-form-plane"
+      class="order-1 flex min-h-screen flex-col bg-[#fffdf7] px-5 pb-8 pt-7 sm:px-10 lg:px-[clamp(55px,6vw,104px)] lg:pb-9 lg:pt-10"
+      aria-labelledby="signup-title"
     >
-      <div class="flex-1 flex items-center justify-center py-10 px-10">
-        <div class="max-w-[420px] w-full">
-          <div class="mb-6">
-            <img
-              :src="globalConfig.logo"
-              :alt="globalConfig.installationName"
-              class="block w-auto h-7 dark:hidden"
-            />
-            <img
-              v-if="globalConfig.logoDark"
-              :src="globalConfig.logoDark"
-              :alt="globalConfig.installationName"
-              class="hidden w-auto h-7 dark:block"
-            />
-            <h2 class="mt-6 text-2xl font-semibold text-n-slate-12">
-              {{
-                isDefaultInstallation
-                  ? $t('REGISTER.GET_STARTED')
-                  : $t('REGISTER.TRY_WOOT')
-              }}
-            </h2>
-            <p class="mt-2 text-sm text-n-slate-11">
-              {{ $t('REGISTER.HAVE_AN_ACCOUNT') }}{{ ' '
-              }}<router-link
-                class="text-n-blue-10 font-medium hover:text-n-blue-11"
-                to="/app/login"
-              >
-                {{ $t('LOGIN.SUBMIT') }}
-              </router-link>
-            </p>
-          </div>
-          <SignupForm />
+      <router-link
+        to="/"
+        class="inline-flex w-max rounded-md focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-[#6e8cff]"
+        :aria-label="$t('REGISTER.TRIAL.BACK_HOME')"
+      >
+        <img
+          :src="globalConfig.logo"
+          :alt="globalConfig.installationName"
+          class="block h-auto w-[170px]"
+        />
+      </router-link>
+
+      <div
+        class="mx-auto mt-9 w-full max-w-[515px] lg:mt-[clamp(46px,7vh,72px)]"
+      >
+        <p
+          class="mb-3 text-[11px] font-extrabold tracking-[0.13em] text-[#56645f]"
+        >
+          {{ $t('REGISTER.TRIAL.EYEBROW') }}
+        </p>
+        <h1
+          id="signup-title"
+          class="m-0 max-w-[550px] font-[Georgia,'Times_New_Roman',serif] text-[43px] font-normal leading-[0.98] tracking-[-0.055em] sm:text-[50px] lg:text-[clamp(47px,4vw,61px)]"
+        >
+          {{ $t('REGISTER.TRIAL.TITLE') }}
+        </h1>
+        <p
+          class="mt-5 max-w-[470px] text-[15px] leading-relaxed text-[#52615c] lg:text-base"
+        >
+          {{ $t('REGISTER.TRIAL.DESCRIPTION') }}
+        </p>
+        <div
+          class="mt-5 flex items-center gap-3 rounded-2xl border border-[#10211f]/15 bg-[#f3f0e8] px-4 py-3"
+        >
+          <span
+            aria-hidden="true"
+            class="grid size-10 flex-none place-items-center rounded-full bg-[#d7ee72] font-[Georgia,serif] text-xl"
+          >
+            {{ $t('REGISTER.TRIAL.DAY_COUNT') }}
+          </span>
+          <p class="m-0 grid gap-0.5">
+            <strong class="text-xs">{{
+              $t('REGISTER.TRIAL.STARTS_WHEN_CREATED')
+            }}</strong>
+            <small class="text-[11px] leading-relaxed text-[#65726e]">{{
+              $t('REGISTER.TRIAL.NO_CARD_OR_AUTO_CHARGE')
+            }}</small>
+          </p>
         </div>
       </div>
-    </div>
-  </div>
+
+      <div class="mx-auto mt-6 w-full max-w-[515px]">
+        <SignupForm />
+        <p class="mb-0 mt-4 text-center text-xs font-bold text-[#34443f]">
+          {{ $t('REGISTER.HAVE_AN_ACCOUNT') }}{{ ' ' }}
+          <router-link
+            class="rounded-sm underline decoration-[#6e8cff] underline-offset-4 hover:text-[#304ebd] focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#6e8cff]"
+            to="/app/login"
+          >
+            {{ $t('LOGIN.SUBMIT') }}
+          </router-link>
+        </p>
+      </div>
+    </section>
+
+    <aside
+      data-testid="signup-proof-plane"
+      class="relative order-2 flex min-h-[660px] flex-col overflow-hidden bg-[#10211f] px-5 py-9 text-[#f7f4eb] [isolation:isolate] sm:px-10 lg:min-h-screen lg:px-[clamp(55px,6vw,95px)] lg:py-10"
+      aria-labelledby="signup-proof-title"
+    >
+      <div
+        aria-hidden="true"
+        class="absolute -right-[310px] -top-[210px] -z-10 size-[560px] rounded-full bg-[radial-gradient(circle,rgba(110,140,255,.74),rgba(255,107,74,.34)_50%,transparent_70%)] blur-xl"
+      />
+      <div
+        aria-hidden="true"
+        class="absolute -bottom-60 -left-64 -z-10 size-[430px] rounded-full bg-[radial-gradient(circle,rgba(215,238,114,.38),transparent_68%)] blur-xl"
+      />
+
+      <div class="flex items-center justify-between">
+        <img
+          :src="globalConfig.logoDark || globalConfig.logo"
+          :alt="globalConfig.installationName"
+          class="h-auto w-[170px]"
+        />
+        <span class="font-mono text-[9px] tracking-[0.14em] text-[#84938d]">
+          {{ $t('REGISTER.TRIAL.REFERENCE') }}
+        </span>
+      </div>
+
+      <div class="mt-11 max-w-[520px] lg:mt-[clamp(45px,7vh,70px)]">
+        <p
+          class="mb-3 text-[10px] font-extrabold tracking-[0.13em] text-[#d7ee72]"
+        >
+          {{ $t('REGISTER.TRIAL.PROOF_KICKER') }}
+        </p>
+        <h2
+          id="signup-proof-title"
+          class="m-0 font-[Georgia,'Times_New_Roman',serif] text-[42px] font-normal leading-none tracking-[-0.045em] lg:text-[clamp(38px,3.6vw,54px)]"
+        >
+          {{ $t('REGISTER.TRIAL.PROOF_TITLE') }}
+        </h2>
+        <p
+          class="mt-4 max-w-[480px] text-[13px] leading-relaxed text-[#b2c0ba]"
+        >
+          {{ $t('REGISTER.TRIAL.PROOF_DESCRIPTION') }}
+        </p>
+      </div>
+
+      <ol
+        class="mt-7 grid max-w-[590px] list-none grid-cols-1 p-0 sm:grid-cols-3"
+        :aria-label="$t('REGISTER.TRIAL.SEQUENCE_LABEL')"
+      >
+        <li
+          data-testid="trial-sequence-step"
+          class="relative min-h-[72px] border-l border-[#d7ee72]/35 py-3 pl-9 sm:min-h-[82px] sm:border-l-0 sm:border-t sm:px-3.5 sm:pb-3 sm:pt-4"
+        >
+          <span
+            class="absolute left-2.5 top-2 text-[9px] text-[#7e8f88] sm:static"
+          >
+            {{ $t('REGISTER.TRIAL.SEQUENCE.ACCOUNT.NUMBER') }}
+          </span>
+          <div class="mt-1.5 grid gap-0.5 sm:mt-2">
+            <strong class="text-[11px]">{{
+              $t('REGISTER.TRIAL.SEQUENCE.ACCOUNT.TITLE')
+            }}</strong>
+            <small class="text-[9px] text-[#8fa098]">{{
+              $t('REGISTER.TRIAL.SEQUENCE.ACCOUNT.DETAIL')
+            }}</small>
+          </div>
+        </li>
+        <li
+          data-testid="trial-sequence-step"
+          class="relative min-h-[72px] border-l border-[#d7ee72]/35 py-3 pl-9 sm:min-h-[82px] sm:border-l-0 sm:border-t sm:px-3.5 sm:pb-3 sm:pt-4"
+        >
+          <span
+            class="absolute left-2.5 top-2 text-[9px] text-[#7e8f88] sm:static"
+          >
+            {{ $t('REGISTER.TRIAL.SEQUENCE.STORE.NUMBER') }}
+          </span>
+          <div class="mt-1.5 grid gap-0.5 sm:mt-2">
+            <strong class="text-[11px]">{{
+              $t('REGISTER.TRIAL.SEQUENCE.STORE.TITLE')
+            }}</strong>
+            <small class="text-[9px] text-[#8fa098]">{{
+              $t('REGISTER.TRIAL.SEQUENCE.STORE.DETAIL')
+            }}</small>
+          </div>
+        </li>
+        <li
+          data-testid="trial-sequence-step"
+          class="relative min-h-[72px] border-l border-[#d7ee72]/35 py-3 pl-9 sm:min-h-[82px] sm:border-l-0 sm:border-t sm:px-3.5 sm:pb-3 sm:pt-4"
+        >
+          <span
+            class="absolute left-2.5 top-2 text-[9px] text-[#7e8f88] sm:static"
+          >
+            {{ $t('REGISTER.TRIAL.SEQUENCE.ANSWER.NUMBER') }}
+          </span>
+          <div class="mt-1.5 grid gap-0.5 sm:mt-2">
+            <strong class="text-[11px]">{{
+              $t('REGISTER.TRIAL.SEQUENCE.ANSWER.TITLE')
+            }}</strong>
+            <small class="text-[9px] text-[#8fa098]">{{
+              $t('REGISTER.TRIAL.SEQUENCE.ANSWER.DETAIL')
+            }}</small>
+          </div>
+        </li>
+      </ol>
+
+      <section
+        class="mt-8 w-full max-w-[590px] overflow-hidden rounded-[22px] border border-white/15 bg-[#fffdf7] text-[#10211f] shadow-[0_28px_70px_rgba(0,0,0,.24)] lg:mt-auto"
+        :aria-label="$t('REGISTER.TRIAL.CONVERSATION_LABEL')"
+      >
+        <div
+          class="grid min-h-12 grid-cols-[30px_1fr_auto] items-center gap-2 border-b border-[#10211f]/10 px-3"
+        >
+          <span
+            class="grid size-[30px] place-items-center rounded-full bg-[#dfe4ff] text-[9px] font-extrabold"
+          >
+            {{ $t('REGISTER.TRIAL.CONTACT_INITIALS') }}
+          </span>
+          <strong class="text-[11px]">{{
+            $t('REGISTER.TRIAL.CONTACT_NAME')
+          }}</strong>
+          <img :src="IKAS_WORDMARK_URL" alt="ikas" class="h-auto w-[70px]" />
+        </div>
+        <p
+          class="m-0 border-b border-[#10211f]/10 bg-[#f0ede4] px-3 py-2 text-[8px] text-[#596762]"
+        >
+          {{ $t('REGISTER.TRIAL.FIXTURE_DISCLOSURE') }}
+        </p>
+        <div class="grid gap-1.5 px-3 pb-1 pt-3 text-[10px] leading-snug">
+          <p
+            class="m-0 w-max max-w-[82%] justify-self-end rounded-[10px] bg-[#dfe4ff] px-2.5 py-2"
+          >
+            {{ $t('REGISTER.TRIAL.CUSTOMER_QUESTION') }}
+          </p>
+          <p
+            class="m-0 grid w-max max-w-[82%] gap-0.5 rounded-[10px] border border-[#10211f]/10 bg-white px-2.5 py-2"
+          >
+            <strong class="text-[8px] uppercase tracking-[0.06em]">
+              {{ $t('REGISTER.TRIAL.ASSISTANT_NAME') }}
+            </strong>
+            {{ $t('REGISTER.TRIAL.ASSISTANT_ANSWER') }}
+          </p>
+        </div>
+        <div
+          class="m-3 grid grid-cols-[68px_1fr] items-center gap-3 rounded-[14px] border border-[#6e8cff]/25 bg-white p-2"
+        >
+          <img
+            data-testid="controlled-product-image"
+            :src="CONTROLLED_PRODUCT_URL"
+            :alt="$t('REGISTER.TRIAL.PRODUCT_ALT')"
+            class="size-[68px] rounded-[10px] object-cover"
+          />
+          <div class="grid gap-1">
+            <strong class="text-xs">{{
+              $t('REGISTER.TRIAL.PRODUCT_TITLE')
+            }}</strong>
+            <span class="text-[9px] text-[#65726e]">{{
+              $t('REGISTER.TRIAL.PRODUCT_SUMMARY')
+            }}</span>
+          </div>
+        </div>
+      </section>
+    </aside>
+  </main>
 </template>

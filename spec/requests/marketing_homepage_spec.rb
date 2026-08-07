@@ -13,6 +13,7 @@ RSpec.describe 'Kozmopath marketing homepage', type: :request do
     final-cta
     footer
   ]
+  signup_url = 'https://app.kozmopath.com/app/auth/signup'
   login_url = 'https://app.kozmopath.com/app/login'
   contract_html_sha = '9643879c665fc4dffccbfc5e84b74ad57c7bb127b389f63865d2464c83c37d46'
 
@@ -22,6 +23,7 @@ RSpec.describe 'Kozmopath marketing homepage', type: :request do
 
   shared_examples 'the approved marketing surface' do |marketing_host|
     before do
+      allow(GlobalConfigService).to receive(:account_signup_enabled?).and_return(true)
       host! marketing_host
       get '/'
     end
@@ -73,15 +75,21 @@ RSpec.describe 'Kozmopath marketing homepage', type: :request do
       expect(document.at_css('.channel-boundary').text).to include('Zengin katalog sunumu Web sitesi ve WhatsApp ile sınırlıdır')
     end
 
-    it 'keeps the real login destination and exposes no dead demo destination' do
+    it 'renders the selected direct-trial hierarchy with exact production destinations' do
       login_links = document.css("a[href='#{login_url}']")
-      demo_status = document.at_css('.demo-availability')
+      trial_links = document.css("a[data-trial-cta][href='#{signup_url}']")
 
       expect(login_links.length).to be >= 3
-      expect(demo_status.name).to eq('span')
-      expect(demo_status['aria-disabled']).to eq('true')
-      expect(demo_status['href']).to be_nil
-      expect(demo_status['tabindex']).to be_nil
+      expect(trial_links.map { |link| link['data-trial-cta'] }).to eq(%w[header mobile-menu hero-primary final])
+      expect(trial_links.map { |link| link.text.squish }).to eq([
+        '14 gün ücretsiz dene',
+        '14 gün ücretsiz dene',
+        '14 gün ücretsiz dene',
+        '14 günlük denemeni başlat'
+      ])
+      expect(document.at_css('.announcement').text.squish).to eq('✦ Kozmopath’i 14 gün ücretsiz dene — kredi kartı gerekmez.')
+      expect(document.at_css('.hero-trial-truth').text.squish).to include('Deneme süren hesabın oluşturulduğunda başlar')
+      expect(document.at_css('.final-cta').text.squish).to include('Kredi kartı gerekmez. Otomatik ücretlendirme yoktur.')
       expect(document.css('a[href*="calendly"], a[href*="/demo"]')).to be_empty
     end
 
@@ -94,6 +102,7 @@ RSpec.describe 'Kozmopath marketing homepage', type: :request do
       expect(mobile_links.map { |link| link['href'] }).to eq(%w[#how-it-works #catalog-product-presentation #human-handoff])
       mobile_links.each { |link| expect(target_ids).to include(link['href'].delete_prefix('#')) }
       expect(mobile_menu.at_css('summary').css('span').length).to eq(3)
+      expect(mobile_menu.at_css("a[data-trial-cta='mobile-menu']")['href']).to eq(signup_url)
     end
 
     it 'uses semantic landmarks, accessible images, and a logical heading outline' do
@@ -121,6 +130,23 @@ RSpec.describe 'Kozmopath marketing homepage', type: :request do
 
   marketing_hosts.each do |marketing_host|
     it_behaves_like 'the approved marketing surface', marketing_host
+  end
+
+  marketing_hosts.each do |marketing_host|
+    it "keeps the existing non-trial fallback when signup is disabled on #{marketing_host}" do
+      allow(GlobalConfigService).to receive(:account_signup_enabled?).and_return(false)
+      host! marketing_host
+
+      get '/'
+
+      expect(response).to have_http_status(:ok)
+      expect(document.css("a[href='#{signup_url}'], [data-trial-cta]")).to be_empty
+      expect(document.at_css('.announcement').text.squish).to eq('✦ İkas mağazaları için katalog bağlamlı yapay zekâ desteği')
+      demo_status = document.at_css('.demo-availability')
+      expect(demo_status.name).to eq('span')
+      expect(demo_status['aria-disabled']).to eq('true')
+      expect(demo_status['href']).to be_nil
+    end
   end
 
   describe 'GET /sitemap.xml' do

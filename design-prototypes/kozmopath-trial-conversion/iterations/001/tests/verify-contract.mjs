@@ -101,8 +101,12 @@ assert.match(signup, /type=["']password["'][^>]*required/i);
 assert.match(signup, /aria-live=["']polite["']/i);
 assert.doesNotMatch(signup, /<form\b[^>]*action=/i, 'prototype form must not have a network action');
 
-assert.equal(selection.selected, null, 'selection must remain unset');
-assert.equal(selection.status, 'awaiting_visual_selection');
+assert.equal(selection.selected, 'variant-a-direct-trial');
+assert.equal(selection.status, 'selected_approved_for_frontend_implementation');
+assert.equal(selection.variant_status['variant-a-direct-trial'], 'selected');
+assert.equal(selection.variant_status['variant-b-guided'], 'rejected');
+assert.equal(selection.shared_companion, 'signup-companion');
+assert.equal(selection.shared_companion_status, 'selected');
 assert.ok(Array.isArray(provenance.assets) && provenance.assets.length >= 3);
 
 for (const asset of provenance.assets) {

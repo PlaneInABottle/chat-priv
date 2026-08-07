@@ -2,6 +2,48 @@
   "REGISTER": {
     "TRY_WOOT": "Create an account",
     "GET_STARTED": "Get started with Kozmopath",
+    "TRIAL": {
+      "EYEBROW": "14-DAY FREE TRIAL",
+      "DAY_COUNT": "14",
+      "REFERENCE": "TRIAL / 001",
+      "TITLE": "Try Kozmopath with your own store.",
+      "DESCRIPTION": "Your work email and password are enough to begin. No credit card required.",
+      "STARTS_WHEN_CREATED": "Your trial starts when your account is created.",
+      "NO_CARD_OR_AUTO_CHARGE": "No credit card and no automatic charge.",
+      "SUBMIT": "Start your 14-day trial",
+      "BACK_HOME": "Back to the Kozmopath homepage",
+      "PROOF_KICKER": "FROM ACCOUNT TO CUSTOMER QUESTION",
+      "PROOF_TITLE": "Connect your store. Put your catalog into conversation.",
+      "PROOF_DESCRIPTION": "Three clear steps connect account creation to Kozmopath's real product workflow.",
+      "SEQUENCE_LABEL": "Steps from account creation to catalog-context answers",
+      "SEQUENCE": {
+        "ACCOUNT": {
+          "NUMBER": "01",
+          "TITLE": "Create your account",
+          "DETAIL": "Work email + password"
+        },
+        "STORE": {
+          "NUMBER": "02",
+          "TITLE": "Connect your ikas store",
+          "DETAIL": "Catalog source"
+        },
+        "ANSWER": {
+          "NUMBER": "03",
+          "TITLE": "Answer customer questions",
+          "DETAIL": "Product context + human handoff"
+        }
+      },
+      "CONVERSATION_LABEL": "Controlled catalog conversation",
+      "CONTACT_NAME": "Ayşe Yılmaz",
+      "CONTACT_INITIALS": "AY",
+      "ASSISTANT_NAME": "Kozmopath",
+      "FIXTURE_DISCLOSURE": "Controlled demo data · not a real customer record",
+      "CUSTOMER_QUESTION": "Do you have a black sweatshirt?",
+      "ASSISTANT_ANSWER": "Yes, the black crew-neck sweatshirt is in stock.",
+      "PRODUCT_ALT": "A single black crew-neck sweatshirt on a hanger",
+      "PRODUCT_TITLE": "Black Crew-Neck Sweatshirt",
+      "PRODUCT_SUMMARY": "In stock · Reference price: 1,249 TRY"
+    },
     "TITLE": "Register",
     "TESTIMONIAL_HEADER": "All it takes is one step to move forward",
     "TESTIMONIAL_CONTENT": "You're one step away from engaging your customers, retaining them and finding new ones.",
@@ -28,7 +70,7 @@
       "LABEL": "Password",
       "PLACEHOLDER": "Password",
       "ERROR": "Password is too short.",
-      "IS_INVALID_PASSWORD": "Password should contain atleast 1 uppercase letter, 1 lowercase letter, 1 number and 1 special character.",
+      "IS_INVALID_PASSWORD": "Password should contain at least 1 uppercase letter, 1 lowercase letter, 1 number and 1 special character.",
       "REQUIREMENTS_LENGTH": "At least 6 characters long",
       "REQUIREMENTS_UPPERCASE": "At least one uppercase letter",
       "REQUIREMENTS_LOWERCASE": "At least one lowercase letter",

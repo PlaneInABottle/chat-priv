@@ -12,15 +12,19 @@ vi.mock('dashboard/composables', () => ({ useAlert: vi.fn() }));
 vi.mock('../../../../../api/auth', () => ({ register: vi.fn() }));
 
 const FormInputStub = {
-  props: ['modelValue', 'name', 'type'],
+  props: ['modelValue', 'id', 'name', 'type', 'label'],
   emits: ['update:modelValue'],
   template: `
-    <input
-      :name="name"
-      :type="type"
-      :value="modelValue"
-      @input="$emit('update:modelValue', $event.target.value)"
-    />
+    <label :for="id">
+      {{ label }}
+      <input
+        :name="name"
+        :id="id"
+        :type="type"
+        :value="modelValue"
+        @input="$emit('update:modelValue', $event.target.value)"
+      />
+    </label>
   `,
 };
 
@@ -28,6 +32,27 @@ const NextButtonStub = {
   props: ['disabled', 'label'],
   template: '<button type="submit" :disabled="disabled">{{ label }}</button>',
 };
+
+const mountForm = (stubs = {}) =>
+  shallowMount(SignupForm, {
+    global: {
+      mocks: { $t: key => key },
+      stubs: {
+        FormInput: FormInputStub,
+        NextButton: NextButtonStub,
+        GoogleOAuthButton: {
+          template: '<button data-testid="google-oauth"><slot /></button>',
+        },
+        PasswordRequirements: {
+          template: '<div data-testid="password-requirements" />',
+        },
+        VueHcaptcha: {
+          template: '<div data-testid="hcaptcha" />',
+        },
+        ...stubs,
+      },
+    },
+  });
 
 describe('Signup Form', () => {
   const router = { push: vi.fn() };
@@ -56,17 +81,7 @@ describe('Signup Form', () => {
       authenticated: false,
       email: 'owner@acme.com',
     });
-    const wrapper = shallowMount(SignupForm, {
-      global: {
-        stubs: {
-          FormInput: FormInputStub,
-          NextButton: NextButtonStub,
-          GoogleOAuthButton: true,
-          PasswordRequirements: true,
-          VueHcaptcha: true,
-        },
-      },
-    });
+    const wrapper = mountForm();
 
     await wrapper
       .find('input[name="email_address"]')
@@ -90,17 +105,7 @@ describe('Signup Form', () => {
 
   it('does not navigate to verify email after authenticated signup', async () => {
     register.mockResolvedValue({ authenticated: true });
-    const wrapper = shallowMount(SignupForm, {
-      global: {
-        stubs: {
-          FormInput: FormInputStub,
-          NextButton: NextButtonStub,
-          GoogleOAuthButton: true,
-          PasswordRequirements: true,
-          VueHcaptcha: true,
-        },
-      },
-    });
+    const wrapper = mountForm();
 
     await wrapper
       .find('input[name="email_address"]')
@@ -112,5 +117,50 @@ describe('Signup Form', () => {
 
     expect(register).toHaveBeenCalled();
     expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it('uses the selected trial presentation while preserving conditional controls and legal links', () => {
+    useStore.mockReturnValue({
+      getters: {
+        'globalConfig/get': {
+          hCaptchaSiteKey: 'test-site-key',
+          privacyURL: 'https://www.kozmopath.com/privacy-policy',
+          termsURL: 'https://www.kozmopath.com/terms-of-service',
+        },
+      },
+    });
+    useI18n.mockReturnValue({
+      t: vi.fn(key => {
+        if (key === 'REGISTER.TERMS_ACCEPT') {
+          return 'Read <a href="https://www.kozmopath.com/terms-of-service">terms</a> and <a href="https://www.kozmopath.com/privacy-policy">privacy</a>';
+        }
+        return key;
+      }),
+    });
+    window.kozmopathConfig = {
+      allowedLoginMethods: ['email', 'google_oauth'],
+      googleOAuthClientId: 'test-client-id',
+    };
+
+    const wrapper = mountForm();
+
+    expect(wrapper.get('form').attributes('data-testid')).toBe(
+      'trial-signup-form'
+    );
+    expect(wrapper.get('button[type="submit"]').text()).toBe(
+      'REGISTER.TRIAL.SUBMIT'
+    );
+    expect(wrapper.text()).toContain('REGISTER.EMAIL.LABEL');
+    expect(wrapper.text()).toContain('REGISTER.PASSWORD.LABEL');
+    expect(wrapper.get('label[for="email_address"]')).toBeTruthy();
+    expect(wrapper.get('label[for="password"]')).toBeTruthy();
+    expect(wrapper.get('[data-testid="hcaptcha"]')).toBeTruthy();
+    expect(wrapper.get('[data-testid="google-oauth"]')).toBeTruthy();
+    expect(
+      wrapper.get("a[href='https://www.kozmopath.com/terms-of-service']")
+    ).toBeTruthy();
+    expect(
+      wrapper.get("a[href='https://www.kozmopath.com/privacy-policy']")
+    ).toBeTruthy();
   });
 });

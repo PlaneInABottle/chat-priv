@@ -1,11 +1,53 @@
 {
   "REGISTER": {
     "TRY_WOOT": "Hesap oluştur",
-    "GET_STARTED": "Get started with Chatwoot",
+    "GET_STARTED": "Kozmopath ile çalışmaya başla",
+    "TRIAL": {
+      "EYEBROW": "14 GÜNLÜK ÜCRETSİZ DENEME",
+      "DAY_COUNT": "14",
+      "REFERENCE": "DENEME / 001",
+      "TITLE": "Kozmopath’ı kendi mağazanla dene.",
+      "DESCRIPTION": "İş e-postan ve şifren başlangıç için yeterli. Kredi kartı gerekmez.",
+      "STARTS_WHEN_CREATED": "Deneme süren hesabın oluşturulduğunda başlar.",
+      "NO_CARD_OR_AUTO_CHARGE": "Kredi kartı gerekmez; otomatik ücretlendirme yoktur.",
+      "SUBMIT": "14 günlük denemeyi başlat",
+      "BACK_HOME": "Kozmopath ana sayfasına dön",
+      "PROOF_KICKER": "HESAPTAN MÜŞTERİ SORUSUNA",
+      "PROOF_TITLE": "Mağazanı bağla. Kataloğunu konuştur.",
+      "PROOF_DESCRIPTION": "Hesap oluşturmayı Kozmopath’ın gerçek ürün akışına bağlayan üç net adım.",
+      "SEQUENCE_LABEL": "Hesap oluşturmadan katalog bağlamlı yanıta uzanan adımlar",
+      "SEQUENCE": {
+        "ACCOUNT": {
+          "NUMBER": "01",
+          "TITLE": "Hesabını oluştur",
+          "DETAIL": "İş e-postası + şifre"
+        },
+        "STORE": {
+          "NUMBER": "02",
+          "TITLE": "İkas mağazanı bağla",
+          "DETAIL": "Katalog kaynağı"
+        },
+        "ANSWER": {
+          "NUMBER": "03",
+          "TITLE": "Müşteri sorularını yanıtla",
+          "DETAIL": "Ürün bağlamı + insan devri"
+        }
+      },
+      "CONVERSATION_LABEL": "Kontrollü katalog konuşması",
+      "CONTACT_NAME": "Ayşe Yılmaz",
+      "CONTACT_INITIALS": "AY",
+      "ASSISTANT_NAME": "Kozmopath",
+      "FIXTURE_DISCLOSURE": "Kontrollü demo verisi · gerçek müşteri kaydı değildir",
+      "CUSTOMER_QUESTION": "Siyah sweatshirt var mı?",
+      "ASSISTANT_ANSWER": "Evet, siyah bisiklet yaka sweatshirt stokta.",
+      "PRODUCT_ALT": "Askıda tek başına siyah bisiklet yaka sweatshirt",
+      "PRODUCT_TITLE": "Siyah Bisiklet Yaka Sweatshirt",
+      "PRODUCT_SUMMARY": "Stokta · Referans fiyat: 1.249 TL"
+    },
     "TITLE": "Kayıt ol",
     "TESTIMONIAL_HEADER": "İlerlemek için tek bir adım atmanız yeterlidir",
     "TESTIMONIAL_CONTENT": "Müşterilerinizle etkileşimde bulunmaktan, onları elde tutmaktan ve yeni müşteriler bulmaktan sadece bir adım uzaktasınız.",
-    "TERMS_ACCEPT": "Bir hesap oluşturarak, <a href=\"https://www.chatwoot.com/terms\">Kullanım Koşulları</a> ve <a href=\"https://www.chatwoot.com/privacy-policy\">Gizlilik Politikamızı</a> kabul etmiş olursunuz",
+    "TERMS_ACCEPT": "Bir hesap oluşturarak <a href=\"https://www.kozmopath.com/terms-of-service\">Kullanım Koşullarını</a> ve <a href=\"https://www.kozmopath.com/privacy-policy\">Gizlilik Politikasını</a> kabul etmiş olursun.",
     "OAUTH": {
       "GOOGLE_SIGNUP": "Google ile kaydol"
     },
@@ -20,9 +62,9 @@
       "ERROR": "Ad Soyad çok kısa."
     },
     "EMAIL": {
-      "LABEL": "İş emaili",
-      "PLACEHOLDER": "Enter your work email address. E.g., bruce{'@'}wayne{'.'}enterprises",
-      "ERROR": "Lütfen geçerli bir iş email adresi girin."
+      "LABEL": "İş e-postası",
+      "PLACEHOLDER": "İş e-posta adresini gir. Örn. mağaza adresin",
+      "ERROR": "Lütfen geçerli bir iş e-posta adresi gir."
     },
     "PASSWORD": {
       "LABEL": "Parola",
@@ -42,16 +84,16 @@
     },
     "API": {
       "SUCCESS_MESSAGE": "Başarıyla Kayıt Olundu",
-      "ERROR_MESSAGE": "Woot sunucusuna bağlanılamadı. Lütfen tekrar deneyin."
+      "ERROR_MESSAGE": "Kozmopath sunucusuna bağlanılamadı. Lütfen tekrar dene."
     },
     "SUBMIT": "Hesap oluştur",
     "HAVE_AN_ACCOUNT": "Hesabın var mı?",
     "VERIFY_EMAIL": {
-      "TITLE": "Check your inbox",
-      "DESCRIPTION": "We sent a verification link to {email}. Click the link to verify your email and get started.",
-      "RESEND": "Doğrulama E-Postasını tekrar gönder",
-      "RESEND_SUCCESS": "Verification email sent. Please check your inbox.",
-      "RESEND_ERROR": "Could not send verification email. Please try again."
+      "TITLE": "Gelen kutunu kontrol et",
+      "DESCRIPTION": "{email} adresine bir doğrulama bağlantısı gönderdik. E-posta adresini doğrulamak için bağlantıya tıkla.",
+      "RESEND": "Doğrulama e-postasını tekrar gönder",
+      "RESEND_SUCCESS": "Doğrulama e-postası gönderildi. Gelen kutunu kontrol et.",
+      "RESEND_ERROR": "Doğrulama e-postası gönderilemedi. Lütfen tekrar dene."
     }
   }
 }
