@@ -115,4 +115,40 @@ RSpec.describe AiAgents::WebsiteImportJob do
     expect(website_import.reload).to have_attributes(status: 'failed', error_code: 'stale_import')
     expect(ai_agent.reload.prompt).to eq(fallback_prompt)
   end
+
+  it 'records a bounded failure when the import could not be claimed' do
+    job = described_class.new(website_import.id)
+    allow(job).to receive(:start_import).and_raise(
+      ActiveRecord::DatabaseConnectionError.hostname_error('127.0.0.1')
+    )
+
+    expect { job.perform_now }.not_to raise_error
+
+    expect(website_import.reload).to have_attributes(
+      status: 'failed',
+      stage: 'complete',
+      error_code: 'ActiveRecord::DatabaseConnectionError',
+      error_message: /127\.0\.0\.1/
+    )
+  end
+
+  context 'when the import record cannot be loaded' do
+    after { allow(AiAgentWebsiteImport).to receive(:find).and_call_original }
+
+    it 'surfaces a transient connection failure before the import is loaded so Sidekiq can retry' do
+      allow(AiAgentWebsiteImport).to receive(:find).and_raise(
+        ActiveRecord::DatabaseConnectionError.hostname_error('127.0.0.1')
+      )
+
+      expect { described_class.perform_now(website_import.id) }.to raise_error(ActiveRecord::DatabaseConnectionError)
+
+      expect(website_import.reload).to have_attributes(status: 'pending', stage: 'queued', started_at: nil)
+    end
+
+    it 'stays silent when the import record was deleted while queued' do
+      allow(AiAgentWebsiteImport).to receive(:find).and_raise(ActiveRecord::RecordNotFound)
+
+      expect { described_class.perform_now(website_import.id) }.not_to raise_error
+    end
+  end
 end

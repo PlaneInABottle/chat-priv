@@ -14,6 +14,9 @@ class AiAgents::WebsiteImportJob < ApplicationJob
     generated = generate_instructions(website_import, crawl_result)
     complete_import(website_import, claim_started_at, generated.sections, crawl_result.knowledge_content)
   rescue StandardError => e
+    # Re-raise when the row was never loaded (e.g. a transient connection failure) so Sidekiq retries visibly.
+    raise unless website_import&.persisted? || e.is_a?(ActiveRecord::RecordNotFound)
+
     fail_import(website_import, e, claim_started_at)
   end
 
@@ -75,22 +78,36 @@ class AiAgents::WebsiteImportJob < ApplicationJob
   end
 
   def fail_import(website_import, error, claim_started_at)
-    return unless website_import&.persisted? && claim_started_at
+    return unless website_import&.persisted?
 
-    website_import.with_lock do
-      next unless current_claim?(website_import, claim_started_at)
+    if claim_started_at
+      website_import.with_lock do
+        next unless current_claim?(website_import, claim_started_at)
 
-      website_import.update!(
-        status: :failed,
-        stage: :complete,
-        base_document: nil,
-        proposed_sections: {},
-        proposed_knowledge_content: nil,
-        error_code: error.class.name,
-        error_message: error.message.to_s.truncate(500),
-        completed_at: Time.current
-      )
+        record_failure(website_import, error)
+      end
+    else
+      # The claim never completed (e.g. the claim write itself raised). Record the
+      # failure once so the UI shows a real error instead of a silent stuck import.
+      website_import.with_lock do
+        next unless website_import.pending?
+
+        record_failure(website_import, error)
+      end
     end
     Rails.logger.error("[AiAgents::WebsiteImportJob] import=#{website_import.id} #{error.class}: #{error.message}")
+  end
+
+  def record_failure(website_import, error)
+    website_import.update!(
+      status: :failed,
+      stage: :complete,
+      base_document: nil,
+      proposed_sections: {},
+      proposed_knowledge_content: nil,
+      error_code: error.class.name,
+      error_message: error.message.to_s.truncate(500),
+      completed_at: Time.current
+    )
   end
 end
