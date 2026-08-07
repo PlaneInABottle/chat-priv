@@ -106,7 +106,7 @@
       "TEST_MODE": "TEST MODE",
       "PLACEHOLDER": "Type a test message…",
       "SEND": "Send",
-      "RESPONSE_WAIT": "AI is thinking…",
+      "RESPONSE_WAIT": "AI is thinking",
       "HANDOFF_TITLE": "Human handoff preview",
       "HANDOFF_PREVIEW": "This conversation would be handed off to a human agent.",
       "INTERNAL_NOTE": "Internal note:",

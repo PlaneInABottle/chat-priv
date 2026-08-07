@@ -346,4 +346,57 @@ describe('TestConversationChatPanel.vue', () => {
       rel: 'noreferrer noopener nofollow',
     });
   });
+
+  describe('response waiting indicator', () => {
+    const findIndicator = wrapper =>
+      wrapper.find('[data-testid="response-waiting-indicator"]');
+
+    it('shows the animated indicator only for the conversation with an in-flight request', () => {
+      const wrapper = mountComponent({
+        conversation: { ...conversation, id: 7 },
+        uiFlags: { isSending: true, sendingConversationId: 7 },
+      });
+
+      const indicator = findIndicator(wrapper);
+      expect(indicator.exists()).toBe(true);
+      expect(indicator.text()).toContain(
+        'AI_AGENT.TEST_CONVERSATIONS.RESPONSE_WAIT'
+      );
+      expect(indicator.findAll('.typing-indicator span')).toHaveLength(3);
+    });
+
+    it('hides the indicator when another conversation is awaiting a response', () => {
+      const wrapper = mountComponent({
+        conversation: { ...conversation, id: 8 },
+        uiFlags: { isSending: true, sendingConversationId: 7 },
+      });
+
+      expect(findIndicator(wrapper).exists()).toBe(false);
+    });
+
+    it('hides the indicator when no request is in flight', () => {
+      const wrapper = mountComponent({
+        conversation: { ...conversation, id: 7 },
+        uiFlags: { isSending: false, sendingConversationId: null },
+      });
+
+      expect(findIndicator(wrapper).exists()).toBe(false);
+    });
+
+    it('marks the message area as busy only for the conversation being sent', () => {
+      const messageArea = wrapper => wrapper.get('[aria-live="polite"]');
+
+      const waiting = mountComponent({
+        conversation: { ...conversation, id: 7 },
+        uiFlags: { isSending: true, sendingConversationId: 7 },
+      });
+      expect(messageArea(waiting).attributes('aria-busy')).toBe('true');
+
+      const other = mountComponent({
+        conversation: { ...conversation, id: 8 },
+        uiFlags: { isSending: true, sendingConversationId: 7 },
+      });
+      expect(messageArea(other).attributes('aria-busy')).toBe('false');
+    });
+  });
 });
