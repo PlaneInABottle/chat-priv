@@ -31,6 +31,8 @@
 #
 class AiAgentEvaluationGeneration < ApplicationRecord
   MAX_REQUESTED_COUNT = 5
+  USER_FACING_FAILURE = 'Suggested scenarios could not be prepared. Please try again.'.freeze
+  CLAIM_TIMEOUT = 15.minutes
 
   enum status: { pending: 0, running: 1, completed: 2, failed: 3 }
 
@@ -41,6 +43,10 @@ class AiAgentEvaluationGeneration < ApplicationRecord
   validates :requested_count, numericality: { only_integer: true, in: 1..MAX_REQUESTED_COUNT }
   validates :created_count, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
   validate :records_belong_to_account
+
+  def expired_pending?
+    pending? && created_at < CLAIM_TIMEOUT.ago
+  end
 
   private
 

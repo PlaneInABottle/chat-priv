@@ -99,6 +99,44 @@ RSpec.describe 'AI Agent Evaluations API', type: :request do
       expect(response.parsed_body['needs_review']).to be(false)
       expect(suggested_case.reload.reviewed_at).to be_present
     end
+
+    it 'recovers a pending generation whose job was never picked up' do
+      create(
+        :ai_agent_evaluation_generation,
+        account: account,
+        ai_agent: ai_agent,
+        status: :pending,
+        created_at: 20.minutes.ago
+      )
+
+      get "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/evaluation_cases/generation",
+          headers: administrator.create_new_auth_token,
+          as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body['status']).to eq('failed')
+      expect(response.parsed_body['error_message']).to eq('Suggested scenarios could not be prepared. Please try again.')
+    end
+
+    it 'allows a fresh generation when a stale pending job was discarded' do
+      stale_generation = create(
+        :ai_agent_evaluation_generation,
+        account: account,
+        ai_agent: ai_agent,
+        status: :pending,
+        created_at: 20.minutes.ago
+      )
+
+      expect do
+        post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/evaluation_cases/generate",
+             headers: administrator.create_new_auth_token,
+             as: :json
+      end.to have_enqueued_job(AiAgents::EvaluationCaseGenerationJob)
+
+      expect(response).to have_http_status(:accepted)
+      expect(stale_generation.reload.status).to eq('failed')
+      expect(ai_agent.evaluation_generations.pending.count).to eq(1)
+    end
   end
 
   describe 'evaluation runs' do
