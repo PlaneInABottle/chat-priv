@@ -207,7 +207,7 @@ RSpec.describe AiAgents::LlmAdapters::OpenAiCompatibleAdapter do
     adapter.perform(messages: [{ role: 'user', content: 'Hi again' }], tools: [], max_tokens: 100_000)
     adapter.perform(messages: [{ role: 'user', content: 'Default limit' }], tools: [])
 
-    expect(request_bodies.pluck('max_tokens')).to eq([4_096, 4_096, 2_048])
+    expect(request_bodies.pluck('max_tokens')).to eq([4_096, 8_192, 2_048])
   end
 
   it 'does not stringify nil assistant content for tool call messages' do

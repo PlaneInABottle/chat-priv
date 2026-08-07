@@ -4,7 +4,7 @@ class AiAgents::LlmAdapters::OpenAiCompatibleAdapter < AiAgents::LlmAdapters::Ba
   class RequestFailed < StandardError; end
 
   DEFAULT_COMPLETION_TOKEN_LIMIT = 2_048
-  MAX_COMPLETION_TOKEN_LIMIT = 4_096
+  MAX_COMPLETION_TOKEN_LIMIT = 8_192
 
   def perform(messages:, tools:, tool_choice: 'auto', max_tokens: nil)
     usage_event = reserve_improvement_credit
