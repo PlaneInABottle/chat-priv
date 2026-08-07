@@ -112,7 +112,10 @@ describe('aiAgentTestConversations store', () => {
         replyToMessageId: undefined,
         selectedValue: undefined,
       });
-      expect(commit).toHaveBeenCalledWith('SET_UI_FLAG', { isSending: true });
+      expect(commit).toHaveBeenCalledWith('SET_UI_FLAG', {
+        isSending: true,
+        sendingConversationId: 99,
+      });
       expect(optimisticCommit[1]).toEqual({
         id: 99,
         message: expect.objectContaining({
@@ -127,6 +130,56 @@ describe('aiAgentTestConversations store', () => {
       });
       expect(commit).toHaveBeenLastCalledWith('SET_UI_FLAG', {
         isSending: false,
+        sendingConversationId: null,
+      });
+    });
+
+    it('clears the sending conversation id after a successful send', async () => {
+      const commit = vi.fn();
+      const response = {
+        data: {
+          messages: [
+            { id: 'a-1', role: 'assistant', content: 'Happy to help!' },
+          ],
+          title: 'Conversation',
+        },
+      };
+      const sendMessage = vi.fn().mockResolvedValue(response);
+      AiAgentTestConversationsAPI.mockImplementation(() => ({ sendMessage }));
+
+      await actions.sendMessage(
+        { commit, rootState: { aiAgent: { activeId: 7 } } },
+        { id: 42, content: 'Hello' }
+      );
+
+      expect(commit).toHaveBeenCalledWith('SET_UI_FLAG', {
+        isSending: true,
+        sendingConversationId: 42,
+      });
+
+      const optimisticCommit = commit.mock.calls.find(
+        ([type]) => type === 'ADD_MESSAGE'
+      );
+      expect(optimisticCommit[1]).toEqual({
+        id: 42,
+        message: expect.objectContaining({
+          id: expect.stringMatching(/^temp-/),
+          role: 'user',
+          content: 'Hello',
+        }),
+      });
+      expect(commit).toHaveBeenCalledWith('UPDATE_MESSAGES', {
+        id: 42,
+        messages: response.data.messages,
+        title: response.data.title,
+      });
+      expect(commit).not.toHaveBeenCalledWith(
+        'REMOVE_MESSAGE',
+        expect.anything()
+      );
+      expect(commit).toHaveBeenLastCalledWith('SET_UI_FLAG', {
+        isSending: false,
+        sendingConversationId: null,
       });
     });
 

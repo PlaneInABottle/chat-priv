@@ -41,6 +41,12 @@ const isInputDisabled = computed(() => {
   return props.isDisabled || props.uiFlags.isSending || isAtLimit.value;
 });
 
+const isWaitingForResponse = computed(
+  () =>
+    props.uiFlags.isSending &&
+    props.conversation?.id === props.uiFlags.sendingConversationId
+);
+
 const isHandoffPreview = message => message?.terminal_action === 'handoff';
 const isOptionsPreview = message =>
   message?.terminal_action === 'present_options' &&
@@ -178,7 +184,7 @@ const handleOptionSelect = (message, option) => {
         ref="messageAreaRef"
         class="flex-1 overflow-y-auto p-4 space-y-3"
         aria-live="polite"
-        :aria-busy="uiFlags.isSending"
+        :aria-busy="isWaitingForResponse"
       >
         <div
           v-for="msg in conversation.messages"
@@ -315,11 +321,19 @@ const handleOptionSelect = (message, option) => {
         </div>
 
         <!-- Loading indicator -->
-        <div v-if="uiFlags.isSending" class="flex justify-start">
+        <div v-if="isWaitingForResponse" class="flex justify-start">
           <div
+            data-testid="response-waiting-indicator"
             class="bg-n-slate-3 dark:bg-n-slate-8 text-n-slate-12 rounded-2xl rounded-tl-sm px-4 py-2 max-w-[80%] text-sm"
           >
-            {{ t('AI_AGENT.TEST_CONVERSATIONS.RESPONSE_WAIT') }}
+            <span class="mr-1">
+              {{ t('AI_AGENT.TEST_CONVERSATIONS.RESPONSE_WAIT') }}
+            </span>
+            <span class="typing-indicator" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </span>
           </div>
         </div>
       </div>
@@ -350,3 +364,42 @@ const handleOptionSelect = (message, option) => {
     </template>
   </div>
 </template>
+
+<style scoped>
+.typing-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.typing-indicator span {
+  width: 4px;
+  height: 4px;
+  border-radius: 9999px;
+  background-color: currentColor;
+  opacity: 0.3;
+  animation: typing-bounce 1.2s ease-in-out infinite;
+}
+
+.typing-indicator span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.typing-indicator span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes typing-bounce {
+  0%,
+  60%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+
+  30% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+</style>

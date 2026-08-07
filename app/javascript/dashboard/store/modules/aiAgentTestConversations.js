@@ -12,6 +12,7 @@ export const state = {
     isDeleting: false,
     isClearing: false,
     isSending: false,
+    sendingConversationId: null,
   },
 };
 
@@ -161,7 +162,7 @@ export const actions = {
     const messageContent = content || message;
     if (!messageContent) return null;
 
-    commit('SET_UI_FLAG', { isSending: true });
+    commit('SET_UI_FLAG', { isSending: true, sendingConversationId: id });
 
     // Optimistically add user message so it appears immediately
     const optimisticMessage = {
@@ -190,7 +191,7 @@ export const actions = {
       commit('REMOVE_MESSAGE', { id, messageId: optimisticMessage.id });
       return { error: parseAPIErrorResponse(error) };
     } finally {
-      commit('SET_UI_FLAG', { isSending: false });
+      commit('SET_UI_FLAG', { isSending: false, sendingConversationId: null });
     }
   },
 
