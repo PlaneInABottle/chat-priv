@@ -67,7 +67,7 @@ class AiAgents::WebsiteInstructionGenerator
       initiated_by: initiated_by,
       llm_options: {
         system_prompt: SYSTEM_PROMPT,
-        max_tokens: 4_096,
+        max_tokens: 8_192,
         temperature: 0.1,
         response_format: { type: 'json_object' }
       }
