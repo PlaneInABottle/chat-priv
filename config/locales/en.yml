@@ -794,6 +794,12 @@ en:
     announcement:
       emphasis: "For ikas stores"
       detail: "catalog-context AI support"
+    trial:
+      announcement: "Try Kozmopath free for 14 days — no credit card required."
+      cta: "Try free for 14 days"
+      final_cta: "Start your 14-day trial"
+      start_note: "Your trial starts when your account is created. No credit card required."
+      final_note: "No credit card required. There is no automatic charge. Your trial starts when your account is created."
     hero:
       eyebrow: "Catalog-context customer communication"
       title_line_one: "AI that knows your store,"

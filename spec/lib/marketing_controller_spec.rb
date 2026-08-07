@@ -2,7 +2,6 @@ require 'rails_helper'
 
 RSpec.describe MarketingController do
   contract_files = {
-    'app/javascript/entrypoints/marketing.scss' => '6d4b4968bd8932e3130c9ebc11ce3a5c65e481f013542241107603b42199ef8a',
     'public/marketing/assets/pexels-6046230-black-sweater-crop.jpg' =>
       '24bd0bd3e4a67f22e3ab1a7baefea24076e9846986f0bc1da545e0aac47d9fe0',
     'public/marketing/assets/ikas-official-wordmark.svg' =>
@@ -19,6 +18,14 @@ RSpec.describe MarketingController do
       expect(path).to exist
       expect(Digest::SHA256.file(path).hexdigest).to eq(expected_sha)
     end
+  end
+
+  it 'includes the selected Variant A conversion layer without the guided rail' do
+    stylesheet = Rails.root.join('app/javascript/entrypoints/marketing.scss').read
+
+    expect(stylesheet).to include('.marketing-home.variant-a .hero-trial-truth')
+    expect(stylesheet).to include('.marketing-home.variant-a .final-trial-button')
+    expect(stylesheet).not_to include('.trial-runway', '.guided-trial')
   end
 
   it 'keeps explicit reduced-motion and mobile recomposition rules' do

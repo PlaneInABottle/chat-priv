@@ -124,8 +124,13 @@ const onCaptchaError = () => {
 
 <template>
   <div class="flex-1">
-    <form class="space-y-3" @submit.prevent="submit">
+    <form
+      data-testid="trial-signup-form"
+      class="grid gap-4"
+      @submit.prevent="submit"
+    >
       <FormInput
+        id="email_address"
         v-model="credentials.email"
         type="email"
         name="email_address"
@@ -134,17 +139,20 @@ const onCaptchaError = () => {
         :placeholder="$t('REGISTER.EMAIL.PLACEHOLDER')"
         :has-error="v$.credentials.email.$error"
         :error-message="$t('REGISTER.EMAIL.ERROR')"
+        class="bg-white text-[#10211f] outline-[#10211f]/20 placeholder:text-[#65726e] focus:outline-[#5471e5]"
         @blur="v$.credentials.email.$touch"
       />
       <div class="relative">
         <FormInput
+          id="password"
           v-model="credentials.password"
           type="password"
           name="password"
           :class="{ error: v$.credentials.password.$error }"
-          :label="$t('LOGIN.PASSWORD.LABEL')"
-          :placeholder="$t('SET_NEW_PASSWORD.PASSWORD.PLACEHOLDER')"
+          :label="$t('REGISTER.PASSWORD.LABEL')"
+          :placeholder="$t('REGISTER.PASSWORD.PLACEHOLDER')"
           :has-error="v$.credentials.password.$error"
+          class="bg-white text-[#10211f] outline-[#10211f]/20 placeholder:text-[#65726e] focus:outline-[#5471e5]"
           @focus="isPasswordFocused = true"
           @blur="
             isPasswordFocused = false;
@@ -162,6 +170,7 @@ const onCaptchaError = () => {
           <PasswordRequirements
             v-if="isPasswordFocused"
             :password="credentials.password"
+            class="max-sm:static max-sm:mt-2"
           />
         </Transition>
       </div>
@@ -181,16 +190,16 @@ const onCaptchaError = () => {
         type="submit"
         data-testid="submit_button"
         class="w-full font-medium"
-        :label="$t('REGISTER.SUBMIT')"
+        :label="$t('REGISTER.TRIAL.SUBMIT')"
         :disabled="isSignupInProgress || !isFormValid"
         :is-loading="isSignupInProgress"
       />
     </form>
-    <GoogleOAuthButton v-if="showGoogleOAuth" class="mt-3">
+    <GoogleOAuthButton v-if="showGoogleOAuth" class="mt-3 w-full">
       {{ $t('REGISTER.OAUTH.GOOGLE_SIGNUP') }}
     </GoogleOAuthButton>
     <p
-      class="text-sm mt-5 mb-0 text-n-slate-11 [&>a]:text-n-blue-10 [&>a]:font-medium [&>a]:hover:text-n-blue-11"
+      class="mb-0 mt-4 text-[11px] leading-relaxed text-[#63716c] [&>a]:font-semibold [&>a]:text-[#304ebd] [&>a]:underline [&>a]:underline-offset-2 hover:[&>a]:text-[#233d9c]"
       v-html="termsLink"
     />
   </div>

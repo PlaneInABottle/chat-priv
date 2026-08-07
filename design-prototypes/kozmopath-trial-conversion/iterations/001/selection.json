@@ -1,10 +1,24 @@
 {
   "iteration": 1,
-  "selected": null,
-  "status": "awaiting_visual_selection",
+  "selected": "variant-a-direct-trial",
+  "status": "selected_approved_for_frontend_implementation",
   "variants": [
     "variant-a-direct-trial",
     "variant-b-guided"
   ],
-  "shared_companion": "signup-companion"
+  "variant_status": {
+    "variant-a-direct-trial": "selected",
+    "variant-b-guided": "rejected"
+  },
+  "shared_companion": "signup-companion",
+  "shared_companion_status": "selected",
+  "decided_at": "2026-08-07T17:36:57+03:00",
+  "decision_note": "Variant A was selected and the signup screen must match it.",
+  "canonical_render_sha256": {
+    "variant_a_desktop_1440x900": "5d22b29534f22eb7eb42532719d2f0c085aa7ab7c8e4a2ca73fbc60d9207daf1",
+    "variant_a_mobile_390x844": "df59f825bb49b3da2e43da952c1578aa1894ba460201fc7c4a2645c89a37c417",
+    "variant_a_desktop_final_cta": "349c02319d569c7c2f0d2e6f9b93213fb4b45a7a8f90c750072647718e26d370",
+    "signup_desktop_1440x900": "5e870336cfe247cc3865a474f08914b5bab75028cba60d065df68808972bdbf2",
+    "signup_mobile_390x844": "1c282c61e8ce726f8d0a411bb5abda1a5ceee3405da3046caed9f2f3c0516e48"
+  }
 }
