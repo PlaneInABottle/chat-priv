@@ -1,0 +1,79 @@
+{
+  "status": "passed_awaiting_visual_selection",
+  "verified_at": "2026-08-07T16:25:02+03:00",
+  "base_commit": "8b2f0f85d0eed4480f452a0e083f059160dd4a1f",
+  "runtime": {
+    "origin": "http://127.0.0.1:5089",
+    "ownership": "temporary task-owned PM2 process; removed before commit"
+  },
+  "checks": [
+    {
+      "name": "prototype structural contract",
+      "command": "node tests/verify-contract.mjs",
+      "result": "passed"
+    },
+    {
+      "name": "browser interaction and geometry",
+      "command": "node tests/verify-browser.mjs",
+      "result": "passed",
+      "evidence": "Turkish/light/reduced-motion; desktop/mobile overflow and section geometry; local CTA navigation; mobile menus; images; console; errors; signup focus, invalid, pending, valid, password visibility, and zero mutation request"
+    },
+    {
+      "name": "render decode and dimensions",
+      "command": "PNG signature and IHDR checks in verify-contract.mjs",
+      "result": "passed"
+    },
+    {
+      "name": "source-resolution visual inspection",
+      "result": "passed",
+      "evidence": "All eight primary renders and supplemental contact sheet inspected; sections 03 through 06 also inspected in focused browser viewports"
+    }
+  ],
+  "renders": [
+    {
+      "path": "renders/variant-a-desktop-1440x900.png",
+      "sha256": "5d22b29534f22eb7eb42532719d2f0c085aa7ab7c8e4a2ca73fbc60d9207daf1",
+      "visual_verdict": "pass: direct trial hierarchy is immediate; proof remains dominant and the workflow closes the viewport"
+    },
+    {
+      "path": "renders/variant-a-mobile-390x844.png",
+      "sha256": "df59f825bb49b3da2e43da952c1578aa1894ba460201fc7c4a2645c89a37c417",
+      "visual_verdict": "pass: promise, offer, action, truth, then complete proof preserve the intended sequence"
+    },
+    {
+      "path": "renders/variant-a-desktop-final-cta.png",
+      "sha256": "349c02319d569c7c2f0d2e6f9b93213fb4b45a7a8f90c750072647718e26d370",
+      "visual_verdict": "pass: conventional repeated CTA has clear support copy and login alternative"
+    },
+    {
+      "path": "renders/variant-b-desktop-1440x900.png",
+      "sha256": "031c4bb3edcc1c541fa0d9230553987389bc54e2fd321ff64055a62b331085d0",
+      "visual_verdict": "pass: product-attached runway makes the conversion structure materially distinct without weakening proof"
+    },
+    {
+      "path": "renders/variant-b-mobile-390x844.png",
+      "sha256": "258f0a674d8482613a83b565041e1fb5fbf44704e934d7800018d09019bc002d",
+      "visual_verdict": "pass: offer and three-step runway compress into a complete bridge before conversation proof"
+    },
+    {
+      "path": "renders/variant-b-desktop-final-cta.png",
+      "sha256": "e0ebaf92d21df698d02758cc17edf99183cbcd4b5aee62ca3d4c6c1764610673",
+      "visual_verdict": "pass: the final runway echoes the guided model instead of reverting to Variant A"
+    },
+    {
+      "path": "renders/signup-desktop-1440x900.png",
+      "sha256": "5e870336cfe247cc3865a474f08914b5bab75028cba60d065df68808972bdbf2",
+      "visual_verdict": "pass: high-contrast form and dark product proof create a balanced asymmetric desktop companion"
+    },
+    {
+      "path": "renders/signup-mobile-390x844.png",
+      "sha256": "1c282c61e8ce726f8d0a411bb5abda1a5ceee3405da3046caed9f2f3c0516e48",
+      "visual_verdict": "pass: trial truth and full form come first with no proof-plane interruption"
+    },
+    {
+      "path": "renders/desktop-comparison-contact-sheet.png",
+      "sha256": "d15c8939648f75e5e2a6c2f118973a93aa822fec423bf6c131bed7706d2db377",
+      "visual_verdict": "pass: the direct and guided structures remain legibly different beside the shared companion"
+    }
+  ]
+}
