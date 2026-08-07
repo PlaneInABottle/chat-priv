@@ -116,8 +116,7 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
       {
         'id' => 'storefront-public',
         'name' => 'Public Storefront',
-        'type' => 'STOREFRONT',
-        'status' => 'READY',
+        'deleted' => false,
         'salesChannelId' => 'sales-channel-public',
         'domains' => [{ 'id' => 'domain-public', 'name' => 'store.example.com', 'isDefault' => true }],
         'routings' => [{ 'domain' => 'store.example.com', 'path' => nil, 'currencyCode' => 'TRY', 'currencySymbol' => '₺' }]
@@ -125,8 +124,7 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
       {
         'id' => 'storefront-b2b',
         'name' => 'B2B Storefront',
-        'type' => 'B2B',
-        'status' => 'READY',
+        'deleted' => true,
         'salesChannelId' => 'sales-channel-b2b',
         'domains' => [{ 'id' => 'domain-b2b', 'name' => 'b2b.example.com', 'isDefault' => true }],
         'routings' => []
