@@ -1,0 +1,10 @@
+{
+  "iteration": 1,
+  "selected": null,
+  "status": "awaiting_visual_selection",
+  "variants": [
+    "variant-a-direct-trial",
+    "variant-b-guided"
+  ],
+  "shared_companion": "signup-companion"
+}

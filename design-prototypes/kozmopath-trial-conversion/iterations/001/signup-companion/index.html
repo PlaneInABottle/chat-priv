@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <meta name="prototype-production-signup" content="https://app.kozmopath.com/app/auth/signup">
+    <meta name="prototype-production-login" content="https://app.kozmopath.com/app/login">
+    <title>Kozmopath · 14 günlük ücretsiz deneme hesabı</title>
+    <link rel="stylesheet" href="./styles.css">
+    <script type="module" src="./main.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#signup-form">Forma geç</a>
+    <main class="signup-shell">
+      <section class="signup-form-plane" aria-labelledby="signup-title">
+        <a class="brand" href="../variant-a-direct-trial/index.html" aria-label="Kozmopath landing prototipine dön"><img src="../assets/kozmopath-logo.svg" alt="Kozmopath" width="170" height="32"></a>
+        <div class="form-intro">
+          <p class="eyebrow">14 GÜNLÜK ÜCRETSİZ DENEME</p>
+          <h1 id="signup-title">Kozmopath’ı kendi mağazanla dene.</h1>
+          <p>İş e-postan ve şifren yeterli. Kredi kartı gerekmez.</p>
+          <div class="trial-truth"><span aria-hidden="true">14</span><p><strong>Deneme süren hesabın oluşturulduğunda başlar.</strong><small>Bu prototip hesap oluşturmaz ve hiçbir signup isteği göndermez.</small></p></div>
+        </div>
+
+        <form id="signup-form" novalidate data-production-href="https://app.kozmopath.com/app/auth/signup">
+          <div class="field-group">
+            <label for="business-email">İş e-postası</label>
+            <input id="business-email" name="email" type="email" autocomplete="email" placeholder="sen@magazan.com" required aria-describedby="email-error">
+            <p id="email-error" class="field-error" aria-live="polite"></p>
+          </div>
+          <div class="field-group">
+            <label for="password">Şifre</label>
+            <span class="password-field"><input id="password" name="password" type="password" autocomplete="new-password" placeholder="Şifreni oluştur" minlength="6" required aria-describedby="password-requirements password-error"><button id="toggle-password" type="button" aria-controls="password" aria-pressed="false">Göster</button></span>
+            <p id="password-requirements" class="password-help">En az 6 karakter; en az bir büyük harf, bir küçük harf, bir rakam ve bir özel karakter.</p>
+            <p id="password-error" class="field-error" aria-live="polite"></p>
+          </div>
+          <p class="legal-copy">Devam ederek <a href="#legal-notes" data-config-key="TERMS_URL">Kullanım Koşulları</a> ve <a href="#legal-notes" data-config-key="PRIVACY_URL">Gizlilik Politikası</a> bağlantılarını inceleyip kabul ettiğini belirtirsin.</p>
+          <button class="submit-button" type="submit"><span class="button-label">14 günlük denemeyi başlat</span><span class="button-progress" aria-hidden="true">Hesap hazırlanıyor…</span></button>
+          <div id="form-status" class="form-status" role="status" aria-live="polite"></div>
+        </form>
+
+        <p class="login-line"><a href="#prototype-login-note" data-production-href="https://app.kozmopath.com/app/login">Zaten hesabın var mı? Oturum aç</a></p>
+        <aside id="legal-notes" class="prototype-note"><strong>Bağımsız tasarım prototipi</strong><span id="prototype-login-note">Production signup, oturum, şartlar ve gizlilik hedefleri yalnızca sözleşme metadata’sıdır; bu sayfa dış navigasyon veya ağ isteği yapmaz.</span></aside>
+      </section>
+
+      <aside class="signup-proof-plane" aria-labelledby="proof-title">
+        <div class="proof-brand"><img src="../assets/kozmopath-logo-dark.svg" alt="Kozmopath" width="170" height="32"><span>TRIAL / 001</span></div>
+        <div class="proof-copy"><p class="proof-kicker">HESAPTAN MÜŞTERİ SORUSUNA</p><h2 id="proof-title">Mağazanı bağla. Kataloğunu konuştur.</h2><p>Deneme başlangıcını, Kozmopath’ın gerçek ürün akışına bağlayan üç adım.</p></div>
+        <ol class="signup-sequence">
+          <li><span>01</span><div><strong>Hesabını oluştur</strong><small>İş e-postası + şifre</small></div></li>
+          <li><span>02</span><div><strong>İkas mağazanı bağla</strong><small>Katalog kaynağı</small></div></li>
+          <li><span>03</span><div><strong>Müşteri sorularını yanıtla</strong><small>Ürün bağlamı + insan devri</small></div></li>
+        </ol>
+        <section class="compact-conversation" aria-label="Kontrollü katalog konuşması">
+          <div class="compact-toolbar"><span class="avatar">AY</span><strong>Ayşe Yılmaz</strong><img src="../assets/ikas-official-wordmark.svg" alt="ikas" width="76" height="20"></div>
+          <p class="fixture-disclosure">Kontrollü demo verisi · gerçek müşteri kaydı değildir</p>
+          <div class="compact-messages"><p class="customer-message">Siyah sweatshirt var mı?</p><p class="assistant-message"><strong>Kozmopath</strong>Evet, siyah bisiklet yaka sweatshirt stokta.</p></div>
+          <div class="compact-product"><img src="../assets/controlled-sweatshirt.jpg" alt="Askıda tek başına siyah bisiklet yaka sweatshirt" width="68" height="68"><div><strong>Siyah Bisiklet Yaka Sweatshirt</strong><span>Stokta · Referans fiyat: 1.249 TL</span></div></div>
+        </section>
+      </aside>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,30 @@
+{
+  "source_commit": "8b2f0f85d0eed4480f452a0e083f059160dd4a1f",
+  "assets": [
+    {
+      "prototype_path": "assets/kozmopath-logo.svg",
+      "source_path": "public/brand-assets/logo.svg",
+      "sha256": "3542ae59bc8a922d7d51a31304d38e6bc360864ab7d8bdcf29a8d3ca7443d3af"
+    },
+    {
+      "prototype_path": "assets/kozmopath-logo-dark.svg",
+      "source_path": "public/brand-assets/logo_dark.svg",
+      "sha256": "6e54b2f47d8a8329554f1261c360ea622a4e557d55569d09d86926a6427725dc"
+    },
+    {
+      "prototype_path": "assets/kozmopath-symbol.svg",
+      "source_path": "public/brand-assets/logo_thumbnail.svg",
+      "sha256": "38a437c237431bdfc9a3e4e3cfa36c287aa2099a5cb5303b0b0985ab5a449f40"
+    },
+    {
+      "prototype_path": "assets/ikas-official-wordmark.svg",
+      "source_path": "public/marketing/assets/ikas-official-wordmark.svg",
+      "sha256": "791cfbaa104fe90a9d11f57f8c7872be9b41fafd1a9a9aad0592e64fa2206ffc"
+    },
+    {
+      "prototype_path": "assets/controlled-sweatshirt.jpg",
+      "source_path": "public/marketing/assets/pexels-6046230-black-sweater-crop.jpg",
+      "sha256": "24bd0bd3e4a67f22e3ab1a7baefea24076e9846986f0bc1da545e0aac47d9fe0"
+    }
+  ]
+}
