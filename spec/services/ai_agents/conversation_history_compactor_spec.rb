@@ -35,6 +35,33 @@ RSpec.describe AiAgents::ConversationHistoryCompactor do
     expect(result.first[:content]).to include('Ürünlerimiz aşağıda.', '1. Kedi Tüllü Sineklik', '2. Pileli Sineklik')
   end
 
+  it 'adds displayed option titles to a present_options presentation without leaking values' do
+    result = described_class.new([
+                                   {
+                                     role: 'assistant',
+                                     content: 'Hangi akordiyon sineklik türü hakkında bilgi almak istersiniz?',
+                                     terminal_action: 'present_options',
+                                     tool_result: {
+                                       presentation: {
+                                         items: [
+                                           { title: 'Double Akordiyon Kapı', value: 'opaque-value-1' },
+                                           { title: 'Double Akordiyon Pencere', value: 'opaque-value-2' }
+                                         ]
+                                       }
+                                     }
+                                   }
+                                 ]).call
+
+    expect(result.one?).to be(true)
+    content = result.first[:content]
+    expect(content).to include(
+      'Hangi akordiyon sineklik türü hakkında bilgi almak istersiniz?',
+      '1. Double Akordiyon Kapı',
+      '2. Double Akordiyon Pencere'
+    )
+    expect(content).not_to include('opaque-value-1', 'opaque-value-2')
+  end
+
   def live_product_message(id, sequence, content)
     {
       role: 'assistant',
