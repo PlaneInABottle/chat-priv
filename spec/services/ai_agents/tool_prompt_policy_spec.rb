@@ -81,4 +81,14 @@ RSpec.describe AiAgents::ToolPromptPolicy do
     expect(enabled).to match(/ask at most one focused question to narrow the request/i)
     expect(disabled).not_to include('images can be shown once a specific product or category is selected')
   end
+
+  it 'first asks the customer to pick a category on clarify_category, and searches only if the customer insists' do
+    enabled = described_class.new(%w[ikas_catalog_search present_catalog_products]).instructions
+    disabled = described_class.new([AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL]).instructions
+
+    expect(enabled).to match(/`clarify_category`.*must be selected before images can be shown.*ask the customer to choose.*do not run a second search/i)
+    expect(enabled).to match(/insists on seeing images of everything.*further product-level search.*call `present_catalog_products`/i)
+    expect(enabled).to match(/still returns no image-capable candidates.*honest prose/i)
+    expect(disabled).not_to include('must be selected before images can be shown')
+  end
 end
