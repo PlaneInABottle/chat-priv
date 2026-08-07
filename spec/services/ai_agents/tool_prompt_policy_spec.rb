@@ -71,4 +71,14 @@ RSpec.describe AiAgents::ToolPromptPolicy do
     )
     expect(instructions).to match(/explicitly asks.*must call `present_catalog_products`.*do not replace.*text-only/i)
   end
+
+  it 'honestly states the image boundary for broad requests instead of faking a presentation or re-issuing options' do
+    enabled = described_class.new(%w[ikas_catalog_search present_catalog_products]).instructions
+    disabled = described_class.new([AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL]).instructions
+
+    expect(enabled).to match(/broad or unspecific set.*no item-level candidates with images.*do not.*`present_options`/i)
+    expect(enabled).to match(/images can be shown once a specific product or category is selected.*hundreds of products cannot be shown/i)
+    expect(enabled).to match(/ask at most one focused question to narrow the request/i)
+    expect(disabled).not_to include('images can be shown once a specific product or category is selected')
+  end
 end
