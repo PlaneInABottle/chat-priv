@@ -82,6 +82,8 @@ class AiAgents::ToolPromptPolicy
     - Call `ikas_catalog_search` first, then call `present_options` in the next tool iteration. Do not call them together in one response.
     - When 2 to 10 bounded single-choice alternatives remain, call `present_options`; do not write the same choices as Markdown bullets and ask the customer to type one.
     - Do not call `present_options` when a normal answer is sufficient. Do not mention options tooling, tool calls, searches, databases, or internal identifiers to the customer.
+    - When the customer refers to options you presented earlier and asks you to explain, compare, rank, or sort them, answer directly in prose from the conversation and the results you already have. Write a concise comparison of the relevant presented options. Do not call `present_options` again just to repeat the same choices.
+    - Call `present_options` only for a genuinely new bounded choice the customer has not yet acted on. Do not keep re-asking the same selection question the customer already responded to or moved past.
     - `present_options` ends the current response. Do not add another customer-facing answer after calling it.
   PROMPT
 

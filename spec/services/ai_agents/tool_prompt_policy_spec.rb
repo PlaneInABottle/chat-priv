@@ -43,6 +43,14 @@ RSpec.describe AiAgents::ToolPromptPolicy do
     expect(instructions).not_to include('exact tool evidence', 'explicit candidate evidence')
   end
 
+  it 'answers directly about previously presented options instead of re-calling present_options' do
+    instructions = described_class.new([AiAgents::Config::PRESENT_OPTIONS_TOOL]).instructions
+
+    expect(instructions).to match(/refers to options you presented earlier.*answer directly.*do not call `present_options` again/i)
+    expect(instructions).to match(/only for a genuinely new bounded choice/i)
+    expect(instructions).to include('must use `catalog_option_ids`')
+  end
+
   it 'keeps shared conversation rules when the merchant disables native options' do
     instructions = described_class.new([]).instructions
 
