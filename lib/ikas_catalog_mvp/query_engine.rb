@@ -126,9 +126,41 @@ module IkasCatalogMvp
     def candidates_for(db, parsed, root, root_category_ids, limit)
       rows = matching_rows(db, parsed, root, limit, category_ids: root_category_ids)
       rows = matching_rows(db, parsed, nil, limit, category_ids: []) if rows.empty? && root
-      rows.filter_map { |row| candidate_for(db, row, parsed, root, root_category_ids) }
-          .sort_by { |candidate| candidate_sort_key(candidate, parsed.fetch('terms')) }
-          .first(limit)
+      candidates = rows.filter_map { |row| candidate_for(db, row, parsed, root, root_category_ids) }
+      rescue_phrase = exact_phrase_rescue_phrase(parsed, root, candidates)
+      candidates.concat(exact_phrase_rescued_candidates(db, parsed, limit, rescue_phrase)) if rescue_phrase
+      candidates.sort_by do |candidate|
+        [
+          rescue_phrase && exact_phrase_candidate?(candidate, rescue_phrase) ? 0 : 1,
+          candidate_sort_key(candidate, parsed.fetch('terms'))
+        ]
+      end.first(limit)
+    end
+
+    # When the matched root scope returns only sibling-family candidates that do
+    # not start with the full folded query phrase (for example the scope matched
+    # "Double Akordiyon Pencere Sineklikleri" for the query "Akordeon Pencere
+    # Sineklik"), search the whole catalog for display-name matches that start
+    # with the exact phrase so the intended product is not hidden behind scoped
+    # sibling families.
+    def exact_phrase_rescue_phrase(parsed, root, candidates)
+      terms = parsed.fetch('terms')
+      return nil if root.nil? || candidates.empty? || terms.length < 3
+
+      phrase = Text.fold(terms.join(' '))
+      return nil if candidates.any? { |candidate| exact_phrase_candidate?(candidate, phrase) }
+
+      phrase
+    end
+
+    def exact_phrase_rescued_candidates(db, parsed, limit, phrase)
+      rows = matching_rows(db, parsed, nil, limit * 2, category_ids: [])
+      rows.filter_map { |row| candidate_for(db, row, parsed, nil, []) }
+          .select { |candidate| exact_phrase_candidate?(candidate, phrase) }
+    end
+
+    def exact_phrase_candidate?(candidate, phrase)
+      Text.fold(candidate.fetch('display_name')).start_with?(phrase)
     end
 
     def category_matching_rows(db, limit, category_ids:)

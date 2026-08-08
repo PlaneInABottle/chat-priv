@@ -42,6 +42,8 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
       { 'id' => 'sineklik-hinged-door', 'name' => 'Menteşeli Kapı Sineklikleri', 'parentId' => 'sineklik-hinged' },
       { 'id' => 'sineklik-hinged-window', 'name' => 'Menteşeli Pencere Sinekliği', 'parentId' => 'sineklik-hinged' },
       { 'id' => 'sineklik-balcony', 'name' => 'Cam Balkon Sineklikleri', 'parentId' => 'sineklik-root' },
+      { 'id' => 'sineklik-double', 'name' => 'Double Akordiyon Pencere Sineklikleri', 'parentId' => 'sineklik-root' },
+      { 'id' => 'sineklik-pileli-pencere', 'name' => 'Pileli Pencere Sineklikleri', 'parentId' => 'sineklik-root' },
       { 'id' => 'shirts', 'name' => 'Shirts', 'parentId' => nil },
       { 'id' => 'honey', 'name' => 'Honey', 'parentId' => nil },
       { 'id' => 'curtains', 'name' => 'Perdeler', 'parentId' => nil },
@@ -150,6 +152,8 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
       title_color_curtain_product,
       option_set_sineklik_product,
       kedi_pencere_sineklik_product,
+      sineklik_akordiyon_pencere_product,
+      duble_akordiyon_pencere_product,
       panel_window_case_product,
       panel_cased_accessory_product,
       nested_category_product,
@@ -365,6 +369,30 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
             { 'variantTypeId' => 'curtain-color-type', 'variantValueId' => 'curtain-beyaz' }
           ]
         )
+      ]
+    }
+  end
+
+  def sineklik_akordiyon_pencere_product
+    {
+      'id' => 'p-sineklik-akordiyon-pencere',
+      'name' => 'Akordeon Pencere Sineklik',
+      'categoryIds' => ['sineklik-pileli-pencere'],
+      'attributes' => [],
+      'variants' => [
+        variant('v-sineklik-akordiyon-pencere', price: 700.0, stocks: 3)
+      ]
+    }
+  end
+
+  def duble_akordiyon_pencere_product
+    {
+      'id' => 'p-sineklik-duble-pencere',
+      'name' => 'Akordeon DUBLE Pencere Sineklik',
+      'categoryIds' => ['sineklik-double'],
+      'attributes' => [],
+      'variants' => [
+        variant('v-sineklik-duble-pencere', price: 3690.0, stocks: 2)
       ]
     }
   end
@@ -894,6 +922,36 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
         'p-structured-color-curtain',
         'p-title-color-curtain'
       )
+    end
+  end
+
+  it 'rescues whole-phrase display-name matches hidden behind a sibling scope' do
+    with_snapshot do |sqlite_path|
+      payload = described_class.new(sqlite_path: sqlite_path).query('akordeon pencere sineklik')
+
+      expect(payload.fetch('result_type')).to eq('show_candidates')
+      expect(payload.dig('matched_scope', 'name')).to eq('Double Akordiyon Pencere Sineklikleri')
+      expect(payload.fetch('candidates').map { |candidate| candidate.fetch('product_id') })
+        .to start_with('p-sineklik-akordiyon-pencere')
+    end
+  end
+
+  it 'keeps explicit family matches scoped when the display name already starts with the phrase' do
+    with_snapshot do |sqlite_path|
+      payload = described_class.new(sqlite_path: sqlite_path).query('akordeon duble pencere sineklik')
+
+      expect(payload.dig('matched_scope', 'name')).to eq('Double Akordiyon Pencere Sineklikleri')
+      expect(payload.fetch('candidates').map { |candidate| candidate.fetch('product_id') })
+        .to contain_exactly('p-sineklik-duble-pencere')
+    end
+  end
+
+  it 'requires at least three terms before rescuing phrase matches outside the scope' do
+    with_snapshot do |sqlite_path|
+      payload = described_class.new(sqlite_path: sqlite_path).query('akordeon sineklik')
+
+      expect(payload.fetch('candidates').map { |candidate| candidate.fetch('product_id') })
+        .not_to include('p-sineklik-akordiyon-pencere')
     end
   end
 
