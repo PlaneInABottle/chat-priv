@@ -70,6 +70,7 @@ module AiAgents
         conversation.add_labels(result[:labels_to_apply]) if result[:labels_to_apply].present?
         mark_handoff_completed!(result: result)
         conversation.bot_handoff!
+        attempt_best_effort_assignment!
 
         result
       end
@@ -90,6 +91,30 @@ module AiAgents
       def add_private_note!(internal_note)
         params = {
           content: internal_note,
+          private: true,
+          sender_type: 'AgentBot',
+          sender_id: ai_agent.agent_bot_id
+        }
+
+        Messages::MessageBuilder.new(nil, conversation.reload, params).perform
+      end
+
+      def attempt_best_effort_assignment!
+        return if conversation.assignee.present? || conversation.assignee_agent_bot_id.present?
+
+        AutoAssignment::AgentAssignmentService.new(
+          conversation: conversation,
+          allowed_agent_ids: conversation.inbox.available_agents.map(&:user_id)
+        ).perform
+        add_not_assigned_note! if conversation.assignee.blank?
+      rescue StandardError => e
+        Rails.logger.warn("[AiAgents] Best-effort human assignment failed for conversation=#{conversation.id}: #{e.class.name}: #{e.message}")
+        add_not_assigned_note!
+      end
+
+      def add_not_assigned_note!
+        params = {
+          content: I18n.t('ai_agents.handoff_not_assigned_note', locale: conversation.account.locale),
           private: true,
           sender_type: 'AgentBot',
           sender_id: ai_agent.agent_bot_id

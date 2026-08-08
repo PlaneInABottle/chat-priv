@@ -114,6 +114,8 @@ Smallest viable OSS implementation: reuse `AgentBot` assignment and inbox bindin
    - Inbox binding controls **availability for assignment** (which inboxes can assign to this AI), not autonomous reply behavior.
    - Add `ai: 1` to the `AgentBot.bot_type` enum to explicitly identify AI bots at runtime, rather than relying on implicit `outgoing_url.blank?` checks.
 
+> **Note (2026-08-08):** the reply gate is superseded — see `docs/ai-agent-pending-gate-plan.md` (AI replies gate on `conversation.status == pending`, the inbox-level bot path is kept, and assignment alone does not gate AI replies).
+
 3. **Config storage**
    - Store per-account model/provider settings in `account.settings`.
    - Store conversation allowance/usage metadata in `account.limits`, consistent with existing limits patterns. Per-conversation first-response tracking must use an atomic mechanism (e.g., `AiAgentConversation` unique index on `[ai_agent_id, conversation_id]`, or a `first_ai_response_at` timestamp on the conversation record) — **not** in Enterprise `custom_attributes`, which is out of scope.

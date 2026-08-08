@@ -11,7 +11,7 @@ This document describes the current production contract. Historical `*.plan.md` 
 | `IkasCatalogMvp::QueryEngine` | Resolves catalog queries and returns structured candidates, clarification groups, or no-match results. |
 | `AiAgents::LlmToolResultPresenter` | Removes debug-heavy catalog fields and caps candidates only in model-facing tool messages. |
 | `AiAgents::ToolOutputSanitizer` | Repairs or removes customer-visible HTTP links that are not present in tool output. It does not judge natural-language claims. |
-| `AiAgents::LiveProcessor` | Loads bounded conversation history, prevents duplicate live replies, persists the outgoing message, and accounts for usage. |
+| `AiAgents::LiveProcessor` | Loads bounded conversation history, prevents duplicate live replies, persists the outgoing message, and accounts for usage. AI replies are gated on `conversation.status == pending` (via `AiAgents::ReplyPolicy`); a human's first reply opens the conversation and silences the AI; `human_handoff` remains terminal with best-effort assignment. |
 | `AiAgents::Tools::PresentOptionsService` | Validates and creates a terminal `input_select` response with 2–10 choices. |
 | `AiAgents::Tools::PresentCatalogProductsService` | Validates a display-only image presentation against the latest catalog candidates and prior presentation state. |
 | `AiAgents::CatalogImagePreparer` | Fetches only trusted ikas CDN images, enforces byte/pixel/type limits, and normalizes them to bounded JPEG attachments. |

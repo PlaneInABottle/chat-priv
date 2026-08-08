@@ -33,6 +33,7 @@ en:
   hello: 'Hello world'
   ai_agents:
     safety_handoff_message: 'I am transferring you to a team member. Our team will help you.'
+    handoff_not_assigned_note: 'Handoff completed — no agents were available for automatic assignment. An agent can pick up this conversation from the inbox.'
     catalog_products:
       reference_price: "Reference price: %{amount} %{currency}"
       representative_image: "Representative product image"

@@ -20,6 +20,7 @@ tr:
   hello: 'Merhaba Dünya'
   ai_agents:
     safety_handoff_message: 'Sizi bir temsilciye aktarıyorum. Ekibimiz yardımcı olacak.'
+    handoff_not_assigned_note: 'Devir tamamlandı — otomatik atama için uygun ajan bulunamadı. Bir ajan bu görüşmeyi kutu listesinden üstlenebilir.'
     catalog_products:
       reference_price: "Referans fiyat: %{amount} %{currency}"
       representative_image: "Temsili ürün görseli"

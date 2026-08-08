@@ -33,7 +33,8 @@ RSpec.describe AiAgents::LiveProcessor do
     expect(conversation.reload.additional_attributes['ai_handoff_completed']).to be(true)
     expect(conversation.status).to eq('open')
     expect(conversation.cached_label_list_array).to include(vip_label.title)
-    expect(conversation.messages.where(private: true).last.content).to eq('Escalate to billing')
+    expect(conversation.messages.where(private: true).pluck(:content)).to include('Escalate to billing')
+    expect(conversation.messages.where(private: true).last.content).to eq(I18n.t('ai_agents.handoff_not_assigned_note'))
     expect(conversation.messages.where(private: false).last.content).to eq('I am transferring you to a human agent.')
   end
 
@@ -599,6 +600,22 @@ RSpec.describe AiAgents::LiveProcessor do
                      message_type: 'incoming',
                      sender: conversation.contact)
 
+    expect(adapter).not_to receive(:perform)
+
+    expect(described_class.new(message: message, adapter: adapter).perform).to be_nil
+  end
+
+  it 'does not reply when the conversation is no longer pending' do
+    conversation.update!(status: 'open')
+    message = create(:message,
+                     account: account,
+                     inbox: inbox,
+                     conversation: conversation,
+                     message_type: 'incoming',
+                     sender: conversation.contact,
+                     content: 'Hello')
+
+    expect(Messages::MessageBuilder).not_to receive(:new)
     expect(adapter).not_to receive(:perform)
 
     expect(described_class.new(message: message, adapter: adapter).perform).to be_nil

@@ -3,6 +3,7 @@ require 'rails_helper'
 RSpec.describe AiAgents::Tools::HumanHandoffService do
   let(:account) { create(:account) }
   let(:ai_agent) { create(:ai_agent, account: account) }
+  let(:agent) { create(:user, account: account) }
   let(:conversation) { create(:conversation, account: account) }
   let(:trigger_message) do
     create(:message, account: account, inbox: conversation.inbox, conversation: conversation, message_type: 'incoming', sender: conversation.contact)
@@ -84,6 +85,7 @@ RSpec.describe AiAgents::Tools::HumanHandoffService do
   end
 
   it 'executes live handoff side effects in live mode only' do
+    conversation.update!(assignee: agent)
     live_service = described_class.new(
       ai_agent: ai_agent,
       account: account,
@@ -148,5 +150,128 @@ RSpec.describe AiAgents::Tools::HumanHandoffService do
     expect(result[:private_note_preview]).not_to include('r' * 301)
     expect(result[:private_note_preview]).not_to include('c' * 1_501)
     expect(result[:private_note_preview].length).to be < 3_000
+  end
+
+  describe '#call in live mode (best-effort assignment)' do
+    let(:live_service) do
+      described_class.new(
+        ai_agent: ai_agent,
+        account: account,
+        mode: :live,
+        conversation: conversation,
+        trigger_message: trigger_message,
+        settings: {
+          'allowed_labels' => %w[vip billing]
+        }
+      )
+    end
+    let(:handoff_args) do
+      {
+        'reason' => 'Billing issue',
+        'customer_message' => 'I am transferring you to a billing specialist.',
+        'internal_note' => 'Customer needs finance review',
+        'labels' => ['vip']
+      }
+    end
+    let(:not_assigned_note_text) { I18n.t('ai_agents.handoff_not_assigned_note', locale: account.locale) }
+
+    def not_assigned_notes
+      conversation.reload.messages.where(private: true).select { |message| message.content == not_assigned_note_text }
+    end
+
+    context 'when an online agent is available' do
+      before do
+        conversation.inbox.update!(enable_auto_assignment: false)
+        create(:inbox_member, inbox: conversation.inbox, user: agent)
+        allow(OnlineStatusTracker).to receive(:get_available_users).and_return({ agent.id.to_s => 'online' })
+      end
+
+      it 'assigns the conversation and adds no not-assigned note' do
+        result = live_service.call(args: handoff_args)
+
+        expect(result[:status]).to eq('ok')
+        expect(conversation.reload.assignee).to eq(agent)
+        expect(not_assigned_notes.length).to eq(0)
+        expect(conversation.status).to eq('open')
+        expect(conversation.additional_attributes['ai_handoff_completed']).to eq(true)
+      end
+
+      it 'returns handoff_already_completed on a second call without repeating side effects' do
+        live_service.call(args: handoff_args)
+        messages_after_first_call = conversation.reload.messages.count
+
+        second = live_service.call(args: handoff_args)
+
+        expect(second[:status]).to eq('error')
+        expect(second[:error_code]).to eq('handoff_already_completed')
+        expect(conversation.reload.assignee).to eq(agent)
+        expect(conversation.messages.count).to eq(messages_after_first_call)
+        expect(not_assigned_notes.length).to eq(0)
+      end
+    end
+
+    context 'when no assignable agent is online' do
+      before do
+        conversation.inbox.update!(enable_auto_assignment: false)
+        allow(OnlineStatusTracker).to receive(:get_available_users).and_return({ agent.id.to_s => 'offline' })
+      end
+
+      it 'keeps the conversation unassigned and writes exactly one not-assigned note' do
+        live_service.call(args: handoff_args)
+
+        expect(conversation.reload.assignee).to be_nil
+        expect(not_assigned_notes.length).to eq(1)
+        expect(conversation.status).to eq('open')
+        expect(conversation.additional_attributes['ai_handoff_completed']).to eq(true)
+      end
+    end
+
+    context 'when the assignment service raises' do
+      before do
+        conversation.inbox.update!(enable_auto_assignment: false)
+        allow(OnlineStatusTracker).to receive(:get_available_users).and_raise('assignment exploded')
+      end
+
+      it 'rescues the error, logs a warning and writes exactly one not-assigned note' do
+        expect(Rails.logger).to receive(:warn).with(a_string_including('Best-effort human assignment failed'))
+
+        expect { live_service.call(args: handoff_args) }.not_to raise_error
+
+        expect(conversation.reload.assignee).to be_nil
+        expect(not_assigned_notes.length).to eq(1)
+      end
+    end
+
+    context 'when the conversation already has an assignee' do
+      before do
+        conversation.inbox.update!(enable_auto_assignment: false)
+        conversation.update!(assignee: agent)
+        allow(OnlineStatusTracker).to receive(:get_available_users).and_return({ agent.id.to_s => 'online' })
+      end
+
+      it 'skips the assignment attempt and adds no not-assigned note' do
+        expect(AutoAssignment::AgentAssignmentService).not_to receive(:new)
+
+        live_service.call(args: handoff_args)
+
+        expect(conversation.reload.assignee).to eq(agent)
+        expect(not_assigned_notes.length).to eq(0)
+      end
+    end
+
+    context 'when in test mode' do
+      before do
+        conversation.inbox.update!(enable_auto_assignment: false)
+        create(:inbox_member, inbox: conversation.inbox, user: agent)
+        allow(OnlineStatusTracker).to receive(:get_available_users).and_return({ agent.id.to_s => 'online' })
+      end
+
+      it 'does not assign the conversation or write notes' do
+        service.call(args: handoff_args)
+
+        expect(conversation.reload.assignee).to be_nil
+        expect(conversation.messages.count).to eq(1)
+      end
+    end
   end
 end

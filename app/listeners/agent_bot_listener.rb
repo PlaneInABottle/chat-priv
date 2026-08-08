@@ -85,7 +85,7 @@ class AgentBotListener < BaseListener
 
   def process_ai_bot_event(agent_bot, message)
     return unless eligible_ai_message?(message)
-    return if ai_handoff_completed?(message.conversation)
+    return unless AiAgents::ReplyPolicy.can_reply?(message.conversation)
     return unless agent_bot.ai_agent&.enabled?
 
     AiAgents::ResponseBuffer.schedule!(message)
@@ -98,11 +98,6 @@ class AgentBotListener < BaseListener
     return false if message.template?
 
     true
-  end
-
-  def ai_handoff_completed?(conversation)
-    attrs = conversation.additional_attributes
-    attrs.is_a?(Hash) && attrs['ai_handoff_completed'] == true
   end
 
   def process_webhook_bot_event(agent_bot, payload)

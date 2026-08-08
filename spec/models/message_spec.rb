@@ -376,6 +376,58 @@ RSpec.describe Message do
       create(:message, message_type: :outgoing, conversation: conversation)
       expect(conversation.reload.pending?).to be true
     end
+
+    it 'does not mark the conversation open for a webhook bot inbox' do
+      agent_bot = create(:agent_bot, account: conversation.account)
+      inbox = conversation.inbox
+      inbox.agent_bot = agent_bot
+      inbox.save!
+
+      create(:message, message_type: :outgoing, conversation: conversation)
+
+      expect(conversation.reload.pending?).to be true
+    end
+
+    it 'keeps the captain pending predicate stubbed off in OSS' do
+      message = build(:message, message_type: :outgoing, conversation: conversation)
+
+      expect(message.send(:captain_pending_conversation?)).to be false
+    end
+
+    context 'when the inbox has an active AI agent' do
+      let(:ai_agent) { create(:ai_agent, account: conversation.account, enabled: true) }
+
+      before do
+        create(:agent_bot_inbox, inbox: conversation.inbox, agent_bot: ai_agent.agent_bot, status: 'active')
+      end
+
+      it 'marks the conversation open when a human sends a public outgoing message' do
+        create(:message, message_type: :outgoing, conversation: conversation)
+
+        expect(conversation.reload.open?).to be true
+      end
+
+      it 'does not change the status when the conversation is already open' do
+        conversation.update!(status: 'open')
+
+        create(:message, message_type: :outgoing, conversation: conversation)
+
+        expect(conversation.reload.open?).to be true
+      end
+
+      it 'does not mark the conversation open for private outgoing messages' do
+        create(:message, message_type: :outgoing, conversation: conversation, private: true)
+
+        expect(conversation.reload.pending?).to be true
+      end
+
+      it 'marks the conversation open when the AI agent bot is the assignee' do
+        conversation.update!(assignee_agent_bot: ai_agent.agent_bot)
+        create(:message, message_type: :outgoing, conversation: conversation)
+
+        expect(conversation.reload.open?).to be true
+      end
+    end
   end
 
   describe '#waiting since' do
