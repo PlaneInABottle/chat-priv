@@ -15,6 +15,7 @@ module IkasCatalogMvp
       constraints = []
 
       constraints.concat(extract_dimensions!(working))
+      constraints.concat(extract_dimension_axes!(working))
       constraints.concat(extract_weight_volume!(working))
       constraints.concat(extract_facets!(working))
 
@@ -40,6 +41,55 @@ module IkasCatalogMvp
 
     def pair_regex
       /((?:\d+(?:[,.]\d+)?)\s*[x×*]\s*(?:\d+(?:[,.]\d+)?)(?:\s*(cm|mm|m))?)/i
+    end
+
+    def extract_dimension_axes!(text)
+      matches = dimension_axis_matches!(text)
+      inherited_unit = inherited_dimension_unit(matches)
+      matches.map { |match| dimension_axis_constraint(match, inherited_unit) }
+    end
+
+    def dimension_axis_matches!(text)
+      matches = []
+      text.gsub!(dimension_axis_regex) do |raw|
+        match = Regexp.last_match
+        matches << {
+          'axis' => dimension_axis_key(match[:axis_first] || match[:axis_last]),
+          'number' => match[:number_first] || match[:number_last],
+          'unit' => match[:unit_first] || match[:unit_last],
+          'raw' => raw.strip
+        }
+        ' '
+      end
+      matches
+    end
+
+    def inherited_dimension_unit(matches)
+      explicit_units = matches.filter_map { |match| match['unit'] }.uniq
+      explicit_units.first if explicit_units.one?
+    end
+
+    def dimension_axis_constraint(match, inherited_unit)
+      unit = match['unit'] || inherited_unit
+      {
+        'type' => 'dimension_axis',
+        'key' => match.fetch('axis'),
+        'operator' => 'eq',
+        'value' => normalize_dimension_value(match.fetch('number'), unit),
+        'unit' => 'cm',
+        'raw' => match.fetch('raw')
+      }
+    end
+
+    def dimension_axis_regex
+      axis = '(?:en|boy|width|height|genislik|genişlik|yukseklik|yükseklik)'
+      number = '\\d+(?:[,.]\\d+)?'
+      unit = '(?:cm|mm|m)'
+      /(?:(?<axis_first>#{axis})\s*[:=]?\s*(?<number_first>#{number})\s*(?<unit_first>#{unit})?|(?<number_last>#{number})\s*(?<unit_last>#{unit})?\s+(?<axis_last>#{axis}))/i
+    end
+
+    def dimension_axis_key(value)
+      %w[en width genislik].include?(Text.fold(value)) ? 'width' : 'height'
     end
 
     def extract_weight_volume!(text)
