@@ -24,11 +24,11 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
 
   def write_fixture(raw_dir)
     write_jsonl(raw_dir, 'categories', categories)
-      write_jsonl(raw_dir, 'variant_types', variant_types)
-      write_jsonl(raw_dir, 'product_attributes', product_attributes)
-      write_jsonl(raw_dir, 'product_option_sets', product_option_sets)
-      write_jsonl(raw_dir, 'storefronts', storefronts)
-      write_jsonl(raw_dir, 'products', products)
+    write_jsonl(raw_dir, 'variant_types', variant_types)
+    write_jsonl(raw_dir, 'product_attributes', product_attributes)
+    write_jsonl(raw_dir, 'product_option_sets', product_option_sets)
+    write_jsonl(raw_dir, 'storefronts', storefronts)
+    write_jsonl(raw_dir, 'products', products)
   end
 
   def categories
@@ -39,6 +39,7 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
       { 'id' => 'sineklik-akordiyon', 'name' => 'Akordiyon Sineklikler', 'parentId' => 'sineklik-root' },
       { 'id' => 'sineklik-akordiyon-door', 'name' => 'Akordiyon Kapı Sineklikleri', 'parentId' => 'sineklik-akordiyon' },
       { 'id' => 'sineklik-hinged', 'name' => 'Menteşeli Sineklikler', 'parentId' => 'sineklik-root' },
+      { 'id' => 'sineklik-hinged-typo', 'name' => 'Menteşeli Sineklklerrr', 'parentId' => 'sineklik-root' },
       { 'id' => 'sineklik-hinged-door', 'name' => 'Menteşeli Kapı Sineklikleri', 'parentId' => 'sineklik-hinged' },
       { 'id' => 'sineklik-hinged-window', 'name' => 'Menteşeli Pencere Sinekliği', 'parentId' => 'sineklik-hinged' },
       { 'id' => 'sineklik-balcony', 'name' => 'Cam Balkon Sineklikleri', 'parentId' => 'sineklik-root' },
@@ -68,7 +69,7 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
         'id' => 'size-type',
         'name' => 'Size',
         'selectionType' => 'choice',
-        'values' => [{ 'id' => 'size-m', 'name' => 'M' }]
+        'values' => [{ 'id' => 'size-m', 'name' => 'M' }, { 'id' => 'size-l', 'name' => 'L' }]
       },
       {
         'id' => 'color-type',
@@ -98,8 +99,21 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
         'id' => 'sineklik-option-set',
         'name' => 'Sineklik Pencere',
         'options' => [
-          { 'name' => 'En (CM)', 'type' => 'TEXT', 'textSettings' => { 'max' => 70 } },
-          { 'name' => 'Boy (CM)', 'type' => 'TEXT', 'textSettings' => { 'max' => 130 } }
+          { 'name' => 'En (CM)', 'type' => 'TEXT', 'isOptional' => false, 'order' => 1, 'textSettings' => { 'min' => 30, 'max' => 70 } },
+          { 'name' => 'Boy (CM)', 'type' => 'TEXT', 'isOptional' => false, 'order' => 2, 'textSettings' => { 'min' => 40, 'max' => 130 } },
+          {
+            'name' => 'Profil Rengi',
+            'type' => 'CHOICE',
+            'isOptional' => false,
+            'order' => 3,
+            'selectSettings' => {
+              'values' => [
+                { 'value' => 'Antrasit', 'order' => 1 },
+                { 'value' => 'Beyaz', 'order' => 2 }
+              ]
+            }
+          },
+          { 'name' => 'Gizli', 'type' => 'TEXT', 'isOptional' => true, 'order' => 4, 'textSettings' => { 'max' => 10 } }
         ]
       },
       {
@@ -238,6 +252,24 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
           variant_values: [
             { 'variantTypeId' => 'size-type', 'variantValueId' => 'size-m' },
             { 'variantTypeId' => 'color-type', 'variantValueId' => 'black' }
+          ]
+        ),
+        variant(
+          'v-shirt-black-l',
+          price: 45.0,
+          stocks: 2,
+          variant_values: [
+            { 'variantTypeId' => 'size-type', 'variantValueId' => 'size-l' },
+            { 'variantTypeId' => 'color-type', 'variantValueId' => 'black' }
+          ]
+        ),
+        variant(
+          'v-shirt-white-m',
+          price: 40.0,
+          stocks: 3,
+          variant_values: [
+            { 'variantTypeId' => 'size-type', 'variantValueId' => 'size-m' },
+            { 'variantTypeId' => 'color-type', 'variantValueId' => 'white' }
           ]
         )
       ]
@@ -560,7 +592,7 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
 
   it 'matches customer dimensions against product max dimensions' do
     with_snapshot do |sqlite_path|
-      payload = described_class.new(sqlite_path: sqlite_path).query('70x90 sineklik')
+      payload = described_class.new(sqlite_path: sqlite_path).query('70x90 akordiyon sineklik')
       candidate = payload.fetch('candidates').find { |row| row.fetch('display_name').include?('Akordiyon Sineklik') }
 
       expect(payload.fetch('result_type')).to eq('show_compatible_candidates')
@@ -600,6 +632,27 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
       expect(payload.fetch('candidates').first.fetch('variant_id')).to eq('v-shirt-black-m')
       expect(payload.fetch('candidates').first.fetch('match_reasons')).to include('matched facet')
       expect(payload.dig('candidates', 0, 'link', 'url')).to include('%22Size%22=M', '%22Color%22=Black')
+    end
+  end
+
+  it 'groups matching variants under one product with an exact price range' do
+    with_snapshot do |sqlite_path|
+      payload = described_class.new(sqlite_path: sqlite_path).query('black shirt')
+      shirt = payload.fetch('candidates').find { |candidate| candidate.fetch('product_id') == 'p-shirt' }
+
+      expect(payload.fetch('candidates').count { |candidate| candidate.fetch('product_id') == 'p-shirt' }).to eq(1)
+      expect(shirt.fetch('matching_variant_count')).to eq(2)
+      expect(shirt.fetch('matching_variants').map { |variant| variant.fetch('variant_id') }).to contain_exactly(
+        'v-shirt-black-m', 'v-shirt-black-l'
+      )
+      expect(shirt.fetch('price')).to include(
+        'amount' => nil,
+        'min_amount' => 40.0,
+        'max_amount' => 45.0,
+        'pricing_model' => 'range',
+        'final_total_known' => true
+      )
+      expect(shirt.fetch('stock')).not_to have_key('quantity')
     end
   end
 
@@ -709,7 +762,7 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
 
   it 'does not treat unitless numeric ranges as dimensions' do
     with_snapshot do |sqlite_path|
-      payload = described_class.new(sqlite_path: sqlite_path).query('70x90 sineklik', limit: 10)
+      payload = described_class.new(sqlite_path: sqlite_path).query('70x90 akordiyon sineklik', limit: 10)
 
       product_ids = payload.fetch('candidates').map { |candidate| candidate.fetch('product_id') }
       expect(product_ids).not_to include('p-false-range-sineklik')
@@ -732,6 +785,69 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
 
       expect(candidate.fetch('match_reasons')).to include('requested dimensions fit product max dimensions')
       expect(candidate.fetch('evidence').first.fetch('source')).to eq('product_option_set')
+    end
+  end
+
+  it 'returns customer-useful configuration without internal or arbitrary text options' do
+    with_snapshot do |sqlite_path|
+      payload = described_class.new(sqlite_path: sqlite_path).query('50x90 antrasit structured option sineklik', limit: 10)
+      candidate = payload.fetch('candidates').find { |row| row.fetch('product_id') == 'p-option-set-sineklik' }
+
+      expect(candidate.fetch('configuration')).to eq(
+        'customizable' => true,
+        'options' => [
+          { 'name' => 'En (CM)', 'type' => 'dimension', 'required' => true, 'axis' => 'width', 'unit' => 'cm', 'min' => 30.0, 'max' => 70.0 },
+          { 'name' => 'Boy (CM)', 'type' => 'dimension', 'required' => true, 'axis' => 'height', 'unit' => 'cm', 'min' => 40.0, 'max' => 130.0 },
+          { 'name' => 'Profil Rengi', 'type' => 'choice', 'required' => true, 'values' => %w[Antrasit Beyaz] }
+        ]
+      )
+      expect(candidate.fetch('evidence')).to include(include('source' => 'product_option_set', 'fact' => 'facet', 'value' => 'Antrasit'))
+    end
+  end
+
+  it 'enforces labelled dimension axes but accepts either orientation for an unlabelled pair' do
+    with_snapshot do |sqlite_path|
+      engine = described_class.new(sqlite_path: sqlite_path)
+      direct = engine.query('en 70 boy 90 structured option sineklik', limit: 10)
+      rotated_labelled = engine.query('en 90 boy 70 structured option sineklik', limit: 10)
+      rotated_pair = engine.query('90x70 structured option sineklik', limit: 10)
+
+      expect(direct.fetch('candidates').map { |row| row.fetch('product_id') }).to include('p-option-set-sineklik')
+      expect(rotated_labelled.fetch('candidates').map { |row| row.fetch('product_id') }).not_to include('p-option-set-sineklik')
+      expect(rotated_pair.fetch('candidates').map { |row| row.fetch('product_id') }).to include('p-option-set-sineklik')
+    end
+  end
+
+  it 'inherits an explicit metric unit across labelled axes' do
+    parsed = IkasCatalogMvp::QueryParser.new.parse('en 700 boy 900 mm sineklik')
+
+    expect(parsed.fetch('constraints')).to include(
+      include('type' => 'dimension_axis', 'key' => 'width', 'value' => 70.0),
+      include('type' => 'dimension_axis', 'key' => 'height', 'value' => 90.0)
+    )
+  end
+
+  it 'inherits a declared metric unit across configuration dimension options' do
+    engine = described_class.new(sqlite_path: 'unused.sqlite3')
+    options = engine.send(
+      :configuration_options,
+      'options' => [
+        { 'name' => 'En', 'type' => 'TEXT', 'textSettings' => { 'max' => 700 } },
+        { 'name' => 'Boy (mm)', 'type' => 'TEXT', 'textSettings' => { 'max' => 900 } }
+      ]
+    )
+
+    expect(options).to include(
+      include('axis' => 'width', 'unit' => 'cm', 'max' => 70.0),
+      include('axis' => 'height', 'unit' => 'cm', 'max' => 90.0)
+    )
+  end
+
+  it 'rejects structured dimensions outside declared minimum and maximum bounds' do
+    with_snapshot do |sqlite_path|
+      payload = described_class.new(sqlite_path: sqlite_path).query('20x90 structured option sineklik', limit: 10)
+
+      expect(payload.fetch('candidates').map { |row| row.fetch('product_id') }).not_to include('p-option-set-sineklik')
     end
   end
 
@@ -782,6 +898,15 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
     end
   end
 
+  it 'does not cross a matched leaf category when its products reject a hard dimension constraint' do
+    with_snapshot do |sqlite_path|
+      payload = described_class.new(sqlite_path: sqlite_path).query('200x200 akordeon pencere sineklik', limit: 10)
+
+      expect(payload.fetch('result_type')).to eq('no_match')
+      expect(payload.fetch('candidates')).to be_empty
+    end
+  end
+
   it 'matches concise catalog scope terms with structured dimensions' do
     with_snapshot do |sqlite_path|
       payload = described_class.new(sqlite_path: sqlite_path).query('kedi için pencere sinekliği 70x90', limit: 10)
@@ -812,11 +937,11 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
     end
   end
 
-  it 'prefers an exact smaller multi-word category over the broad parent' do
+  it 'ignores empty category branches while preserving exact populated category matches' do
     with_snapshot do |sqlite_path|
       engine = described_class.new(sqlite_path: sqlite_path)
 
-      expect(engine.query('cam balkon sineklik').fetch('matched_scope').fetch('id')).to eq('sineklik-balcony')
+      expect(engine.query('cam balkon sineklik').fetch('matched_scope')).to be_nil
       expect(engine.query('menteşeli kapı sinekliği').fetch('matched_scope').fetch('id')).to eq('sineklik-hinged-door')
     end
   end
@@ -863,7 +988,7 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
     with_snapshot do |sqlite_path|
       engine = described_class.new(sqlite_path: sqlite_path)
 
-      expect(engine.query('cam balkom sineklik').fetch('matched_scope').fetch('id')).to eq('sineklik-balcony')
+      expect(engine.query('cam balkom sineklik').fetch('matched_scope')).to be_nil
       expect(engine.query('akordeon sineklik 70x80').fetch('matched_scope').fetch('id')).to eq('sineklik-akordiyon')
       expect(engine.query('sineklk').fetch('matched_scope').fetch('id')).to eq('sineklik-root')
       expect(engine.query('bal').fetch('matched_scope')).to be_nil

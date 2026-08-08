@@ -46,6 +46,11 @@ Use fresh conversations and stateful follow-ups. Vary wording; do not assert one
 16. Verify exact variant images when available and the representative-image notice when only another product variant supplies imagery.
 17. Disable `present_catalog_products`, verify the agent uses normal text/link responses, then restore the exact prior configuration. Verify `Channel::Api` remains text-only even when the tool is enabled.
 18. Simulate WhatsApp attachment delivery locally. Verify one normalized Chatwoot image attachment per provider message, stable sequence order, useful captions, no input-select payload, and retry idempotency without sending an external message. Force one provider failure and verify the group stops, the failed image is not counted as presented, and a retry resumes in order without duplicating delivered images.
+19. Search a multi-variant product broadly, then with one and two variant constraints. Verify there is one candidate per product, `matching_variant_count` is exact, the visible variant list is bounded, and fixed variant prices become an honest min/max range rather than duplicate product cards.
+20. Search an unlabelled dimension pair in both orientations and verify both can match. Repeat with explicit width/height labels and verify the declared Ikas axes are enforced. Cover cm, mm, and m only.
+21. Search a configurable product and verify CHOICE values and declared width/height bounds come from the live option set, while arbitrary internal TEXT fields are absent. A browse/fit question must be answered before configuration; explicit purchase or quote intent asks only the next missing required option in natural prose, without `present_options`.
+22. Use a constrained sineklik query that remains compatible with both door and window subtypes. Verify `clarify_category` contains at most three surviving real buckets and does not select an empty typo category branch.
+23. For that technical-bucket result, verify the customer receives one plain-language high-level question such as door versus window, not a list or buttons containing Double/Pileli/Maksi prefixes. Reply with the high-level choice and verify the next search preserves the original dimensions/color, then recommends when the narrowed result is sufficient instead of starting a question cascade.
 
 DeepSeek V4 Flash 0731 and other smaller models may vary in prose. Judge structural contracts, persisted state, tool grounding, and recovery boundaries; record non-contractual wording problems separately instead of weakening hard safety or idempotency checks.
 
@@ -62,6 +67,8 @@ For every live scenario, correlate the incoming message, queue execution, outgoi
 - The merchant UI shows a customer-friendly tool summary, while raw diagnostics remain restricted to admin/debug surfaces.
 - A catalog image group has one to three messages with one normalized image attachment each, shared presentation ID, contiguous sequence/total values, and no raw ikas CDN URL in customer payloads.
 - Image groups are display-only: no option UUID, callback, selected state, or requirement to choose before viewing the remaining images.
+- Candidate product IDs are unique. Matching variant counts, omitted counts, grouped price ranges, and any configuration bounds/values agree with the full persisted tool result.
+- Configuration values remain natural-language follow-ups and never become stocked variants or `input_select` values.
 
 Use bounded Rails runner queries or the Super Admin tool-execution/LLM-call screens for persisted evidence. Redact message content and URLs when reporting outside the local session.
 

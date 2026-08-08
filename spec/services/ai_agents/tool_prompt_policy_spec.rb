@@ -27,11 +27,19 @@ RSpec.describe AiAgents::ToolPromptPolicy do
 
     expect(instructions).to include('Shared conversation rules:')
     expect(instructions).to match(/latest customer message.*previously stated constraints.*unchanged/i)
-    expect(instructions).to match(/asks.*recommend.*short reason/i)
+    expect(instructions).to match(/asks.*recommend.*information is sufficient.*short reason/i)
     expect(instructions).to match(/at most one necessary follow-up/i)
     expect(instructions).to match(/may add your own reasoning, comparisons, and recommendations/i)
     expect(instructions).to match(/interactive choices are unavailable.*concise plain text/i)
     expect(instructions).not_to include('Customer option rules:', '`present_options`')
+  end
+
+  it 'requires sufficient evidence before recommending' do
+    instructions = described_class.new([AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL]).instructions
+
+    expect(instructions).to match(/recommend.*available information is sufficient/i)
+    expect(instructions).to match(/not enough.*do not guess/i)
+    expect(instructions).to match(/recommendation and the evidence is sufficient/i)
   end
 
   it 'grounds concrete catalog entries without restricting model reasoning' do
@@ -77,7 +85,7 @@ RSpec.describe AiAgents::ToolPromptPolicy do
     disabled = described_class.new([AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL]).instructions
 
     expect(enabled).to match(/broad or unspecific set.*no item-level candidates with images.*do not.*`present_options`/i)
-    expect(enabled).to match(/images can be shown once a specific product or category is selected.*hundreds of products cannot be shown/i)
+    expect(enabled).to match(/images can be shown once a specific product or category is selected.*full catalog cannot be shown/i)
     expect(enabled).to match(/ask at most one focused question to narrow the request/i)
     expect(disabled).not_to include('images can be shown once a specific product or category is selected')
   end
@@ -86,9 +94,67 @@ RSpec.describe AiAgents::ToolPromptPolicy do
     enabled = described_class.new(%w[ikas_catalog_search present_catalog_products]).instructions
     disabled = described_class.new([AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL]).instructions
 
-    expect(enabled).to match(/`clarify_category`.*must be selected before images can be shown.*ask the customer to choose.*do not run a second search/i)
+    expect(enabled).to match(
+      /`clarify_category`.*must be selected before images can be shown.*ask the customer to choose.*do not run a second search/i
+    )
     expect(enabled).to match(/insists on seeing images of everything.*further product-level search.*call `present_catalog_products`/i)
     expect(enabled).to match(/still returns no image-capable candidates.*honest prose/i)
     expect(disabled).not_to include('must be selected before images can be shown')
+  end
+
+  it 'treats grouped variants and product configuration as distinct catalog concepts' do
+    instructions = described_class.new(%w[ikas_catalog_search present_options]).instructions
+
+    expect(instructions).to include('Each candidate is one product')
+    expect(instructions).to include('matching_variants')
+    expect(instructions).to include('configuration.options')
+    expect(instructions).to include('ask for the next one missing required configuration option')
+    expect(instructions).to include('do not use interactive choice presentation for product configuration')
+  end
+
+  it 'treats the matching variant count as authoritative over the bounded detail list' do
+    instructions = described_class.new([AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL]).instructions
+
+    expect(instructions).to include('matching_variant_count')
+    expect(instructions).to include('bounded detail list')
+    expect(instructions).to include('claim the visible list is exhaustive')
+    expect(instructions).to include('omitted variants do not exist')
+  end
+
+  it 'mentions price only when relevant and handles grouped price fields explicitly' do
+    instructions = described_class.new([AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL]).instructions
+
+    expect(instructions).to include("First answer the customer's actual question")
+    expect(instructions).to include('Mention price only when the customer asks')
+    expect(instructions).to include('min_amount–max_amount')
+    expect(instructions).to include('min_reference_amount–max_reference_amount')
+  end
+
+  it 'uses generalized catalog, currency, and broad-image language' do
+    instructions = described_class.new(%w[ikas_catalog_search present_catalog_products]).instructions
+
+    expect(instructions).to include('catalog-declared attributes')
+    expect(instructions).to include('any currency symbol or code')
+    expect(instructions).to include('the full catalog cannot be shown at once')
+    expect(instructions).not_to include('organic products', 'hundreds of products cannot be shown')
+  end
+
+  it 'keeps plain-text simplification ahead of bounded interactive options' do
+    instructions = described_class.new(%w[ikas_catalog_search present_options]).instructions
+
+    expect(instructions).to match(/2 to 10 bounded.*only if the catalog rules do not require a plain-text simplification/i)
+    expect(instructions).to include('a normal answer is not already sufficient')
+  end
+
+  it 'simplifies technical category buckets before offering interactive options' do
+    instructions = described_class.new(%w[ikas_catalog_search present_options]).instructions
+
+    expect(instructions).to include('ask only that simpler distinction in natural language')
+    expect(instructions).to include('Infer it from the returned labels and current request')
+    expect(instructions).to include('do not repeat technical modifiers or model-family names')
+    expect(instructions).to include('indoor versus outdoor use')
+    expect(instructions).to include('This is an illustration of simplification, not a fixed taxonomy')
+    expect(instructions).to include('Do not use interactive option presentation for that simplifying question')
+    expect(instructions).to include('do not immediately start another subtype or configuration questionnaire')
   end
 end

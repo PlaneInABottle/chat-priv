@@ -14,7 +14,28 @@ RSpec.describe AiAgents::LlmToolResultPresenter do
       relevance_score: 42,
       relevance_signals: [{ kind: 'fts_bm25_match', raw_score: 2.1, score: 4 }],
       image: { available: true, count: 2, scope: 'variant' },
-      link: { url: "https://example.test/products/#{index}" }
+      link: { url: "https://example.test/products/#{index}" },
+      matching_variant_count: 5,
+      matching_variants: matching_variants(index),
+      configuration: configuration
+    }
+  end
+
+  def matching_variants(index)
+    Array.new(5) do |variant_index|
+      {
+        variant_id: "variant-#{index}-#{variant_index}",
+        display_name: "Product #{index} / #{variant_index}",
+        options: [{ name: 'Size', value: variant_index.to_s }],
+        stock: { in_stock: true, sellable: true, available: true }
+      }
+    end
+  end
+
+  def configuration
+    {
+      customizable: true,
+      options: [{ name: 'Width', type: 'dimension', required: true, axis: 'width', unit: 'cm', max: 100 }]
     }
   end
 
@@ -37,15 +58,29 @@ RSpec.describe AiAgents::LlmToolResultPresenter do
       'item_id' => 'item-0',
       'price' => { 'amount' => 100, 'currency' => 'TRY' },
       'image' => { 'available' => true, 'count' => 2, 'scope' => 'variant' },
-      'link' => { 'url' => 'https://example.test/products/0' }
+      'link' => { 'url' => 'https://example.test/products/0' },
+      'product_id' => 'product-0'
     )
     expect(presented).to include('result_count' => 20, 'candidates_omitted' => 12)
     expect(presented).not_to include('parsed', 'search_backend', 'catalog')
     expect(presented.fetch('candidates').first).not_to include(
-      'product_id', 'variant_id', 'confidence', 'match_kind', 'match_reasons', 'relevance_score', 'relevance_signals'
+      'variant_id', 'confidence', 'match_kind', 'match_reasons', 'relevance_score', 'relevance_signals'
     )
     expect(presented.dig('candidates', 0, 'stock')).to eq('in_stock' => true, 'sellable' => true)
     expect(result.fetch(:candidates)).to have_attributes(size: 20).and start_with(include(:relevance_score, :relevance_signals))
+  end
+
+  it 'bounds grouped variants while retaining customer-useful configuration' do
+    result = { status: 'ok', result_type: 'show_candidates', candidates: [candidate(0)] }
+
+    presented = described_class.new(tool_key: 'ikas_catalog_search', result: result).call
+    compact_candidate = presented.fetch('candidates').first
+
+    expect(compact_candidate).to include('matching_variant_count' => 5, 'matching_variants_omitted' => 2)
+    expect(compact_candidate.fetch('matching_variants').length).to eq(3)
+    expect(compact_candidate.dig('configuration', 'options', 0)).to include(
+      'name' => 'Width', 'axis' => 'width', 'unit' => 'cm', 'max' => 100
+    )
   end
 
   it 'preserves query diversity while bounding multi-search candidates' do

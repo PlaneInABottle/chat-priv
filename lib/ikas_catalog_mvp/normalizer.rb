@@ -160,33 +160,106 @@ module IkasCatalogMvp
       option_set = product_option_set_lookup[product['productOptionSetId']]
       return [] unless option_set
 
-      dimensions = option_set_dimensions(option_set)
-      rows = dimensions.empty? ? [] : [fact(item, 'dimension_max', 'product_option_set', dimensions[0], dimensions[1], 'cm', 'product_option_set', 'high', option_set.fetch('name'))]
-      rows << fact(item, 'custom_size_supported', 'product_option_set', 1, nil, nil, 'product_option_set', 'high', option_set.fetch('name')) if dimensions.any?
+      dimension_rows = product_option_dimension_facts(item, option_set)
+      rows = dimension_rows + product_option_choice_facts(item, option_set)
+      if dimension_rows.any?
+        rows << fact(item, 'custom_size_supported', 'product_option_set', 1, nil, nil, 'product_option_set', 'high', option_set.fetch('name'))
+      end
       rows
     end
 
-    def option_set_dimensions(option_set)
-      dimension_options = Array(option_set['options']).filter_map do |option|
-        max = option.dig('textSettings', 'max')
-        next unless max
+    def product_option_dimension_facts(item, option_set)
+      axes = dimension_options(option_set)
+      rows = axes.map do |axis|
+        fact(
+          item,
+          'dimension_axis_range',
+          axis.fetch('axis'),
+          axis['min'],
+          axis['max'],
+          'cm',
+          'product_option_set',
+          'high',
+          axis.fetch('name')
+        )
+      end
+      width = axes.find { |axis| axis.fetch('axis') == 'width' && axis['max'] }
+      height = axes.find { |axis| axis.fetch('axis') == 'height' && axis['max'] }
+      if width && height
+        rows << fact(
+          item,
+          'dimension_max',
+          'product_option_set',
+          width.fetch('max'),
+          height.fetch('max'),
+          'cm',
+          'product_option_set',
+          'high',
+          option_set.fetch('name')
+        )
+      end
+      rows
+    end
 
+    def dimension_options(option_set)
+      options = Array(option_set['options']).filter_map do |option|
         key = dimension_option_key(option['name'])
         next unless key
 
-        [key, max.to_f]
-      end.to_h
-      width = dimension_options['width']
-      height = dimension_options['height']
-      width && height ? [width, height] : []
+        minimum = option.dig('textSettings', 'min')
+        maximum = option.dig('textSettings', 'max')
+        next if minimum.nil? && maximum.nil?
+
+        {
+          'axis' => key,
+          'name' => option.fetch('name'),
+          'unit' => dimension_option_unit(option['name']),
+          'raw_min' => minimum,
+          'raw_max' => maximum
+        }
+      end
+      inherited_unit = options.filter_map { |option| option['unit'] }.uniq.one? ? options.filter_map { |option| option['unit'] }.first : nil
+      options.map do |option|
+        unit = option['unit'] || inherited_unit || 'cm'
+        option.slice('axis', 'name').merge(
+          'min' => normalize_optional_dimension(option['raw_min'], unit),
+          'max' => normalize_optional_dimension(option['raw_max'], unit)
+        )
+      end
+    end
+
+    def product_option_choice_facts(item, option_set)
+      Array(option_set['options']).flat_map do |option|
+        next [] unless option['type'].to_s.upcase == 'CHOICE'
+
+        Array(option.dig('selectSettings', 'values')).filter_map do |value|
+          value_text = value['value'].to_s.strip
+          next if value_text.empty?
+
+          fact(item, 'facet', option.fetch('name'), nil, nil, nil, 'product_option_set', 'high', value_text)
+        end
+      end
     end
 
     def dimension_option_key(name)
       folded = Text.fold(name)
-      return 'width' if folded.match?(/\b(en|width)\b/)
-      return 'height' if folded.match?(/\b(boy|height)\b/)
+      return 'width' if folded.match?(/\b(en|width|genislik)\b/)
+      return 'height' if folded.match?(/\b(boy|height|yukseklik)\b/)
 
       nil
+    end
+
+    def dimension_option_unit(name)
+      folded = Text.fold(name)
+      return 'mm' if folded.match?(/\bmm\b/)
+      return 'cm' if folded.match?(/\bcm\b/)
+      return 'm' if folded.match?(/\b(metre|meter)\b/) || name.to_s.match?(/\(\s*m\s*\)/i)
+
+      nil
+    end
+
+    def normalize_optional_dimension(value, unit)
+      normalize_dimension_value(value.to_s, unit) unless value.nil?
     end
 
     def weight_facts(item, product, _variant)
@@ -262,8 +335,21 @@ module IkasCatalogMvp
         Array(product['translations']).flat_map { |row| [row['name'], clean_text(row['description'])] },
         category_names(product),
         Array(product['tags']).map { |tag| tag['name'] },
+        product_option_search_text(product),
         facets.map { |facet| [facet['key'], facet['value']] }
       ].flatten.compact.uniq.join(' ')
+    end
+
+    def product_option_search_text(product)
+      option_set = product_option_set_lookup[product['productOptionSetId']]
+      return [] unless option_set
+
+      [
+        option_set['name'],
+        Array(option_set['options']).flat_map do |option|
+          [option['name'], Array(option.dig('selectSettings', 'values')).map { |value| value['value'] }]
+        end
+      ]
     end
 
     def category_names(product)

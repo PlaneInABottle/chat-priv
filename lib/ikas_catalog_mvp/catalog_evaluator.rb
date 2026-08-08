@@ -105,6 +105,8 @@ module IkasCatalogMvp
       checks.concat(link_failures(expectations, result))
       checks.concat(evidence_failures(expectations, result))
       checks.concat(bucket_failures(expectations, result))
+      checks.concat(grouping_failures(expectations, result))
+      checks.concat(configuration_failures(expectations, result))
       checks
     end
 
@@ -187,6 +189,46 @@ module IkasCatalogMvp
       expected_labels = Array(expectations['bucket_labels_include']).map { |value| Text.fold(value) }.reject(&:empty?)
       bucket_text = Text.fold(bucket_labels_for(result).join(' '))
       failures.concat(expected_labels.reject { |label| bucket_text.include?(label) }.map { |label| "expected_bucket_not_found: #{label}" })
+      failures
+    end
+
+    def grouping_failures(expectations, result)
+      candidates = candidates_for(result)
+      failures = []
+      if expectations['unique_products']
+        product_ids = candidates.filter_map { |candidate| candidate['product_id'] }
+        failures << 'duplicate_product_candidates' unless product_ids.uniq.length == product_ids.length
+      end
+      if expectations['min_matching_variant_count']
+        minimum = expectations.fetch('min_matching_variant_count').to_i
+        maximum = candidates.map { |candidate| candidate['matching_variant_count'].to_i }.max.to_i
+        failures << "too_few_matching_variants: expected at least #{minimum}, got #{maximum}" if maximum < minimum
+      end
+      failures
+    end
+
+    def configuration_failures(expectations, result)
+      options = candidates_for(result).flat_map { |candidate| Array(candidate.dig('configuration', 'options')) }
+      failures = []
+      expected_names = Array(expectations['configuration_options_include']).map { |name| Text.fold(name) }
+      actual_names = options.filter_map { |option| option['name'] }.map { |name| Text.fold(name) }
+      failures.concat(expected_names.reject { |name| actual_names.include?(name) }.map { |name| "missing_configuration_option: #{name}" })
+
+      Array(expectations['configuration_values_include']).each do |expectation|
+        expectation = deep_stringify_keys(expectation)
+        option = options.find { |row| Text.fold(row['name']) == Text.fold(expectation['name']) }
+        expected_values = Array(expectation['values']).map { |value| Text.fold(value) }
+        actual_values = Array(option&.[]('values')).map { |value| Text.fold(value) }
+        missing = expected_values - actual_values
+        failures << "missing_configuration_values: #{Text.fold(expectation['name'])}=#{missing.join(',')}" if missing.any?
+      end
+
+      Array(expectations['configuration_bounds']).each do |expectation|
+        expectation = deep_stringify_keys(expectation)
+        option = options.find { |row| Text.fold(row['name']) == Text.fold(expectation['name']) }
+        matches = option && expectation.except('name').all? { |key, value| option[key].to_s == value.to_s }
+        failures << "wrong_configuration_bounds: #{Text.fold(expectation['name'])}" unless matches
+      end
       failures
     end
 

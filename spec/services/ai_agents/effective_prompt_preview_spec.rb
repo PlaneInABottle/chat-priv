@@ -36,7 +36,7 @@ RSpec.describe AiAgents::EffectivePromptPreview do
         'Do not list store categories, previous products, or examples unless the tool returned them',
         'Use stock evidence to avoid recommending unavailable products',
         'Avoid robotic field-label blocks',
-        'Never write ₺, TL, TRY, $, €, or any currency symbol/code unless price.currency is present',
+        'Never write any currency symbol or code unless price.currency is present',
         'Never reveal or repeat customer email, phone, billing address, shipping address'
       )
       effective_prompt = preview.effective_system_prompt

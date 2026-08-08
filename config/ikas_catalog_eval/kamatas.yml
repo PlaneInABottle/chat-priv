@@ -1,175 +1,125 @@
 # Local/dev evaluation pack for the current Kamataş-like Ikas snapshot.
-# Keep product-specific expectations here instead of hardcoding them in search logic.
+# Queries are normalized catalog queries; conversational rewriting is verified in stateful E2E.
 - id: beyaz_perde
   query: "beyaz perde"
   expect:
-    result_type:
-      - show_candidates
-      - show_compatible_candidates
-    min_results: 1
-    top_results_include:
-      - "Orjin Pliseli Perde Beyaz"
-    require_links: true
-    require_evidence:
-      - fact: color
+    result_type: [clarify_category]
+    min_buckets: 2
+    bucket_labels_include: ["Plise Perdeler"]
 
-- id: beyaz_plise_perde_color_category
-  query: "beyaz plise perde"
+- id: beyaz_plise_perde
+  query: "beyaz orjin plise perde"
   expect:
-    result_type:
-      - show_candidates
-      - show_compatible_candidates
+    result_type: [show_candidates, show_compatible_candidates]
     min_results: 1
-    first_result_include:
-      - "Orjin Pliseli Perde Beyaz"
-    top_results_include:
-      - "Orjin Pliseli Perde Beyaz"
+    top_results_include: ["Orjin Pliseli Perde Beyaz"]
     require_links: true
+    unique_products: true
     require_evidence:
-      - fact: color
-
-- id: orjin_pliseli_perde_beyaz_link
-  query: "orjin pliseli perde beyaz link"
-  expect:
-    result_type:
-      - show_candidates
-      - show_compatible_candidates
-    min_results: 1
-    first_result_include:
-      - "Orjin Pliseli Perde Beyaz"
-    require_links: true
-    require_evidence:
-      - fact: color
-    candidate_text_excludes:
-      - "Sineklik"
-
-- id: en_ucuz_beyaz_perde
-  query: "en ucuz beyaz perde"
-  expect:
-    result_type:
-      - show_candidates
-      - show_compatible_candidates
-    min_results: 1
-    top_results_include:
-      - "Orjin Pliseli Perde Beyaz"
-    require_links: true
-    require_evidence:
-      - fact: color
+      - fact: facet
 
 - id: blackout_perde
   query: "blackout perde"
   expect:
-    result_type:
-      - show_candidates
-      - show_compatible_candidates
+    result_type: [show_candidates, show_compatible_candidates]
     min_results: 1
-    top_results_include:
-      - "Blackout"
+    top_results_include: ["Blackout"]
     require_links: true
+    unique_products: true
 
 - id: perde_nested_buckets
   query: "perde"
   expect:
-    result_type:
-      - clarify_category
+    result_type: [clarify_category]
     min_buckets: 2
-    bucket_labels_include:
-      - "Plise Perdeler"
-      - "Orjin Plise Perdeler"
-      - "Seperatör Kapılar"
+    bucket_labels_include: ["Plise Perdeler", "Seperatör Kapılar"]
 
-- id: akordiyon_sineklik_70x80
+- id: akordiyon_sineklik_70x80_needs_type
   query: "70x80 akordiyon sineklik"
   expect:
-    result_type:
-      - show_compatible_candidates
-    min_results: 3
-    top_results_include:
-      - "Sineklik"
-    require_links: true
-    require_evidence:
-      - fact: dimension_max
+    result_type: [clarify_category]
+    min_buckets: 2
 
-- id: akordeon_sineklik_70x80_typo
+- id: akordeon_sineklik_70x80_typo_needs_type
   query: "70x80 akordeon sineklik"
   expect:
-    result_type:
-      - show_compatible_candidates
-    min_results: 3
-    top_results_include:
-      - "Sineklik"
-    require_links: true
-    require_evidence:
-      - fact: dimension_max
+    result_type: [clarify_category]
+    min_buckets: 2
 
-- id: akordiyon_sineklik_beyaz_70x80
-  query: "akordiyon sineklik beyaz 70x80"
+- id: akordeon_pencere_70x80
+  query: "70x80 akordeon pencere sineklik"
   expect:
-    result_type:
-      - show_compatible_candidates
-    min_results: 3
-    first_result_include:
-      - "Akordeon Pencere Sineklik Beyaz"
-    top_results_include:
-      - "Beyaz"
-      - "Sineklik"
+    result_type: [show_compatible_candidates]
+    min_results: 1
+    top_results_include: ["Pencere", "Sineklik"]
     require_links: true
+    unique_products: true
     require_evidence:
       - fact: dimension_max
-      - fact: color
+    configuration_options_include: ["En (CM)", "Boy (CM)", "Ölçülerinizi görseldeki gibi mi aldınız?"]
+    configuration_values_include:
+      - name: "Ölçülerinizi görseldeki gibi mi aldınız?"
+        values: ["Evet içten (fitilden fitile) aldım.", "Hayır bitmiş (dıştan dışa) olarak aldım"]
+    configuration_bounds:
+      - name: "En (CM)"
+        axis: width
+        unit: cm
+        max: 80.0
+      - name: "Boy (CM)"
+        axis: height
+        unit: cm
+        max: 150.0
+
+- id: akordeon_pencere_beyaz_70x80
+  query: "70x80 beyaz akordeon pencere sineklik"
+  expect:
+    result_type: [show_compatible_candidates]
+    min_results: 1
+    top_results_include: ["Beyaz", "Sineklik"]
+    require_links: true
+    unique_products: true
+    require_evidence:
+      - fact: dimension_max
+      - fact: facet
+
+- id: akordeon_pencere_max_asimi
+  query: "200x200 akordeon pencere sineklik"
+  expect:
+    result_type: [no_match]
 
 - id: sabit_sok_tak_pencere_sineklik_70x100
-  query: "sabit sök tak pencere sineklik 70x100"
+  query: "70x100 sabit sök tak pencere sineklik"
   expect:
-    result_type:
-      - show_compatible_candidates
+    result_type: [show_compatible_candidates]
     min_results: 1
-    top_results_include:
-      - "SABİT"
+    top_results_include: ["SABİT"]
     require_links: true
+    unique_products: true
     require_evidence:
       - fact: dimension_max
 
 - id: menteseli_sineklik
   query: "menteşeli sineklik"
   expect:
-    result_type:
-      - clarify_category
+    result_type: [clarify_category]
     min_buckets: 2
-    bucket_labels_include:
-      - "Menteşeli Kapı Sineklikleri"
-      - "Menteşeli Pencere Sinekliği"
+    bucket_labels_include: ["Menteşeli Kapı Sineklikleri", "Menteşeli Pencere Sinekliği"]
 
 - id: cam_balkom_sineklik_typo
   query: "cam balkom sineklik"
   expect:
-    result_type:
-      - clarify_category
+    result_type: [clarify_category]
     min_buckets: 2
-    bucket_labels_include:
-      - "Cam Balkon Kasalı Akordiyon Sineklik"
+    bucket_labels_include: ["Cam Balkon Kasalı Akordiyon Sineklik"]
 
 - id: kedi_sinekligi_pencere_70x100
-  query: "kedi sinekliği pencere 70x100"
+  query: "70x100 kedi sinekliği pencere"
   expect:
-    result_type:
-      - show_compatible_candidates
+    result_type: [show_compatible_candidates]
     min_results: 1
-    first_result_include:
-      - "KEDİ Tüllü Menteşeli PENCERE"
+    first_result_include: ["KEDİ Tüllü Menteşeli PENCERE"]
     require_links: true
+    unique_products: true
     require_evidence:
       - fact: dimension_max
-    candidate_text_excludes:
-      - "Kapı"
-
-- id: beyaz_olanin_linki_followup
-  query: "beyaz olanın linki"
-  context_texts:
-    - "akordiyon sineklik 70x80"
-  expect:
-    result_type:
-      - show_candidates
-      - show_compatible_candidates
-    min_results: 1
-    require_links: true
+    candidate_text_excludes: ["Kapı"]

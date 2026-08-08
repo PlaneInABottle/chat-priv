@@ -29,6 +29,8 @@ module IkasCatalogMvp
 
         root_category_ids = root ? category_subtree_ids(db, root.fetch('id')) : []
         candidates = candidates_for(db, parsed, root, root_category_ids, limit)
+        constrained_clarification = constrained_clarification_payload(db, text, parsed, root, candidates)
+        return constrained_clarification if constrained_clarification
 
         result_payload(text, parsed, root, candidates)
       end
@@ -66,13 +68,27 @@ module IkasCatalogMvp
       parsed.fetch('constraints').empty? && buckets.length > 1
     end
 
+    def constrained_clarification_payload(db, text, parsed, root, candidates)
+      return unless root && parsed.fetch('constraints').any? && candidates.length > 1
+
+      buckets = type_buckets(db, root.fetch('id'))
+      counts = candidates.filter_map { |candidate| candidate_bucket_id(db, candidate.fetch('product_id'), buckets) }.tally
+      return if counts.length < 2
+
+      surviving = buckets.filter_map do |bucket|
+        count = counts[bucket.fetch('category_id')]
+        bucket.merge('group_count' => count) if count
+      end.sort_by { |bucket| [-bucket.fetch('group_count'), bucket.fetch('label')] }
+      clarify_payload(text, parsed, root, surviving)
+    end
+
     def clarify_payload(text, parsed, root, buckets)
       {
         'result_type' => 'clarify_category',
         'query' => text,
         'parsed' => parsed,
         'matched_scope' => root,
-        'buckets' => buckets.first(DEFAULT_LIMIT),
+        'buckets' => buckets.first(3),
         'search_backend' => SEARCH_BACKEND,
         'next_action' => 'ask_customer_to_choose_category_or_type'
       }
@@ -129,12 +145,13 @@ module IkasCatalogMvp
       candidates = rows.filter_map { |row| candidate_for(db, row, parsed, root, root_category_ids) }
       rescue_phrase = exact_phrase_rescue_phrase(parsed, root, candidates)
       candidates.concat(exact_phrase_rescued_candidates(db, parsed, limit, rescue_phrase)) if rescue_phrase
-      candidates.sort_by do |candidate|
+      sorted_candidates = candidates.sort_by do |candidate|
         [
           rescue_phrase && exact_phrase_candidate?(candidate, rescue_phrase) ? 0 : 1,
           candidate_sort_key(candidate, parsed.fetch('terms'))
         ]
-      end.first(limit)
+      end
+      grouped_candidates(db, sorted_candidates).first(limit)
     end
 
     # When the matched root scope returns only sibling-family candidates that do
@@ -166,7 +183,7 @@ module IkasCatalogMvp
     def category_matching_rows(db, limit, category_ids:)
       sql = category_matching_rows_sql(category_ids)
       bindings = category_ids.dup
-      bindings << [limit * 8, 50].max
+      bindings << product_pool_limit(limit)
       db.execute(sql, bindings)
     end
 
@@ -177,8 +194,22 @@ module IkasCatalogMvp
     def fts5_matching_rows(db, fts5_terms, limit, category_ids:, operator: 'AND')
       bindings = [fts5_query_for(fts5_terms, operator: operator)]
       bindings.concat(category_ids)
-      bindings << [limit * 8, 50].max
-      db.execute(fts5_matching_rows_sql(category_ids), bindings)
+      matched_rows = db.execute(fts5_matching_rows_sql(category_ids), bindings)
+      product_scores = matched_rows.group_by { |row| row.fetch('product_id') }.transform_values do |rows|
+        rows.filter_map { |row| row['fts_score'] }.min
+      end
+      product_ids = product_scores.keys.first(product_pool_limit(limit))
+      return [] if product_ids.empty?
+
+      db.execute(
+        "SELECT * FROM catalog_items WHERE product_id IN (#{placeholders(product_ids)})",
+        product_ids
+      ).each { |row| row['fts_score'] = product_scores[row.fetch('product_id')] }
+        .sort_by { |row| [row['fts_score'].to_f, -row.fetch('sellable').to_i, row['price_amount'] || Float::INFINITY, row.fetch('display_name')] }
+    end
+
+    def product_pool_limit(limit)
+      [limit.to_i * 8, 50].max
     end
 
     def relaxed_fts5_matching_rows(db, fts5_terms, limit, category_ids:)
@@ -203,13 +234,12 @@ module IkasCatalogMvp
       join_sql = category_ids.any? ? 'INNER JOIN catalog_item_categories ic ON ic.item_id = i.item_id' : ''
 
       <<~SQL
-        SELECT DISTINCT i.*, bm25(catalog_items_fts, 0.0, 10.0, 1.0) AS fts_score
+        SELECT DISTINCT i.product_id, bm25(catalog_items_fts, 0.0, 10.0, 1.0) AS fts_score
         FROM catalog_items_fts
         INNER JOIN catalog_items i ON i.item_id = catalog_items_fts.item_id
         #{join_sql}
         WHERE #{clauses.join(' AND ')}
-        ORDER BY fts_score ASC, i.sellable DESC, i.price_amount IS NULL ASC, i.price_amount ASC, i.in_stock DESC, i.display_name ASC
-        LIMIT ?
+        ORDER BY fts_score ASC
       SQL
     end
 
@@ -236,12 +266,21 @@ module IkasCatalogMvp
       join_sql = category_ids.any? ? 'INNER JOIN catalog_item_categories ic ON ic.item_id = i.item_id' : ''
 
       <<~SQL
-        SELECT DISTINCT i.*
-        FROM catalog_items i
-        #{join_sql}
-        WHERE #{where_sql}
-        ORDER BY i.sellable DESC, i.price_amount IS NULL ASC, i.price_amount ASC, i.in_stock DESC, i.display_name ASC
-        LIMIT ?
+        WITH matched_products AS (
+          SELECT i.product_id
+          FROM catalog_items i
+          #{join_sql}
+          WHERE #{where_sql}
+          GROUP BY i.product_id
+          ORDER BY MAX(i.sellable) DESC, MIN(i.price_amount) IS NULL ASC, MIN(i.price_amount) ASC,
+                   MAX(i.in_stock) DESC, MIN(i.display_name) ASC
+          LIMIT ?
+        )
+        SELECT i.*
+        FROM matched_products
+        INNER JOIN catalog_items i ON i.product_id = matched_products.product_id
+        ORDER BY i.sellable DESC, i.price_amount IS NULL ASC, i.price_amount ASC,
+                 i.in_stock DESC, i.display_name ASC
       SQL
     end
 
@@ -286,6 +325,187 @@ module IkasCatalogMvp
       candidate
     end
 
+    def grouped_candidates(db, item_candidates)
+      item_candidates.group_by { |candidate| candidate.fetch('product_id') }.values.map do |matches|
+        grouped_candidate(db, matches)
+      end
+    end
+
+    def grouped_candidate(db, matches)
+      best = matches.first
+      group = db.get_first_row('SELECT * FROM catalog_groups WHERE product_id = ?', [best.fetch('product_id')]) || {}
+      visible_variants = matches.first(5).map { |match| matching_variant_payload(db, match) }
+      candidate = best.merge(
+        'display_name' => group['display_name'] || best.fetch('display_name'),
+        'category_paths' => matches.flat_map { |match| match.fetch('category_paths') }.uniq,
+        'matching_variant_count' => matches.length,
+        'matching_variants' => visible_variants,
+        'matching_variants_omitted' => matches.length - visible_variants.length,
+        'price' => grouped_price_payload(matches),
+        'stock' => grouped_stock_payload(matches)
+      )
+      candidate.delete('matching_variants_omitted') if candidate['matching_variants_omitted'].zero?
+      candidate['link'] ||= link_for(group) if group['product_url'].to_s != ''
+      configuration = configuration_for(db, best.fetch('product_id'))
+      candidate['configuration'] = configuration if configuration
+      candidate
+    end
+
+    def matching_variant_payload(db, candidate)
+      {
+        'variant_id' => candidate['variant_id'],
+        'display_name' => candidate.fetch('display_name'),
+        'options' => variant_options_for(db, candidate.fetch('item_id')),
+        'price' => candidate.fetch('price'),
+        'stock' => candidate.fetch('stock'),
+        'link' => candidate['link'],
+        'match_kind' => candidate.fetch('match_kind'),
+        'evidence' => candidate.fetch('evidence')
+      }.compact
+    end
+
+    def variant_options_for(db, item_id)
+      db.execute('SELECT key, value FROM catalog_facets WHERE item_id = ? ORDER BY key ASC, value ASC', [item_id]).map do |row|
+        { 'name' => row.fetch('key'), 'value' => row.fetch('value') }
+      end
+    end
+
+    def grouped_price_payload(matches)
+      prices = matches.map { |match| match.fetch('price') }
+      custom_prices = prices.select { |price| price['final_total_known'] == false }
+      return grouped_custom_price_payload(custom_prices) if custom_prices.any?
+
+      amounts = prices.filter_map { |price| price['amount'] }.uniq.sort
+      return prices.first if amounts.length <= 1
+
+      currencies = prices.filter_map { |price| price['currency'] }.uniq
+      payload = {
+        'amount' => nil,
+        'min_amount' => amounts.first,
+        'max_amount' => amounts.last,
+        'final_total_known' => true,
+        'pricing_model' => 'range'
+      }
+      payload['currency'] = currencies.first if currencies.one?
+      payload
+    end
+
+    def grouped_custom_price_payload(prices)
+      amounts = prices.filter_map { |price| price['reference_amount'] }.uniq.sort
+      currencies = prices.filter_map { |price| price['currency'] }.uniq
+      payload = {
+        'amount' => nil,
+        'final_total_known' => false,
+        'pricing_model' => amounts.length > 1 ? 'custom_options_range' : 'custom_options'
+      }
+      payload['reference_amount'] = amounts.first if amounts.one?
+      if amounts.length > 1
+        payload['min_reference_amount'] = amounts.first
+        payload['max_reference_amount'] = amounts.last
+      end
+      payload['currency'] = currencies.first if currencies.one?
+      payload
+    end
+
+    def grouped_stock_payload(matches)
+      stocks = matches.map { |match| match.fetch('stock') }
+      payload = {
+        'available' => stocks.any? { |stock| stock['available'] },
+        'in_stock' => stocks.any? { |stock| stock['in_stock'] },
+        'sellable' => stocks.any? { |stock| stock['sellable'] },
+        'matching_in_stock_count' => stocks.count { |stock| stock['in_stock'] },
+        'matching_sellable_count' => stocks.count { |stock| stock['sellable'] }
+      }
+      payload['quantity'] = stocks.first['quantity'] if stocks.one?
+      payload
+    end
+
+    def configuration_for(db, product_id)
+      product_json = db.get_first_value('SELECT raw_json FROM raw_products WHERE id = ?', [product_id])
+      return if product_json.to_s.empty?
+
+      product = JSON.parse(product_json)
+      option_set_id = product['productOptionSetId']
+      return if option_set_id.to_s.empty?
+
+      option_set_json = db.get_first_value('SELECT raw_json FROM raw_product_option_sets WHERE id = ?', [option_set_id])
+      return if option_set_json.to_s.empty?
+
+      options = configuration_options(JSON.parse(option_set_json))
+      return if options.empty?
+
+      { 'customizable' => true, 'options' => options }
+    rescue JSON::ParserError
+      nil
+    end
+
+    def configuration_options(option_set)
+      options = Array(option_set['options']).sort_by { |option| option['order'].to_f }
+      explicit_units = options.filter_map do |option|
+        configuration_dimension_unit(option['name']) if dimension_option_axis(option['name'])
+      end.uniq
+      inherited_unit = explicit_units.first if explicit_units.one?
+      options.filter_map do |option|
+        axis = dimension_option_axis(option['name'])
+        if option['type'].to_s.upcase == 'TEXT' && axis
+          configuration_dimension_option(option, axis, inherited_unit)
+        elsif option['type'].to_s.upcase == 'CHOICE'
+          configuration_choice_option(option)
+        end
+      end
+    end
+
+    def configuration_dimension_option(option, axis, inherited_unit)
+      unit = configuration_dimension_unit(option['name']) || inherited_unit || 'cm'
+      {
+        'name' => option.fetch('name'),
+        'type' => 'dimension',
+        'required' => option['isOptional'] != true,
+        'axis' => axis,
+        'unit' => 'cm',
+        'min' => normalize_configuration_dimension(option.dig('textSettings', 'min'), unit),
+        'max' => normalize_configuration_dimension(option.dig('textSettings', 'max'), unit)
+      }.compact
+    end
+
+    def configuration_choice_option(option)
+      values = Array(option.dig('selectSettings', 'values')).sort_by { |value| value['order'].to_f }.filter_map do |value|
+        text = value['value'].to_s.strip
+        text unless text.empty?
+      end
+      return if values.empty?
+
+      { 'name' => option.fetch('name'), 'type' => 'choice', 'required' => option['isOptional'] != true, 'values' => values }
+    end
+
+    def dimension_option_axis(name)
+      folded = Text.fold(name)
+      return 'width' if folded.match?(/\b(en|width|genislik)\b/)
+      return 'height' if folded.match?(/\b(boy|height|yukseklik)\b/)
+
+      nil
+    end
+
+    def configuration_dimension_unit(name)
+      folded = Text.fold(name)
+      return 'mm' if folded.match?(/\bmm\b/)
+      return 'cm' if folded.match?(/\bcm\b/)
+      return 'm' if folded.match?(/\b(metre|meter)\b/) || name.to_s.match?(/\(\s*m\s*\)/i)
+
+      nil
+    end
+
+    def normalize_configuration_dimension(value, unit)
+      return if value.nil?
+
+      numeric = value.to_f
+      case unit
+      when 'mm' then numeric / 10.0
+      when 'm' then numeric * 100.0
+      else numeric
+      end
+    end
+
     def image_payload_for(db, item_id)
       return unless table_exists?(db, 'catalog_item_images')
 
@@ -320,6 +540,7 @@ module IkasCatalogMvp
       item_id = row.fetch('item_id')
       case constraint.fetch('type')
       when 'dimension_pair' then dimension_match(db, item_id, constraint)
+      when 'dimension_axis' then dimension_axis_match(db, item_id, constraint)
       when 'weight', 'volume' then numeric_match(db, item_id, constraint)
       when 'facet' then value_match(db, row, constraint)
       else
@@ -329,10 +550,24 @@ module IkasCatalogMvp
 
     def dimension_match(db, item_id, constraint)
       values = constraint.fetch('values')
-      facts = facts_for(db, item_id).select { |fact| %w[dimension_exact dimension_max dimension_range custom_size_supported].include?(fact.fetch('type')) }
+      facts = facts_for(db, item_id).select do |fact|
+        %w[dimension_exact dimension_max dimension_range dimension_axis_range custom_size_supported].include?(fact.fetch('type'))
+      end
 
       exact = facts.find { |fact| fact.fetch('type') == 'dimension_exact' && same_pair?(values, fact_values(fact)) }
       return match('exact', exact) if exact
+
+      axis_facts = facts.select { |fact| fact.fetch('type') == 'dimension_axis_range' }
+      if axis_facts.any?
+        width = axis_facts.find { |fact| fact.fetch('key') == 'width' }
+        height = axis_facts.find { |fact| fact.fetch('key') == 'height' }
+        direct = width && height && dimension_axis_contains?(width, values[0]) && dimension_axis_contains?(height, values[1])
+        rotated = width && height && dimension_axis_contains?(width, values[1]) && dimension_axis_contains?(height, values[0])
+        maximum = compatible_dimension_max_fact(facts, values)
+        return match_with_facts('compatible', [maximum, width, height]) if direct || rotated
+
+        return nil
+      end
 
       max = compatible_dimension_max_fact(facts, values)
       return match('compatible', max) if max
@@ -349,6 +584,23 @@ module IkasCatalogMvp
       nil
     end
 
+    def dimension_axis_match(db, item_id, constraint)
+      fact = facts_for(db, item_id).find do |row|
+        row.fetch('type') == 'dimension_axis_range' && row.fetch('key') == constraint.fetch('key') &&
+          dimension_axis_contains?(row, constraint.fetch('value'))
+      end
+      match('compatible', fact)
+    end
+
+    def dimension_axis_contains?(fact, requested_value)
+      minimum = fact['numeric_value']
+      maximum = fact['numeric_value_2']
+      return false if minimum && requested_value.to_f < minimum.to_f
+      return false if maximum && requested_value.to_f > maximum.to_f
+
+      true
+    end
+
     def numeric_match(db, item_id, constraint)
       fact = facts_for(db, item_id).find do |row|
         row.fetch('type') == constraint.fetch('type') &&
@@ -361,13 +613,18 @@ module IkasCatalogMvp
     def value_match(db, row, constraint)
       folded = Text.fold(constraint.fetch('value'))
       typed_facts = facts_for(db, row.fetch('item_id')).select { |fact| fact.fetch('type') == constraint.fetch('type') }
-      fact = typed_facts.find do |typed_fact|
+      exact_facts, configurable_facts = typed_facts.partition { |fact| fact.fetch('source') != 'product_option_set' }
+      fact = exact_facts.find do |typed_fact|
         typed_fact['value_folded'].to_s == folded
       end
-      fact ||= typed_facts.find { |typed_fact| text_contains_value?(typed_fact['value_text'], folded) }
+      fact ||= exact_facts.find { |typed_fact| text_contains_value?(typed_fact['value_text'], folded) }
       return match('exact', fact) if fact
 
-      title_facet_match(row, constraint, folded) if typed_facts.empty?
+      title_match = title_facet_match(row, constraint, folded)
+      return title_match if title_match
+
+      configurable = configurable_facts.find { |typed_fact| typed_fact['value_folded'].to_s == folded }
+      match('compatible', configurable)
     end
 
     def title_facet_match(row, constraint, folded)
@@ -399,6 +656,13 @@ module IkasCatalogMvp
       return nil unless fact
 
       { 'kind' => kind, 'evidence' => [evidence_for(fact, kind)] }
+    end
+
+    def match_with_facts(kind, facts)
+      facts = Array(facts).compact
+      return if facts.empty?
+
+      { 'kind' => kind, 'evidence' => facts.map { |fact| evidence_for(fact, kind) } }
     end
 
     def evidence_for(fact, kind)
@@ -459,6 +723,7 @@ module IkasCatalogMvp
         when 'dimension_exact' then 'requested dimensions exactly match catalog dimensions'
         when 'dimension_max' then 'requested dimensions fit product max dimensions'
         when 'dimension_range' then 'requested dimensions fit catalog range'
+        when 'dimension_axis_range' then "requested #{row.fetch('key')} fits configurable range"
         else "matched #{row.fetch('fact')}"
         end
       end.uniq
@@ -631,8 +896,13 @@ module IkasCatalogMvp
 
     def facet_vocabulary(db)
       cache_fetch(:query, :facet_vocabulary) do
-        db.execute('SELECT key, value FROM catalog_facets GROUP BY key, value').group_by { |row| row.fetch('key') }
-          .transform_values { |rows| rows.map { |row| row.fetch('value') } }
+        rows = db.execute('SELECT key, value FROM catalog_facets GROUP BY key, value').dup
+        rows.concat(
+          db.execute(
+            "SELECT key, value_text AS value FROM catalog_facts WHERE source = 'product_option_set' AND type = 'facet' GROUP BY key, value_text"
+          )
+        )
+        rows.group_by { |row| row.fetch('key') }.transform_values { |values| values.map { |row| row.fetch('value') }.uniq }
       end
     end
 
@@ -640,6 +910,8 @@ module IkasCatalogMvp
       return nil if terms.empty?
 
       candidates = category_rows(db).select do |row|
+        next false if group_count_for_categories(db, category_subtree_ids(db, row.fetch('id'))).zero?
+
         folded_words = category_path_tokens(db, row.fetch('id'))
         terms.all? { |term| folded_words.any? { |word| category_token_match?(term, word) } }
       end
@@ -822,6 +1094,16 @@ module IkasCatalogMvp
         bucket['hidden_children_count'] = hidden_count if hidden_count.positive?
         bucket
       end.sort_by { |row| [-row.fetch('group_count'), row.fetch('label')] }
+    end
+
+    def candidate_bucket_id(db, product_id, buckets)
+      group_id = db.get_first_value('SELECT group_id FROM catalog_groups WHERE product_id = ?', [product_id])
+      category_ids = db.execute('SELECT category_id FROM catalog_group_categories WHERE group_id = ?', [group_id]).map do |row|
+        row.fetch('category_id')
+      end
+      buckets.find do |bucket|
+        (category_ids & category_subtree_ids(db, bucket.fetch('category_id'))).any?
+      end&.fetch('category_id')
     end
 
     def child_type_buckets(db, category_id)

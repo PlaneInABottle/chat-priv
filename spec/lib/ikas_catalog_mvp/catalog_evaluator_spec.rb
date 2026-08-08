@@ -98,6 +98,46 @@ RSpec.describe IkasCatalogMvp::CatalogEvaluator do
     end
   end
 
+  it 'checks product grouping and customer-useful configuration data' do
+    cases = <<~YAML
+      - id: grouped_configurable_product
+        query: "antrasit sineklik"
+        expect:
+          unique_products: true
+          min_matching_variant_count: 2
+          configuration_options_include: ["En", "Profil Rengi"]
+          configuration_values_include:
+            - name: "Profil Rengi"
+              values: ["Antrasit", "Beyaz"]
+          configuration_bounds:
+            - name: "En"
+              axis: width
+              unit: cm
+              max: 80
+    YAML
+    payload = {
+      'result_type' => 'show_candidates',
+      'candidates' => [
+        candidate.merge(
+          'product_id' => 'product-1',
+          'matching_variant_count' => 2,
+          'configuration' => {
+            'options' => [
+              { 'name' => 'En', 'type' => 'dimension', 'axis' => 'width', 'unit' => 'cm', 'max' => 80 },
+              { 'name' => 'Profil Rengi', 'type' => 'choice', 'values' => %w[Antrasit Beyaz] }
+            ]
+          }
+        )
+      ]
+    }
+
+    with_cases(cases) do |path|
+      evaluator, = evaluator_for(path, 'antrasit sineklik' => payload)
+
+      expect(evaluator.evaluate.fetch('status')).to eq('passed')
+    end
+  end
+
   it 'reports clear failures for mismatched expectations' do
     cases = <<~YAML
       - id: missing_link
