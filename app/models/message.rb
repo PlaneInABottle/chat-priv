@@ -446,7 +446,7 @@ class Message < ApplicationRecord
   end
 
   def mark_pending_conversation_as_open_for_human_response
-    return unless captain_pending_conversation?
+    return unless captain_pending_conversation? || pending_ai_agent_conversation?
     return unless human_response?
     return if private?
 
@@ -455,6 +455,14 @@ class Message < ApplicationRecord
 
   def captain_pending_conversation?
     false
+  end
+
+  def pending_ai_agent_conversation?
+    return false unless conversation.pending?
+
+    agent_bot = conversation.assignee_agent_bot
+    agent_bot ||= AgentBotInbox.find_by(inbox_id: conversation.inbox_id, status: :active)&.agent_bot
+    agent_bot&.ai? && agent_bot.ai_agent&.enabled?
   end
 
   def reopen_resolved_conversation

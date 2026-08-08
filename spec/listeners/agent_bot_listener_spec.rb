@@ -7,7 +7,7 @@ describe AgentBotListener do
   let!(:user) { create(:user, account: account) }
   let!(:inbox) { create(:inbox, account: account) }
   let!(:agent_bot) { create(:agent_bot) }
-  let!(:conversation) { create(:conversation, account: account, inbox: inbox, assignee: user) }
+  let!(:conversation) { create(:conversation, account: account, inbox: inbox, assignee: user, status: 'pending') }
 
   before do
     clear_enqueued_jobs
@@ -155,6 +155,43 @@ describe AgentBotListener do
 
         expect { listener.message_created(incoming_event) }
           .not_to have_enqueued_job(AgentBots::AiResponseJob)
+      end
+
+      context 'when the conversation is no longer pending' do
+        it 'does not enqueue live AI response job for open conversations' do
+          ai_bot = create(:ai_agent, :with_human_handoff_tool, account: account, enabled: true).agent_bot
+          create(:agent_bot_inbox, inbox: inbox, agent_bot: ai_bot)
+          conversation.update!(status: 'open')
+          incoming_message = create(:message,
+                                    account: account,
+                                    inbox: inbox,
+                                    conversation: conversation,
+                                    message_type: 'incoming',
+                                    sender: conversation.contact)
+          incoming_event = Events::Base.new(event_name, Time.zone.now, message: incoming_message)
+
+          expect { listener.message_created(incoming_event) }
+            .not_to have_enqueued_job(AgentBots::AiResponseJob)
+        end
+
+        it 'still delivers webhook payloads for webhook bots on open conversations with a human assignee' do
+          create(:agent_bot_inbox, inbox: inbox, agent_bot: agent_bot)
+          conversation.update!(status: 'open')
+          incoming_message = create(:message,
+                                    account: account,
+                                    inbox: inbox,
+                                    conversation: conversation,
+                                    message_type: 'incoming',
+                                    sender: conversation.contact)
+          incoming_event = Events::Base.new(event_name, Time.zone.now, message: incoming_message)
+
+          expect(AgentBots::WebhookJob).to receive(:perform_later).with(
+            agent_bot.outgoing_url,
+            incoming_message.webhook_data.merge(event: 'message_created'),
+            :agent_bot_webhook, secret: agent_bot.secret, delivery_id: instance_of(String)
+          ).once
+          listener.message_created(incoming_event)
+        end
       end
     end
   end

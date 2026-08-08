@@ -1,5 +1,4 @@
 class AiAgents::LiveProcessor
-  HANDOFF_COMPLETED_KEY = 'ai_handoff_completed'.freeze
   HISTORY_MESSAGE_LIMIT = 12
   RAW_HISTORY_MESSAGE_LIMIT = HISTORY_MESSAGE_LIMIT * AiAgents::Tools::PresentCatalogProductsService::MAX_PRODUCTS
 
@@ -10,8 +9,7 @@ class AiAgents::LiveProcessor
   end
 
   def perform
-    return unless eligible_message?
-    return if handoff_completed?
+    return unless eligible_message? && reply_gate_allows?
     return false if response_already_persisted?
 
     usage_result = usage_limiter.reserve!
@@ -55,9 +53,12 @@ class AiAgents::LiveProcessor
     message.incoming? && message.text? && !message.private? && !message.activity? && !message.template?
   end
 
-  def handoff_completed?
-    attrs = conversation.additional_attributes
-    attrs.is_a?(Hash) && attrs[HANDOFF_COMPLETED_KEY] == true
+  def reply_gate_allows?
+    return true if AiAgents::ReplyPolicy.can_reply?(conversation)
+
+    skip_reason = "conversation=#{conversation.id} status=#{conversation.status} handoff=#{AiAgents::ReplyPolicy.handoff_completed?(conversation)}"
+    Rails.logger.info("[AiAgents] Reply skipped: #{skip_reason}")
+    false
   end
 
   def orchestrator_messages
