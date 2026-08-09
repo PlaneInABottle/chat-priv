@@ -56,7 +56,8 @@ describe HookListener do
 
     context 'when app_id is not in the allowed list' do
       it 'does not enqueue the job' do
-        create(:integrations_hook, account: account, app_id: 'unsupported_app')
+        hook = build(:integrations_hook, account: account, app_id: 'unsupported_app')
+        hook.save!(validate: false)
         expect(HookJob).not_to receive(:perform_later)
 
         listener.message_created(event)
@@ -104,7 +105,8 @@ describe HookListener do
 
     context 'with unsupported app_id and event combination' do
       it 'does not enqueue job for unsupported app_id' do
-        create(:integrations_hook, account: account, app_id: 'unsupported_app')
+        hook = build(:integrations_hook, account: account, app_id: 'unsupported_app')
+        hook.save!(validate: false)
         expect(HookJob).not_to receive(:perform_later)
 
         listener.message_created(event)

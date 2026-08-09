@@ -39,6 +39,26 @@ RSpec.describe 'Integration Hooks API', type: :request do
         expect(data['app_id']).to eq params[:app_id]
       end
 
+      it 'does not create a hook for an inactive integration app' do
+        post api_v1_account_integrations_hooks_url(account_id: account.id),
+             params: params.merge(app_id: 'shopify'),
+             headers: admin.create_new_auth_token,
+             as: :json
+
+        expect(response).to have_http_status(:not_found)
+        expect(account.hooks).to be_empty
+      end
+
+      it 'does not create a hook for an unknown integration app' do
+        post api_v1_account_integrations_hooks_url(account_id: account.id),
+             params: params.merge(app_id: 'unknown'),
+             headers: admin.create_new_auth_token,
+             as: :json
+
+        expect(response).to have_http_status(:not_found)
+        expect(account.hooks).to be_empty
+      end
+
       it 'validates Cloudflare RealtimeKit credentials before creating the hook' do
         allow(Integrations::Cloudflare::RealtimeKitCredentialsValidator).to receive(:validate)
           .and_return(Integrations::Cloudflare::RealtimeKitCredentialsValidator::Result.new(false, :invalid_api_token))

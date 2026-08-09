@@ -32,6 +32,10 @@ RSpec.describe Shopify::CallbacksController, type: :request do
 
     shared_context 'with stubbed account' do
       before do
+        account.enable_features!('shopify_integration')
+        allow(GlobalConfigService).to receive(:load).and_call_original
+        allow(GlobalConfigService).to receive(:load).with('SHOPIFY_CLIENT_ID', nil).and_return('client_id')
+        allow(GlobalConfigService).to receive(:load).with('SHOPIFY_CLIENT_SECRET', nil).and_return('client_secret')
         allow(described_class).to receive(:new).and_wrap_original do |original, *args|
           controller = original.call(*args)
           allow(controller).to receive(:verify_shopify_token).and_return(account.id)
@@ -105,6 +109,23 @@ RSpec.describe Shopify::CallbacksController, type: :request do
 
       it 'redirects to the shopify_redirect_uri with error' do
         get shopify_callback_path, params: { code: code, state: state, shop: shop }
+        expect(response).to redirect_to("#{shopify_redirect_uri}?error=true")
+      end
+    end
+
+    context 'when Shopify is unavailable for the account' do
+      include_context 'with stubbed account'
+      before do
+        account.disable_features('shopify_integration')
+        allow(auth_code_strategy).to receive(:get_token)
+      end
+
+      it 'does not exchange the token or create an integration hook' do
+        expect do
+          get shopify_callback_path, params: { code: code, state: state, shop: shop }
+        end.not_to change(Integrations::Hook, :count)
+
+        expect(auth_code_strategy).not_to have_received(:get_token)
         expect(response).to redirect_to("#{shopify_redirect_uri}?error=true")
       end
     end

@@ -11,22 +11,16 @@ Use this reference when changing which integrations account admins can see under
 
 ## Default visibility
 
-- Hide an integration from the account integrations index with:
-
-```yaml
-openai:
-  id: openai
-  visible: false
-```
-
-- `Integrations::App#active?` treats `visible: false` as hidden.
-- Current product default is to show only `ikas` in the account integrations index. The dashboard index also filters to `ikas` as a defensive UI guard.
+- The dashboard renders every integration returned by the account integrations API; it does not maintain a second static allowlist.
+- Upstream integrations without a functional availability requirement are visible by default.
+- `Integrations::App#active?` is the single availability gate for both the index and direct integration detail routes.
+- `ikas` remains conditional on the account's `ikas_integration` feature because its catalog and AI tools depend on the same gate.
 
 ## Feature flags vs visibility
 
-- Use `feature_flag` when an integration should be conditionally available by account feature state.
-- Use `visible: false` when an integration should be globally hidden from account integration settings by default.
-- Do not add feature flags only to hide an integration globally; that creates redundant configuration and stale account flag edge cases.
+- Use `feature_flag` only when the integration has a real account-scoped capability gate shared with its backend behavior.
+- Do not add feature flags or frontend allowlists only to hide an integration globally; those create redundant configuration and can silently hide useful upstream integrations.
+- Preserve released feature definitions, columns, and order because account feature bits are persisted by position. Moving a released functional flag requires an explicit data migration that preserves its account state.
 
 ## Runtime reload
 

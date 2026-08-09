@@ -1,5 +1,6 @@
 class Api::V1::Accounts::Integrations::HooksController < Api::V1::Accounts::Integrations::BaseController
   before_action :fetch_hook, except: [:create]
+  before_action :ensure_app_available, only: [:create]
   before_action :check_authorization
 
   def create
@@ -33,6 +34,13 @@ class Api::V1::Accounts::Integrations::HooksController < Api::V1::Accounts::Inte
 
   def fetch_hook
     @hook = Current.account.hooks.find(params[:id])
+  end
+
+  def ensure_app_available
+    app = Integrations::App.find(id: permitted_params[:app_id])
+    return if app&.active?(Current.account)
+
+    render_not_found_error('Resource could not be found')
   end
 
   def permitted_params

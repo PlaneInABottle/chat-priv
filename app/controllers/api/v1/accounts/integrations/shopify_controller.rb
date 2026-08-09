@@ -2,7 +2,9 @@ class Api::V1::Accounts::Integrations::ShopifyController < Api::V1::Accounts::In
   include Shopify::IntegrationHelper
   before_action :setup_shopify_context, only: [:orders]
   before_action :fetch_hook, except: [:auth]
+  before_action :check_shopify_auth_authorization, only: [:auth]
   before_action :check_authorization, only: [:destroy]
+  before_action :ensure_shopify_available, only: [:auth]
   before_action :validate_contact, only: [:orders]
 
   def auth
@@ -43,6 +45,17 @@ class Api::V1::Accounts::Integrations::ShopifyController < Api::V1::Accounts::In
 
   def redirect_uri
     "#{ENV.fetch('FRONTEND_URL', '')}/shopify/callback"
+  end
+
+  def check_shopify_auth_authorization
+    authorize(:hook, :create?)
+  end
+
+  def ensure_shopify_available
+    app = Integrations::App.find(id: 'shopify')
+    return if app&.active?(Current.account)
+
+    render_not_found_error('Resource could not be found')
   end
 
   def contact

@@ -7,6 +7,13 @@ RSpec.describe Integrations::Hook do
   context 'with validations' do
     it { is_expected.to validate_presence_of(:app_id) }
     it { is_expected.to validate_presence_of(:account_id) }
+
+    it 'rejects unknown integration app identifiers' do
+      hook = build(:integrations_hook, app_id: 'unknown')
+
+      expect(hook).not_to be_valid
+      expect(hook.errors[:feature_flag]).to include('Feature not enabled')
+    end
   end
 
   describe 'associations' do

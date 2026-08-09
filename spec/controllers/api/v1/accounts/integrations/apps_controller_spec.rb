@@ -159,14 +159,22 @@ RSpec.describe 'Integration Apps API', type: :request do
       let(:admin) { create(:user, account: account, role: :administrator) }
 
       it 'returns details of the app' do
-        get api_v1_account_integrations_app_url(account_id: account.id, id: 'slack'),
+        get api_v1_account_integrations_app_url(account_id: account.id, id: 'webhook'),
             headers: agent.create_new_auth_token,
             as: :json
 
         expect(response).to have_http_status(:success)
         app = response.parsed_body
-        expect(app['id']).to eql('slack')
-        expect(app['name']).to eql('Slack')
+        expect(app['id']).to eql('webhook')
+        expect(app['name']).to eql('Webhooks')
+      end
+
+      it 'does not expose an inactive app through its direct URL' do
+        get api_v1_account_integrations_app_url(account_id: account.id, id: 'ikas'),
+            headers: agent.create_new_auth_token,
+            as: :json
+
+        expect(response).to have_http_status(:not_found)
       end
 
       it 'will not return sensitive information for openai app for agents' do
@@ -206,6 +214,10 @@ RSpec.describe 'Integration Apps API', type: :request do
       end
 
       it 'returns empty settings for oauth integrations with no visible properties' do
+        account.enable_features!('linear_integration')
+        allow(GlobalConfigService).to receive(:load).and_call_original
+        allow(GlobalConfigService).to receive(:load).with('LINEAR_CLIENT_ID', nil).and_return('client_id')
+        allow(GlobalConfigService).to receive(:load).with('LINEAR_CLIENT_SECRET', nil).and_return('client_secret')
         hook = create(
           :integrations_hook,
           :linear,
