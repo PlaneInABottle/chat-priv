@@ -55,6 +55,20 @@ const isCatalogProductsPreview = message =>
   message?.terminal_action === 'present_catalog_products' &&
   message?.tool_result?.presentation?.content_type === 'catalog_products';
 
+const catalogPriceText = item => {
+  const price = item?.price;
+  const hasCurrentAmount =
+    price?.amount !== undefined && price?.amount !== null;
+  const amount = hasCurrentAmount ? price.amount : price?.reference_amount;
+  if (amount === undefined || amount === null || !price?.currency) return '';
+
+  const key =
+    price.final_total_known === false || !hasCurrentAmount
+      ? 'AI_AGENT.TEST_CONVERSATIONS.REFERENCE_PRICE'
+      : 'AI_AGENT.TEST_CONVERSATIONS.PRICE';
+  return t(key, { amount, currency: price.currency });
+};
+
 const isOptionPromptStale = message => {
   const messages = props.conversation?.messages || [];
   const messageIndex = messages.findIndex(
@@ -270,10 +284,10 @@ const handleOptionSelect = (message, option) => {
                       {{ item.display_name }}
                     </p>
                     <p
-                      v-if="item.price?.amount && item.price?.currency"
+                      v-if="catalogPriceText(item)"
                       class="text-xs text-n-slate-11"
                     >
-                      {{ item.price.amount }} {{ item.price.currency }}
+                      {{ catalogPriceText(item) }}
                     </p>
                     <p
                       v-if="

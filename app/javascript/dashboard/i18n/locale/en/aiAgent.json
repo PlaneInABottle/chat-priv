@@ -112,6 +112,8 @@
       "INTERNAL_NOTE": "Internal note:",
       "LABELS_TO_APPLY": "Conversation labels:",
       "LABELS_IGNORED": "Unavailable labels:",
+      "PRICE": "Price: {amount} {currency}",
+      "REFERENCE_PRICE": "Reference price: {amount} {currency}",
       "MAXIMUM_DIMENSIONS": "Maximum dimensions: {width} × {height} {unit}",
       "SOURCES_USED": "Sources used",
       "SAVE_BEFORE_TESTING": "Save your changes before testing this AI assistant.",

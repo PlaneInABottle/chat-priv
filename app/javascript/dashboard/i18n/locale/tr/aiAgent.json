@@ -118,6 +118,8 @@
       "INTERNAL_NOTE": "Özel not:",
       "LABELS_TO_APPLY": "Konuşma etiketleri:",
       "LABELS_IGNORED": "Kullanılamayan etiketler:",
+      "PRICE": "Fiyat: {amount} {currency}",
+      "REFERENCE_PRICE": "Referans fiyat: {amount} {currency}",
       "MAXIMUM_DIMENSIONS": "Maksimum ölçü: {width} × {height} {unit}",
       "SOURCES_USED": "Kullanılan kaynaklar",
       "SAVE_BEFORE_TESTING": "Bu yapay zeka asistanını test etmeden önce değişikliklerinizi kaydedin.",

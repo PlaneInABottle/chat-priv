@@ -5,7 +5,7 @@ import TestConversationChatPanel from '../TestConversationChatPanel.vue';
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
     t: (key, params) =>
-      params ? `${key} ${params.width} × ${params.height} ${params.unit}` : key,
+      params ? `${key} ${Object.values(params).join(' ')}` : key,
   }),
 }));
 
@@ -205,7 +205,11 @@ describe('TestConversationChatPanel.vue', () => {
                     item_id: 'variant:red',
                     display_name: 'Kırmızı Sineklik',
                     images: ['https://cdn.myikas.com/red.webp'],
-                    price: { amount: 499, currency: 'TRY' },
+                    price: {
+                      reference_amount: 499,
+                      currency: 'TRY',
+                      final_total_known: false,
+                    },
                     maximum_dimensions: {
                       width: 80,
                       height: 150,
@@ -232,6 +236,11 @@ describe('TestConversationChatPanel.vue', () => {
     expect(wrapper.text()).toContain(
       'AI_AGENT.TEST_CONVERSATIONS.MAXIMUM_DIMENSIONS'
     );
+    expect(wrapper.text()).toContain(
+      'AI_AGENT.TEST_CONVERSATIONS.REFERENCE_PRICE'
+    );
+    expect(wrapper.text()).toContain('499');
+    expect(wrapper.text()).toContain('TRY');
     expect(wrapper.text()).toContain('80');
     expect(wrapper.text()).toContain('150');
     expect(wrapper.text()).toContain('cm');
