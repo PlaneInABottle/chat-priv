@@ -15,6 +15,7 @@ export function useAccount() {
   const store = useStore();
   const getAccountFn = useMapGetter('accounts/getAccount');
   const isCloudDeployment = useMapGetter('globalConfig/isCloudDeployment');
+  const isOnChatwootCloud = useMapGetter('globalConfig/isOnChatwootCloud');
   const isFeatureEnabledonAccount = useMapGetter(
     'accounts/isFeatureEnabledonAccount'
   );
@@ -64,6 +65,7 @@ export function useAccount() {
     accountScopedRoute,
     isCloudFeatureEnabled,
     isCloudDeployment,
+    isOnChatwootCloud,
     updateAccount,
     finishOnboarding,
   };

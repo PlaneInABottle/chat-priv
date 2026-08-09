@@ -1,4 +1,4 @@
-import { defineComponent, h } from 'vue';
+import { defineComponent, h, nextTick } from 'vue';
 import { createStore } from 'vuex';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useAccount } from '../useAccount';
@@ -25,6 +25,14 @@ const store = createStore({
         getAccount: () => id => ({ id, name: 'Chatwoot' }),
       },
     },
+    globalConfig: {
+      namespaced: true,
+      state: () => ({ deploymentEnv: 'cloud' }),
+      getters: {
+        isCloudDeployment: state => state.deploymentEnv === 'cloud',
+        isOnChatwootCloud: state => state.deploymentEnv === 'cloud',
+      },
+    },
   },
 });
 
@@ -38,6 +46,7 @@ vi.mock('vue-router');
 
 describe('useAccount', () => {
   beforeEach(() => {
+    store.state.globalConfig.deploymentEnv = 'cloud';
     useRoute.mockReturnValue({
       params: {
         accountId: '123',
@@ -103,6 +112,21 @@ describe('useAccount', () => {
     const wrapper = mount(createComponent(), mountParams);
     const { route } = wrapper.vm;
     expect(route.params).toEqual({ accountId: '123' });
+  });
+
+  it('exposes matching reactive cloud deployment refs', async () => {
+    const wrapper = mount(createComponent(), mountParams);
+
+    expect(wrapper.vm.isCloudDeployment).toBe(true);
+    expect(wrapper.vm.isOnChatwootCloud).toBe(true);
+    expect(wrapper.vm.isCloudDeployment).toBe(wrapper.vm.isOnChatwootCloud);
+
+    store.state.globalConfig.deploymentEnv = 'self-hosted';
+    await nextTick();
+
+    expect(wrapper.vm.isCloudDeployment).toBe(false);
+    expect(wrapper.vm.isOnChatwootCloud).toBe(false);
+    expect(wrapper.vm.isCloudDeployment).toBe(wrapper.vm.isOnChatwootCloud);
   });
 
   it('handles non-numeric accountId gracefully', async () => {

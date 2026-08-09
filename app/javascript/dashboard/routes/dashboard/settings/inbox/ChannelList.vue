@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
+import { useMapGetter } from 'dashboard/composables/store';
 
 import { useAccount } from 'dashboard/composables/useAccount';
 
@@ -10,6 +11,7 @@ import ChannelItem from 'dashboard/components/widgets/ChannelItem.vue';
 const { t } = useI18n();
 const router = useRouter();
 const { accountId, currentAccount } = useAccount();
+const globalConfig = useMapGetter('globalConfig/get');
 
 const enabledFeatures = computed(() => currentAccount.value?.features || {});
 
@@ -18,6 +20,7 @@ const hasTiktokConfigured = computed(() => {
 });
 
 const channelList = computed(() => {
+  const { apiChannelName } = globalConfig.value;
   const channels = [
     {
       key: 'website',
@@ -44,6 +47,12 @@ const channelList = computed(() => {
       icon: 'i-woot-mail',
     },
     {
+      key: 'api',
+      title: apiChannelName || t('INBOX_MGMT.ADD.AUTH.CHANNEL.API.TITLE'),
+      description: t('INBOX_MGMT.ADD.AUTH.CHANNEL.API.DESCRIPTION'),
+      icon: 'i-woot-api',
+    },
+    {
       key: 'telegram',
       title: t('INBOX_MGMT.ADD.AUTH.CHANNEL.TELEGRAM.TITLE'),
       description: t('INBOX_MGMT.ADD.AUTH.CHANNEL.TELEGRAM.DESCRIPTION'),
@@ -65,6 +74,20 @@ const channelList = computed(() => {
       icon: 'i-woot-tiktok',
     });
   }
+
+  channels.push({
+    key: 'voice',
+    title: t('INBOX_MGMT.ADD.AUTH.CHANNEL.VOICE.TITLE'),
+    description: t('INBOX_MGMT.ADD.AUTH.CHANNEL.VOICE.DESCRIPTION'),
+    icon: 'i-woot-voice',
+  });
+
+  channels.push({
+    key: 'whatsapp_call',
+    title: t('INBOX_MGMT.ADD.AUTH.CHANNEL.WHATSAPP_CALL.TITLE'),
+    description: t('INBOX_MGMT.ADD.AUTH.CHANNEL.WHATSAPP_CALL.DESCRIPTION'),
+    icon: 'i-woot-whatsapp',
+  });
 
   return channels;
 });

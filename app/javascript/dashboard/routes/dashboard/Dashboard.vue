@@ -89,7 +89,7 @@ export default {
           this.updateUISettings({
             conversation_display_type: LAYOUT_TYPES.EXPANDED,
           });
-        } else {
+        } else if (this.previouslyUsedDisplayType) {
           this.updateUISettings({
             conversation_display_type: this.previouslyUsedDisplayType,
           });

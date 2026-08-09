@@ -17,7 +17,6 @@ import { useTrack } from 'dashboard/composables';
 import NextButton from 'dashboard/components-next/button/Button.vue';
 import ReportCaptainMessageDialog from './ReportCaptainMessageDialog.vue';
 import MessageApi from 'dashboard/api/inbox/message';
-import { parseAPIErrorResponse } from 'dashboard/store/utils/api';
 import { FEATURE_FLAGS } from 'dashboard/featureFlags';
 
 export default {
