@@ -56,6 +56,35 @@ RSpec.describe AiAgents::Tools::IkasCatalogSearchService do
     expect(result[:queries].pluck(:query)).to eq(%w[sineklik perde stor])
   end
 
+  it 'extracts query text from object-shaped batch entries' do
+    sineklik_service = service_double(status: 'ok', query: 'kedi sineklik', result_type: 'show_candidates', result_count: 1, candidates: [])
+    perde_service = service_double(status: 'ok', query: 'sürme sineklik', result_type: 'show_candidates', result_count: 1, candidates: [])
+
+    expect(Integrations::Ikas::CatalogSearchService).to receive(:new).with(
+      account: account,
+      query_text: 'kedi sineklik',
+      limit: 8
+    ).ordered.and_return(sineklik_service)
+    expect(Integrations::Ikas::CatalogSearchService).to receive(:new).with(
+      account: account,
+      query_text: 'sürme sineklik',
+      limit: 8
+    ).ordered.and_return(perde_service)
+
+    result = described_class.new(ai_agent: ai_agent, account: account, mode: :test, settings: {}).call(
+      args: {
+        'queries' => [
+          { 'query' => ' kedi sineklik ', 'limit' => 3 },
+          { query: 'KEDİ SİNEKLİK' },
+          { 'query' => 'sürme sineklik' }
+        ]
+      }
+    )
+
+    expect(result).to include(status: 'ok', result_type: 'multi_search', result_count: 2)
+    expect(result[:queries].pluck(:query)).to eq(['kedi sineklik', 'sürme sineklik'])
+  end
+
   it 'returns invalid_query when no valid query remains' do
     expect(Integrations::Ikas::CatalogSearchService).not_to receive(:new)
 

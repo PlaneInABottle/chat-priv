@@ -9,7 +9,7 @@ class AiAgents::Tools::IkasCatalogSearchService
     seen = {}
 
     Array(raw_queries).each_with_object([]) do |raw_query, queries|
-      query = raw_query.to_s.strip
+      query = query_value(raw_query).to_s.strip
       next if query.blank?
 
       identity = Integrations::Ikas::Catalog::Text.fold(query).presence || query
@@ -20,6 +20,13 @@ class AiAgents::Tools::IkasCatalogSearchService
       break queries if queries.length == limit
     end
   end
+
+  def self.query_value(raw_query)
+    return raw_query unless raw_query.is_a?(Hash)
+
+    raw_query['query'] || raw_query[:query]
+  end
+  private_class_method :query_value
 
   def initialize(ai_agent:, account:, mode:, settings:, **_context)
     @ai_agent = ai_agent
