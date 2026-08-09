@@ -58,6 +58,9 @@
         inboxEventsEnabled: '<%= ENV['ENABLE_INBOX_EVENTS'].present? %>',
         selectedLocale: '<%= I18n.locale %>'
       }
+      // Keep Chatwoot's public runtime contract available for upstream modules
+      // and existing embeds while Kozmopath remains the customer-facing brand.
+      window.chatwootConfig = window.kozmopathConfig
       window.globalConfig = <%= raw @global_config.to_json %>
       window.browserConfig = {
         browser_name: '<%= browser.name %>',

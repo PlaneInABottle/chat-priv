@@ -13,4 +13,5 @@ export const MESSAGE_TYPE = {
   TEMPLATE: 3,
 };
 
-export const WOOT_PREFIX = 'kozmopath-widget:';
+export const WOOT_PREFIX = 'chatwoot-widget:';
+export const LEGACY_WOOT_PREFIX = 'kozmopath-widget:';

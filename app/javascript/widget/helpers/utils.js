@@ -1,4 +1,8 @@
-import { WOOT_PREFIX } from './constants';
+import { LEGACY_WOOT_PREFIX, WOOT_PREFIX } from './constants';
+
+const MESSAGE_PREFIXES = [WOOT_PREFIX, LEGACY_WOOT_PREFIX];
+const messagePrefix = data =>
+  MESSAGE_PREFIXES.find(prefix => data.indexOf(prefix) === 0);
 
 export const isEmptyObject = obj => {
   if (!obj) return true;
@@ -6,10 +10,7 @@ export const isEmptyObject = obj => {
 };
 
 export const sendMessage = msg => {
-  window.parent.postMessage(
-    `kozmopath-widget:${JSON.stringify({ ...msg })}`,
-    '*'
-  );
+  window.parent.postMessage(`${WOOT_PREFIX}${JSON.stringify({ ...msg })}`, '*');
 };
 
 export const IFrameHelper = {
@@ -17,15 +18,15 @@ export const IFrameHelper = {
   sendMessage,
   isAValidEvent: e => {
     const isDataAString = typeof e.data === 'string';
-    return isDataAString && e.data.indexOf(WOOT_PREFIX) === 0;
+    return isDataAString && Boolean(messagePrefix(e.data));
   },
-  getMessage: e => JSON.parse(e.data.replace(WOOT_PREFIX, '')),
+  getMessage: e => JSON.parse(e.data.replace(messagePrefix(e.data), '')),
 };
 export const RNHelper = {
   isRNWebView: () => window.ReactNativeWebView,
   sendMessage: msg => {
     window.ReactNativeWebView.postMessage(
-      `kozmopath-widget:${JSON.stringify({ ...msg })}`
+      `${WOOT_PREFIX}${JSON.stringify({ ...msg })}`
     );
   },
 };

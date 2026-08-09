@@ -10,6 +10,13 @@ export const createEvent = ({ eventName, data = null }) => {
 };
 
 export const dispatchWindowEvent = ({ eventName, data }) => {
-  const event = createEvent({ eventName, data });
-  window.dispatchEvent(event);
+  const eventNames = [eventName];
+  if (eventName.startsWith('kozmopath:')) {
+    eventNames.push(eventName.replace('kozmopath:', 'chatwoot:'));
+  }
+
+  eventNames.forEach(name => {
+    const event = createEvent({ eventName: name, data });
+    window.dispatchEvent(event);
+  });
 };

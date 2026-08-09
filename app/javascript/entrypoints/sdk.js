@@ -19,7 +19,10 @@ import { setCookieWithDomain } from '../sdk/cookieHelpers';
 import { SDK_SET_BUBBLE_VISIBILITY } from 'shared/constants/sharedFrameEvents';
 
 const runSDK = ({ baseUrl, websiteToken }) => {
-  if (window.$kozmopath) {
+  const existingWidget = window.$kozmopath || window.$chatwoot;
+  if (existingWidget) {
+    window.$kozmopath = existingWidget;
+    window.$chatwoot = existingWidget;
     return;
   }
 
@@ -47,7 +50,12 @@ const runSDK = ({ baseUrl, websiteToken }) => {
     restoreWidgetInDOM(event.newDocument.body)
   );
 
-  const kozmopathSettings = window.kozmopathSettings || {};
+  const kozmopathSettings = {
+    ...(window.chatwootSettings || {}),
+    ...(window.kozmopathSettings || {}),
+  };
+  window.kozmopathSettings = kozmopathSettings;
+  window.chatwootSettings = kozmopathSettings;
   let locale = kozmopathSettings.locale;
   let baseDomain = kozmopathSettings.baseDomain;
 
@@ -210,6 +218,7 @@ const runSDK = ({ baseUrl, websiteToken }) => {
       window.$kozmopath.resetTriggered = true;
     },
   };
+  window.$chatwoot = window.$kozmopath;
 
   IFrameHelper.createFrame({
     baseUrl,
@@ -217,6 +226,8 @@ const runSDK = ({ baseUrl, websiteToken }) => {
   });
 };
 
-window.kozmopathSDK = {
+const widgetSDK = {
   run: runSDK,
 };
+window.kozmopathSDK = widgetSDK;
+window.chatwootSDK = widgetSDK;

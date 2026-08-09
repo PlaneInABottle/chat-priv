@@ -36,6 +36,9 @@ import {
 import { isFlatWidgetStyle } from './settingsHelper';
 import { popoutChatWindow } from '../widget/helpers/popoutHelper';
 import addHours from 'date-fns/addHours';
+import { LEGACY_WOOT_PREFIX, WOOT_PREFIX } from '../widget/helpers/constants';
+
+const MESSAGE_PREFIXES = [WOOT_PREFIX, LEGACY_WOOT_PREFIX];
 
 const updateAuthCookie = (cookieContent, baseDomain = '') =>
   setCookieWithDomain('cw_conversation', cookieContent, {
@@ -69,7 +72,7 @@ export const IFrameHelper = {
     iframe.src = widgetUrl;
     iframe.allow =
       'camera;microphone;fullscreen;display-capture;picture-in-picture;clipboard-write;';
-    iframe.id = 'kozmopath_live_chat_widget';
+    iframe.id = 'chatwoot_live_chat_widget';
     iframe.style.visibility = 'hidden';
 
     let holderClassName = `woot-widget-holder woot--hide woot-elements--${window.$kozmopath.position}`;
@@ -89,28 +92,46 @@ export const IFrameHelper = {
     IFrameHelper.initWindowSizeListener();
     IFrameHelper.preventDefaultScroll();
   },
-  getAppFrame: () => document.getElementById('kozmopath_live_chat_widget'),
+  getAppFrame: () => document.getElementById('chatwoot_live_chat_widget'),
   getBubbleHolder: () => document.getElementsByClassName('woot--bubble-holder'),
   sendMessage: (key, value) => {
     const element = IFrameHelper.getAppFrame();
     element.contentWindow.postMessage(
-      `kozmopath-widget:${JSON.stringify({ event: key, ...value })}`,
+      `${WOOT_PREFIX}${JSON.stringify({ event: key, ...value })}`,
       '*'
     );
   },
   initPostMessageCommunication: () => {
-    window.onmessage = e => {
+    window.addEventListener('message', e => {
+      const frame = IFrameHelper.getAppFrame();
+      const expectedOrigin = new URL(
+        window.$kozmopath.baseUrl || window.location.origin,
+        window.location.href
+      ).origin;
+      const prefix =
+        typeof e.data === 'string'
+          ? MESSAGE_PREFIXES.find(item => e.data.indexOf(item) === 0)
+          : null;
+
       if (
-        typeof e.data !== 'string' ||
-        e.data.indexOf('kozmopath-widget:') !== 0
+        e.source !== frame?.contentWindow ||
+        e.origin !== expectedOrigin ||
+        !prefix
       ) {
         return;
       }
-      const message = JSON.parse(e.data.replace('kozmopath-widget:', ''));
+
+      let message;
+      try {
+        message = JSON.parse(e.data.replace(prefix, ''));
+      } catch {
+        return;
+      }
+
       if (typeof IFrameHelper.events[message.event] === 'function') {
         IFrameHelper.events[message.event](message);
       }
-    };
+    });
   },
   initWindowSizeListener: () => {
     window.addEventListener('resize', () => IFrameHelper.toggleCloseButton());
@@ -299,7 +320,7 @@ export const IFrameHelper = {
   onLoad: ({ widgetColor }) => {
     const iframe = IFrameHelper.getAppFrame();
     iframe.style.visibility = '';
-    iframe.setAttribute('id', `kozmopath_live_chat_widget`);
+    iframe.setAttribute('id', `chatwoot_live_chat_widget`);
 
     if (IFrameHelper.getBubbleHolder().length) {
       return;
