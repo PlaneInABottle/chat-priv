@@ -36,7 +36,7 @@ RSpec.describe 'Super Admin AI Agent Tools', type: :request do
 
     expect(response).to have_http_status(:success)
     expect(response.body).to include('Tool policy prompt', 'Catalog tool rules')
-    expect(response.body).to include('Never write ₺, TL, TRY, $, €, or any currency symbol/code unless price.currency is present')
+    expect(response.body).to include('Never write any currency symbol or code unless price.currency is present')
   end
 
   it 'returns not found for unknown tools' do

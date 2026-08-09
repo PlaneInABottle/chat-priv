@@ -197,7 +197,7 @@ RSpec.describe AiAgents::CatalogPresentationDeliveryJob do
 
   def stub_provider_requests(channel, sent_bodies)
     endpoint = if channel.provider == 'whatsapp_cloud'
-                 "https://graph.facebook.com/v13.0/#{channel.provider_config.fetch('phone_number_id')}/messages"
+                 "https://graph.facebook.com/v24.0/#{channel.provider_config.fetch('phone_number_id')}/messages"
                else
                  'https://waba.360dialog.io/v1/messages'
                end

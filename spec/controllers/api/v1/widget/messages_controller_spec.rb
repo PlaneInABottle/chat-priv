@@ -370,6 +370,8 @@ RSpec.describe '/api/v1/widget/messages', type: :request do
     end
 
     it 'returns the same incoming message when the same click is retried' do
+      prompt_message
+      conversation.update!(status: 'pending')
       ai_agent = create(:ai_agent, :with_human_handoff_tool, account: account, enabled: true)
       create(:agent_bot_inbox, inbox: web_widget.inbox, agent_bot: ai_agent.agent_bot)
       request_params = { website_token: web_widget.website_token, message: { selected_value: 'sales-id' } }

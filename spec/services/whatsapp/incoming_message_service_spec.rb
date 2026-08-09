@@ -317,7 +317,7 @@ describe Whatsapp::IncomingMessageService do
 
       it 'resolves an AI option reply to its full canonical label and records one submission' do
         contact_inbox = create(:contact_inbox, inbox: whatsapp_channel.inbox, source_id: wa_id)
-        conversation = create(:conversation, inbox: whatsapp_channel.inbox, contact_inbox: contact_inbox)
+        conversation = create(:conversation, inbox: whatsapp_channel.inbox, contact_inbox: contact_inbox, contact: contact_inbox.contact)
         prompt = create(
           :message,
           account: whatsapp_channel.account, inbox: whatsapp_channel.inbox,
@@ -423,7 +423,7 @@ describe Whatsapp::IncomingMessageService do
 
       it 'rejects a selection that becomes stale after initial resolution without failing ingestion' do
         contact_inbox = create(:contact_inbox, inbox: whatsapp_channel.inbox, source_id: wa_id)
-        conversation = create(:conversation, inbox: whatsapp_channel.inbox, contact_inbox: contact_inbox)
+        conversation = create(:conversation, inbox: whatsapp_channel.inbox, contact_inbox: contact_inbox, contact: contact_inbox.contact)
         prompt = create(
           :message,
           account: whatsapp_channel.account, inbox: whatsapp_channel.inbox, conversation: conversation,
