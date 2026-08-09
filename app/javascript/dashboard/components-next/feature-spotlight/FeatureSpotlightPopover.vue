@@ -1,10 +1,11 @@
 <script setup>
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useToggle } from '@vueuse/core';
 import { vOnClickOutside } from '@vueuse/components';
 import Button from 'dashboard/components-next/button/Button.vue';
+import { isChatwootHelpUrl } from 'dashboard/helper/featureHelper';
 
-defineProps({
+const props = defineProps({
   buttonLabel: { type: String, default: '' },
   title: { type: String, default: '' },
   note: { type: String, default: '' },
@@ -18,6 +19,9 @@ defineProps({
 
 const imageError = ref(false);
 const [isPopupVisible, togglePopup] = useToggle();
+const showLearnMore = computed(
+  () => props.learnMoreUrl && !isChatwootHelpUrl(props.learnMoreUrl)
+);
 
 const handleImageError = () => {
   imageError.value = true;
@@ -107,7 +111,7 @@ const openLink = link => {
               />
 
               <Button
-                v-if="learnMoreUrl"
+                v-if="showLearnMore"
                 :label="$t('FEATURE_SPOTLIGHT.LEARN_MORE')"
                 sm
                 faded
@@ -115,7 +119,7 @@ const openLink = link => {
                 trailing-icon
                 class="w-full"
                 icon="i-lucide-arrow-up-right"
-                @click="openLink(learnMoreUrl)"
+                @click="openLink(props.learnMoreUrl)"
               />
             </slot>
           </div>

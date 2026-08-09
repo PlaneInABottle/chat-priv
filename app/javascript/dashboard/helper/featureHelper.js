@@ -23,6 +23,27 @@ const FEATURE_HELP_URLS = {
   captain_billing: 'https://chwt.app/hc/captain_billing',
 };
 
+const isChatwootOwnedHost = hostname =>
+  hostname === 'chwt.app' ||
+  hostname.endsWith('.chwt.app') ||
+  hostname === 'chatwoot.com' ||
+  hostname.endsWith('.chatwoot.com');
+
+export function isChatwootHelpUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+
+  try {
+    const parsedUrl = new URL(url);
+    return (
+      ['http:', 'https:'].includes(parsedUrl.protocol) &&
+      isChatwootOwnedHost(parsedUrl.hostname.toLowerCase())
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function getHelpUrlForFeature(featureName) {
-  return FEATURE_HELP_URLS[featureName];
+  const helpUrl = FEATURE_HELP_URLS[featureName];
+  return isChatwootHelpUrl(helpUrl) ? undefined : helpUrl;
 }
