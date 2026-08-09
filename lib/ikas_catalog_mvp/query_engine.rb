@@ -7,6 +7,8 @@ require 'sqlite3'
 module IkasCatalogMvp
   class QueryEngine
     DEFAULT_LIMIT = 8
+    BROAD_CLARIFICATION_BUCKET_LIMIT = 8
+    CONSTRAINED_CLARIFICATION_BUCKET_LIMIT = 3
     CHILD_BUCKET_LIMIT = 5
     SEARCH_BACKEND = 'fts5'.freeze
     STRUCTURED_EVIDENCE_SOURCES = %w[facet product_attribute product_option_set product price stock].freeze
@@ -79,19 +81,23 @@ module IkasCatalogMvp
         count = counts[bucket.fetch('category_id')]
         bucket.merge('group_count' => count) if count
       end.sort_by { |bucket| [-bucket.fetch('group_count'), bucket.fetch('label')] }
-      clarify_payload(text, parsed, root, surviving)
+      clarify_payload(text, parsed, root, surviving, bucket_limit: CONSTRAINED_CLARIFICATION_BUCKET_LIMIT)
     end
 
-    def clarify_payload(text, parsed, root, buckets)
-      {
+    def clarify_payload(text, parsed, root, buckets, bucket_limit: BROAD_CLARIFICATION_BUCKET_LIMIT)
+      visible_buckets = buckets.first(bucket_limit)
+      payload = {
         'result_type' => 'clarify_category',
         'query' => text,
         'parsed' => parsed,
         'matched_scope' => root,
-        'buckets' => buckets.first(3),
+        'buckets' => visible_buckets,
         'search_backend' => SEARCH_BACKEND,
         'next_action' => 'ask_customer_to_choose_category_or_type'
       }
+      omitted_count = buckets.length - visible_buckets.length
+      payload['buckets_omitted'] = omitted_count if omitted_count.positive?
+      payload
     end
 
     def unsupported_payload(text, parsed)

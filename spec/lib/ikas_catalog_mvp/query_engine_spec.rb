@@ -561,9 +561,17 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
   it 'returns clarification buckets for broad category queries' do
     with_snapshot do |sqlite_path|
       payload = described_class.new(sqlite_path: sqlite_path).query('sineklik')
+      labels = payload.fetch('buckets').map { |bucket| bucket.fetch('label') }
 
       expect(payload.fetch('result_type')).to eq('clarify_category')
-      expect(payload.fetch('buckets').map { |bucket| bucket.fetch('label') }).to include('Kedi Sineklikleri', 'Akordiyon Sineklikler')
+      expect(labels).to include(
+        'Kedi Sineklikleri',
+        'Akordiyon Sineklikler',
+        'Menteşeli Sineklikler',
+        'Double Akordiyon Pencere Sineklikleri',
+        'Pileli Pencere Sineklikleri'
+      )
+      expect(payload.fetch('buckets').length).to be > 3
     end
   end
 

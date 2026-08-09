@@ -51,6 +51,15 @@ RSpec.describe AiAgents::ToolPromptPolicy do
     expect(instructions).not_to include('exact tool evidence', 'explicit candidate evidence')
   end
 
+  it 'includes verified links and returned dimension bounds when presenting concrete products' do
+    instructions = described_class.new([AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL]).instructions
+
+    expect(instructions).to match(/present, recommend, or list a concrete candidate.*Markdown product link/i)
+    expect(instructions).to include('even if the customer did not explicitly ask for a link')
+    expect(instructions).to match(/dimension bounds.*maximum width and height once/i)
+    expect(instructions).to match(/do not infer missing bounds.*or ask for measurements unless/i)
+  end
+
   it 'answers directly about previously presented options instead of re-calling present_options' do
     instructions = described_class.new([AiAgents::Config::PRESENT_OPTIONS_TOOL]).instructions
 
@@ -156,5 +165,14 @@ RSpec.describe AiAgents::ToolPromptPolicy do
     expect(instructions).to include('This is an illustration of simplification, not a fixed taxonomy')
     expect(instructions).to include('Do not use interactive option presentation for that simplifying question')
     expect(instructions).to include('do not immediately start another subtype or configuration questionnaire')
+  end
+
+  it 'does not present parent category families as the complete product list' do
+    instructions = described_class.new(%w[ikas_catalog_search present_options]).instructions
+
+    expect(instructions).to match(/parent families.*child categories or hidden children/i)
+    expect(instructions).to match(/main families.*additional models or subtypes exist/i)
+    expect(instructions).to include('Do not imply that the displayed families are the complete product list')
+    expect(instructions).to match(/unless the customer explicitly asks for all available categories or types/i)
   end
 end
