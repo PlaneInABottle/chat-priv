@@ -51,7 +51,7 @@ RSpec.describe AiAgents::ToolPromptPolicy do
     expect(instructions).not_to include('exact tool evidence', 'explicit candidate evidence')
   end
 
-  it 'includes verified links and returned dimension bounds when presenting concrete products' do
+  it 'includes verified links and returned dimension bounds when presenting concrete products', :aggregate_failures do
     instructions = described_class.new([AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL]).instructions
 
     expect(instructions).to match(/make that candidate's displayed product name the complete Markdown link.*candidate\.link\.url/i)
@@ -60,6 +60,8 @@ RSpec.describe AiAgents::ToolPromptPolicy do
     expect(instructions).to include('Do not add a separate generic "product link" label')
     expect(instructions).to include('do not print the bare long URL')
     expect(instructions).to match(/dimension bounds.*maximum width and height once/i)
+    expect(instructions).to include('Maximum size: 80 × 150 cm.')
+    expect(instructions).to include("Use the returned values and the customer's language")
     expect(instructions).to match(/do not infer missing bounds.*or ask for measurements unless/i)
   end
 

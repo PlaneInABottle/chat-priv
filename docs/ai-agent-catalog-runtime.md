@@ -40,7 +40,7 @@ The 0731 checkpoint may spend a substantial share of the completion allowance on
 
 Structured catalog product presentations also copy a candidate's shared maximum width and height into a compact `maximum_dimensions` field when both normalized axes are available. Test cards render that field directly, and live catalog captions append the same localized maximum-dimensions line, so those verified bounds do not depend on model prose. Test cards render `price.amount` as the current price or `price.reference_amount` as a reference price and never substitute `compare_at_amount`. Free-form answers, live captions, and test cards use the displayed product name itself as the trusted Markdown link label instead of exposing a raw URL or adding a separate generic link line.
 
-Ordinary free-form product lists stay compact: one linked product name per line with the current or reference price when relevant. Compare-at prices and availability prose are omitted unless the customer explicitly asks or availability materially changes the recommendation.
+Ordinary free-form product lists stay compact: one linked product name per line with the current or reference price when relevant, followed by one short shared maximum-dimensions line when the returned candidates expose the same bounds. Compare-at prices and availability prose are omitted unless the customer explicitly asks or availability materially changes the recommendation. Structured test-card amounts are formatted with the dashboard locale and two decimal places.
 
 ## Catalog product image contract
 
