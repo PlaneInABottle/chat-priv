@@ -4,18 +4,26 @@
 #
 # Table name: ai_knowledge_sources
 #
-#  id          :bigint           not null, primary key
-#  content     :text             not null
-#  name        :string           not null
-#  source_type :string           default("manual"), not null
-#  created_at  :datetime         not null
-#  updated_at  :datetime         not null
-#  account_id  :bigint           not null
+#  id                   :bigint           not null, primary key
+#  content              :text             not null
+#  last_sync_started_at :datetime
+#  last_synced_at       :datetime
+#  name                 :string           not null
+#  source_type          :string           default("manual"), not null
+#  source_urls          :jsonb            not null
+#  sync_error           :text
+#  sync_status          :integer          default("not_applicable"), not null
+#  website_url          :string
+#  created_at           :datetime         not null
+#  updated_at           :datetime         not null
+#  account_id           :bigint           not null
 #
 # Indexes
 #
-#  index_ai_knowledge_sources_on_account_id           (account_id)
-#  index_ai_knowledge_sources_on_account_id_and_name  (account_id,name)
+#  idx_ai_knowledge_sources_on_website_sync_schedule         (source_type,sync_status,last_synced_at)
+#  index_ai_knowledge_sources_on_account_id                  (account_id)
+#  index_ai_knowledge_sources_on_account_id_and_name         (account_id,name)
+#  index_ai_knowledge_sources_on_account_id_and_source_type  (account_id,source_type)
 #
 # Foreign Keys
 #

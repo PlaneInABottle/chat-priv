@@ -140,24 +140,6 @@
 - name: linear_integration
   display_name: Linear Integration
   enabled: false
-- name: webhook_integration
-  display_name: Webhook Integration
-  enabled: false
-- name: dashboard_apps_integration
-  display_name: Dashboard Apps Integration
-  enabled: false
-- name: openai_integration
-  display_name: OpenAI Integration
-  enabled: false
-- name: dialogflow_integration
-  display_name: Dialogflow Integration
-  enabled: false
-- name: google_translate_integration
-  display_name: Google Translate Integration
-  enabled: false
-- name: dyte_integration
-  display_name: Dyte Integration
-  enabled: false
 - name: captain_integration
   display_name: Captain
   enabled: false
@@ -182,9 +164,6 @@
   display_name: Shopify Integration
   enabled: false
   chatwoot_internal: true
-- name: ikas_integration
-  display_name: ikas Integration
-  enabled: false
 - name: search_with_gin
   display_name: Search messages with GIN
   enabled: false
@@ -287,5 +266,9 @@
   column: feature_flags_ext_1
 - name: whatsapp_embedded_signup_inbox_creation
   display_name: WhatsApp Embedded Signup Flow
+  enabled: false
+  column: feature_flags_ext_1
+- name: ikas_integration
+  display_name: ikas Integration
   enabled: false
   column: feature_flags_ext_1

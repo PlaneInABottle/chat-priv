@@ -2,21 +2,22 @@
 #
 # Table name: ai_agent_evaluation_runs
 #
-#  id                :bigint           not null, primary key
-#  completed_at      :datetime
-#  config_snapshot   :jsonb            not null
-#  draft_fingerprint :string           not null
-#  error_message     :text
-#  passed_count      :integer          default(0), not null
-#  prompt_snapshot   :text             not null
-#  started_at        :datetime
-#  status            :integer          default("pending"), not null
-#  total_count       :integer          default(0), not null
-#  created_at        :datetime         not null
-#  updated_at        :datetime         not null
-#  account_id        :bigint           not null
-#  ai_agent_id       :bigint           not null
-#  claim_id          :string
+#  id                 :bigint           not null, primary key
+#  completed_at       :datetime
+#  config_snapshot    :jsonb            not null
+#  draft_fingerprint  :string           not null
+#  error_message      :text
+#  knowledge_snapshot :jsonb            not null
+#  passed_count       :integer          default(0), not null
+#  prompt_snapshot    :text             not null
+#  started_at         :datetime
+#  status             :integer          default("pending"), not null
+#  total_count        :integer          default(0), not null
+#  created_at         :datetime         not null
+#  updated_at         :datetime         not null
+#  account_id         :bigint           not null
+#  ai_agent_id        :bigint           not null
+#  claim_id           :string
 #
 # Indexes
 #

@@ -2,41 +2,46 @@
 #
 # Table name: ai_agent_learning_suggestions
 #
-#  id                    :bigint           not null, primary key
-#  applied_at            :datetime
-#  customer_message      :text             not null
-#  error_message         :text
-#  human_answer          :text             not null
-#  reason                :text
-#  reviewed_at           :datetime
-#  status                :integer          default("pending"), not null
-#  suggested_instruction :text
-#  target_section        :string
-#  created_at            :datetime         not null
-#  updated_at            :datetime         not null
-#  account_id            :bigint           not null
-#  ai_agent_id           :bigint           not null
-#  claim_id              :string
-#  conversation_id       :bigint
-#  reviewed_by_id        :bigint
-#  source_message_id     :bigint
-#  submitted_by_id       :bigint
+#  id                     :bigint           not null, primary key
+#  applied_at             :datetime
+#  customer_message       :text             not null
+#  destination            :string           default("instructions"), not null
+#  error_message          :text
+#  human_answer           :text             not null
+#  reason                 :text
+#  reviewed_at            :datetime
+#  source_name            :string
+#  status                 :integer          default("pending"), not null
+#  suggested_instruction  :text
+#  target_section         :string
+#  created_at             :datetime         not null
+#  updated_at             :datetime         not null
+#  account_id             :bigint           not null
+#  ai_agent_id            :bigint           not null
+#  ai_knowledge_source_id :bigint
+#  claim_id               :string
+#  conversation_id        :bigint
+#  reviewed_by_id         :bigint
+#  source_message_id      :bigint
+#  submitted_by_id        :bigint
 #
 # Indexes
 #
-#  index_ai_agent_learning_suggestions_on_account_id         (account_id)
-#  index_ai_agent_learning_suggestions_on_ai_agent_id        (ai_agent_id)
-#  index_ai_agent_learning_suggestions_on_conversation_id    (conversation_id)
-#  index_ai_agent_learning_suggestions_on_reviewed_by_id     (reviewed_by_id)
-#  index_ai_agent_learning_suggestions_on_source_message_id  (source_message_id)
-#  index_ai_agent_learning_suggestions_on_submitted_by_id    (submitted_by_id)
-#  index_ai_learning_suggestions_on_agent_and_message        (ai_agent_id,source_message_id) UNIQUE WHERE (source_message_id IS NOT NULL)
-#  index_ai_learning_suggestions_on_agent_status_created     (ai_agent_id,status,created_at)
+#  index_ai_agent_learning_suggestions_on_account_id              (account_id)
+#  index_ai_agent_learning_suggestions_on_ai_agent_id             (ai_agent_id)
+#  index_ai_agent_learning_suggestions_on_ai_knowledge_source_id  (ai_knowledge_source_id)
+#  index_ai_agent_learning_suggestions_on_conversation_id         (conversation_id)
+#  index_ai_agent_learning_suggestions_on_reviewed_by_id          (reviewed_by_id)
+#  index_ai_agent_learning_suggestions_on_source_message_id       (source_message_id)
+#  index_ai_agent_learning_suggestions_on_submitted_by_id         (submitted_by_id)
+#  index_ai_learning_suggestions_on_agent_and_message             (ai_agent_id,source_message_id) UNIQUE WHERE (source_message_id IS NOT NULL)
+#  index_ai_learning_suggestions_on_agent_status_created          (ai_agent_id,status,created_at)
 #
 # Foreign Keys
 #
 #  fk_rails_...  (account_id => accounts.id) ON DELETE => cascade
 #  fk_rails_...  (ai_agent_id => ai_agents.id) ON DELETE => cascade
+#  fk_rails_...  (ai_knowledge_source_id => ai_knowledge_sources.id) ON DELETE => nullify
 #  fk_rails_...  (conversation_id => conversations.id) ON DELETE => nullify
 #  fk_rails_...  (reviewed_by_id => users.id) ON DELETE => nullify
 #  fk_rails_...  (source_message_id => messages.id) ON DELETE => nullify
