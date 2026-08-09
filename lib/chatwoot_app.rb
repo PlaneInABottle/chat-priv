@@ -2,6 +2,12 @@
 
 require 'pathname'
 
+begin
+  require 'active_model'
+rescue LoadError
+  # Keep ChatwootApp loadable outside the Rails bundle.
+end
+
 module ChatwootApp
   def self.root
     Pathname.new(File.expand_path('..', __dir__))
@@ -12,9 +18,9 @@ module ChatwootApp
   end
 
   def self.enterprise?
-    return if ENV.fetch('DISABLE_ENTERPRISE', false)
+    return false if enterprise_disabled?
 
-    @enterprise ||= root.join('enterprise').exist?
+    root.join('enterprise').exist?
   end
 
   def self.chatwoot_cloud?
@@ -73,6 +79,22 @@ module ChatwootApp
 
   class << self
     private
+
+    def enterprise_disabled?
+      boolean_value(ENV.fetch('DISABLE_ENTERPRISE', nil))
+    end
+
+    def boolean_value(value)
+      return ActiveModel::Type::Boolean.new.cast(value) if defined?(ActiveModel::Type::Boolean)
+
+      value = value.to_s.strip.downcase
+      case value
+      when '', 'false', '0', 'f', 'off'
+        false
+      else
+        true
+      end
+    end
 
     def database_ready?
       ActiveRecord::Base.connected? && InstallationConfig.table_exists?
