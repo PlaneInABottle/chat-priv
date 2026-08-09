@@ -6,6 +6,7 @@ vi.mock('vue-i18n', () => ({
   useI18n: () => ({
     t: (key, params) =>
       params ? `${key} ${Object.values(params).join(' ')}` : key,
+    locale: { value: 'tr-TR' },
   }),
 }));
 
@@ -206,7 +207,7 @@ describe('TestConversationChatPanel.vue', () => {
                     display_name: 'Kırmızı Sineklik',
                     images: ['https://cdn.myikas.com/red.webp'],
                     price: {
-                      reference_amount: 499,
+                      reference_amount: 1506.4,
                       currency: 'TRY',
                       final_total_known: false,
                     },
@@ -239,7 +240,7 @@ describe('TestConversationChatPanel.vue', () => {
     expect(wrapper.text()).toContain(
       'AI_AGENT.TEST_CONVERSATIONS.REFERENCE_PRICE'
     );
-    expect(wrapper.text()).toContain('499');
+    expect(wrapper.text()).toContain('1.506,40');
     expect(wrapper.text()).toContain('TRY');
     expect(wrapper.text()).toContain('80');
     expect(wrapper.text()).toContain('150');

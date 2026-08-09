@@ -27,7 +27,7 @@ const props = defineProps({
 
 const emit = defineEmits(['send', 'back']);
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const { formatMessage } = useMessageFormatter();
 
 const inputValue = ref('');
@@ -55,6 +55,16 @@ const isCatalogProductsPreview = message =>
   message?.terminal_action === 'present_catalog_products' &&
   message?.tool_result?.presentation?.content_type === 'catalog_products';
 
+const formatCatalogAmount = amount => {
+  const numericAmount = Number(amount);
+  if (!Number.isFinite(numericAmount)) return amount;
+
+  return new Intl.NumberFormat(locale.value, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(numericAmount);
+};
+
 const catalogPriceText = item => {
   const price = item?.price;
   const hasCurrentAmount =
@@ -66,7 +76,10 @@ const catalogPriceText = item => {
     price.final_total_known === false || !hasCurrentAmount
       ? 'AI_AGENT.TEST_CONVERSATIONS.REFERENCE_PRICE'
       : 'AI_AGENT.TEST_CONVERSATIONS.PRICE';
-  return t(key, { amount, currency: price.currency });
+  return t(key, {
+    amount: formatCatalogAmount(amount),
+    currency: price.currency,
+  });
 };
 
 const isOptionPromptStale = message => {
