@@ -143,41 +143,71 @@ module IkasCatalogMvp
       rows = matching_rows(db, parsed, root, limit, category_ids: root_category_ids)
       rows = matching_rows(db, parsed, nil, limit, category_ids: []) if rows.empty? && root
       candidates = rows.filter_map { |row| candidate_for(db, row, parsed, root, root_category_ids) }
-      rescue_phrase = exact_phrase_rescue_phrase(parsed, root, candidates)
-      candidates.concat(exact_phrase_rescued_candidates(db, parsed, limit, rescue_phrase)) if rescue_phrase
+      rescue_terms = exact_phrase_rescue_terms(parsed, root, candidates)
+      candidates.concat(exact_phrase_rescued_candidates(db, parsed, limit, rescue_terms)) if rescue_terms
       sorted_candidates = candidates.sort_by do |candidate|
         [
-          rescue_phrase && exact_phrase_candidate?(candidate, rescue_phrase) ? 0 : 1,
+          rescue_terms && rescued_display_name_candidate?(candidate, rescue_terms) ? 0 : 1,
           candidate_sort_key(candidate, parsed.fetch('terms'))
         ]
       end
-      grouped_candidates(db, sorted_candidates).first(limit)
+      grouped = grouped_candidates(db, sorted_candidates)
+      grouped = prefer_minimally_qualified_candidates(grouped, parsed.fetch('terms')) if parsed.fetch('constraints').empty?
+      grouped.first(limit)
     end
 
     # When the matched root scope returns only sibling-family candidates that do
     # not start with the full folded query phrase (for example the scope matched
     # "Double Akordiyon Pencere Sineklikleri" for the query "Akordeon Pencere
-    # Sineklik"), search the whole catalog for display-name matches that start
-    # with the exact phrase so the intended product is not hidden behind scoped
-    # sibling families.
-    def exact_phrase_rescue_phrase(parsed, root, candidates)
+    # Sineklik"), search the whole catalog for display-name matches that cover
+    # every requested term, regardless of order or small spelling differences.
+    def exact_phrase_rescue_terms(parsed, root, candidates)
       terms = parsed.fetch('terms')
       return nil if root.nil? || candidates.empty? || terms.length < 3
 
       phrase = Text.fold(terms.join(' '))
-      return nil if candidates.any? { |candidate| exact_phrase_candidate?(candidate, phrase) }
+      return nil if candidates.any? { |candidate| display_name_starts_with_phrase?(candidate, phrase) }
 
-      phrase
+      terms
     end
 
-    def exact_phrase_rescued_candidates(db, parsed, limit, phrase)
-      rows = matching_rows(db, parsed, nil, limit * 2, category_ids: [])
+    def exact_phrase_rescued_candidates(db, parsed, limit, terms)
+      fts5_terms = fts5_terms_for(search_terms_for(db, nil, parsed.fetch('terms')))
+      raise Error, 'Ikas catalog FTS index is missing. Sync the catalog again.' unless fts5_available?(db)
+
+      rows = relaxed_fts5_matching_rows(db, fts5_terms, limit * 2, category_ids: [])
       rows.filter_map { |row| candidate_for(db, row, parsed, nil, []) }
-          .select { |candidate| exact_phrase_candidate?(candidate, phrase) }
+          .select { |candidate| rescued_display_name_candidate?(candidate, terms) }
     end
 
-    def exact_phrase_candidate?(candidate, phrase)
+    def rescued_display_name_candidate?(candidate, terms)
+      display_name_tokens = Text.tokens(candidate.fetch('display_name'))
+      terms.all? { |term| display_name_tokens.any? { |token| category_token_match?(term, token) } }
+    end
+
+    def display_name_starts_with_phrase?(candidate, phrase)
       Text.fold(candidate.fetch('display_name')).start_with?(phrase)
+    end
+
+    def prefer_minimally_qualified_candidates(candidates, terms)
+      fully_matching = candidates.select { |candidate| visible_term_miss_count(candidate.fetch('display_name'), terms).zero? }
+      return candidates if fully_matching.length < 2
+      return candidates if fully_matching.map { |candidate| candidate.fetch('category_paths') }.uniq.length < 2
+      category_depths = fully_matching.map do |candidate|
+        candidate.fetch('category_paths').map { |path| path.split(' > ').length }.max
+      end
+      return candidates if category_depths.uniq.length > 1
+
+      minimum_extra_tokens = fully_matching.map { |candidate| unmatched_display_name_token_count(candidate.fetch('display_name'), terms) }.min
+      candidates.reject do |candidate|
+        fully_matching.include?(candidate) && unmatched_display_name_token_count(candidate.fetch('display_name'), terms) > minimum_extra_tokens
+      end
+    end
+
+    def unmatched_display_name_token_count(display_name, terms)
+      Text.tokens(display_name).count do |token|
+        terms.none? { |term| category_token_match?(term, token) }
+      end
     end
 
     def category_matching_rows(db, limit, category_ids:)

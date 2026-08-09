@@ -1061,6 +1061,26 @@ RSpec.describe IkasCatalogMvp::QueryEngine do
     end
   end
 
+  it 'rescues reordered product terms while preferring the minimally qualified family' do
+    with_snapshot do |sqlite_path|
+      payload = described_class.new(sqlite_path: sqlite_path).query('akordeon sineklik pencere')
+      product_ids = payload.fetch('candidates').map { |candidate| candidate.fetch('product_id') }
+
+      expect(product_ids.first).to eq('p-sineklik-akordiyon-pencere')
+      expect(product_ids).not_to include('p-sineklik-duble-pencere')
+    end
+  end
+
+  it 'rescues fuzzy product terms while preferring the minimally qualified family' do
+    with_snapshot do |sqlite_path|
+      payload = described_class.new(sqlite_path: sqlite_path).query('akordiyon sineklik pencere')
+      product_ids = payload.fetch('candidates').map { |candidate| candidate.fetch('product_id') }
+
+      expect(product_ids.first).to eq('p-sineklik-akordiyon-pencere')
+      expect(product_ids).not_to include('p-sineklik-duble-pencere')
+    end
+  end
+
   it 'keeps explicit family matches scoped when the display name already starts with the phrase' do
     with_snapshot do |sqlite_path|
       payload = described_class.new(sqlite_path: sqlite_path).query('akordeon duble pencere sineklik')
