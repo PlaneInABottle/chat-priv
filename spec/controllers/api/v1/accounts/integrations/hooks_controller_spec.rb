@@ -7,6 +7,14 @@ RSpec.describe 'Integration Hooks API', type: :request do
   let(:inbox) { create(:inbox, account: account) }
   let(:params) { { app_id: 'dialogflow', inbox_id: inbox.id, settings: { project_id: 'xx', credentials: { test: 'test' }, region: 'europe-west1' } } }
 
+  def expose_app_for_example(app_id)
+    configured_apps = Integrations::App.all
+    app = configured_apps.find { |candidate| candidate.id == app_id }
+    allow(app).to receive(:active?).and_return(true)
+    allow(Integrations::App).to receive(:all).and_return(configured_apps)
+    app
+  end
+
   describe 'POST /api/v1/accounts/{account.id}/integrations/hooks' do
     context 'when it is an unauthenticated user' do
       it 'returns unauthorized' do
@@ -20,8 +28,9 @@ RSpec.describe 'Integration Hooks API', type: :request do
 
     context 'when it is an authenticated user' do
       it 'return unauthorized if agent' do
+        account.enable_features!('ikas_integration')
         post api_v1_account_integrations_hooks_url(account_id: account.id),
-             params: params,
+             params: params.merge(app_id: 'ikas'),
              headers: agent.create_new_auth_token,
              as: :json
 
@@ -29,19 +38,20 @@ RSpec.describe 'Integration Hooks API', type: :request do
       end
 
       it 'creates hooks if admin' do
+        account.enable_features!('ikas_integration')
         post api_v1_account_integrations_hooks_url(account_id: account.id),
-             params: params,
+             params: params.merge(app_id: 'ikas', settings: { client_id: 'client-id' }),
              headers: admin.create_new_auth_token,
              as: :json
 
         expect(response).to have_http_status(:success)
         data = response.parsed_body
-        expect(data['app_id']).to eq params[:app_id]
+        expect(data['app_id']).to eq 'ikas'
       end
 
-      it 'does not create a hook for an inactive integration app' do
+      it 'does not create a hook for a hidden integration app' do
         post api_v1_account_integrations_hooks_url(account_id: account.id),
-             params: params.merge(app_id: 'shopify'),
+             params: params.merge(app_id: 'dialogflow'),
              headers: admin.create_new_auth_token,
              as: :json
 
@@ -60,6 +70,7 @@ RSpec.describe 'Integration Hooks API', type: :request do
       end
 
       it 'validates Cloudflare RealtimeKit credentials before creating the hook' do
+        expose_app_for_example('dyte')
         allow(Integrations::Cloudflare::RealtimeKitCredentialsValidator).to receive(:validate)
           .and_return(Integrations::Cloudflare::RealtimeKitCredentialsValidator::Result.new(false, :invalid_api_token))
 

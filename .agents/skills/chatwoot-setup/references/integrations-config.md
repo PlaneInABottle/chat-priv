@@ -11,10 +11,13 @@ Use this reference when changing which integrations account admins can see under
 
 ## Default visibility
 
+- This Kozmopath deployment intentionally exposes only `ikas` among the account integrations shown to users.
+- The six integrations intentionally hidden in this deployment are marked with `visible: false` in `config/integration/apps.yml`.
 - The dashboard renders every integration returned by the account integrations API; it does not maintain a second static allowlist.
-- Upstream integrations without a functional availability requirement are visible by default.
-- `Integrations::App#active?` is the single availability gate for both the index and direct integration detail routes.
+- `Integrations::App#active?` treats an explicit `visible: false` as hidden before applying optional feature or provider gates.
+- `Integrations::App#active?` is the single availability gate for both the index and direct integration detail routes, as well as generic hook creation.
 - `ikas` remains conditional on the account's `ikas_integration` feature because its catalog and AI tools depend on the same gate.
+- Hiding an app affects discovery and new generic hook creation only; it does not delete existing hooks or disable their runtime processing.
 
 ## Feature flags vs visibility
 

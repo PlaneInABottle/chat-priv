@@ -53,6 +53,8 @@ class Integrations::App
   end
 
   def active?(account)
+    return false if params[:visible] == false
+
     flag = params[:feature_flag]
     return false unless flag.blank? || account.feature_enabled?(flag)
 

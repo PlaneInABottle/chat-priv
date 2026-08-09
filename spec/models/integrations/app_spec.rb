@@ -126,8 +126,14 @@ RSpec.describe Integrations::App do
     context 'when other apps are queried' do
       let(:app_name) { 'webhook' }
 
-      it 'returns true' do
-        expect(app.active?(account)).to be true
+      it 'returns false when visibility is disabled in the app configuration' do
+        expect(app.active?(account)).to be false
+      end
+
+      it 'returns false for every integration configured as hidden' do
+        hidden_app_ids = %w[webhook dashboard_apps openai dialogflow google_translate dyte]
+
+        expect(hidden_app_ids.map { |app_id| apps.find(id: app_id).active?(account) }).to all(be false)
       end
     end
   end

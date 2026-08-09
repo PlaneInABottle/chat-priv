@@ -5,6 +5,14 @@ RSpec.describe 'Integration Apps API', type: :request do
 
   before { allow(Integrations::Openai::KeyValidator).to receive(:valid?).and_return(true) }
 
+  def expose_app_for_example(app_id)
+    configured_apps = Integrations::App.all
+    app = configured_apps.find { |candidate| candidate.id == app_id }
+    allow(app).to receive(:active?).and_return(true)
+    allow(Integrations::App).to receive(:all).and_return(configured_apps)
+    app
+  end
+
   describe 'GET /api/v1/integrations/apps' do
     context 'when it is an unauthenticated user' do
       it 'returns unauthorized' do
@@ -17,7 +25,7 @@ RSpec.describe 'Integration Apps API', type: :request do
       let(:agent) { create(:user, account: account, role: :agent) }
       let(:admin) { create(:user, account: account, role: :administrator) }
 
-      before { account.enable_features('ikas_integration') }
+      before { account.enable_features!('ikas_integration') }
 
       it 'returns all active apps without sensitive information if the user is an agent' do
         first_app = Integrations::App.all.find { |app| app.active?(account) }
@@ -32,15 +40,27 @@ RSpec.describe 'Integration Apps API', type: :request do
         expect(apps['action']).to be_nil
       end
 
+      it 'does not list integrations configured as hidden' do
+        get api_v1_account_integrations_apps_url(account),
+            headers: agent.create_new_auth_token,
+            as: :json
+
+        expect(response).to have_http_status(:success)
+        app_ids = response.parsed_body['payload'].pluck('id')
+        expect(app_ids).to include('ikas')
+        expect(app_ids & %w[webhook dashboard_apps openai dialogflow google_translate dyte]).to be_empty
+      end
+
       it 'will not return sensitive information for openai app for agents' do
-        openai = create(:integrations_hook, :openai, account: account)
+        openai = expose_app_for_example('openai')
+        create(:integrations_hook, :openai, account: account)
         get api_v1_account_integrations_apps_url(account),
             headers: agent.create_new_auth_token,
             as: :json
 
         expect(response).to have_http_status(:success)
 
-        app = response.parsed_body['payload'].find { |int_app| int_app['id'] == openai.app.id }
+        app = response.parsed_body['payload'].find { |int_app| int_app['id'] == openai.id }
         expect(app['hooks'].first['settings']).to be_nil
       end
 
@@ -73,19 +93,21 @@ RSpec.describe 'Integration Apps API', type: :request do
       end
 
       it 'returns visible hook settings for openai app for admins' do
-        openai = create(:integrations_hook, :openai, account: account)
+        openai = expose_app_for_example('openai')
+        create(:integrations_hook, :openai, account: account)
         get api_v1_account_integrations_apps_url(account),
             headers: admin.create_new_auth_token,
             as: :json
 
         expect(response).to have_http_status(:success)
 
-        app = response.parsed_body['payload'].find { |int_app| int_app['id'] == openai.app.id }
+        app = response.parsed_body['payload'].find { |int_app| int_app['id'] == openai.id }
         expect(app['hooks'].first['settings']).not_to be_nil
       end
 
       it 'redacts secrets and only returns visible settings for openai hooks' do
-        openai = create(
+        openai = expose_app_for_example('openai')
+        create(
           :integrations_hook,
           :openai,
           account: account,
@@ -95,7 +117,7 @@ RSpec.describe 'Integration Apps API', type: :request do
             headers: admin.create_new_auth_token,
             as: :json
 
-        app = response.parsed_body['payload'].find { |int_app| int_app['id'] == openai.app.id }
+        app = response.parsed_body['payload'].find { |int_app| int_app['id'] == openai.id }
         expect(app['hooks'].first['settings']).to eq('label_suggestion' => true)
       end
 
@@ -158,28 +180,37 @@ RSpec.describe 'Integration Apps API', type: :request do
       let(:agent) { create(:user, account: account, role: :agent) }
       let(:admin) { create(:user, account: account, role: :administrator) }
 
-      it 'returns details of the app' do
-        get api_v1_account_integrations_app_url(account_id: account.id, id: 'webhook'),
+      it 'returns details of the active Ikas app' do
+        account.enable_features!('ikas_integration')
+        get api_v1_account_integrations_app_url(account_id: account.id, id: 'ikas'),
             headers: agent.create_new_auth_token,
             as: :json
 
         expect(response).to have_http_status(:success)
         app = response.parsed_body
-        expect(app['id']).to eql('webhook')
-        expect(app['name']).to eql('Webhooks')
+        expect(app['id']).to eql('ikas')
       end
 
-      it 'does not expose an inactive app through its direct URL' do
-        get api_v1_account_integrations_app_url(account_id: account.id, id: 'ikas'),
+      it 'does not expose a hidden app through its direct URL' do
+        get api_v1_account_integrations_app_url(account_id: account.id, id: 'webhook'),
             headers: agent.create_new_auth_token,
             as: :json
 
         expect(response).to have_http_status(:not_found)
       end
 
+      it 'does not expose a hidden app through its direct URL for admins' do
+        get api_v1_account_integrations_app_url(account_id: account.id, id: 'openai'),
+            headers: admin.create_new_auth_token,
+            as: :json
+
+        expect(response).to have_http_status(:not_found)
+      end
+
       it 'will not return sensitive information for openai app for agents' do
-        openai = create(:integrations_hook, :openai, account: account)
-        get api_v1_account_integrations_app_url(account_id: account.id, id: openai.app.id),
+        openai = expose_app_for_example('openai')
+        create(:integrations_hook, :openai, account: account)
+        get api_v1_account_integrations_app_url(account_id: account.id, id: openai.id),
             headers: agent.create_new_auth_token,
             as: :json
 
@@ -190,8 +221,9 @@ RSpec.describe 'Integration Apps API', type: :request do
       end
 
       it 'returns visible hook settings for openai app for admins' do
-        openai = create(:integrations_hook, :openai, account: account)
-        get api_v1_account_integrations_app_url(account_id: account.id, id: openai.app.id),
+        openai = expose_app_for_example('openai')
+        create(:integrations_hook, :openai, account: account)
+        get api_v1_account_integrations_app_url(account_id: account.id, id: openai.id),
             headers: admin.create_new_auth_token,
             as: :json
 
@@ -202,10 +234,14 @@ RSpec.describe 'Integration Apps API', type: :request do
       end
 
       it 'hides credentials and keeps visible settings for google credential integrations' do
-        hook = create(:integrations_hook, :google_translate, account: account,
-                                                             settings: { project_id: 'project-1',
-                                                                         credentials: { private_key: 'secret' } })
-        get api_v1_account_integrations_app_url(account_id: account.id, id: hook.app.id),
+        google_translate = expose_app_for_example('google_translate')
+        create(
+          :integrations_hook,
+          :google_translate,
+          account: account,
+          settings: { project_id: 'project-1', credentials: { private_key: 'secret' } }
+        )
+        get api_v1_account_integrations_app_url(account_id: account.id, id: google_translate.id),
             headers: admin.create_new_auth_token,
             as: :json
 

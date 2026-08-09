@@ -9,9 +9,11 @@
 # visible_properties: hook setting keys safe to return in API responses and show in the UI
 # settings_json_schema: the json schema used to validate the settings hash (https://json-schema.org/)
 # settings_form_schema: the formulate schema used in frontend to render settings form (https://vueformulate.com/)
+# visible: whether the integration is shown in account integration settings
 ########################################################
 webhooks:
   id: webhook
+  visible: false
   logo: webhooks.png
   i18n_key: webhooks
   action: /webhook
@@ -19,12 +21,14 @@ webhooks:
   allow_multiple_hooks: true
 dashboard_apps:
   id: dashboard_apps
+  visible: false
   logo: dashboard_apps.png
   i18n_key: dashboard_apps
   hook_type: account
   allow_multiple_hooks: true
 openai:
   id: openai
+  visible: false
   logo: openai.png
   i18n_key: openai
   action: /openai
@@ -82,6 +86,7 @@ slack:
   visible_properties: ['channel_name']
 dialogflow:
   id: dialogflow
+  visible: false
   logo: dialogflow.png
   i18n_key: dialogflow
   action: /dialogflow
@@ -167,6 +172,7 @@ dialogflow:
   visible_properties: ['project_id', 'region', 'language_code']
 google_translate:
   id: google_translate
+  visible: false
   logo: google-translate.png
   i18n_key: google_translate
   action: /google_translate
@@ -205,6 +211,7 @@ google_translate:
   visible_properties: ['project_id']
 dyte:
   id: dyte
+  visible: false
   logo: dyte.png
   i18n_key: dyte
   action: /dyte
