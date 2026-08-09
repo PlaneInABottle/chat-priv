@@ -34,7 +34,8 @@ RSpec.describe AiAgents::CatalogPresentationBuilder do
 
     expect(content).to include('Reference price: 499 TRY')
     expect(content).to include('Maximum dimensions: 80 × 150 cm')
-    expect(content).to include('[Product link](https://store.example/red-screen)')
+    expect(content).to include('[Red Screen](https://store.example/red-screen)')
+    expect(content).not_to include('Product link')
     expect(content).not_to include('Referans fiyat', 'Representative product image', 'Temsili ürün görseli')
   end
 
@@ -46,7 +47,8 @@ RSpec.describe AiAgents::CatalogPresentationBuilder do
 
     expect(content).to include('Referans fiyat: 499 TRY')
     expect(content).to include('Maksimum ölçü: 80 × 150 cm')
-    expect(content).to include('[Ürün linki](https://store.example/red-screen)')
+    expect(content).to include('[Red Screen](https://store.example/red-screen)')
+    expect(content).not_to include('Ürün linki')
     expect(content).not_to include('Reference price', 'Representative product image', 'Temsili ürün görseli')
   end
 
@@ -61,7 +63,8 @@ RSpec.describe AiAgents::CatalogPresentationBuilder do
 
     expect(content).to include('Referans fiyat: 499 TRY')
     expect(content).to include('Maksimum ölçü: 80 × 150 cm')
-    expect(content).to include('[Ürün linki](https://store.example/red-screen)')
+    expect(content).to include('[Red Screen](https://store.example/red-screen)')
+    expect(content).not_to include('Ürün linki')
     expect(content).not_to include('Reference price')
   end
 

@@ -37,7 +37,6 @@ en:
     catalog_products:
       reference_price: "Reference price: %{amount} %{currency}"
       maximum_dimensions: "Maximum dimensions: %{width} × %{height} %{unit}"
-      product_link: "Product link"
       representative_image: "Representative product image"
   inbox:
     reauthorization:

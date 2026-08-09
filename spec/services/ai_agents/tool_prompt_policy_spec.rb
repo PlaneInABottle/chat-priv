@@ -54,12 +54,23 @@ RSpec.describe AiAgents::ToolPromptPolicy do
   it 'includes verified links and returned dimension bounds when presenting concrete products' do
     instructions = described_class.new([AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL]).instructions
 
-    expect(instructions).to match(/present, recommend, or list a concrete candidate.*Markdown product link/i)
+    expect(instructions).to match(/make that candidate's displayed product name the complete Markdown link.*candidate\.link\.url/i)
     expect(instructions).to include('even if the customer did not explicitly ask for a link')
-    expect(instructions).to match(/hide the raw URL behind a short descriptive label/i)
+    expect(instructions).to match(/make that candidate's displayed product name the complete Markdown link/i)
+    expect(instructions).to include('Do not add a separate generic "product link" label')
     expect(instructions).to include('do not print the bare long URL')
     expect(instructions).to match(/dimension bounds.*maximum width and height once/i)
     expect(instructions).to match(/do not infer missing bounds.*or ask for measurements unless/i)
+  end
+
+  it 'keeps default product lists concise without redundant price or availability prose' do
+    instructions = described_class.new([AiAgents::Config::IKAS_CATALOG_SEARCH_TOOL]).instructions
+
+    expect(instructions).to match(/do not add stock.*or "can be ordered" lines merely because a product is listed/i)
+    expect(instructions).to match(/show only price\.amount by default/i)
+    expect(instructions).to match(/compare-at or old price only when the customer explicitly asks/i)
+    expect(instructions).to match(/one concise line per candidate.*linked product name/i)
+    expect(instructions).to include('[Product name](verified URL) — reference price 1,500 TRY')
   end
 
   it 'answers directly about previously presented options instead of re-calling present_options' do

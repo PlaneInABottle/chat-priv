@@ -24,7 +24,6 @@ tr:
     catalog_products:
       reference_price: "Referans fiyat: %{amount} %{currency}"
       maximum_dimensions: "Maksimum ölçü: %{width} × %{height} %{unit}"
-      product_link: "Ürün linki"
       representative_image: "Temsili ürün görseli"
   inbox:
     reauthorization:

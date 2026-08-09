@@ -60,7 +60,10 @@ class AiAgents::CatalogPresentationBuilder
   end
 
   def caption(item, introduction:, include_details:, image_attached:)
-    lines = [introduction.to_s.strip.presence, item.fetch('display_name')]
+    lines = [
+      introduction.to_s.strip.presence,
+      linked_display_name(item.fetch('display_name'), item.dig('link', 'url'))
+    ]
     return lines.compact.join("\n\n") unless include_details
 
     lines << localized_price(item['price'].to_h)
@@ -68,7 +71,6 @@ class AiAgents::CatalogPresentationBuilder
     if image_attached && item['image_scope'] == 'representative_product'
       lines << I18n.t('ai_agents.catalog_products.representative_image', locale: locale)
     end
-    lines << localized_product_link(item.dig('link', 'url'))
     lines.compact.join("\n\n")
   end
 
@@ -96,10 +98,10 @@ class AiAgents::CatalogPresentationBuilder
     )
   end
 
-  def localized_product_link(url)
-    return if url.blank?
+  def linked_display_name(display_name, url)
+    return display_name if url.blank?
 
-    "[#{I18n.t('ai_agents.catalog_products.product_link', locale: locale)}](#{url})"
+    "[#{display_name}](#{url})"
   end
 
   def message_attributes(spec, presentation, index, total)
