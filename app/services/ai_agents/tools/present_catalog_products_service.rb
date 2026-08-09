@@ -129,9 +129,26 @@ class AiAgents::Tools::PresentCatalogProductsService
       display_name: candidate['display_name'].presence || item.fetch(:display_name),
       price: candidate['price'].presence || item[:price],
       link: candidate['link'].presence || item[:link],
+      maximum_dimensions: maximum_dimensions(candidate),
       image_scope: images.first&.fetch(:scope, nil) || item[:image_scope],
       images: images.map { |image| image.fetch(:url) }
     }.compact
+  end
+
+  def maximum_dimensions(candidate)
+    options = Array(candidate.dig('configuration', 'options'))
+    width, height = %w[width height].map { |axis| dimension_option(options, axis) }
+    return unless shared_dimension_bounds?(width, height)
+
+    { width: width['max'], height: height['max'], unit: width['unit'] }
+  end
+
+  def dimension_option(options, axis)
+    options.find { |option| option['type'] == 'dimension' && option['axis'] == axis }
+  end
+
+  def shared_dimension_bounds?(width, height)
+    width&.dig('max').present? && height&.dig('max').present? && width['unit'].present? && width['unit'] == height['unit']
   end
 
   def presentation_images(item, request)

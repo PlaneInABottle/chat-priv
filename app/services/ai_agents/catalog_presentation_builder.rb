@@ -64,10 +64,11 @@ class AiAgents::CatalogPresentationBuilder
     return lines.compact.join("\n\n") unless include_details
 
     lines << localized_price(item['price'].to_h)
+    lines << localized_maximum_dimensions(item['maximum_dimensions'].to_h)
     if image_attached && item['image_scope'] == 'representative_product'
       lines << I18n.t('ai_agents.catalog_products.representative_image', locale: locale)
     end
-    lines << item.dig('link', 'url').to_s.presence
+    lines << localized_product_link(item.dig('link', 'url'))
     lines.compact.join("\n\n")
   end
 
@@ -81,6 +82,24 @@ class AiAgents::CatalogPresentationBuilder
       currency: price['currency'],
       locale: locale
     )
+  end
+
+  def localized_maximum_dimensions(dimensions)
+    return if dimensions['width'].blank? || dimensions['height'].blank? || dimensions['unit'].blank?
+
+    I18n.t(
+      'ai_agents.catalog_products.maximum_dimensions',
+      width: formatted_amount(dimensions['width']),
+      height: formatted_amount(dimensions['height']),
+      unit: dimensions['unit'],
+      locale: locale
+    )
+  end
+
+  def localized_product_link(url)
+    return if url.blank?
+
+    "[#{I18n.t('ai_agents.catalog_products.product_link', locale: locale)}](#{url})"
   end
 
   def message_attributes(spec, presentation, index, total)

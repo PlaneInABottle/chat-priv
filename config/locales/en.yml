@@ -36,6 +36,8 @@ en:
     handoff_not_assigned_note: 'Handoff completed — no agents were available for automatic assignment. An agent can pick up this conversation from the inbox.'
     catalog_products:
       reference_price: "Reference price: %{amount} %{currency}"
+      maximum_dimensions: "Maximum dimensions: %{width} × %{height} %{unit}"
+      product_link: "Product link"
       representative_image: "Representative product image"
   inbox:
     reauthorization:

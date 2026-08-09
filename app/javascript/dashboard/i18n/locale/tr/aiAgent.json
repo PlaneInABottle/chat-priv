@@ -118,6 +118,7 @@
       "INTERNAL_NOTE": "Özel not:",
       "LABELS_TO_APPLY": "Konuşma etiketleri:",
       "LABELS_IGNORED": "Kullanılamayan etiketler:",
+      "MAXIMUM_DIMENSIONS": "Maksimum ölçü: {width} × {height} {unit}",
       "SOURCES_USED": "Kullanılan kaynaklar",
       "SAVE_BEFORE_TESTING": "Bu yapay zeka asistanını test etmeden önce değişikliklerinizi kaydedin.",
       "ADD_PROMPT_BEFORE_TESTING": "Bu yapay zeka asistanını test etmeden önce talimat ekleyip değişikliklerinizi kaydedin.",

@@ -3,7 +3,10 @@ import Button from 'dashboard/components-next/button/Button.vue';
 import TestConversationChatPanel from '../TestConversationChatPanel.vue';
 
 vi.mock('vue-i18n', () => ({
-  useI18n: () => ({ t: key => key }),
+  useI18n: () => ({
+    t: (key, params) =>
+      params ? `${key} ${params.width} × ${params.height} ${params.unit}` : key,
+  }),
 }));
 
 const conversation = {
@@ -203,6 +206,11 @@ describe('TestConversationChatPanel.vue', () => {
                     display_name: 'Kırmızı Sineklik',
                     images: ['https://cdn.myikas.com/red.webp'],
                     price: { amount: 499, currency: 'TRY' },
+                    maximum_dimensions: {
+                      width: 80,
+                      height: 150,
+                      unit: 'cm',
+                    },
                     link: { url: 'https://store.example/red' },
                   },
                 ],
@@ -221,6 +229,17 @@ describe('TestConversationChatPanel.vue', () => {
     expect(wrapper.find('img').attributes('src')).toBe(
       'https://cdn.myikas.com/red.webp'
     );
+    expect(wrapper.text()).toContain(
+      'AI_AGENT.TEST_CONVERSATIONS.MAXIMUM_DIMENSIONS'
+    );
+    expect(wrapper.text()).toContain('80');
+    expect(wrapper.text()).toContain('150');
+    expect(wrapper.text()).toContain('cm');
+    expect(wrapper.get('article').get('a').attributes()).toMatchObject({
+      href: 'https://store.example/red',
+      target: '_blank',
+      rel: 'noopener noreferrer',
+    });
     expect(wrapper.get('article').findAll('button')).toHaveLength(0);
   });
 

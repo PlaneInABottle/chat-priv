@@ -22,7 +22,17 @@ RSpec.describe AiAgents::Tools::PresentCatalogProductsService do
       'result' => {
         'result_type' => 'show_candidates',
         'candidates' => [
-          { 'item_id' => 'variant:red', 'display_name' => 'Red Screen', 'image' => { 'available' => true, 'count' => 2 } },
+          {
+            'item_id' => 'variant:red',
+            'display_name' => 'Red Screen',
+            'image' => { 'available' => true, 'count' => 2 },
+            'configuration' => {
+              'options' => [
+                { 'type' => 'dimension', 'axis' => 'width', 'unit' => 'cm', 'max' => 80 },
+                { 'type' => 'dimension', 'axis' => 'height', 'unit' => 'cm', 'max' => 150 }
+              ]
+            }
+          },
           { 'item_id' => 'variant:blue', 'display_name' => 'Blue Screen', 'image' => { 'available' => true, 'count' => 1 } }
         ]
       }
@@ -50,6 +60,7 @@ RSpec.describe AiAgents::Tools::PresentCatalogProductsService do
     expect(result.dig(:presentation, :content_type)).to eq('catalog_products')
     expect(result.dig(:presentation, :items).map { |item| item[:item_id] }).to eq(%w[variant:red variant:blue])
     expect(result.dig(:presentation, :items).first[:images]).to eq(['https://cdn.myikas.com/red-main.webp'])
+    expect(result.dig(:presentation, :items).first[:maximum_dimensions]).to eq(width: 80, height: 150, unit: 'cm')
     expect(result.dig(:presentation, :items).first).not_to include(:value, :options, :selected)
   end
 

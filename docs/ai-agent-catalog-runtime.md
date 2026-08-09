@@ -38,6 +38,8 @@ The 0731 checkpoint may spend a substantial share of the completion allowance on
 8. Concrete catalog fields should come from tool output by prompt contract. Customer-visible HTTP links are structurally restricted to URLs returned by tools. Structured catalog options accept only identifiers returned by the latest successful catalog event.
 9. `LiveProcessor` persists at most one public AgentBot response for the triggering incoming message.
 
+Structured catalog product presentations also copy a candidate's shared maximum width and height into a compact `maximum_dimensions` field when both normalized axes are available. Test cards render that field directly, and live catalog captions append the same localized maximum-dimensions line, so those verified bounds do not depend on model prose. Live captions render trusted product URLs behind a localized Markdown label instead of exposing the raw URL; test cards use the product name as the link label.
+
 ## Catalog product image contract
 
 `present_catalog_products` is enabled by default when the merchant has a completed image-capable ikas snapshot. Merchants may disable it independently. Test conversations, `Channel::WebWidget`, and `Channel::Whatsapp` support the presentation; `Channel::Api` remains text-only.

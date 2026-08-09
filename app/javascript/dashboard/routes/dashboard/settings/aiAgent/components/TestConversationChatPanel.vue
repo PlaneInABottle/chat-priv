@@ -275,6 +275,22 @@ const handleOptionSelect = (message, option) => {
                     >
                       {{ item.price.amount }} {{ item.price.currency }}
                     </p>
+                    <p
+                      v-if="
+                        item.maximum_dimensions?.width &&
+                        item.maximum_dimensions?.height &&
+                        item.maximum_dimensions?.unit
+                      "
+                      class="text-xs text-n-slate-11"
+                    >
+                      {{
+                        t('AI_AGENT.TEST_CONVERSATIONS.MAXIMUM_DIMENSIONS', {
+                          width: item.maximum_dimensions.width,
+                          height: item.maximum_dimensions.height,
+                          unit: item.maximum_dimensions.unit,
+                        })
+                      }}
+                    </p>
                     <a
                       v-if="item.link?.url"
                       :href="item.link.url"

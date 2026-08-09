@@ -23,6 +23,8 @@ tr:
     handoff_not_assigned_note: 'Devir tamamlandı — otomatik atama için uygun ajan bulunamadı. Bir ajan bu görüşmeyi kutu listesinden üstlenebilir.'
     catalog_products:
       reference_price: "Referans fiyat: %{amount} %{currency}"
+      maximum_dimensions: "Maksimum ölçü: %{width} × %{height} %{unit}"
+      product_link: "Ürün linki"
       representative_image: "Temsili ürün görseli"
   inbox:
     reauthorization:
