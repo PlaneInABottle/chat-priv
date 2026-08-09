@@ -689,6 +689,22 @@
       "DESCRIPTION": "WhatsApp hesap durumunuzu, mesajlaşma limitlerinizi ve kalitesini inceleyin. Gerekirse ayarları güncelleyin veya sorunları çözün",
       "GO_TO_SETTINGS": "Meta Business Manager'a gidin",
       "NO_DATA": "Sağlık verisi mevcut değil",
+      "ERRORS": {
+        "AUTHORIZATION": {
+          "EMBEDDED_TITLE": "WhatsApp bağlantısının yenilenmesi gerekiyor",
+          "EMBEDDED_DESCRIPTION": "Meta bu gelen kutusunun bağlantısını doğrulayamadı. Embedded Signup ile yeniden yapılandırmak için Yapılandırma bölümüne gidin.",
+          "MANUAL_TITLE": "WhatsApp erişim belirteciyle ilgilenilmesi gerekiyor",
+          "MANUAL_DESCRIPTION": "Meta bu gelen kutusunun erişim belirtecini doğrulayamadı. Doğrulamak veya değiştirmek için Yapılandırma bölümüne gidin."
+        },
+        "GENERIC_TITLE": "WhatsApp sağlık verileri kullanılamıyor",
+        "GENERIC_DESCRIPTION": "Meta güncel sağlık ayrıntılarını döndüremedi. Aşağıdaki hatayı inceleyip daha sonra tekrar deneyin.",
+        "GO_TO_CONFIGURATION": "Yapılandırmaya git"
+      },
+      "SECTIONS": {
+        "PHONE_NUMBER": "Telefon numarası",
+        "HEALTH_AND_CAPACITY": "Sağlık ve kapasite",
+        "BUSINESS_ACCOUNT": "İşletme hesabı"
+      },
       "FIELDS": {
         "DISPLAY_PHONE_NUMBER": {
           "LABEL": "Telefon numarasını göster",
@@ -698,9 +714,25 @@
           "LABEL": "İşletme adı",
           "TOOLTIP": "WhatsApp tarafından onaylanmış işletme adı"
         },
+        "PHONE_NUMBER_ID": {
+          "LABEL": "Telefon numarası kimliği",
+          "TOOLTIP": "Bu WhatsApp telefon numarasının Meta tanımlayıcısı"
+        },
+        "COEXISTENCE": {
+          "LABEL": "Birlikte kullanım",
+          "TOOLTIP": "Bu numara hem WhatsApp Business uygulamasına hem de Cloud API'ye bağlı"
+        },
         "DISPLAY_NAME_STATUS": {
           "LABEL": "Görünen adın durumu",
           "TOOLTIP": "İşletme adı doğrulamanızın durumu"
+        },
+        "LAST_ONBOARDED_TIME": {
+          "LABEL": "Son katılım",
+          "TOOLTIP": "Meta'nın bu telefon numarasını en son sisteme aldığı zaman"
+        },
+        "PHONE_NUMBER_STATUS": {
+          "LABEL": "Telefon numarası durumu",
+          "TOOLTIP": "Bu telefon numarasının WhatsApp üzerindeki mevcut bağlantı durumu"
         },
         "QUALITY_RATING": {
           "LABEL": "Kalite puanı",
@@ -713,13 +745,39 @@
         "ACCOUNT_MODE": {
           "LABEL": "Hesap modu",
           "TOOLTIP": "WhatsApp hesabınızın mevcut çalışma modu"
+        },
+        "CODE_VERIFICATION_STATUS": {
+          "LABEL": "Kod doğrulaması",
+          "TOOLTIP": "Meta'nın bu telefon numarası için bildirdiği doğrulama kodu durumu"
+        },
+        "THROUGHPUT_LEVEL": {
+          "LABEL": "İleti aktarım hızı",
+          "TOOLTIP": "Bu telefon numarasına atanan ileti aktarım hızı seviyesi"
+        },
+        "BUSINESS_ACCOUNT_NAME": {
+          "LABEL": "WhatsApp Business Hesabı adı",
+          "TOOLTIP": "Bu telefon numarasına bağlı WhatsApp Business Hesabının adı"
+        },
+        "BUSINESS_ACCOUNT_ID": {
+          "LABEL": "WhatsApp Business Hesabı kimliği",
+          "TOOLTIP": "Bağlı WhatsApp Business Hesabının Meta tanımlayıcısı"
+        },
+        "BUSINESS_PORTFOLIO_NAME": {
+          "LABEL": "İşletme portföyü adı",
+          "TOOLTIP": "WhatsApp Business Hesabının sahibi olan Meta işletme portföyünün adı"
+        },
+        "BUSINESS_PORTFOLIO_ID": {
+          "LABEL": "İşletme portföyü kimliği",
+          "TOOLTIP": "WhatsApp Business Hesabının sahibi olan işletme portföyünün Meta tanımlayıcısı"
         }
       },
       "VALUES": {
+        "NOT_AVAILABLE": "Mevcut değil",
         "TIERS": {
           "TIER_250": "24 saatte 250 müşteri",
           "TIER_1000": "24 saatte 1000 müşteri",
           "TIER_1K": "24 saatte 1000 müşteri",
+          "TIER_2K": "24 saatte 2000 müşteri",
           "TIER_10K": "24 saatte 10000 müşteri",
           "TIER_100K": "24 saatte 100000 müşteri",
           "TIER_UNLIMITED": "24 saatte sınırsız müşteri",
@@ -727,6 +785,16 @@
         },
         "STATUSES": {
           "APPROVED": "Approved",
+          "CONNECTED": "Bağlı",
+          "VERIFIED": "Doğrulandı",
+          "STANDARD": "Standart",
+          "ACTIVE": "Etkin",
+          "EXPIRED": "Süresi doldu",
+          "FLAGGED": "İşaretlendi",
+          "RESTRICTED": "Kısıtlandı",
+          "BANNED": "Yasaklandı",
+          "DISCONNECTED": "Bağlantı kesildi",
+          "UNKNOWN": "Mevcut değil",
           "PENDING_REVIEW": "İnceleme Bekliyor",
           "AVAILABLE_WITHOUT_REVIEW": "İnceleme Olmadan Kullanılabilir",
           "REJECTED": "Reddedildi",
@@ -746,7 +814,11 @@
         "REGISTER_SUCCESS": "Webhook registered successfully",
         "REGISTER_ERROR": "Failed to register webhook. Please try again.",
         "CONFIGURED_SUCCESS": "Webhook configured successfully",
-        "URL_MISMATCH": "Webhook URL mismatch"
+        "URL_MISMATCH": "Webhook URL mismatch",
+        "CONFIGURED_URL": "Yapılandırılmış URL",
+        "EXPECTED_URL": "Beklenen URL",
+        "COPY_URL": "Webhook URL'sini kopyala",
+        "COPY_SUCCESS": "Webhook URL'si panoya kopyalandı"
       }
     },
     "SETTINGS": "Ayarlar",

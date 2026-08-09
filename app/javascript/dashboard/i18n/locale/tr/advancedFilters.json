@@ -65,7 +65,8 @@
       "CUSTOM_ATTRIBUTE_LINK": "Bağlantı",
       "CUSTOM_ATTRIBUTE_CHECKBOX": "Onay Kutusu",
       "CREATED_AT": "Oluşturulma Zamanı",
-      "LAST_ACTIVITY": "Son Aktivite"
+      "LAST_ACTIVITY": "Son Aktivite",
+      "VOICE_AI_HANDOFF": "Sesli yapay zekâ aktarımı"
     },
     "ERRORS": {
       "VALUE_REQUIRED": "Değer gereklidir",

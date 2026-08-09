@@ -16,6 +16,61 @@
       },
       "ERROR": "There was an error connecting to Shopify. Please try again or contact support if the issue persists."
     },
+    "IKAS": {
+      "CONNECT": "ikas'ı bağla",
+      "UPDATE": "Değişiklikleri kaydet",
+      "SUCCESS": "ikas entegrasyonu başarıyla kaydedildi",
+      "DISABLED": "Bu Kozmopath örneğinde şifreleme yapılandırılmamış. ikas'ı görüntüleyebilirsiniz; ancak şifreleme kullanılabilir olana kadar bağlantı devre dışıdır.",
+      "RECONNECT_REQUIRED": "Mevcut ikas bağlantınızın ilgilenilmesi gerekiyor. Geçerli kimlik bilgileriyle yeniden bağlanın veya bağlantıyı kesin.",
+      "CONNECTED_STORE": "Bağlı mağaza: {storeHost}",
+      "TOOL_CONTEXT_NOTE": "Kozmopath, yapay zekâ yanıtlarının yalnızca müşterilerin görebildiği katalog verilerine dayanması için varsayılan olarak herkese açık ikas mağaza ürünlerini senkronize eder.",
+      "CATALOG": {
+        "TITLE": "Katalog senkronizasyonu",
+        "STATUS": "Durum: {status}",
+        "NOT_SYNCED": "senkronize edilmedi",
+        "LAST_SYNCED_AT": "Son senkronizasyon: {time}",
+        "SCOPE": "Kapsam: herkese açık mağaza ürünleri",
+        "STOREFRONT_DOMAINS": "Mağaza alan adları: {domains}",
+        "PRODUCTS": "Dizine eklenen ürünler",
+        "PRODUCTS_FETCHED": "Alınan ürünler",
+        "PRODUCTS_SKIPPED": "Atlanan ürünler",
+        "PRODUCTS_WITH_LINKS": "Bağlantısı olan ürünler",
+        "STOREFRONTS": "Herkese açık mağazalar",
+        "CATEGORIES": "Kategoriler",
+        "OPTION_SETS": "Seçenek kümeleri",
+        "ITEMS": "Arama öğeleri",
+        "SYNC_BUTTON": "Kataloğu senkronize et",
+        "SYNC_STARTED": "Katalog senkronizasyonu başlatıldı",
+        "SYNC_ERROR": "Katalog senkronizasyonu başlatılırken bir hata oluştu."
+      },
+      "DELETE": {
+        "TITLE": "ikas bağlantısını kes",
+        "MESSAGE": "ikas entegrasyonunun bağlantısını kesmek istediğinizden emin misiniz?"
+      },
+      "FORM": {
+        "STORE_URL": {
+          "LABEL": "Mağaza URL'si",
+          "PLACEHOLDER": "https://your-store.myikas.com",
+          "HELP": "ikas mağazanızın tam URL'sini girin. Kozmopath bunu standart ana bilgisayar adına dönüştürür."
+        },
+        "CLIENT_ID": {
+          "LABEL": "İstemci kimliği",
+          "PLACEHOLDER": "ikas istemci kimliğinizi girin",
+          "HELP": "Özel uygulamanız için oluşturulan istemci kimliğini girin.",
+          "HELP_MASKED": "Bir istemci kimliği zaten kayıtlı ({clientId}). Yalnızca değiştirmek istiyorsanız yeni bir kimlik girin."
+        },
+        "CLIENT_SECRET": {
+          "LABEL": "İstemci gizli anahtarı",
+          "PLACEHOLDER": "ikas istemci gizli anahtarınızı girin",
+          "HELP": "Özel uygulamanız için oluşturulan istemci gizli anahtarını girin.",
+          "HELP_OPTIONAL": "Kayıtlı istemci gizli anahtarını korumak için boş bırakın."
+        }
+      },
+      "ERRORS": {
+        "REQUIRED_FIELDS": "ikas'a bağlanmak için mağaza URL'si, istemci kimliği ve istemci gizli anahtarı gereklidir.",
+        "GENERIC": "ikas bağlantısı doğrulanırken bir hata oluştu. Bilgilerinizi gözden geçirip tekrar deneyin."
+      }
+    },
     "HEADER": "Entegrasyonlar",
     "DESCRIPTION": "Chatwoot, ekibinizin verimliliğini artırmak için birden fazla araç ve hizmetle entegre olur. Favori uygulamalarınızı yapılandırmak için aşağıdaki listeyi inceleyin.",
     "LEARN_MORE": "Entegrasyonlar hakkında daha fazla bilgi edinin",
@@ -458,6 +513,7 @@
         "COVERAGE": "{pct}% approved",
         "APPROVED": "Approved FAQs",
         "PENDING": "Pending FAQs",
+        "SUGGESTIONS": "SSS önerileri",
         "DOCUMENTS": "Belgeler"
       },
       "LINKS": {
@@ -1094,6 +1150,9 @@
       "SELECT_ALL": "Tümünü seç ({count})",
       "UNSELECT_ALL": "Tümünü kaldır ({count})",
       "SEARCH_PLACEHOLDER": "Sıkça Sorulan Soruları Ara...",
+      "ERRORS": {
+        "LOAD": "SSS'ler yüklenirken bir hata oluştu. Lütfen tekrar deneyin."
+      },
       "BULK_APPROVE_BUTTON": "Approve",
       "BULK_DELETE_BUTTON": "Sil",
       "BULK_APPROVE": {
@@ -1128,6 +1187,10 @@
       "PENDING_BANNER": {
         "TITLE": "Captain has found some FAQs your customers were looking for.",
         "ACTION": "Click here to review"
+      },
+      "SUGGESTIONS_BANNER": {
+        "TITLE": "Captain, tekrarlanan müşteri sorularını SSS önerileri olarak gruplandırdı.",
+        "ACTION": "Önerileri incele"
       },
       "FORM_DESCRIPTION": "Add a question and its corresponding answer to the knowledge base and select the assistant it should be associated with.",
       "CREATE": {
@@ -1167,6 +1230,43 @@
           "TITLE": "Captain FAQ",
           "NOTE": "Captain SSS, bilgi tabanınızda eksik olan veya sıkça sorulan yaygın müşteri sorularını tespit eder ve desteği geliştirmek için ilgili SSS'leri oluşturur. Her öneriyi inceleyebilir ve onaylayıp onaylamamaya karar verebilirsiniz."
         }
+      }
+    },
+    "FAQ_SUGGESTIONS": {
+      "HEADER": "SSS önerileri",
+      "SEARCH_PLACEHOLDER": "Önerilerde ara...",
+      "QUEUE_COUNT": "İncelenecek {count} öneri | İncelenecek {count} öneri",
+      "QUEUE_HINT": "Müşteri talebine göre sıralandı",
+      "SOURCE_COUNT": "{count} konuşma | {count} konuşma",
+      "REVIEW": "Kaynakları incele",
+      "APPROVE": "Onayla",
+      "APPROVE_FAQ": "SSS'yi onayla",
+      "DISMISS": "Kapat",
+      "SAVE": "Değişiklikleri kaydet",
+      "DETAILS": {
+        "TITLE": "SSS önerisini incele",
+        "DESCRIPTION": "Captain bu öneri için {count} konuşmayı gruplandırdı. Kanıtları inceleyin ve onaylamadan önce SSS'yi düzenleyin. | Captain bu öneri için {count} konuşmayı gruplandırdı. Kanıtları inceleyin ve onaylamadan önce SSS'yi düzenleyin.",
+        "SOURCES": "Kaynak konuşmalar",
+        "SOURCE_PROGRESS": "{total} kaynaktan {visible} tanesi",
+        "NO_SOURCES": "Erişilebilen kaynak konuşma bulunamadı.",
+        "RETRY": "Tekrar dene"
+      },
+      "EMPTY_STATE": {
+        "TITLE": "İnceleme kuyruğu boş",
+        "SUBTITLE": "İncelenmeye hazır olduklarında yeni SSS önerileri burada görünür.",
+        "CLEAR_SEARCH": "Aramayı temizle"
+      },
+      "SUCCESS": {
+        "APPROVED": "SSS onaylandı ve Captain'ın bilgisine eklendi.",
+        "DISMISSED": "Öneri kapatıldı.",
+        "SAVED": "Öneri güncellendi."
+      },
+      "ERRORS": {
+        "LOAD": "SSS önerileri yüklenirken bir hata oluştu. Lütfen tekrar deneyin.",
+        "LOAD_DETAILS": "Kaynak konuşmalar yüklenirken bir hata oluştu.",
+        "APPROVE": "SSS onaylanırken bir hata oluştu. Lütfen tekrar deneyin.",
+        "DISMISS": "Öneri kapatılırken bir hata oluştu. Lütfen tekrar deneyin.",
+        "SAVE": "Öneri kaydedilirken bir hata oluştu. Lütfen tekrar deneyin."
       }
     },
     "INBOXES": {
