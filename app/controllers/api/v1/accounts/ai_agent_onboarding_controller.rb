@@ -1,6 +1,6 @@
 class Api::V1::Accounts::AiAgentOnboardingController < Api::V1::Accounts::BaseController
   before_action :check_authorization
-  before_action :ensure_ai_agent_enabled
+  before_action :ensure_ai_agent_onboarding_available
 
   def verify_website
     result = AiAgents::OnboardingWebsiteVerifier.new(
@@ -30,14 +30,19 @@ class Api::V1::Accounts::AiAgentOnboardingController < Api::V1::Accounts::BaseCo
     render json: { error: e.message, code: 'invalid_website' }, status: :unprocessable_entity
   rescue AiAgents::WebsiteImportCreator::RateLimited => e
     render json: { code: 'website_import_rate_limited', retry_after: e.retry_after }, status: :too_many_requests
-  rescue AiAgents::OnboardingCreator::ExistingAssistant => e
-    render json: { error: e.message }, status: :conflict
   end
 
   private
 
   def check_authorization
     authorize(AiAgent, :create?)
+  end
+
+  def ensure_ai_agent_onboarding_available
+    return if Current.account.ai_agent_enabled?
+    return if %w[account_details enrichment ai_assistant].include?(Current.account.onboarding_step)
+
+    render json: { error: 'AI Agent is not enabled for this account' }, status: :forbidden
   end
 
   def account_params

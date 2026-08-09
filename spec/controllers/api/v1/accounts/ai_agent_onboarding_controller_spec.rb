@@ -84,6 +84,17 @@ RSpec.describe 'AI agent onboarding API', type: :request do
     expect(response.parsed_body['status']).to eq('fallback')
   end
 
+  it 'recovers an unfinished legacy onboarding account with AI disabled' do
+    account.update!(settings: account.settings.merge('ai_agent_enabled' => false))
+    params[:account][:website] = ''
+
+    post base_url, params: params, headers: headers, as: :json
+
+    expect(response).to have_http_status(:accepted)
+    expect(account.reload).to be_ai_agent_enabled
+    expect(account.onboarding_step).to be_nil
+  end
+
   it 'rejects an unverified website without creating an assistant' do
     allow(AiAgents::OnboardingWebsiteVerifier).to receive(:verified_url!).and_raise(
       AiAgents::WebsiteCrawler::InvalidWebsite,

@@ -87,6 +87,23 @@ RSpec.describe AiAgents::OnboardingCreator do
     end.not_to change(AiAgent, :count)
   end
 
+  it 'continues onboarding with an existing assistant instead of trapping the account' do
+    existing_agent = create(:ai_agent, account: account)
+
+    result = nil
+    expect do
+      result = described_class.new(
+        account: account,
+        user: user,
+        account_attributes: account_attributes.merge(website: ''),
+        assistant_attributes: assistant_attributes
+      ).perform
+    end.not_to change(AiAgent, :count)
+
+    expect(result.ai_agent).to eq(existing_agent)
+    expect(account.reload.onboarding_step).to be_nil
+  end
+
   it 'creates the starter instructions in Turkish for a Turkish account' do
     result = described_class.new(
       account: account,

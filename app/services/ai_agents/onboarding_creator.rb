@@ -4,8 +4,6 @@ class AiAgents::OnboardingCreator
   Result = Data.define(:ai_agent, :website_import)
   CUSTOM_ATTRIBUTE_KEYS = %w[website industry].freeze
 
-  class ExistingAssistant < StandardError; end
-
   def initialize(account:, user:, account_attributes:, assistant_attributes:)
     @account = account
     @user = user
@@ -45,12 +43,11 @@ class AiAgents::OnboardingCreator
 
   def create_fallback_agent
     account.with_lock do
-      existing = onboarding_agent
+      existing = onboarding_agent || account.ai_agents.order(:id).first
       if existing
         persist_account_answers
         next existing
       end
-      raise ExistingAssistant, 'This account already has a Text AI assistant.' if account.ai_agents.exists?
 
       persist_account_answers
       account.ai_agents.create!(draft_builder.agent_attributes)
@@ -58,6 +55,7 @@ class AiAgents::OnboardingCreator
   end
 
   def persist_account_answers
+    account.ai_agent_enabled = true
     account.locale = account_attributes['locale'] if account_attributes['locale'].present?
     CUSTOM_ATTRIBUTE_KEYS.each do |key|
       account.custom_attributes[key] = account_attributes[key] if account_attributes.key?(key)
