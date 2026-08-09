@@ -56,6 +56,8 @@ RSpec.describe AiAgents::ToolPromptPolicy do
 
     expect(instructions).to match(/present, recommend, or list a concrete candidate.*Markdown product link/i)
     expect(instructions).to include('even if the customer did not explicitly ask for a link')
+    expect(instructions).to match(/hide the raw URL behind a short descriptive label/i)
+    expect(instructions).to include('do not print the bare long URL')
     expect(instructions).to match(/dimension bounds.*maximum width and height once/i)
     expect(instructions).to match(/do not infer missing bounds.*or ask for measurements unless/i)
   end
