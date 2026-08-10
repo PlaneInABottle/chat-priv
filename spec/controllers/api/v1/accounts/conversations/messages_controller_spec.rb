@@ -36,6 +36,31 @@ RSpec.describe 'Conversation Messages API', type: :request do
         expect(conversation.messages.first.content).to eq(params[:content])
       end
 
+      it 'still persists a manual agent reply when the AI conversation quota is exhausted' do
+        period = AiAgents::Usage::Period.new(account: account, now: Time.current)
+        account.update!(ai_agent_enabled: true, ai_agent_conversation_limit: 100)
+        create_list(:ai_agent_usage_event, 100,
+                    account: account,
+                    period_start_at: period.start_at,
+                    period_end_at: period.end_at,
+                    window_started_at: 2.days.ago,
+                    window_ends_at: 1.day.ago,
+                    status: :consumed)
+
+        expect do
+          post api_v1_account_conversation_messages_url(account_id: account.id, conversation_id: conversation.display_id),
+               params: { content: 'Handled manually', private: true },
+               headers: agent.create_new_auth_token,
+               as: :json
+        end.to change(conversation.messages, :count).by(1)
+                                                    .and(not_change(AiAgentUsageEvent, :count))
+                                                    .and(not_change(AiImprovementUsageEvent, :count))
+
+        expect(response).to have_http_status(:success)
+        expect(conversation.messages.last.content).to eq('Handled manually')
+        expect(conversation.reload.additional_attributes).not_to include('ai_usage_limit_exhausted')
+      end
+
       it 'does not create the message' do
         params = { content: "#{'h' * 150 * 1000}a", private: true }
 

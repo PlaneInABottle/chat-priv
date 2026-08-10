@@ -571,6 +571,20 @@ RSpec.describe Account do
     end
   end
 
+  describe 'freemium quota constants' do
+    it 'defines the freemium monthly quota values' do
+      expect(Account::FREEMIUM_AI_AGENT_CONVERSATION_MONTHLY_LIMIT).to eq(100)
+      expect(Account::FREEMIUM_AI_IMPROVEMENT_MONTHLY_CREDIT_LIMIT).to eq(600)
+    end
+
+    it 'keeps generic readers unchanged for settings-less accounts' do
+      account = create(:account)
+
+      expect(account.ai_agent_conversation_limit).to eq(0)
+      expect(account.ai_improvement_monthly_credit_limit).to eq(1_000)
+    end
+  end
+
   describe 'voice_ai_settings' do
     let(:account) { create(:account) }
 

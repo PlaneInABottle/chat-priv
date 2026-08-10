@@ -125,7 +125,7 @@ const onCaptchaError = () => {
 <template>
   <div class="flex-1">
     <form
-      data-testid="trial-signup-form"
+      data-testid="freemium-signup-form"
       class="grid gap-4"
       @submit.prevent="submit"
     >
@@ -190,7 +190,7 @@ const onCaptchaError = () => {
         type="submit"
         data-testid="submit_button"
         class="w-full font-medium"
-        :label="$t('REGISTER.TRIAL.SUBMIT')"
+        :label="$t('REGISTER.FREEMIUM.SUBMIT')"
         :disabled="isSignupInProgress || !isFormValid"
         :is-loading="isSignupInProgress"
       />

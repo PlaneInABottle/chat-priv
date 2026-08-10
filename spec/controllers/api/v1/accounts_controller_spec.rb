@@ -25,7 +25,7 @@ RSpec.describe 'Accounts API', type: :request do
                as: :json
 
           expect(AccountBuilder).to have_received(:new).with(
-            params.except(:password).merge(user_password: params[:password], confirmed: false)
+            params.except(:password).merge(user_password: params[:password], confirmed: false, apply_freemium_limits: true)
           )
           expect(account_builder).to have_received(:perform)
           expect(response.headers.keys).not_to include('access-token', 'token-type', 'client', 'expiry', 'uid')
@@ -107,6 +107,12 @@ RSpec.describe 'Accounts API', type: :request do
         expect(account).to be_ai_agent_enabled
         expect(account.settings).to include('voice_ai_enabled' => false)
         expect(account).not_to be_voice_ai_enabled
+        expect(account.settings).to include(
+          'ai_agent_conversation_limit' => 100,
+          'ai_improvement_monthly_credit_limit' => 600
+        )
+        expect(account.ai_agent_conversation_limit).to eq(100)
+        expect(account.ai_improvement_monthly_credit_limit).to eq(600)
       end
     end
 
@@ -155,7 +161,7 @@ RSpec.describe 'Accounts API', type: :request do
     context 'when an authenticated user creates a second account' do
       let(:existing_user) { create(:user, password: 'Password1!') }
 
-      it 'returns the full response with account_id' do
+      it 'returns the full response with account_id and keeps generic quota defaults' do
         with_modified_env ENABLE_ACCOUNT_SIGNUP: 'true' do
           post api_v1_accounts_url,
                params: { account_name: 'Second Account', email: existing_user.email,
@@ -164,7 +170,11 @@ RSpec.describe 'Accounts API', type: :request do
                as: :json
 
           expect(response).to have_http_status(:success)
-          expect(response.parsed_body.dig('data', 'account_id')).to be_present
+          account = Account.find(response.parsed_body.dig('data', 'account_id'))
+          expect(account).to be_present
+          expect(account.settings).not_to include('ai_agent_conversation_limit', 'ai_improvement_monthly_credit_limit')
+          expect(account.ai_agent_conversation_limit).to eq(0)
+          expect(account.ai_improvement_monthly_credit_limit).to eq(1000)
         end
       end
     end

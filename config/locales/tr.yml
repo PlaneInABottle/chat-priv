@@ -653,12 +653,12 @@ tr:
     announcement:
       emphasis: "İkas mağazaları için"
       detail: "katalog bağlamlı yapay zekâ desteği"
-    trial:
-      announcement: "Kozmopath’i 14 gün ücretsiz dene — kredi kartı gerekmez."
-      cta: "14 gün ücretsiz dene"
-      final_cta: "14 günlük denemeni başlat"
-      start_note: "Deneme süren hesabın oluşturulduğunda başlar. Kredi kartı gerekmez."
-      final_note: "Kredi kartı gerekmez. Otomatik ücretlendirme yoktur. Deneme süren hesabın oluşturulduğunda başlar."
+    freemium:
+      announcement: "Her ay 100 yapay zekâ sohbeti."
+      cta: "Ücretsiz başla"
+      final_cta: "Ücretsiz hesabını oluştur"
+      start_note: "Ayda 600 yapay zekâ çalışma alanı kredisi."
+      final_note: "Süresiz ücretsiz. Her ay 100 yapay zekâ sohbeti ve ayda 600 yapay zekâ çalışma alanı kredisi."
     hero:
       eyebrow: "Katalog bağlamlı müşteri iletişimi"
       title_line_one: "Mağazanı bilen yapay zekâ,"

@@ -15,7 +15,6 @@ RSpec.describe 'Kozmopath marketing homepage', type: :request do
   ]
   signup_url = 'https://app.kozmopath.com/app/auth/signup'
   login_url = 'https://app.kozmopath.com/app/login'
-  contract_html_sha = '9643879c665fc4dffccbfc5e84b74ad57c7bb127b389f63865d2464c83c37d46'
 
   def document
     Nokogiri::HTML5(response.body)
@@ -31,11 +30,20 @@ RSpec.describe 'Kozmopath marketing homepage', type: :request do
     it 'renders the approved Turkish content and section order without client-side rendering' do
       expect(response).to have_http_status(:ok)
       expect(document.at_css('html')['lang']).to eq('tr')
-      expect(document.at_css('meta[name="kozmopath-design-contract"]')['content']).to eq(contract_html_sha)
+      expect(document.at_css('meta[name="kozmopath-design-contract"]')['content']).to eq(MarketingController::DESIGN_CONTRACT_SHA)
       expect(document.at_css('h1').text.squish).to eq('Mağazanı bilen yapay zekâ, müşterine doğru cevabı verir.')
       expect(document.css('[data-page-section]').map { |section| section['id'] }).to eq(section_ids)
       expect(document.css('script:not([type="application/ld+json"])')).to be_empty
       expect(response.body).not_to include('Translation missing')
+    end
+
+    it 'keeps the design contract fingerprint stable against the meta-neutralized body' do
+      neutralized_body = response.body.gsub(/(<meta name="kozmopath-design-contract" content=")[0-9a-f]{64}(">)/, '\1\2')
+
+      expect(neutralized_body).to include('kozmopath-design-contract" content="">')
+      expect(neutralized_body).not_to match(/content="[0-9a-f]{64}"/)
+      expect(Digest::SHA256.hexdigest(neutralized_body)).to eq(MarketingController::DESIGN_CONTRACT_SHA)
+      expect(document.at_css('meta[name="kozmopath-design-contract"]')['content']).to eq(MarketingController::DESIGN_CONTRACT_SHA)
     end
 
     it 'preserves the controlled product proof and its disclosure' do
@@ -75,22 +83,28 @@ RSpec.describe 'Kozmopath marketing homepage', type: :request do
       expect(document.at_css('.channel-boundary').text).to include('Zengin katalog sunumu Web sitesi ve WhatsApp ile sınırlıdır')
     end
 
-    it 'renders the selected direct-trial hierarchy with exact production destinations' do
+    it 'renders the selected freemium hierarchy with exact production destinations' do
       login_links = document.css("a[href='#{login_url}']")
-      trial_links = document.css("a[data-trial-cta][href='#{signup_url}']")
+      freemium_links = document.css("a[data-freemium-cta][href='#{signup_url}']")
 
       expect(login_links.length).to be >= 3
-      expect(trial_links.map { |link| link['data-trial-cta'] }).to eq(%w[header mobile-menu hero-primary final])
-      expect(trial_links.map { |link| link.text.squish }).to eq([
-        '14 gün ücretsiz dene',
-        '14 gün ücretsiz dene',
-        '14 gün ücretsiz dene',
-        '14 günlük denemeni başlat'
+      expect(freemium_links.map { |link| link['data-freemium-cta'] }).to eq(%w[header mobile-menu hero-primary final])
+      expect(freemium_links.map { |link| link.text.squish }).to eq([
+        'Ücretsiz başla',
+        'Ücretsiz başla',
+        'Ücretsiz başla',
+        'Ücretsiz hesabını oluştur'
       ])
-      expect(document.at_css('.announcement').text.squish).to eq('✦ Kozmopath’i 14 gün ücretsiz dene — kredi kartı gerekmez.')
-      expect(document.at_css('.hero-trial-truth').text.squish).to include('Deneme süren hesabın oluşturulduğunda başlar')
-      expect(document.at_css('.final-cta').text.squish).to include('Kredi kartı gerekmez. Otomatik ücretlendirme yoktur.')
+      expect(document.at_css('.announcement').text.squish).to eq('✦ Her ay 100 yapay zekâ sohbeti.')
+      expect(document.at_css('.hero-freemium-truth').text.squish).to include('Ayda 600 yapay zekâ çalışma alanı kredisi.')
+      expect(document.at_css('.final-cta').text.squish).to include('Süresiz ücretsiz.')
       expect(document.css('a[href*="calendly"], a[href*="/demo"]')).to be_empty
+    end
+
+    it 'makes no trial, card, or automatic-billing claims on the signup-enabled homepage' do
+      expect(response.body).not_to match(/(kredi kartı|otomatik ücretlendirme|14 gün|deneme süren)/i)
+      expect(document.text).not_to include('No credit card')
+      expect(document.css('[data-trial-cta], .trial-announcement, .hero-trial-truth, .final-trial-button')).to be_empty
     end
 
     it 'provides mobile navigation and valid in-page anchor targets without JavaScript' do
@@ -102,7 +116,7 @@ RSpec.describe 'Kozmopath marketing homepage', type: :request do
       expect(mobile_links.map { |link| link['href'] }).to eq(%w[#how-it-works #catalog-product-presentation #human-handoff])
       mobile_links.each { |link| expect(target_ids).to include(link['href'].delete_prefix('#')) }
       expect(mobile_menu.at_css('summary').css('span').length).to eq(3)
-      expect(mobile_menu.at_css("a[data-trial-cta='mobile-menu']")['href']).to eq(signup_url)
+      expect(mobile_menu.at_css("a[data-freemium-cta='mobile-menu']")['href']).to eq(signup_url)
     end
 
     it 'uses semantic landmarks, accessible images, and a logical heading outline' do
@@ -133,14 +147,14 @@ RSpec.describe 'Kozmopath marketing homepage', type: :request do
   end
 
   marketing_hosts.each do |marketing_host|
-    it "keeps the existing non-trial fallback when signup is disabled on #{marketing_host}" do
+    it "keeps the existing non-freemium fallback when signup is disabled on #{marketing_host}" do
       allow(GlobalConfigService).to receive(:account_signup_enabled?).and_return(false)
       host! marketing_host
 
       get '/'
 
       expect(response).to have_http_status(:ok)
-      expect(document.css("a[href='#{signup_url}'], [data-trial-cta]")).to be_empty
+      expect(document.css("a[href='#{signup_url}'], [data-freemium-cta]")).to be_empty
       expect(document.at_css('.announcement').text.squish).to eq('✦ İkas mağazaları için katalog bağlamlı yapay zekâ desteği')
       demo_status = document.at_css('.demo-availability')
       expect(demo_status.name).to eq('span')

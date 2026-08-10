@@ -119,7 +119,7 @@ describe('Signup Form', () => {
     expect(router.push).not.toHaveBeenCalled();
   });
 
-  it('uses the selected trial presentation while preserving conditional controls and legal links', () => {
+  it('uses the selected freemium presentation while preserving conditional controls and legal links', () => {
     useStore.mockReturnValue({
       getters: {
         'globalConfig/get': {
@@ -145,10 +145,10 @@ describe('Signup Form', () => {
     const wrapper = mountForm();
 
     expect(wrapper.get('form').attributes('data-testid')).toBe(
-      'trial-signup-form'
+      'freemium-signup-form'
     );
     expect(wrapper.get('button[type="submit"]').text()).toBe(
-      'REGISTER.TRIAL.SUBMIT'
+      'REGISTER.FREEMIUM.SUBMIT'
     );
     expect(wrapper.text()).toContain('REGISTER.EMAIL.LABEL');
     expect(wrapper.text()).toContain('REGISTER.PASSWORD.LABEL');

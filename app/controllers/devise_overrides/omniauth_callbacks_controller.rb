@@ -85,7 +85,8 @@ class DeviseOverrides::OmniauthCallbacksController < DeviseTokenAuth::OmniauthCa
       user_full_name: auth_hash['info']['name'],
       email: auth_hash['info']['email'],
       locale: I18n.locale,
-      confirmed: auth_hash['info']['email_verified']
+      confirmed: auth_hash['info']['email_verified'],
+      apply_freemium_limits: true
     ).perform
     Avatar::AvatarFromUrlJob.perform_later(@resource, auth_hash['info']['image'])
   end

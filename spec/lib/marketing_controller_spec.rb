@@ -23,9 +23,10 @@ RSpec.describe MarketingController do
   it 'includes the selected Variant A conversion layer without the guided rail' do
     stylesheet = Rails.root.join('app/javascript/entrypoints/marketing.scss').read
 
-    expect(stylesheet).to include('.marketing-home.variant-a .hero-trial-truth')
-    expect(stylesheet).to include('.marketing-home.variant-a .final-trial-button')
+    expect(stylesheet).to include('.marketing-home.variant-a .hero-freemium-truth')
+    expect(stylesheet).to include('.marketing-home.variant-a .final-freemium-button')
     expect(stylesheet).not_to include('.trial-runway', '.guided-trial')
+    expect(stylesheet).not_to match(/\.trial-|\[data-trial-/)
   end
 
   it 'keeps explicit reduced-motion and mobile recomposition rules' do
@@ -106,6 +107,11 @@ RSpec.describe MarketingController do
     tr_keys = flatten_keys.call(I18n.t('marketing', locale: :tr))
 
     expect(en_keys).to match_array(tr_keys)
+  end
+
+  it 'keeps the exact freemium English source strings' do
+    expect(I18n.t('marketing.freemium.announcement', locale: :en)).to eq('100 AI conversations every month.')
+    expect(I18n.t('marketing.freemium.start_note', locale: :en)).to eq('600 monthly AI workspace credits.')
   end
 
   it 'declares crawler boundaries and the canonical sitemap' do

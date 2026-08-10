@@ -264,6 +264,141 @@ RSpec.describe 'Super Admin accounts API', type: :request do
         expect(account.voice_ai_data_retention_days).to eq(180)
       end
 
+      context 'with AI quota limits' do
+        it 'persists explicit zero conversation limit as unlimited' do
+          sign_in(super_admin, scope: :super_admin)
+
+          patch "/super_admin/accounts/#{account.id}", params: {
+            account: { name: account.name, ai_agent_settings: { conversation_limit: '0' } }
+          }
+
+          expect(response).to have_http_status(:redirect)
+          expect(account.reload.ai_agent_conversation_limit).to eq(0)
+        end
+
+        it 'persists explicit zero workspace credit limit as unlimited' do
+          sign_in(super_admin, scope: :super_admin)
+
+          patch "/super_admin/accounts/#{account.id}", params: {
+            account: { name: account.name, ai_improvement_settings: { monthly_credit_limit: '0' } }
+          }
+
+          expect(response).to have_http_status(:redirect)
+          expect(account.reload.ai_improvement_monthly_credit_limit).to eq(0)
+        end
+
+        it 'updates conversation and workspace credit limits independently' do
+          account.update!(ai_agent_conversation_limit: 100, ai_improvement_monthly_credit_limit: 600)
+          sign_in(super_admin, scope: :super_admin)
+
+          patch "/super_admin/accounts/#{account.id}", params: {
+            account: { name: account.name, ai_agent_settings: { conversation_limit: 100 } }
+          }
+
+          expect(response).to have_http_status(:redirect)
+          account.reload
+          expect(account.ai_agent_conversation_limit).to eq(100)
+          expect(account.ai_improvement_monthly_credit_limit).to eq(600)
+
+          patch "/super_admin/accounts/#{account.id}", params: {
+            account: { name: account.name, ai_improvement_settings: { monthly_credit_limit: 300 } }
+          }
+
+          expect(response).to have_http_status(:redirect)
+          account.reload
+          expect(account.ai_improvement_monthly_credit_limit).to eq(300)
+          expect(account.ai_agent_conversation_limit).to eq(100)
+        end
+
+        it 'applies a lowered conversation limit immediately without rewriting usage events' do
+          period = AiAgents::Usage::Period.new(account: account, now: Time.current)
+          account.update!(ai_agent_enabled: true, ai_agent_conversation_limit: 100)
+          create_list(:ai_agent_usage_event, 50, account: account, status: :consumed, period_start_at: period.start_at,
+                                                 period_end_at: period.end_at)
+          sign_in(super_admin, scope: :super_admin)
+
+          expect(AiAgents::Usage::Summary.new(account: account).payload[:remaining]).to eq(50)
+
+          patch "/super_admin/accounts/#{account.id}", params: {
+            account: { name: account.name, ai_agent_settings: { conversation_limit: 10 } }
+          }
+
+          expect(response).to have_http_status(:redirect)
+          account.reload
+          expect(account.ai_agent_conversation_limit).to eq(10)
+          expect(account.ai_agent_usage_events.count).to eq(50)
+
+          summary = AiAgents::Usage::Summary.new(account: account).payload
+          expect(summary[:remaining]).to eq(0)
+          expect(summary[:status]).to eq('exhausted')
+        end
+
+        it 'applies a raised conversation limit immediately without rewriting usage events' do
+          period = AiAgents::Usage::Period.new(account: account, now: Time.current)
+          account.update!(ai_agent_enabled: true, ai_agent_conversation_limit: 100)
+          create_list(:ai_agent_usage_event, 50, account: account, status: :consumed, period_start_at: period.start_at,
+                                                 period_end_at: period.end_at)
+          sign_in(super_admin, scope: :super_admin)
+
+          patch "/super_admin/accounts/#{account.id}", params: {
+            account: { name: account.name, ai_agent_settings: { conversation_limit: 200 } }
+          }
+
+          expect(response).to have_http_status(:redirect)
+          account.reload
+          expect(account.ai_agent_conversation_limit).to eq(200)
+          expect(account.ai_agent_usage_events.count).to eq(50)
+          expect(AiAgents::Usage::Summary.new(account: account).payload[:remaining]).to eq(150)
+        end
+
+        it 'applies a lowered workspace credit limit immediately without rewriting usage events' do
+          period = AiAgents::Usage::Period.new(account: account, now: Time.current)
+          account.update!(ai_improvement_monthly_credit_limit: 600)
+          AiImprovementUsageEvent.create!(
+            account: account, operation: 'text_test', unit_type: 'tokens', units: 10_000, credits: 300,
+            status: :consumed, period_start_at: period.start_at, period_end_at: period.end_at,
+            idempotency_key: "super-admin-credit-seed-#{account.id}"
+          )
+          sign_in(super_admin, scope: :super_admin)
+
+          expect(AiImprovements::Usage::Summary.new(account: account).payload[:remaining_credits]).to eq(300)
+
+          patch "/super_admin/accounts/#{account.id}", params: {
+            account: { name: account.name, ai_improvement_settings: { monthly_credit_limit: 100 } }
+          }
+
+          expect(response).to have_http_status(:redirect)
+          account.reload
+          expect(account.ai_improvement_monthly_credit_limit).to eq(100)
+          expect(account.ai_improvement_usage_events.sum(:credits)).to eq(300)
+
+          summary = AiImprovements::Usage::Summary.new(account: account)
+          expect(summary.payload[:remaining_credits]).to eq(0)
+          expect(summary.exhausted?).to be(true)
+        end
+
+        it 'applies a raised workspace credit limit immediately without rewriting usage events' do
+          period = AiAgents::Usage::Period.new(account: account, now: Time.current)
+          account.update!(ai_improvement_monthly_credit_limit: 600)
+          AiImprovementUsageEvent.create!(
+            account: account, operation: 'text_test', unit_type: 'tokens', units: 10_000, credits: 300,
+            status: :consumed, period_start_at: period.start_at, period_end_at: period.end_at,
+            idempotency_key: "super-admin-credit-seed-#{account.id}"
+          )
+          sign_in(super_admin, scope: :super_admin)
+
+          patch "/super_admin/accounts/#{account.id}", params: {
+            account: { name: account.name, ai_improvement_settings: { monthly_credit_limit: 500 } }
+          }
+
+          expect(response).to have_http_status(:redirect)
+          account.reload
+          expect(account.ai_improvement_monthly_credit_limit).to eq(500)
+          expect(account.ai_improvement_usage_events.sum(:credits)).to eq(300)
+          expect(AiImprovements::Usage::Summary.new(account: account).payload[:remaining_credits]).to eq(200)
+        end
+      end
+
       it 'persists voice agent runtime settings' do
         voice_agent = create(:voice_agent, account: account, architecture: 'realtime', provider: 'gemini', voice: 'Charon', language: 'tr')
         sign_in(super_admin, scope: :super_admin)

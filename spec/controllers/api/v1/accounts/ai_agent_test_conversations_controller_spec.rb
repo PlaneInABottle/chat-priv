@@ -549,6 +549,49 @@ RSpec.describe 'Ai Agent Test Conversations API', type: :request do
       end
     end
 
+    context 'when the shared workspace credit pool is exhausted' do
+      before do
+        account.update!(ai_improvement_monthly_credit_limit: Account::FREEMIUM_AI_IMPROVEMENT_MONTHLY_CREDIT_LIMIT)
+      end
+
+      def fill_improvement_credits(credits, operation:, key_prefix:)
+        period = AiAgents::Usage::Period.new(account: account, now: Time.current)
+        AiImprovementUsageEvent.create!(
+          account: account, operation: operation, unit_type: 'tokens', units: credits * 1_000, credits: credits,
+          status: :consumed, period_start_at: period.start_at, period_end_at: period.end_at,
+          idempotency_key: "#{key_prefix}-#{credits}"
+        )
+      end
+
+      it 'admits the 600th credit and rejects the 601st with the 402 contract without invoking the orchestrator' do
+        fill_improvement_credits(599, operation: 'text_test', key_prefix: 'text-test-boundary')
+
+        post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations/#{test_conversation.id}/send_message",
+             headers: admin.create_new_auth_token,
+             params: { content: 'Hello AI' },
+             as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(AiAgents::Orchestrator).to have_received(:new)
+
+        fill_improvement_credits(1, operation: 'text_test', key_prefix: 'text-test-boundary')
+
+        expect(AiAgents::Orchestrator).not_to receive(:new)
+        expect do
+          post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations/#{test_conversation.id}/send_message",
+               headers: admin.create_new_auth_token,
+               params: { content: 'One more' },
+               as: :json
+        end.not_to change(AiImprovementUsageEvent, :count)
+
+        expect(response).to have_http_status(:payment_required)
+        expect(response.parsed_body).to include('code' => 'ai_improvement_credits_exhausted')
+        expect(response.parsed_body['usage']).to include('remaining_credits' => 0)
+        # The 402 path appends nothing: the two messages belong to the first successful POST.
+        expect(test_conversation.reload.messages_count).to eq(2)
+      end
+    end
+
     context 'when it is an authenticated agent' do
       it 'returns unauthorized' do
         post "/api/v1/accounts/#{account.id}/ai_agents/#{ai_agent.id}/test_conversations/#{test_conversation.id}/send_message",

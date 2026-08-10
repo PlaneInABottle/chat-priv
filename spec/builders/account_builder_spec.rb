@@ -84,6 +84,39 @@ RSpec.describe AccountBuilder do
       end
     end
 
+    context 'when apply_freemium_limits is not set' do
+      it 'does not write freemium quota settings and keeps default readers' do
+        _user, account = account_builder.perform
+
+        expect(account.settings).not_to include('ai_agent_conversation_limit', 'ai_improvement_monthly_credit_limit')
+        expect(account.settings).to include('ai_agent_enabled' => true, 'voice_ai_enabled' => false)
+        expect(account.ai_agent_conversation_limit).to eq(0)
+        expect(account.ai_improvement_monthly_credit_limit).to eq(1000)
+      end
+    end
+
+    context 'when apply_freemium_limits is true' do
+      it 'persists freemium quota settings and readers reflect them' do
+        _user, account = described_class.new(
+          account_name: account_name,
+          email: email,
+          user_full_name: user_full_name,
+          user_password: user_password,
+          confirmed: true,
+          apply_freemium_limits: true
+        ).perform
+
+        expect(account.settings).to include(
+          'ai_agent_enabled' => true,
+          'voice_ai_enabled' => false,
+          'ai_agent_conversation_limit' => 100,
+          'ai_improvement_monthly_credit_limit' => 600
+        )
+        expect(account.ai_agent_conversation_limit).to eq(100)
+        expect(account.ai_improvement_monthly_credit_limit).to eq(600)
+      end
+    end
+
     context 'when auto-confirming a mixed-case email' do
       let(:email) { 'MixedCaseUser@Example.COM' }
 
@@ -119,6 +152,13 @@ RSpec.describe AccountBuilder do
       it 'raises the handled user-exists error' do
         expect { account_builder.perform }.to raise_error(CustomExceptions::Account::UserExists)
       end
+    end
+  end
+
+  describe 'freemium constants' do
+    it 'defines the freemium monthly quota values' do
+      expect(Account::FREEMIUM_AI_AGENT_CONVERSATION_MONTHLY_LIMIT).to eq(100)
+      expect(Account::FREEMIUM_AI_IMPROVEMENT_MONTHLY_CREDIT_LIMIT).to eq(600)
     end
   end
 end

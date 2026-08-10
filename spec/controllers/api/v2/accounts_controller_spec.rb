@@ -23,7 +23,11 @@ RSpec.describe 'Accounts API', type: :request do
                params: params,
                as: :json
 
-          expect(AccountBuilder).to have_received(:new).with(params.except(:password).merge(user_password: params[:password]))
+          expect(AccountBuilder).to have_received(:new).with(
+            params.except(:password).merge(
+              user_password: params[:password], apply_freemium_limits: true, account_name: nil, user_full_name: nil
+            )
+          )
           expect(account_builder).to have_received(:perform)
           expect(response.headers.keys).to include('access-token', 'token-type', 'client', 'expiry', 'uid')
           expect(response.body).to include('en')
@@ -67,13 +71,15 @@ RSpec.describe 'Accounts API', type: :request do
         with_modified_env ENABLE_ACCOUNT_SIGNUP: 'true' do
           allow(account_builder).to receive(:perform).and_return(nil)
 
-          params = { email: nil, user: nil, locale: nil }
+          params = { email: nil, user: nil, locale: 'en' }
 
           post api_v2_accounts_url,
                params: params,
                as: :json
 
-          expect(AccountBuilder).to have_received(:new).with(params.merge(user_password: params[:password]))
+          expect(AccountBuilder).to have_received(:new).with(
+            params.merge(user_password: params[:password], apply_freemium_limits: true, account_name: nil, user_full_name: nil)
+          )
           expect(account_builder).to have_received(:perform)
           expect(response).to have_http_status(:forbidden)
           expect(response.body).to eq({ message: I18n.t('errors.signup.failed') }.to_json)
@@ -132,9 +138,35 @@ RSpec.describe 'Accounts API', type: :request do
                params: params,
                as: :json
 
-          expect(AccountBuilder).to have_received(:new).with(params.except(:password).merge(user_password: params[:password]))
+          expect(AccountBuilder).to have_received(:new).with(
+            params.except(:password).merge(
+              user_password: params[:password], apply_freemium_limits: true, account_name: nil, user_full_name: nil
+            )
+          )
           expect(response).to have_http_status(:success)
         end
+      end
+    end
+
+    context 'when an unauthenticated user signs up with the real builder' do
+      let(:email) { "Signup-#{SecureRandom.hex(8)}@Example.COM" }
+
+      it 'persists the freemium quota settings on the created account', :aggregate_failures do
+        with_modified_env ENABLE_ACCOUNT_SIGNUP: 'true' do
+          post api_v2_accounts_url,
+               params: { account_name: 'Freemium Signup', email: email, user_full_name: 'Freemium Signup Owner',
+                         password: 'Password1!', locale: nil },
+               as: :json
+        end
+
+        expect(response).to have_http_status(:success)
+        account = User.find_by!(email: email.downcase).accounts.first
+        expect(account.settings).to include(
+          'ai_agent_conversation_limit' => 100,
+          'ai_improvement_monthly_credit_limit' => 600
+        )
+        expect(account.ai_agent_conversation_limit).to eq(100)
+        expect(account.ai_improvement_monthly_credit_limit).to eq(600)
       end
     end
   end

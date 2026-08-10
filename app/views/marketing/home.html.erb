@@ -4,10 +4,10 @@
 
 <a class="skip-link" href="#main"><%= t('marketing.common.skip') %></a>
 
-<div class="announcement<%= ' trial-announcement' if signup_enabled %>" role="note">
+<div class="announcement<%= ' freemium-announcement' if signup_enabled %>" role="note">
   <span class="spark" aria-hidden="true">✦</span>
   <% if signup_enabled %>
-    <span><strong><%= t('marketing.trial.announcement') %></strong></span>
+    <span><strong><%= t('marketing.freemium.announcement') %></strong></span>
   <% else %>
     <span><strong><%= t('marketing.announcement.emphasis') %></strong> <%= t('marketing.announcement.detail') %></span>
   <% end %>
@@ -24,7 +24,7 @@
     <a href="#human-handoff"><%= t('marketing.common.human_handoff') %></a>
     <a href="<%= login_url %>"><%= t('marketing.common.login') %></a>
     <% if signup_enabled %>
-      <a class="button button-small" data-trial-cta="header" href="<%= signup_url %>"><%= t('marketing.trial.cta') %></a>
+      <a class="button button-small" data-freemium-cta="header" href="<%= signup_url %>"><%= t('marketing.freemium.cta') %></a>
     <% else %>
       <a class="button button-small" href="#final-cta"><%= t('marketing.common.demo_info') %></a>
     <% end %>
@@ -38,7 +38,7 @@
       <a href="#human-handoff"><%= t('marketing.common.human_handoff') %></a>
       <a href="<%= login_url %>"><%= t('marketing.common.login') %></a>
       <% if signup_enabled %>
-        <a data-trial-cta="mobile-menu" href="<%= signup_url %>"><%= t('marketing.trial.cta') %></a>
+        <a data-freemium-cta="mobile-menu" href="<%= signup_url %>"><%= t('marketing.freemium.cta') %></a>
       <% end %>
     </nav>
   </details>
@@ -56,14 +56,14 @@
       <p class="lede"><span class="lede-intro"><%= t('marketing.hero.lede_intro') %></span> <%= t('marketing.hero.lede_detail') %></p>
       <div class="hero-actions">
         <% if signup_enabled %>
-          <a class="button" data-trial-cta="hero-primary" href="<%= signup_url %>"><%= t('marketing.trial.cta') %></a>
+          <a class="button" data-freemium-cta="hero-primary" href="<%= signup_url %>"><%= t('marketing.freemium.cta') %></a>
         <% else %>
           <a class="button" href="#final-cta"><%= t('marketing.common.demo_info') %></a>
         <% end %>
         <a class="text-link" href="<%= login_url %>"><%= t('marketing.common.existing_account_login') %> <span aria-hidden="true">↗</span></a>
       </div>
       <% if signup_enabled %>
-        <p class="hero-trial-truth"><span aria-hidden="true">✓</span> <%= t('marketing.trial.start_note') %></p>
+        <p class="hero-freemium-truth"><span aria-hidden="true">✓</span> <%= t('marketing.freemium.start_note') %></p>
       <% end %>
     </div>
 
@@ -387,13 +387,13 @@
       </div>
       <div class="final-actions">
         <% if signup_enabled %>
-          <a class="button final-trial-button" data-trial-cta="final" href="<%= signup_url %>"><%= t('marketing.trial.final_cta') %></a>
+          <a class="button final-freemium-button" data-freemium-cta="final" href="<%= signup_url %>"><%= t('marketing.freemium.final_cta') %></a>
         <% else %>
           <span class="demo-availability" aria-disabled="true"><%= t('marketing.final.demo_unavailable') %></span>
         <% end %>
         <a class="final-login" href="<%= login_url %>"><%= t('marketing.common.existing_account_login') %> <span aria-hidden="true">↗</span></a>
       </div>
-      <p class="demo-availability-note"><%= signup_enabled ? t('marketing.trial.final_note') : t('marketing.final.demo_note') %></p>
+      <p class="demo-availability-note"><%= signup_enabled ? t('marketing.freemium.final_note') : t('marketing.final.demo_note') %></p>
     </div>
   </section>
 

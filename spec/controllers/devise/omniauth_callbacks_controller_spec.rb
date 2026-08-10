@@ -28,7 +28,7 @@ RSpec.describe 'DeviseOverrides::OmniauthCallbacksController', type: :request do
     end
 
     it 'allows signup' do
-      with_modified_env ENABLE_ACCOUNT_SIGNUP: 'true', FRONTEND_URL: 'http://www.example.com' do
+      with_modified_env ENABLE_ACCOUNT_SIGNUP: 'true', FRONTEND_URL: 'http://www.example.com', DEFAULT_LOCALE: 'en' do
         set_omniauth_config('test_not_preset@example.com')
         allow(AccountBuilder).to receive(:new).and_return(account_builder)
         allow(account_builder).to receive(:perform).and_return(user_double)
@@ -46,7 +46,8 @@ RSpec.describe 'DeviseOverrides::OmniauthCallbacksController', type: :request do
                                                              user_full_name: 'test',
                                                              email: 'test_not_preset@example.com',
                                                              locale: I18n.locale,
-                                                             confirmed: nil
+                                                             confirmed: nil,
+                                                             apply_freemium_limits: true
                                                            })
         expect(account_builder).to have_received(:perform)
       end

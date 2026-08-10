@@ -431,6 +431,33 @@ RSpec.describe AiAgents::LiveProcessor do
     expect(conversation.additional_attributes['ai_usage_limit_exhausted']).to be(true)
   end
 
+  it 'hands off silently at the freemium boundary without calling the LLM or creating an extra event' do
+    period = AiAgents::Usage::Period.new(account: account, now: Time.current)
+    account.update!(ai_agent_conversation_limit: Account::FREEMIUM_AI_AGENT_CONVERSATION_MONTHLY_LIMIT,
+                    ai_agent_conversation_reuse_window_hours: 24)
+    create_list(:ai_agent_usage_event, 100,
+                account: account,
+                ai_agent: ai_agent,
+                period_start_at: period.start_at,
+                period_end_at: period.end_at,
+                window_started_at: 2.days.ago,
+                window_ends_at: 1.day.ago,
+                status: :consumed)
+    message = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming',
+                               sender: conversation.contact, content: 'Need help')
+
+    expect(adapter).not_to receive(:perform)
+
+    expect do
+      expect(described_class.new(message: message, adapter: adapter).perform).to be(true)
+    end.to change { conversation.messages.where(private: true).count }.by(1)
+      .and change { conversation.messages.where(message_type: 'outgoing', private: false, sender: ai_agent.agent_bot).count }.by(0)
+      .and change(AiAgentUsageEvent, :count).by(0)
+
+    expect(conversation.reload).to be_open
+    expect(conversation.additional_attributes['ai_usage_limit_exhausted']).to be(true)
+  end
+
   it 'passes recent public conversation messages ordered by id' do
     create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming', sender: conversation.contact,
                      content: 'Old')

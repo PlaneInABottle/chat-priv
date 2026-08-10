@@ -36,11 +36,13 @@ describe('Signup Index', () => {
     expect(formPlane.element.compareDocumentPosition(proofPlane.element)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING
     );
-    expect(formPlane.text()).toContain('REGISTER.TRIAL.TITLE');
-    expect(formPlane.text()).toContain('REGISTER.TRIAL.STARTS_WHEN_CREATED');
-    expect(proofPlane.text()).toContain('REGISTER.TRIAL.PROOF_TITLE');
+    expect(formPlane.text()).toContain('REGISTER.FREEMIUM.TITLE');
+    expect(formPlane.text()).toContain(
+      'REGISTER.FREEMIUM.CONVERSATION_HEADLINE'
+    );
+    expect(proofPlane.text()).toContain('REGISTER.FREEMIUM.PROOF_TITLE');
     expect(
-      proofPlane.findAll('[data-testid="trial-sequence-step"]')
+      proofPlane.findAll('[data-testid="freemium-sequence-step"]')
     ).toHaveLength(3);
     expect(proofPlane.get('img[alt="ikas"]').attributes('src')).toBe(
       '/marketing/assets/ikas-official-wordmark.svg'
@@ -51,6 +53,18 @@ describe('Signup Index', () => {
         .attributes('src')
     ).toBe('/marketing/assets/pexels-6046230-black-sweater-crop.jpg');
     expect(wrapper.text()).not.toContain('prototype');
+  });
+
+  it('keeps the exact freemium English source strings without trial claims', () => {
+    expect(enSignup.REGISTER.FREEMIUM.CONVERSATION_HEADLINE).toBe(
+      '100 AI conversations every month.'
+    );
+    expect(enSignup.REGISTER.FREEMIUM.WORKSPACE_CREDITS).toBe(
+      '600 monthly AI workspace credits.'
+    );
+    expect(JSON.stringify(enSignup.REGISTER.FREEMIUM)).not.toMatch(
+      /trial|deneme|14 gün/
+    );
   });
 
   it('keeps the maintained signup locale structures aligned and Turkish presentation copy localized', () => {

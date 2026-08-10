@@ -2,7 +2,8 @@
 
 class AccountBuilder
   include CustomExceptions::Account
-  pattr_initialize [:account_name, :email!, :confirmed, :user, :user_full_name, :user_password, :super_admin, :locale]
+  pattr_initialize [:account_name, :email!, :confirmed, :user, :user_full_name, :user_password, :super_admin,
+                    :locale, { apply_freemium_limits: false }]
 
   def perform
     if @user.nil?
@@ -48,9 +49,19 @@ class AccountBuilder
       name: account_name,
       locale: account_locale,
       custom_attributes: { 'onboarding_step' => 'account_details' },
-      settings: { 'ai_agent_enabled' => true, 'voice_ai_enabled' => false }
+      settings: account_settings
     )
     Current.account = @account
+  end
+
+  def account_settings
+    settings = { 'ai_agent_enabled' => true, 'voice_ai_enabled' => false }
+    return settings unless apply_freemium_limits
+
+    settings.merge(
+      'ai_agent_conversation_limit' => Account::FREEMIUM_AI_AGENT_CONVERSATION_MONTHLY_LIMIT,
+      'ai_improvement_monthly_credit_limit' => Account::FREEMIUM_AI_IMPROVEMENT_MONTHLY_CREDIT_LIMIT
+    )
   end
 
   def account_locale

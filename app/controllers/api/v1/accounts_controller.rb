@@ -30,7 +30,8 @@ class Api::V1::AccountsController < Api::BaseController
       user_password: account_params[:password],
       locale: account_params[:locale],
       user: current_user,
-      confirmed: !confirmation_required
+      confirmed: !confirmation_required,
+      apply_freemium_limits: current_user.nil?
     ).perform
     enqueue_branding_enrichment
     return render_error_response(CustomExceptions::Account::SignupFailed.new({})) unless @user

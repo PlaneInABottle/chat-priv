@@ -44,6 +44,8 @@ class Account < ApplicationRecord
     'meta-llama/llama-3.3-70b-instruct'
   ].freeze
   DEFAULT_AI_IMPROVEMENT_MONTHLY_CREDIT_LIMIT = 1000
+  FREEMIUM_AI_AGENT_CONVERSATION_MONTHLY_LIMIT = 100
+  FREEMIUM_AI_IMPROVEMENT_MONTHLY_CREDIT_LIMIT = 600
 
   DEFAULT_QUERY_SETTING = {
     flag_query_mode: :bit_operator,

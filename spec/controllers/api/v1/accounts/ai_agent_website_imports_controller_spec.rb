@@ -158,4 +158,42 @@ RSpec.describe 'AI agent website imports API', type: :request do
     expect(response).to have_http_status(:conflict)
     expect(response.parsed_body['code']).to eq('draft_changed')
   end
+
+  describe 'shared workspace credit pool boundaries' do
+    before do
+      account.update!(ai_improvement_monthly_credit_limit: Account::FREEMIUM_AI_IMPROVEMENT_MONTHLY_CREDIT_LIMIT)
+    end
+
+    it 'admits an import at 599 used credits and returns the 402 contract at 600 across operations' do
+      period = AiAgents::Usage::Period.new(account: account, now: Time.current)
+      fill_improvement_credits = lambda do |credits|
+        # Seed through a different operation to prove the shared pool, not an isolated balance.
+        AiImprovementUsageEvent.create!(
+          account: account, operation: 'text_test', unit_type: 'tokens', units: credits * 1_000, credits: credits,
+          status: :consumed, period_start_at: period.start_at, period_end_at: period.end_at,
+          idempotency_key: "website-import-boundary-#{credits}"
+        )
+      end
+
+      fill_improvement_credits.call(599)
+
+      expect do
+        post base_url, params: { website_url: 'example.com' }, headers: headers, as: :json
+      end.to change(AiAgentWebsiteImport, :count).by(1).and have_enqueued_job(AiAgents::WebsiteImportJob)
+      expect(response).to have_http_status(:accepted)
+
+      fill_improvement_credits.call(1)
+
+      expect do
+        post base_url, params: { website_url: 'example.com' }, headers: headers, as: :json
+      end.not_to change(AiAgentWebsiteImport, :count)
+      expect do
+        post base_url, params: { website_url: 'example.com' }, headers: headers, as: :json
+      end.not_to have_enqueued_job(AiAgents::WebsiteImportJob)
+
+      expect(response).to have_http_status(:payment_required)
+      expect(response.parsed_body).to include('code' => 'ai_improvement_credits_exhausted')
+      expect(response.parsed_body['usage']).to include('remaining_credits' => 0)
+    end
+  end
 end
