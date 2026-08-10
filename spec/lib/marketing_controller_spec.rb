@@ -43,9 +43,9 @@ RSpec.describe MarketingController do
   it 'keeps normal-size marketing text at WCAG AA contrast' do
     stylesheet = Rails.root.join('app/javascript/entrypoints/marketing.scss').read
     contrast_pairs = [
-      ['.contact-copy small', '#fefcf6'],
+      ['.contact-copy small', '#fffdf7'],
       ['.demo-disclosure', '#f1eee6'],
-      ['.flow-strip span', '#fcfaf3'],
+      ['.flow-strip span', '#fffdf7'],
       ['.section-index', '#f6cdbf'],
       ['.section-copy > p:not(.section-index)', '#f6cdbf'],
       ['.reasoning-steps small', '#fffdf7'],
@@ -93,6 +93,29 @@ RSpec.describe MarketingController do
     end
 
     expect(failures).to be_empty, failures.join("\n")
+  end
+
+  it 'keeps hero panels free of backdrop-filter while the below-fold figcaption keeps its blur' do
+    stylesheet = Rails.root.join('app/javascript/entrypoints/marketing.scss').read
+    rules = stylesheet.scan(/(?<selectors>[^{}]+)\{(?<declarations>[^{}]+)\}/).map do |selectors, declarations|
+      [selectors.split(',').map(&:strip), declarations]
+    end
+    declarations_for = lambda do |selector|
+      rules.find { |selectors, _declarations| selectors.include?(selector) }&.last
+    end
+
+    product_proof = declarations_for.call('.product-proof')
+    flow_strip = declarations_for.call('.flow-strip')
+    figcaption = declarations_for.call('.anatomy-media figcaption')
+
+    expect(product_proof).not_to be_nil
+    expect(flow_strip).not_to be_nil
+    expect(figcaption).not_to be_nil
+    expect(product_proof).not_to include('backdrop-filter')
+    expect(flow_strip).not_to include('backdrop-filter')
+    expect(product_proof).to include('background: var(--paper-strong);')
+    expect(flow_strip).to include('background: var(--paper-strong);')
+    expect(figcaption).to include('backdrop-filter: blur(10px);')
   end
 
   it 'keeps English and Turkish marketing locale keys aligned' do

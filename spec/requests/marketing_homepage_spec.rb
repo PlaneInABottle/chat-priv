@@ -38,7 +38,9 @@ RSpec.describe 'Kozmopath marketing homepage', type: :request do
     end
 
     it 'keeps the design contract fingerprint stable against the meta-neutralized body' do
-      neutralized_body = response.body.gsub(/(<meta name="kozmopath-design-contract" content=")[0-9a-f]{64}(">)/, '\1\2')
+      expect(response.body).to match(%r{/vite-test/assets/marketing-[A-Za-z0-9_-]{8}\.css})
+      neutralized_body = response.body.gsub(%r{/vite-test/assets/marketing-[A-Za-z0-9_-]{8}\.css}, '/vite-test/assets/marketing-normalized.css')
+      neutralized_body = neutralized_body.gsub(/(<meta name="kozmopath-design-contract" content=")[0-9a-f]{64}(">)/, '\1\2')
 
       expect(neutralized_body).to include('kozmopath-design-contract" content="">')
       expect(neutralized_body).not_to match(/content="[0-9a-f]{64}"/)
