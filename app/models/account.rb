@@ -80,6 +80,7 @@ class Account < ApplicationRecord
                  :voice_ai_data_retention_days
 
   attr_reader :voice_agent_runtime_settings
+
   include AccountCaptainAutoResolve
 
   has_many :account_users, dependent: :destroy_async

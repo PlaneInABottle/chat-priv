@@ -90,11 +90,11 @@ RSpec.describe 'Kozmopath marketing homepage', type: :request do
       expect(login_links.length).to be >= 3
       expect(freemium_links.map { |link| link['data-freemium-cta'] }).to eq(%w[header mobile-menu hero-primary final])
       expect(freemium_links.map { |link| link.text.squish }).to eq([
-        'Ücretsiz başla',
-        'Ücretsiz başla',
-        'Ücretsiz başla',
-        'Ücretsiz hesabını oluştur'
-      ])
+                                                                     'Ücretsiz başla',
+                                                                     'Ücretsiz başla',
+                                                                     'Ücretsiz başla',
+                                                                     'Ücretsiz hesabını oluştur'
+                                                                   ])
       expect(document.at_css('.announcement').text.squish).to eq('✦ Her ay 100 yapay zekâ sohbeti.')
       expect(document.at_css('.hero-freemium-truth').text.squish).to include('Ayda 600 yapay zekâ çalışma alanı kredisi.')
       expect(document.at_css('.final-cta').text.squish).to include('Süresiz ücretsiz.')
@@ -144,9 +144,7 @@ RSpec.describe 'Kozmopath marketing homepage', type: :request do
 
   marketing_hosts.each do |marketing_host|
     it_behaves_like 'the approved marketing surface', marketing_host
-  end
 
-  marketing_hosts.each do |marketing_host|
     it "keeps the existing non-freemium fallback when signup is disabled on #{marketing_host}" do
       allow(GlobalConfigService).to receive(:account_signup_enabled?).and_return(false)
       host! marketing_host

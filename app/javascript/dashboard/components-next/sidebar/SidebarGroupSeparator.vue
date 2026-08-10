@@ -37,7 +37,7 @@ defineProps({
   },
 });
 
-const emit = defineEmits(['toggle', 'update-sort']);
+const emit = defineEmits(['toggle', 'updateSort']);
 
 const TREE_VERTICAL_LINE =
   "before:content-[''] before:absolute before:-top-1 before:w-0.5 before:bg-n-slate-4 before:start-[-0.5rem]";
@@ -84,7 +84,7 @@ const TREE_ELBOW =
         v-if="sortOptions.length"
         :active-sort="activeSort"
         :options="sortOptions"
-        @sort="sortBy => emit('update-sort', sortBy)"
+        @sort="sortBy => emit('updateSort', sortBy)"
       />
       <button
         v-if="collapsible"

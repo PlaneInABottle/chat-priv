@@ -24,7 +24,7 @@ const props = defineProps({
   endTreeLine: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['update-sort']);
+const emit = defineEmits(['updateSort']);
 
 const { isAllowed } = useSidebarContext();
 const scrollableContainer = ref(null);
@@ -139,7 +139,7 @@ watch([hasActiveChild, storageKey], expandSubGroupOnActiveChild, {
         :active-sort="activeSort"
         class="my-1"
         @toggle="toggleSubGroup"
-        @update-sort="sortBy => emit('update-sort', sortBy)"
+        @update-sort="sortBy => emit('updateSort', sortBy)"
       />
       <ul
         v-if="children.length"
