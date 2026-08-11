@@ -40,8 +40,45 @@ RSpec.describe MarketingController do
     expect(stylesheet).to include('.handoff-dossier-field { grid-template-columns: 1fr;')
   end
 
+  def css_rules(stylesheet)
+    stylesheet.scan(/(?<selectors>[^{}]+)\{(?<declarations>[^{}]+)\}/).map do |selectors, declarations|
+      [selectors.split(',').map(&:strip), declarations]
+    end
+  end
+
+  def css_color_tokens(stylesheet)
+    root = css_rules(stylesheet).find { |selectors, _declarations| selectors.include?(':root') }&.last.to_s
+    root.scan(/--([a-z0-9-]+):\s*(#[0-9a-f]{6})/i).to_h
+  end
+
+  def resolve_css_color(value, tokens)
+    color = if value.include?('var(--')
+              tokens[value[/--[a-z0-9-]+/]&.delete_prefix('--')]
+            else
+              value
+            end
+    color if color&.match?(/\A#[0-9a-f]{6}\z/i)
+  end
+
+  def linearize_channel(channel)
+    value = channel / 255.0
+    value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055)**2.4
+  end
+
+  def color_luminance(hex)
+    red, green, blue = hex.delete_prefix('#').scan(/../).map { |part| linearize_channel(part.to_i(16)) }
+    (0.2126 * red) + (0.7152 * green) + (0.0722 * blue)
+  end
+
+  def contrast_ratio(foreground, background)
+    lighter, darker = [color_luminance(foreground), color_luminance(background)].sort.reverse
+    (lighter + 0.05) / (darker + 0.05)
+  end
+
   it 'keeps normal-size marketing text at WCAG AA contrast' do
     stylesheet = Rails.root.join('app/javascript/entrypoints/marketing.scss').read
+    rules = css_rules(stylesheet)
+    tokens = css_color_tokens(stylesheet)
     contrast_pairs = [
       ['.contact-copy small', '#fffdf7'],
       ['.flow-strip span', '#fffdf7'],
@@ -61,31 +98,19 @@ RSpec.describe MarketingController do
       ['.handoff-composer', '#fffdf7'],
       ['.dossier-continuity p', '#f6cdbf'],
       ['.control-grid p', '#10211f'],
-      ['.control-console-note', '#10211f']
+      ['.control-console-note', '#10211f'],
+      ['.legal-section p', '#f3f0e8'],
+      ['.legal-section a', '#f3f0e8'],
+      ['.legal-updated', '#f3f0e8']
     ]
-    linearize = lambda do |channel|
-      value = channel / 255.0
-      value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055)**2.4
-    end
-    luminance = lambda do |hex|
-      red, green, blue = hex.delete_prefix('#').scan(/../).map { |part| linearize.call(part.to_i(16)) }
-      (0.2126 * red) + (0.7152 * green) + (0.0722 * blue)
-    end
-    contrast_ratio = lambda do |foreground, background|
-      lighter, darker = [luminance.call(foreground), luminance.call(background)].sort.reverse
-      (lighter + 0.05) / (darker + 0.05)
-    end
-
-    rules = stylesheet.scan(/(?<selectors>[^{}]+)\{(?<declarations>[^{}]+)\}/).map do |selectors, declarations|
-      [selectors.split(',').map(&:strip), declarations]
-    end
     failures = contrast_pairs.filter_map do |selector, background, inherited_selector|
       color_selectors = [selector, inherited_selector].compact
       rule = color_selectors.filter_map do |color_selector|
-        rules.find { |selectors, declarations| selectors.include?(color_selector) && declarations.match?(/color:\s*#[0-9a-f]{6}/i) }
+        rules.find { |selectors, declarations| selectors.include?(color_selector) && declarations.match?(/color:\s*[^;]+/i) }
       end.first
-      foreground = rule&.last&.match(/color:\s*(#[0-9a-f]{6})/i)&.[](1)
-      ratio = contrast_ratio.call(foreground, background) if foreground
+      foreground_value = rule&.last&.match(/color:\s*([^;]+)/i)&.[](1)&.strip
+      foreground = resolve_css_color(foreground_value, tokens) if foreground_value
+      ratio = contrast_ratio(foreground, background) if foreground
 
       "#{selector}: #{foreground || 'missing color'} on #{background} = #{ratio&.round(4) || 'unmeasured'}" if ratio.nil? || ratio < 4.5
     end
@@ -145,6 +170,34 @@ RSpec.describe MarketingController do
   it 'keeps the exact freemium English source strings' do
     expect(I18n.t('marketing.freemium.announcement', locale: :en)).to eq('100 AI conversations every month.')
     expect(I18n.t('marketing.freemium.start_note', locale: :en)).to eq('600 AI credits per month.')
+  end
+
+  it 'adds the legal page styles without touching the trial-free guard' do
+    stylesheet = Rails.root.join('app/javascript/entrypoints/marketing.scss').read
+    mobile_blocks = stylesheet.scan(/@media \(max-width: 800px\) \{(.*?)\n\}/m)
+
+    expect(stylesheet).to include('.legal-page {')
+    expect(stylesheet).to include('.legal-shell {')
+    expect(stylesheet).to include('.legal-section {')
+    expect(stylesheet).to include('.legal-page a:focus-visible { outline: 3px solid')
+    expect(mobile_blocks.flatten.join).to include('.legal-shell { width: calc(100% - 40px);')
+    expect(stylesheet).not_to match(/\.trial-|\[data-trial-/)
+  end
+
+  it 'keeps signup legal-link configuration and source parity' do
+    config = YAML.load_file(Rails.root.join('config/installation_config.yml'))
+    urls = config.filter_map { |entry| [entry['name'], entry['value']] if entry['value'] }.to_h
+
+    expect(urls.fetch('TERMS_URL')).to eq(MarketingController::LEGAL_PAGE_URLS.fetch(:terms_of_service))
+    expect(urls.fetch('PRIVACY_URL')).to eq(MarketingController::LEGAL_PAGE_URLS.fetch(:privacy_policy))
+
+    %w[en tr].each do |locale|
+      signup = JSON.parse(Rails.root.join("app/javascript/dashboard/i18n/locale/#{locale}/signup.json").read)
+      terms_accept = signup.dig('REGISTER', 'TERMS_ACCEPT')
+
+      expect(terms_accept).to include(MarketingController::LEGAL_PAGE_URLS.fetch(:terms_of_service))
+      expect(terms_accept).to include(MarketingController::LEGAL_PAGE_URLS.fetch(:privacy_policy))
+    end
   end
 
   it 'declares crawler boundaries and the canonical sitemap' do

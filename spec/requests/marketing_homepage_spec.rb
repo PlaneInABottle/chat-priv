@@ -91,7 +91,7 @@ RSpec.describe 'Kozmopath marketing homepage', type: :request do
       rows = document.css('.anatomy-fields dl > div')
 
       expect(rows.map { |row| row.at_css('dt').text }).to eq(
-        %w[Ürün\ adı Stok\ durumu Fiyat Mağaza\ sayfası]
+        ['Ürün adı', 'Stok durumu', 'Fiyat', 'Mağaza sayfası']
       )
       expect(rows.map { |row| row.at_css('dd').text }).to eq(
         ['Gri Neon Detaylı Sneaker', 'Stokta', '1.249 TL', 'Görüntülenebilir']
@@ -101,6 +101,7 @@ RSpec.describe 'Kozmopath marketing homepage', type: :request do
       expect(document.text).to include('Katalogdan 1 ürün bulundu')
     end
 
+    # rubocop:disable RSpec/MultipleExpectations
     it 'uses plain sequential numbering across flows and router kickers' do
       expect(document.css('.flow-strip span').map(&:text)).to eq(%w[1 2 3 4])
       expect(document.css('.reasoning-steps .reasoning-number').map(&:text)).to eq(%w[1 2 3])
@@ -110,10 +111,12 @@ RSpec.describe 'Kozmopath marketing homepage', type: :request do
       expect(document.css('.router-source .router-kicker > span').text).to eq('1')
       expect(document.css('.router-rich-output .router-kicker > span').text).to eq('3')
       expect(document.text).not_to include('03A', '03B', '03C')
-      %w[1\ ·\ Katalog\ bağlamı 2\ ·\ Nasıl\ çalışır? 3\ ·\ Ürün\ sunumu 4\ ·\ Desteklenen\ kanallar 5\ ·\ İnsan\ devri 6\ ·\ Kontrol\ katmanı].each do |index|
+      ['1 · Katalog bağlamı', '2 · Nasıl çalışır?', '3 · Ürün sunumu', '4 · Desteklenen kanallar', '5 · İnsan devri',
+       '6 · Kontrol katmanı'].each do |index|
         expect(document.text).to include(index)
       end
     end
+    # rubocop:enable RSpec/MultipleExpectations
 
     it 'keeps positive channel copy and the enlarged control-flow labels' do
       instagram = document.at_css('[data-route-node="inbox"][data-channel="instagram"]')
@@ -126,7 +129,7 @@ RSpec.describe 'Kozmopath marketing homepage', type: :request do
       expect(rich.text).to include('Ürün görseli ve seçenekler, görsel sunumu destekleyen kanallarda yer alır.')
       expect(document.at_css('.channel-proof-note').text.squish).to include('Her kanal, kendi yeteneğine uygun biçimi kullanır.')
       expect(document.css('.control-flow strong').map(&:text)).to eq(
-        %w[Soru Katalogda\ arama Doğrulama Yanıt\ ya\ da\ devir]
+        ['Soru', 'Katalogda arama', 'Doğrulama', 'Yanıt ya da devir']
       )
     end
 
@@ -146,6 +149,16 @@ RSpec.describe 'Kozmopath marketing homepage', type: :request do
       expect(document.at_css('.hero-freemium-truth').text.squish).to include('Ayda 600 yapay zekâ kredisi.')
       expect(document.at_css('.final-cta').text.squish).to include('Süresiz ücretsiz.')
       expect(document.css('a[href*="calendly"], a[href*="/demo"]')).to be_empty
+    end
+
+    it 'links the legal pages from the shared footer on the same host' do
+      footer = document.at_css('footer.site-footer')
+      nav_hrefs = footer.css('nav a').map { |link| link['href'] }
+
+      expect(nav_hrefs).to include('/privacy-policy', '/terms-of-service')
+      expect(footer.at_css('a[href="/privacy-policy"]').text.squish).to eq('Gizlilik Politikası')
+      expect(footer.at_css('a[href="/terms-of-service"]').text.squish).to eq('Kullanım Koşulları')
+      expect(footer.at_css('a.brand.footer-brand')['href']).to eq('#hero')
     end
 
     it 'makes no trial, card, or automatic-billing claims on the signup-enabled homepage' do
@@ -217,7 +230,13 @@ RSpec.describe 'Kozmopath marketing homepage', type: :request do
 
       expect(response).to have_http_status(:ok)
       expect(response.media_type).to eq('application/xml')
-      expect(sitemap.xpath('//xmlns:url/xmlns:loc').map(&:text)).to eq(['https://www.kozmopath.com/'])
+      expect(sitemap.xpath('//xmlns:url/xmlns:loc').map(&:text)).to eq(
+        [
+          'https://www.kozmopath.com/',
+          'https://www.kozmopath.com/privacy-policy',
+          'https://www.kozmopath.com/terms-of-service'
+        ]
+      )
     end
   end
 end

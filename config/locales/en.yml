@@ -1020,3 +1020,149 @@ en:
         handoff: "Human handoff when needed"
       demo_unavailable: "Demo link coming soon"
       demo_note: "A real sales link and owner for demo requests have not been defined yet."
+    legal:
+      nav:
+        privacy: "Privacy Policy"
+        terms: "Terms of Service"
+      updated_label: "Last updated:"
+      updated_on: "12 August 2026"
+      privacy:
+        meta:
+          title: "Privacy Policy — Kozmopath"
+          description: "How Kozmopath processes personal data when you use its catalog-backed customer communication service, including your rights and how to contact us."
+        title: "Privacy Policy"
+        intro: "This policy explains how Kozmopath processes personal data when you visit the website or use the service. It applies to account owners, team members and customers who communicate through the service."
+        sections:
+          controller_contact:
+            title: "Data controller and contact"
+            body: "Kozmopath is the data controller for the processing described in this policy. You can reach us through the contact channel at the end of this page."
+          scope:
+            title: "Scope of this policy"
+            body: "This policy covers the Kozmopath website and the services we provide to stores connected through ikas. Where a store operates as a separate data controller, its own policies may also apply to your data."
+          data_we_process:
+            title: "Data we process"
+            body: "Depending on how the service is used, we may process:"
+            items:
+              - "Account and profile information such as name, work email address and account settings."
+              - "Customer, contact and conversation content, including messages exchanged through the service."
+              - "Catalog and integration data, including product information and connection details for store and channel integrations."
+              - "AI and tool interaction data, including questions, tool results and generated answers."
+              - "Voice recordings and transcripts when the voice feature is enabled and used."
+              - "Device, log, cookie and local-storage data, such as IP address, browser information and usage records."
+          sources:
+            title: "Where data comes from"
+            body: "We collect data directly from you, from your store and channel integrations, from conversations handled through the service, and automatically through logs and cookies."
+          purposes:
+            title: "Why we process data"
+            body: "We use personal data for:"
+            items:
+              - "Delivering the service, including catalog-backed answers and human handoff."
+              - "Providing support and responding to requests."
+              - "Improving the product and its reliability."
+              - "Protecting the security of the service and preventing misuse."
+              - "Meeting legal obligations."
+          legal_bases:
+            title: "Legal bases"
+            body: "We process personal data on the following bases, where applicable:"
+            items:
+              - "Performance of the contract with you for service delivery."
+              - "Compliance with legal obligations."
+              - "Legitimate interests, where applicable, balanced against your rights."
+              - "Consent, where required by applicable law."
+          sharing:
+            title: "Who we share data with"
+            body: "We share personal data only in limited circumstances:"
+            items:
+              - "With service providers that support the operation of the service and act on our instructions."
+              - "When required by law, legal process or a competent authority."
+              - "In connection with a business transfer or restructuring, with appropriate safeguards."
+          international_processing:
+            title: "International processing"
+            body: "Data may be processed outside the country where you are located. Where applicable law requires safeguards for such transfers, we apply appropriate measures."
+          retention:
+            title: "Retention"
+            body: "We keep personal data only as long as needed for the purposes described in this policy, for the duration of your account, or as required by legal obligations. Retention periods are assessed per purpose and are not fixed in advance."
+          security:
+            title: "Security"
+            body: "We apply reasonable technical and organizational measures to protect personal data. No method of transmission or storage is completely secure, so we cannot guarantee absolute security."
+          your_rights:
+            title: "Your rights"
+            body: "Depending on applicable law, including the Turkish Personal Data Protection Law (KVKK) and the GDPR where they apply, you may have the right to:"
+            items:
+              - "Access your data and request a copy."
+              - "Request rectification of inaccurate data."
+              - "Request erasure of your data."
+              - "Request restriction of processing."
+              - "Request data portability."
+              - "Object to processing."
+              - "Withdraw consent where processing is based on consent."
+          children:
+            title: "Children"
+            body: "The service is not directed at children. If you believe a child has provided personal data through the service, contact us and we will address your request."
+          updates:
+            title: "Changes to this policy"
+            body: "We may update this policy from time to time. The updated version will be published on this page with a new effective date."
+        contact:
+          title: "Contact"
+          body: "If you have questions about this policy or about your personal data, you can write to us at:"
+      terms:
+        meta:
+          title: "Terms of Service — Kozmopath"
+          description: "The terms that apply when you use the Kozmopath catalog-backed customer communication service, including accounts, acceptable use and liability."
+        title: "Terms of Service"
+        intro: "These terms govern your use of the Kozmopath website and service. By creating an account or using the service, you accept these terms."
+        sections:
+          acceptance:
+            title: "Acceptance of these terms"
+            body: "By creating an account, accessing the website or using the service, you agree to these terms. If you do not agree, you should not use the service."
+          eligibility:
+            title: "Eligibility"
+            body: "You must be of legal age in your country to use the service, or use it on behalf of a business you are authorized to represent."
+          account:
+            title: "Your account"
+            body: "You are responsible for keeping your login credentials confidential and for activity that happens under your account. Notify us if you suspect unauthorized use."
+          service_description:
+            title: "The service"
+            body: "Kozmopath connects your store catalog to customer conversations on supported channels, provides catalog-backed answers, and can hand off conversations to your team when needed."
+          connected_accounts:
+            title: "Connected accounts and integrations"
+            body: "The service may connect to your store and channel accounts with the permissions you grant. You are responsible for obtaining any consent required from your customers for data shared through the service."
+          customer_content:
+            title: "Your content"
+            body: "You retain ownership of the content you provide. You grant us the limited rights needed to operate the service. You are responsible for the lawfulness of your content and for complying with applicable rules."
+          ai_limitations:
+            title: "AI answers and their limitations"
+            body: "AI-generated answers are based on catalog data and may be inaccurate or incomplete. They are not a substitute for professional judgment. Human review and handoff are available where supported. Do not rely solely on AI answers for decisions that require human judgment."
+          quotas_and_fees:
+            title: "Quotas and fees"
+            body: "The service currently offers free monthly quotas, described in general terms on the website. Paid plans or fees may be introduced in the future with notice. We do not charge for the service except as described here."
+          acceptable_use:
+            title: "Acceptable use"
+            body: "You may not use the service to send spam, phishing or misleading messages, to distribute illegal content, to interfere with the service, or to violate the rights of others or applicable law."
+          ip_feedback:
+            title: "Intellectual property and feedback"
+            body: "Kozmopath and its licensors own the intellectual property in the service. If you send us feedback or suggestions, you grant us a non-exclusive license to use them to improve the service."
+          privacy:
+            title: "Privacy"
+            body: "Our Privacy Policy explains how we process personal data, including under the Turkish Personal Data Protection Law (KVKK) where it applies. It forms part of these terms."
+          availability:
+            title: "Availability"
+            body: "We aim to keep the service available, but we do not guarantee uninterrupted operation. The service may change, be updated, or be temporarily unavailable for maintenance."
+          suspension_termination:
+            title: "Suspension and termination"
+            body: "We may suspend or terminate access to the service for breach of these terms or where required by law. Before termination, you can export or retrieve the data available to you through the service. Deleted data may not be recoverable."
+          disclaimers:
+            title: "Disclaimers"
+            body: "The service is provided as is, to the extent permitted by applicable law. We make no warranty that the service will be error-free or that AI answers will be accurate."
+          liability:
+            title: "Liability"
+            body: "To the extent permitted by mandatory law, our liability is limited to the amount paid by you for the service, or to a reasonable amount where the service is free. Nothing in these terms limits liability that cannot be limited by law."
+          governing_law:
+            title: "Governing law"
+            body: "These terms are governed by applicable Türkiye law. Disputes will be resolved by legally competent courts under applicable law."
+          changes:
+            title: "Changes to these terms"
+            body: "We may update these terms from time to time. Continued use of the service after changes are published means you accept the updated terms."
+        contact:
+          title: "Contact"
+          body: "If you have questions about these terms, you can write to us at:"

@@ -1,0 +1,17 @@
+<% scope = local_assigns.fetch(:scope) %>
+<% prefix = local_assigns.fetch(:prefix) %>
+<% t("#{scope}.sections").each do |key, section| %>
+  <section class="legal-section" id="<%= prefix %>-<%= key %>">
+    <h2><%= section.fetch(:title) %></h2>
+    <% if section[:body].present? %><p><%= section[:body] %></p><% end %>
+    <% if section[:items].present? %>
+      <ul><% section[:items].each { |item| %><li><%= item %></li><% } %></ul>
+    <% end %>
+  </section>
+<% end %>
+<% if (contact_scope = local_assigns[:contact_scope]) %>
+  <section class="legal-section" id="<%= prefix %>-contact">
+    <h2><%= t("#{contact_scope}.title") %></h2>
+    <p><%= t("#{contact_scope}.body") %> <a href="mailto:<%= @support_email %>"><%= @support_email %></a></p>
+  </section>
+<% end %>

@@ -21,6 +21,8 @@ Rails.application.routes.draw do
     constraints marketing_host do
       get '/', to: 'marketing#home', as: :marketing_home
       get '/sitemap.xml', to: 'marketing#sitemap', defaults: { format: :xml }, as: :marketing_sitemap
+      get '/privacy-policy', to: 'marketing#privacy_policy', as: :marketing_privacy_policy
+      get '/terms-of-service', to: 'marketing#terms_of_service', as: :marketing_terms_of_service
     end
 
     root to: 'dashboard#index'

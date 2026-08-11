@@ -877,3 +877,149 @@ tr:
         handoff: "Gerektiğinde insan devri"
       demo_unavailable: "Demo bağlantısı yakında"
       demo_note: "Demo talebi için gerçek satış bağlantısı ve sorumlusu henüz tanımlanmadı."
+    legal:
+      nav:
+        privacy: "Gizlilik Politikası"
+        terms: "Kullanım Koşulları"
+      updated_label: "Son güncelleme:"
+      updated_on: "12 Ağustos 2026"
+      privacy:
+        meta:
+          title: "Gizlilik Politikası — Kozmopath"
+          description: "Kozmopath katalog bağlamlı müşteri iletişim hizmetini kullanırken kişisel verilerin nasıl işlendiği, haklarınız ve bizimle iletişim yolları."
+        title: "Gizlilik Politikası"
+        intro: "Bu politika, web sitesini ziyaret ettiğinizde veya hizmeti kullandığınızda Kozmopath'ın kişisel verileri nasıl işlediğini açıklar. Hesap sahipleri, ekip üyeleri ve hizmet üzerinden iletişim kuran müşteriler için geçerlidir."
+        sections:
+          controller_contact:
+            title: "Veri sorumlusu ve iletişim"
+            body: "Kozmopath, bu politikada açıklanan işlemelerin veri sorumlusudur. Bize sayfanın sonundaki iletişim kanalından ulaşabilirsiniz."
+          scope:
+            title: "Politikanın kapsamı"
+            body: "Bu politika, Kozmopath web sitesini ve ikas üzerinden bağlanan mağazalara sunduğumuz hizmetleri kapsar. Mağazanın ayrı bir veri sorumlusu olarak hareket ettiği durumlarda mağazanın kendi politikaları da verilerinize uygulanabilir."
+          data_we_process:
+            title: "İşlediğimiz veriler"
+            body: "Hizmetin kullanım şekline bağlı olarak şunları işleyebiliriz:"
+            items:
+              - "Ad, iş e-posta adresi ve hesap ayarları gibi hesap ve profil bilgileri."
+              - "Hizmet üzerinden iletilen mesajlar dahil müşteri, kişi ve konuşma içerikleri."
+              - "Ürün bilgileri ile mağaza ve kanal bağlantıları dahil katalog ve entegrasyon verileri."
+              - "Sorular, araç sonuçları ve üretilen yanıtlar dahil yapay zekâ ve araç etkileşim verileri."
+              - "Ses özelliği etkinleştirildiğinde ve kullanıldığında ses kayıtları ve konuşma dökümleri."
+              - "IP adresi, tarayıcı bilgisi ve kullanım kayıtları gibi cihaz, günlük, çerez ve yerel depolama verileri."
+          sources:
+            title: "Verilerin kaynakları"
+            body: "Verileri doğrudan sizden, mağaza ve kanal entegrasyonlarınızdan, hizmet üzerinden yürütülen konuşmalardan ve günlük ile çerezler aracılığıyla otomatik olarak toplarız."
+          purposes:
+            title: "Verileri neden işliyoruz"
+            body: "Kişisel verileri şu amaçlarla kullanırız:"
+            items:
+              - "Katalog bağlamlı yanıtlar ve insan devri dahil hizmetin sunulması."
+              - "Destek sağlanması ve taleplerin yanıtlanması."
+              - "Ürünün ve güvenilirliğinin geliştirilmesi."
+              - "Hizmetin güvenliğinin korunması ve kötüye kullanımın önlenmesi."
+              - "Yasal yükümlülüklerin yerine getirilmesi."
+          legal_bases:
+            title: "Hukuki dayanaklar"
+            body: "Kişisel verileri, geçerli olduğu ölçüde şu dayanaklarla işleriz:"
+            items:
+              - "Hizmetin sunulması kapsamında sizinle kurulan sözleşmenin ifası."
+              - "Yasal yükümlülüklerin yerine getirilmesi."
+              - "Geçerli olduğu durumlarda haklarınızla dengelenen meşru menfaatler."
+              - "İlgili mevzuatın gerektirdiği durumlarda açık rıza."
+          sharing:
+            title: "Verileri kimlerle paylaşıyoruz"
+            body: "Kişisel verileri yalnızca sınırlı durumlarda paylaşırız:"
+            items:
+              - "Hizmetin işleyişini destekleyen ve talimatlarımız doğrultusunda hareket eden hizmet sağlayıcılarla."
+              - "Kanun, yasal süreç veya yetkili makam gerektirdiğinde."
+              - "Uygun güvencelerle, bir iş devri veya yeniden yapılanma kapsamında."
+          international_processing:
+            title: "Uluslararası işleme"
+            body: "Veriler, bulunduğunuz ülkenin dışında da işlenebilir. İlgili mevzuat bu tür aktarımlar için güvence gerektirdiğinde uygun önlemleri uygularız."
+          retention:
+            title: "Saklama süresi"
+            body: "Kişisel verileri yalnızca bu politikada açıklanan amaçlar için gereken süre boyunca, hesabınızın süresi veya yasal yükümlülüklerimiz ölçüsünde saklarız. Saklama süreleri her amaca göre değerlendirilir ve önceden sabitlenmez."
+          security:
+            title: "Güvenlik"
+            body: "Kişisel verileri korumak için makul teknik ve idari önlemler uygularız. Hiçbir iletim veya saklama yöntemi tamamen güvenli değildir; bu nedenle mutlak güvenlik garanti edemeyiz."
+          your_rights:
+            title: "Haklarınız"
+            body: "Geçerli mevzuata ve uygulandığı ölçüde KVKK ile GDPR'a göre şu haklara sahip olabilirsiniz:"
+            items:
+              - "Verilerinize erişim ve kopyasını talep etme."
+              - "Eksik veya hatalı verilerin düzeltilmesini talep etme."
+              - "Verilerinizin silinmesini talep etme."
+              - "İşlemenin kısıtlanmasını talep etme."
+              - "Verilerin taşınmasını talep etme."
+              - "İşlemeye itiraz etme."
+              - "Rızaya dayalı işlemelerde rızayı geri çekme."
+          children:
+            title: "Çocuklar"
+            body: "Hizmet çocuklara yönelik değildir. Bir çocuğun hizmet üzerinden kişisel veri paylaştığını düşünüyorsanız bizimle iletişime geçin; talebinizi değerlendiririz."
+          updates:
+            title: "Politika değişiklikleri"
+            body: "Bu politikayı zaman zaman güncelleyebiliriz. Güncel sürüm, yeni yürürlük tarihiyle birlikte bu sayfada yayımlanır."
+        contact:
+          title: "İletişim"
+          body: "Bu politika veya kişisel verileriniz hakkında sorularınız için bize yazabilirsiniz:"
+      terms:
+        meta:
+          title: "Kullanım Koşulları — Kozmopath"
+          description: "Kozmopath katalog bağlamlı müşteri iletişim hizmetini kullanırken geçerli olan koşullar: hesaplar, kabul edilebilir kullanım ve sorumluluk."
+        title: "Kullanım Koşulları"
+        intro: "Bu koşullar, Kozmopath web sitesini ve hizmetini kullanımınızı düzenler. Hesap oluşturarak veya hizmeti kullanarak bu koşulları kabul etmiş olursunuz."
+        sections:
+          acceptance:
+            title: "Koşulların kabulü"
+            body: "Hesap oluşturarak, web sitesine erişerek veya hizmeti kullanarak bu koşulları kabul etmiş olursunuz. Kabul etmiyorsanız hizmeti kullanmamalısınız."
+          eligibility:
+            title: "Uygunluk"
+            body: "Hizmeti kullanmak için ülkenizde yasal yaşa ulaşmış olmanız veya temsil etmeye yetkili olduğunuz bir işletme adına kullanmanız gerekir."
+          account:
+            title: "Hesabınız"
+            body: "Giriş bilgilerinizin gizliliğini korumak ve hesabınız altında gerçekleşen faaliyetler konusunda sorumluluk size aittir. Yetkisiz kullanım fark ederseniz bize bildirin."
+          service_description:
+            title: "Hizmet"
+            body: "Kozmopath, mağaza kataloğunuzu desteklenen kanallardaki müşteri konuşmalarına bağlar, katalog bağlamlı yanıtlar sunar ve gerektiğinde konuşmaları ekibinize devreder."
+          connected_accounts:
+            title: "Bağlı hesaplar ve entegrasyonlar"
+            body: "Hizmet, verdiğiniz izinler kapsamında mağaza ve kanal hesaplarınıza bağlanabilir. Hizmet üzerinden paylaşılan veriler için müşterilerinizden gereken izinleri almak sizin sorumluluğunuzdadır."
+          customer_content:
+            title: "İçeriğiniz"
+            body: "Sağladığınız içeriğin mülkiyeti size aittir. Hizmeti işletmek için gereken sınırlı hakları bize tanırsınız. İçeriğinizin yasallığından ve ilgili kurallara uyumundan siz sorumlusunuz."
+          ai_limitations:
+            title: "Yapay zekâ yanıtları ve sınırları"
+            body: "Yapay zekâ tarafından üretilen yanıtlar katalog verilerine dayanır ve eksik ya da hatalı olabilir. Profesyonel değerlendirmenin yerine geçmez. Desteklenen yerlerde insan incelemesi ve devir imkânı sunulur. İnsan değerlendirmesi gerektiren kararlarda yalnızca yapay zekâ yanıtlarına güvenmeyin."
+          quotas_and_fees:
+            title: "Kotalar ve ücretler"
+            body: "Hizmet şu anda web sitesinde genel hatlarıyla açıklanan ücretsiz aylık kotalar sunar. Gelecekte bildirimle birlikte ücretli planlar veya ücretler getirilebilir. Burada açıklananlar dışında hizmet için ücret talep etmeyiz."
+          acceptable_use:
+            title: "Kabul edilebilir kullanım"
+            body: "Hizmeti spam, kimlik avı veya yanıltıcı mesaj göndermek, yasa dışı içerik dağıtmak, hizmete müdahale etmek veya başkalarının haklarını ya da ilgili mevzuatı ihlal etmek için kullanamazsınız."
+          ip_feedback:
+            title: "Fikri mülkiyet ve geri bildirim"
+            body: "Kozmopath ve lisans verenleri, hizmetteki fikri mülkiyet haklarının sahibidir. Bize geri bildirim veya öneri gönderdiğinizde, bunları hizmeti geliştirmek için kullanma hakkı tanırsınız."
+          privacy:
+            title: "Gizlilik"
+            body: "Gizlilik Politikamız, uygulandığı ölçüde KVKK dahil kişisel verilerin nasıl işlendiğini açıklar ve bu koşulların parçasıdır."
+          availability:
+            title: "Kullanılabilirlik"
+            body: "Hizmeti erişilebilir tutmayı hedefleriz ancak kesintisiz çalışmayı garanti etmeyiz. Hizmet değişebilir, güncellenebilir veya bakım nedeniyle geçici olarak erişilemez olabilir."
+          suspension_termination:
+            title: "Askıya alma ve fesih"
+            body: "Bu koşulların ihlali veya yasal zorunluluk hâlinde hizmete erişimi askıya alabilir veya sonlandırabiliriz. Fesihten önce hizmet üzerinden erişebildiğiniz verileri dışa aktarabilirsiniz. Silinen veriler geri getirilemeyebilir."
+          disclaimers:
+            title: "Sorumluluk reddi"
+            body: "Hizmet, ilgili mevzuatın izin verdiği ölçüde olduğu gibi sunulur. Hizmetin hatasız olacağını veya yapay zekâ yanıtlarının doğru olacağını garanti etmeyiz."
+          liability:
+            title: "Sorumluluk"
+            body: "Zorunlu hukuk kurallarının izin verdiği ölçüde sorumluluğumuz, hizmet için ödediğiniz tutarla veya hizmet ücretsizse makul bir tutarla sınırlıdır. Bu koşullar, kanunen sınırlanamayan sorumlulukları sınırlamaz."
+          governing_law:
+            title: "Uygulanacak hukuk"
+            body: "Bu koşullar, geçerli Türkiye hukukuna tabidir. Uyuşmazlıklar, ilgili mevzuata göre yetkili mahkemelerde çözümlenir."
+          changes:
+            title: "Koşul değişiklikleri"
+            body: "Bu koşulları zaman zaman güncelleyebiliriz. Değişikliklerin yayımlanmasından sonra hizmeti kullanmaya devam etmeniz, güncel koşulları kabul ettiğiniz anlamına gelir."
+        contact:
+          title: "İletişim"
+          body: "Bu koşullar hakkında sorularınız için bize yazabilirsiniz:"

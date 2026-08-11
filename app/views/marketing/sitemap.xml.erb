@@ -3,4 +3,7 @@
   <url>
     <loc><%= MarketingController::CANONICAL_URL %></loc>
   </url>
+  <% MarketingController::LEGAL_PAGE_URLS.each_value do |url| %>
+    <url><loc><%= url %></loc></url>
+  <% end %>
 </urlset>

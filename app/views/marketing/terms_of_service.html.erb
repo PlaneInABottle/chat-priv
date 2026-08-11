@@ -1,0 +1,10 @@
+<%= render 'marketing/legal_header' %>
+<main id="main" class="legal-page">
+  <div class="legal-shell">
+    <h1><%= t('marketing.legal.terms.title') %></h1>
+    <p class="legal-updated"><%= t('marketing.legal.updated_label') %> <%= t('marketing.legal.updated_on') %></p>
+    <p class="legal-intro"><%= t('marketing.legal.terms.intro') %></p>
+    <%= render 'marketing/legal_sections', scope: 'marketing.legal.terms', prefix: 'terms', contact_scope: 'marketing.legal.terms.contact' %>
+  </div>
+</main>
+<%= render 'marketing/footer' %>

@@ -386,17 +386,5 @@
     </div>
   </section>
 
-  <footer id="footer" class="site-footer" data-page-section>
-    <div class="footer-inner">
-      <a class="brand footer-brand" href="#hero" aria-label="<%= t('marketing.common.back_home_label') %>">
-        <img class="brand-logo" src="/brand-assets/logo_dark.svg" alt="Kozmopath" width="170" height="32">
-      </a>
-      <nav aria-label="<%= t('marketing.common.footer_navigation') %>">
-        <a href="#how-it-works"><%= t('marketing.common.how_it_works') %></a>
-        <a href="#catalog-product-presentation"><%= t('marketing.common.product_flow') %></a>
-        <a href="#human-handoff"><%= t('marketing.common.human_handoff') %></a>
-        <a href="<%= login_url %>"><%= t('marketing.common.login') %></a>
-      </nav>
-    </div>
-  </footer>
+  <%= render 'marketing/footer', brand_href: '#hero', login_url: login_url -%>
 </main>
