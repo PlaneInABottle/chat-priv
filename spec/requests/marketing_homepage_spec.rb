@@ -48,9 +48,22 @@ RSpec.describe 'Kozmopath marketing homepage', type: :request do
       expect(document.at_css('meta[name="kozmopath-design-contract"]')['content']).to eq(MarketingController::DESIGN_CONTRACT_SHA)
     end
 
-    it 'preserves the controlled product proof and its disclosure' do
-      expect(document.text).to include('Siyah Bisiklet Yaka Sweatshirt')
-      expect(document.text).to include('Kontrollü demo verisi · gerçek müşteri kaydı değildir')
+    it 'uses the approved sneaker product proof without demo or protocol warnings' do
+      expect(document.text).to include('Gri Neon Detaylı Sneaker')
+      expect(document.text).not_to include('Kontrollü demo verisi')
+      expect(document.text).not_to include('Kontrollü ürün örneği')
+      expect(document.text).not_to include('Görsel + alanlar + sunum sınırı')
+      expect(document.text).not_to include('sweatshirt')
+      expect(document.css('.demo-disclosure, .anatomy-disclosure, .channel-boundary, .board-status, .site-footer p')).to be_empty
+    end
+
+    it 'uses the authorized sneaker asset for every product image' do
+      product_images = document.css('img[src*="pexels-"]')
+      expect(product_images.length).to eq(3)
+      expect(product_images.map { |image| image['src'] }.uniq).to eq(
+        ['/marketing/assets/pexels-2529148-gray-neon-sneakers.jpg']
+      )
+      expect(document.css('img[src*="pexels-6046230"]')).to be_empty
     end
 
     it 'uses the authoritative wordmarks and no-badge router thumbnail' do
@@ -65,7 +78,7 @@ RSpec.describe 'Kozmopath marketing homepage', type: :request do
       router = document.at_css('[data-signature-component="catalog-answer-router"]')
       dossier = document.at_css('[data-evidence-grammar="context-handoff-dossier"]')
 
-      expect(anatomy.css('.anatomy-media, .anatomy-fields, .presentation-modes, .anatomy-disclosure').length).to eq(4)
+      expect(anatomy.css('.anatomy-media, .anatomy-fields, .presentation-modes').length).to eq(3)
       expect(router.css('[data-route-node]').map { |node| node['data-route-node'] }).to eq(%w[source router rich inbox text])
       expect(dossier.css('[data-context]').map { |node| node['data-context'] }).to include(
         'conversation', 'reason', 'ownership', 'queue', 'status', 'continuity'
@@ -74,15 +87,47 @@ RSpec.describe 'Kozmopath marketing homepage', type: :request do
       expect(document.css('.control-flow li').length).to eq(4)
     end
 
-    it 'keeps rich catalog promises bounded to Web and WhatsApp' do
-      rich_output = document.at_css('[data-route-node="rich"]')
+    it 'renders business-owner anatomy rows without technical catalog schema' do
+      rows = document.css('.anatomy-fields dl > div')
+
+      expect(rows.map { |row| row.at_css('dt').text }).to eq(
+        %w[Ürün\ adı Stok\ durumu Fiyat Mağaza\ sayfası]
+      )
+      expect(rows.map { |row| row.at_css('dd').text }).to eq(
+        ['Gri Neon Detaylı Sneaker', 'Stokta', '1.249 TL', 'Görüntülenebilir']
+      )
+      expect(document.text).not_to include('product_id', 'image_url', 'product_url')
+      expect(document.text).not_to include('catalog_products', 'presentation')
+      expect(document.text).to include('Katalogdan 1 ürün bulundu')
+    end
+
+    it 'uses plain sequential numbering across flows and router kickers' do
+      expect(document.css('.flow-strip span').map(&:text)).to eq(%w[1 2 3 4])
+      expect(document.css('.reasoning-steps .reasoning-number').map(&:text)).to eq(%w[1 2 3])
+      expect(document.css('.process-grid .process-number').map(&:text)).to eq(%w[1 2 3 4])
+      expect(document.css('.control-flow li > span').map(&:text)).to eq(%w[1 2 3 4])
+      expect(document.css('.handoff-context-rail i').map(&:text)).to eq(%w[1 2 3 4])
+      expect(document.css('.router-source .router-kicker > span').text).to eq('1')
+      expect(document.css('.router-rich-output .router-kicker > span').text).to eq('3')
+      expect(document.text).not_to include('03A', '03B', '03C')
+      %w[1\ ·\ Katalog\ bağlamı 2\ ·\ Nasıl\ çalışır? 3\ ·\ Ürün\ sunumu 4\ ·\ Desteklenen\ kanallar 5\ ·\ İnsan\ devri 6\ ·\ Kontrol\ katmanı].each do |index|
+        expect(document.text).to include(index)
+      end
+    end
+
+    it 'keeps positive channel copy and the enlarged control-flow labels' do
       instagram = document.at_css('[data-route-node="inbox"][data-channel="instagram"]')
       api = document.at_css('[data-route-node="text"][data-channel="api"]')
+      rich = document.at_css('[data-route-node="rich"]')
 
-      expect(rich_output.css('[data-channel]').map { |node| node['data-channel'] }).to eq(%w[web-widget whatsapp])
-      expect(instagram.text).to include('burada zengin katalog kartı sözü yok')
-      expect(api.text).to include('Doğal metin; görsel ürün kartı gibi gösterilmez')
-      expect(document.at_css('.channel-boundary').text).to include('Zengin katalog sunumu Web sitesi ve WhatsApp ile sınırlıdır')
+      expect(instagram.text).to include('Mesajları bağlı gelen kutusunda al ve yanıtla.')
+      expect(instagram.text).not_to include('zengin katalog kartı sözü')
+      expect(api.text).to include('API üzerinden doğal metin yanıtları.')
+      expect(rich.text).to include('Ürün görseli ve seçenekler, görsel sunumu destekleyen kanallarda yer alır.')
+      expect(document.at_css('.channel-proof-note').text.squish).to include('Her kanal, kendi yeteneğine uygun biçimi kullanır.')
+      expect(document.css('.control-flow strong').map(&:text)).to eq(
+        %w[Soru Katalogda\ arama Doğrulama Yanıt\ ya\ da\ devir]
+      )
     end
 
     it 'renders the selected freemium hierarchy with exact production destinations' do
@@ -98,7 +143,7 @@ RSpec.describe 'Kozmopath marketing homepage', type: :request do
                                                                      'Ücretsiz hesabını oluştur'
                                                                    ])
       expect(document.at_css('.announcement').text.squish).to eq('✦ Her ay 100 yapay zekâ sohbeti.')
-      expect(document.at_css('.hero-freemium-truth').text.squish).to include('Ayda 600 yapay zekâ çalışma alanı kredisi.')
+      expect(document.at_css('.hero-freemium-truth').text.squish).to include('Ayda 600 yapay zekâ kredisi.')
       expect(document.at_css('.final-cta').text.squish).to include('Süresiz ücretsiz.')
       expect(document.css('a[href*="calendly"], a[href*="/demo"]')).to be_empty
     end
@@ -134,7 +179,7 @@ RSpec.describe 'Kozmopath marketing homepage', type: :request do
       canonical = 'https://www.kozmopath.com/'
       schema = JSON.parse(document.at_css('script[type="application/ld+json"]').text)
 
-      expect(document.at_css('title').text).to eq('Kozmopath — İkas mağazanı bilen müşteri iletişimi')
+      expect(document.at_css('title').text).to eq('Kozmopath — mağazanı bilen müşteri iletişimi')
       expect(document.at_css('meta[name="description"]')['content']).to include('ikas ürün kataloğunu')
       expect(document.at_css('meta[name="robots"]')['content']).to eq('index,follow,max-image-preview:large')
       expect(document.at_css('link[rel="canonical"]')['href']).to eq(canonical)

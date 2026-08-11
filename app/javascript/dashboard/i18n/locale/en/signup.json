@@ -5,43 +5,41 @@
     "FREEMIUM": {
       "EYEBROW": "FREE FOREVER PLAN",
       "MONTHLY_CONVERSATIONS": "100",
-      "REFERENCE": "FREEMIUM / 001",
       "TITLE": "Kozmopath for your own store.",
       "DESCRIPTION": "Your work email and password are enough to begin.",
       "CONVERSATION_HEADLINE": "100 AI conversations every month.",
-      "WORKSPACE_CREDITS": "600 monthly AI workspace credits.",
+      "WORKSPACE_CREDITS": "600 AI credits per month.",
       "SUBMIT": "Create your free account",
       "BACK_HOME": "Back to the Kozmopath homepage",
-      "PROOF_KICKER": "FROM ACCOUNT TO CUSTOMER QUESTION",
+      "PROOF_KICKER": "FROM ACCOUNT TO ANSWER",
       "PROOF_TITLE": "Connect your store. Put your catalog into conversation.",
-      "PROOF_DESCRIPTION": "Three clear steps connect account creation to Kozmopath's real product workflow.",
+      "PROOF_DESCRIPTION": "Three clear steps: create your account, connect your store, and answer customer questions with catalog info.",
       "SEQUENCE_LABEL": "Steps from account creation to catalog-context answers",
       "SEQUENCE": {
         "ACCOUNT": {
-          "NUMBER": "01",
+          "NUMBER": "1",
           "TITLE": "Create your account",
           "DETAIL": "Work email + password"
         },
         "STORE": {
-          "NUMBER": "02",
+          "NUMBER": "2",
           "TITLE": "Connect your ikas store",
-          "DETAIL": "Catalog source"
+          "DETAIL": "Catalog syncs automatically"
         },
         "ANSWER": {
-          "NUMBER": "03",
+          "NUMBER": "3",
           "TITLE": "Answer customer questions",
-          "DETAIL": "Product context + human handoff"
+          "DETAIL": "Answers with catalog info, hands off when needed"
         }
       },
-      "CONVERSATION_LABEL": "Controlled catalog conversation",
+      "CONVERSATION_LABEL": "Example catalog conversation",
       "CONTACT_NAME": "Ayşe Yılmaz",
       "CONTACT_INITIALS": "AY",
       "ASSISTANT_NAME": "Kozmopath",
-      "FIXTURE_DISCLOSURE": "Controlled demo data · not a real customer record",
-      "CUSTOMER_QUESTION": "Do you have a black sweatshirt?",
-      "ASSISTANT_ANSWER": "Yes, the black crew-neck sweatshirt is in stock.",
-      "PRODUCT_ALT": "A single black crew-neck sweatshirt on a hanger",
-      "PRODUCT_TITLE": "Black Crew-Neck Sweatshirt",
+      "CUSTOMER_QUESTION": "Is the gray sneaker with neon accents in stock?",
+      "ASSISTANT_ANSWER": "Yes, the gray sneaker with neon accents is in stock.",
+      "PRODUCT_ALT": "Two gray sneakers with neon accents floating on a light background",
+      "PRODUCT_TITLE": "Gray Sneaker with Neon Accents",
       "PRODUCT_SUMMARY": "In stock · Reference price: 1,249 TRY"
     },
     "TITLE": "Register",

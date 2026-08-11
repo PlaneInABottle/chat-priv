@@ -7,7 +7,7 @@ const store = useStore();
 const globalConfig = computed(() => store.getters['globalConfig/get']);
 const IKAS_WORDMARK_URL = '/marketing/assets/ikas-official-wordmark.svg';
 const CONTROLLED_PRODUCT_URL =
-  '/marketing/assets/pexels-6046230-black-sweater-crop.jpg';
+  '/marketing/assets/pexels-2529148-gray-neon-sneakers.jpg';
 </script>
 
 <template>
@@ -16,7 +16,7 @@ const CONTROLLED_PRODUCT_URL =
   >
     <section
       data-testid="signup-form-plane"
-      class="order-1 flex min-h-screen flex-col bg-[#fffdf7] px-5 pb-8 pt-7 sm:px-10 lg:px-[clamp(55px,6vw,104px)] lg:pb-9 lg:pt-10"
+      class="signup-form-plane order-1 flex min-h-screen flex-col bg-[#fffdf7] px-5 pb-8 pt-7 sm:px-10 lg:px-[clamp(55px,6vw,104px)] lg:pb-9 lg:pt-10"
       aria-labelledby="signup-title"
     >
       <router-link
@@ -34,9 +34,7 @@ const CONTROLLED_PRODUCT_URL =
       <div
         class="mx-auto mt-9 w-full max-w-[515px] lg:mt-[clamp(46px,7vh,72px)]"
       >
-        <p
-          class="mb-3 text-[11px] font-extrabold tracking-[0.13em] text-[#56645f]"
-        >
+        <p class="mb-3 text-xs font-extrabold tracking-[0.13em] text-[#56645f]">
           {{ $t('REGISTER.FREEMIUM.EYEBROW') }}
         </p>
         <h1
@@ -60,10 +58,10 @@ const CONTROLLED_PRODUCT_URL =
             {{ $t('REGISTER.FREEMIUM.MONTHLY_CONVERSATIONS') }}
           </span>
           <p class="m-0 grid gap-0.5">
-            <strong class="text-xs">{{
+            <strong class="text-sm">{{
               $t('REGISTER.FREEMIUM.CONVERSATION_HEADLINE')
             }}</strong>
-            <small class="text-[11px] leading-relaxed text-[#65726e]">{{
+            <small class="text-xs leading-relaxed text-[#65726e]">{{
               $t('REGISTER.FREEMIUM.WORKSPACE_CREDITS')
             }}</small>
           </p>
@@ -72,7 +70,7 @@ const CONTROLLED_PRODUCT_URL =
 
       <div class="mx-auto mt-6 w-full max-w-[515px]">
         <SignupForm />
-        <p class="mb-0 mt-4 text-center text-xs font-bold text-[#34443f]">
+        <p class="mb-0 mt-4 text-center text-sm font-bold text-[#34443f]">
           {{ $t('REGISTER.HAVE_AN_ACCOUNT') }}{{ ' ' }}
           <router-link
             class="rounded-sm underline decoration-[#6e8cff] underline-offset-4 hover:text-[#304ebd] focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#6e8cff]"
@@ -98,21 +96,8 @@ const CONTROLLED_PRODUCT_URL =
         class="absolute -bottom-60 -left-64 -z-10 size-[430px] rounded-full bg-[radial-gradient(circle,rgba(215,238,114,.38),transparent_68%)] blur-xl"
       />
 
-      <div class="flex items-center justify-between">
-        <img
-          :src="globalConfig.logoDark || globalConfig.logo"
-          :alt="globalConfig.installationName"
-          class="h-auto w-[170px]"
-        />
-        <span class="font-mono text-[9px] tracking-[0.14em] text-[#84938d]">
-          {{ $t('REGISTER.FREEMIUM.REFERENCE') }}
-        </span>
-      </div>
-
       <div class="mt-11 max-w-[520px] lg:mt-[clamp(45px,7vh,70px)]">
-        <p
-          class="mb-3 text-[10px] font-extrabold tracking-[0.13em] text-[#d7ee72]"
-        >
+        <p class="mb-3 text-xs font-extrabold tracking-[0.13em] text-[#d7ee72]">
           {{ $t('REGISTER.FREEMIUM.PROOF_KICKER') }}
         </p>
         <h2
@@ -121,9 +106,7 @@ const CONTROLLED_PRODUCT_URL =
         >
           {{ $t('REGISTER.FREEMIUM.PROOF_TITLE') }}
         </h2>
-        <p
-          class="mt-4 max-w-[480px] text-[13px] leading-relaxed text-[#b2c0ba]"
-        >
+        <p class="mt-4 max-w-[480px] text-sm leading-relaxed text-[#b2c0ba]">
           {{ $t('REGISTER.FREEMIUM.PROOF_DESCRIPTION') }}
         </p>
       </div>
@@ -137,15 +120,15 @@ const CONTROLLED_PRODUCT_URL =
           class="relative min-h-[72px] border-l border-[#d7ee72]/35 py-3 pl-9 sm:min-h-[82px] sm:border-l-0 sm:border-t sm:px-3.5 sm:pb-3 sm:pt-4"
         >
           <span
-            class="absolute left-2.5 top-2 text-[9px] text-[#7e8f88] sm:static"
+            class="absolute left-2.5 top-2 text-xs text-[#7e8f88] sm:static"
           >
             {{ $t('REGISTER.FREEMIUM.SEQUENCE.ACCOUNT.NUMBER') }}
           </span>
           <div class="mt-1.5 grid gap-0.5 sm:mt-2">
-            <strong class="text-[11px]">{{
+            <strong class="text-sm">{{
               $t('REGISTER.FREEMIUM.SEQUENCE.ACCOUNT.TITLE')
             }}</strong>
-            <small class="text-[9px] text-[#8fa098]">{{
+            <small class="text-xs text-[#8fa098]">{{
               $t('REGISTER.FREEMIUM.SEQUENCE.ACCOUNT.DETAIL')
             }}</small>
           </div>
@@ -155,15 +138,15 @@ const CONTROLLED_PRODUCT_URL =
           class="relative min-h-[72px] border-l border-[#d7ee72]/35 py-3 pl-9 sm:min-h-[82px] sm:border-l-0 sm:border-t sm:px-3.5 sm:pb-3 sm:pt-4"
         >
           <span
-            class="absolute left-2.5 top-2 text-[9px] text-[#7e8f88] sm:static"
+            class="absolute left-2.5 top-2 text-xs text-[#7e8f88] sm:static"
           >
             {{ $t('REGISTER.FREEMIUM.SEQUENCE.STORE.NUMBER') }}
           </span>
           <div class="mt-1.5 grid gap-0.5 sm:mt-2">
-            <strong class="text-[11px]">{{
+            <strong class="text-sm">{{
               $t('REGISTER.FREEMIUM.SEQUENCE.STORE.TITLE')
             }}</strong>
-            <small class="text-[9px] text-[#8fa098]">{{
+            <small class="text-xs text-[#8fa098]">{{
               $t('REGISTER.FREEMIUM.SEQUENCE.STORE.DETAIL')
             }}</small>
           </div>
@@ -173,15 +156,15 @@ const CONTROLLED_PRODUCT_URL =
           class="relative min-h-[72px] border-l border-[#d7ee72]/35 py-3 pl-9 sm:min-h-[82px] sm:border-l-0 sm:border-t sm:px-3.5 sm:pb-3 sm:pt-4"
         >
           <span
-            class="absolute left-2.5 top-2 text-[9px] text-[#7e8f88] sm:static"
+            class="absolute left-2.5 top-2 text-xs text-[#7e8f88] sm:static"
           >
             {{ $t('REGISTER.FREEMIUM.SEQUENCE.ANSWER.NUMBER') }}
           </span>
           <div class="mt-1.5 grid gap-0.5 sm:mt-2">
-            <strong class="text-[11px]">{{
+            <strong class="text-sm">{{
               $t('REGISTER.FREEMIUM.SEQUENCE.ANSWER.TITLE')
             }}</strong>
-            <small class="text-[9px] text-[#8fa098]">{{
+            <small class="text-xs text-[#8fa098]">{{
               $t('REGISTER.FREEMIUM.SEQUENCE.ANSWER.DETAIL')
             }}</small>
           </div>
@@ -196,21 +179,16 @@ const CONTROLLED_PRODUCT_URL =
           class="grid min-h-12 grid-cols-[30px_1fr_auto] items-center gap-2 border-b border-[#10211f]/10 px-3"
         >
           <span
-            class="grid size-[30px] place-items-center rounded-full bg-[#dfe4ff] text-[9px] font-extrabold"
+            class="grid size-[30px] place-items-center rounded-full bg-[#dfe4ff] text-xs font-extrabold"
           >
             {{ $t('REGISTER.FREEMIUM.CONTACT_INITIALS') }}
           </span>
-          <strong class="text-[11px]">{{
+          <strong class="text-sm">{{
             $t('REGISTER.FREEMIUM.CONTACT_NAME')
           }}</strong>
           <img :src="IKAS_WORDMARK_URL" alt="ikas" class="h-auto w-[70px]" />
         </div>
-        <p
-          class="m-0 border-b border-[#10211f]/10 bg-[#f0ede4] px-3 py-2 text-[8px] text-[#596762]"
-        >
-          {{ $t('REGISTER.FREEMIUM.FIXTURE_DISCLOSURE') }}
-        </p>
-        <div class="grid gap-1.5 px-3 pb-1 pt-3 text-[10px] leading-snug">
+        <div class="grid gap-1.5 px-3 pb-1 pt-3 text-sm leading-relaxed">
           <p
             class="m-0 w-max max-w-[82%] justify-self-end rounded-[10px] bg-[#dfe4ff] px-2.5 py-2"
           >
@@ -219,7 +197,7 @@ const CONTROLLED_PRODUCT_URL =
           <p
             class="m-0 grid w-max max-w-[82%] gap-0.5 rounded-[10px] border border-[#10211f]/10 bg-white px-2.5 py-2"
           >
-            <strong class="text-[8px] uppercase tracking-[0.06em]">
+            <strong class="text-xs uppercase tracking-[0.06em]">
               {{ $t('REGISTER.FREEMIUM.ASSISTANT_NAME') }}
             </strong>
             {{ $t('REGISTER.FREEMIUM.ASSISTANT_ANSWER') }}
@@ -235,10 +213,10 @@ const CONTROLLED_PRODUCT_URL =
             class="size-[68px] rounded-[10px] object-cover"
           />
           <div class="grid gap-1">
-            <strong class="text-xs">{{
+            <strong class="text-sm">{{
               $t('REGISTER.FREEMIUM.PRODUCT_TITLE')
             }}</strong>
-            <span class="text-[9px] text-[#65726e]">{{
+            <span class="text-xs text-[#65726e]">{{
               $t('REGISTER.FREEMIUM.PRODUCT_SUMMARY')
             }}</span>
           </div>
@@ -247,3 +225,25 @@ const CONTROLLED_PRODUCT_URL =
     </aside>
   </main>
 </template>
+
+<style scoped>
+/* The signup form plane is an intentionally fixed-light surface (cream #fffdf7).
+   When the OS/browser root theme is dark, the shared next-color tokens flip
+   (e.g. --slate-12 becomes near-white) and labels/inputs would drop to ~1.14:1
+   contrast on this plane. Pin the verified light-token values locally so labels,
+   inputs, placeholders and error text keep their design-system light contrast
+   regardless of the root `.dark` theme. */
+.signup-form-plane {
+  --slate-6: 217 217 224;
+  --slate-9: 139 141 152;
+  --slate-10: 104 108 118;
+  --slate-11: 74 79 88;
+  --slate-12: 28 32 36;
+  --teal-10: 13 155 138;
+  --ruby-9: 229 70 102;
+  --ruby-12: 100 23 43;
+  --alpha-2: 196, 197, 198, 0.22;
+  --black-alpha-2: 0, 0, 0, 0.04;
+  --border-weak: 234 234 234;
+}
+</style>

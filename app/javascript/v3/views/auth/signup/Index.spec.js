@@ -41,9 +41,12 @@ describe('Signup Index', () => {
       'REGISTER.FREEMIUM.CONVERSATION_HEADLINE'
     );
     expect(proofPlane.text()).toContain('REGISTER.FREEMIUM.PROOF_TITLE');
+    expect(proofPlane.text()).not.toContain('REGISTER.FREEMIUM.REFERENCE');
     expect(
       proofPlane.findAll('[data-testid="freemium-sequence-step"]')
     ).toHaveLength(3);
+    expect(wrapper.findAll('img[alt="Kozmopath"]')).toHaveLength(1);
+    expect(proofPlane.findAll('img[alt="Kozmopath"]')).toHaveLength(0);
     expect(proofPlane.get('img[alt="ikas"]').attributes('src')).toBe(
       '/marketing/assets/ikas-official-wordmark.svg'
     );
@@ -51,8 +54,11 @@ describe('Signup Index', () => {
       proofPlane
         .get('[data-testid="controlled-product-image"]')
         .attributes('src')
-    ).toBe('/marketing/assets/pexels-6046230-black-sweater-crop.jpg');
+    ).toBe('/marketing/assets/pexels-2529148-gray-neon-sneakers.jpg');
     expect(wrapper.text()).not.toContain('prototype');
+    expect(proofPlane.text()).not.toContain(
+      'REGISTER.FREEMIUM.FIXTURE_DISCLOSURE'
+    );
   });
 
   it('keeps the exact freemium English source strings without trial claims', () => {
@@ -60,7 +66,7 @@ describe('Signup Index', () => {
       '100 AI conversations every month.'
     );
     expect(enSignup.REGISTER.FREEMIUM.WORKSPACE_CREDITS).toBe(
-      '600 monthly AI workspace credits.'
+      '600 AI credits per month.'
     );
     expect(JSON.stringify(enSignup.REGISTER.FREEMIUM)).not.toMatch(
       /trial|deneme|14 gün/

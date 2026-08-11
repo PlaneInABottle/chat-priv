@@ -1,6 +1,6 @@
 class MarketingController < PublicController
   CANONICAL_URL = 'https://www.kozmopath.com/'.freeze
-  DESIGN_CONTRACT_SHA = '8d490e9d64145fe3ce6b3cf67fa1ce541b83bb89896aadd1d7c1c7a061157d39'.freeze
+  DESIGN_CONTRACT_SHA = 'c0c36335a540890f398243534c64b1ca0c9202a2322c1dab28e83f2879904e58'.freeze
 
   layout 'marketing'
   around_action :use_turkish_locale

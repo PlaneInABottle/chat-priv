@@ -5,48 +5,46 @@
     "FREEMIUM": {
       "EYEBROW": "SÜRESİZ ÜCRETSİZ PLAN",
       "MONTHLY_CONVERSATIONS": "100",
-      "REFERENCE": "FREEMIUM / 001",
       "TITLE": "Kozmopath kendi mağazan için.",
       "DESCRIPTION": "İş e-postan ve şifren başlangıç için yeterli.",
       "CONVERSATION_HEADLINE": "Her ay 100 yapay zekâ sohbeti.",
-      "WORKSPACE_CREDITS": "Ayda 600 yapay zekâ çalışma alanı kredisi.",
+      "WORKSPACE_CREDITS": "Ayda 600 yapay zekâ kredisi.",
       "SUBMIT": "Ücretsiz hesabını oluştur",
       "BACK_HOME": "Kozmopath ana sayfasına dön",
-      "PROOF_KICKER": "HESAPTAN MÜŞTERİ SORUSUNA",
+      "PROOF_KICKER": "HESAPTAN YANITA",
       "PROOF_TITLE": "Mağazanı bağla. Kataloğunu konuştur.",
-      "PROOF_DESCRIPTION": "Hesap oluşturmayı Kozmopath’ın gerçek ürün akışına bağlayan üç net adım.",
+      "PROOF_DESCRIPTION": "Üç net adım: hesabını aç, mağazanı bağla, müşteri sorularını katalog bilgisiyle yanıtla.",
       "SEQUENCE_LABEL": "Hesap oluşturmadan katalog bağlamlı yanıta uzanan adımlar",
       "SEQUENCE": {
         "ACCOUNT": {
-          "NUMBER": "01",
+          "NUMBER": "1",
           "TITLE": "Hesabını oluştur",
-          "DETAIL": "İş e-postası + şifre"
+          "DETAIL": "İş e-postası + parola"
         },
         "STORE": {
-          "NUMBER": "02",
+          "NUMBER": "2",
           "TITLE": "İkas mağazanı bağla",
-          "DETAIL": "Katalog kaynağı"
+          "DETAIL": "Katalog otomatik senkronize olur"
         },
         "ANSWER": {
-          "NUMBER": "03",
+          "NUMBER": "3",
           "TITLE": "Müşteri sorularını yanıtla",
-          "DETAIL": "Ürün bağlamı + insan devri"
+          "DETAIL": "Katalog bilgisiyle yanıtlar, gerektiğinde devreder"
         }
       },
-      "CONVERSATION_LABEL": "Kontrollü katalog konuşması",
+      "CONVERSATION_LABEL": "Katalog konuşması örneği",
       "CONTACT_NAME": "Ayşe Yılmaz",
       "CONTACT_INITIALS": "AY",
       "ASSISTANT_NAME": "Kozmopath",
-      "FIXTURE_DISCLOSURE": "Kontrollü demo verisi · gerçek müşteri kaydı değildir",
-      "CUSTOMER_QUESTION": "Siyah sweatshirt var mı?",
-      "ASSISTANT_ANSWER": "Evet, siyah bisiklet yaka sweatshirt stokta.",
-      "PRODUCT_ALT": "Askıda tek başına siyah bisiklet yaka sweatshirt",
-      "PRODUCT_TITLE": "Siyah Bisiklet Yaka Sweatshirt",
+      "CUSTOMER_QUESTION": "Gri neon detaylı sneaker stokta mı?",
+      "ASSISTANT_ANSWER": "Evet, gri neon detaylı sneaker stokta.",
+      "PRODUCT_ALT": "Açık zeminde havada duran gri ve neon detaylı iki sneaker",
+      "PRODUCT_TITLE": "Gri Neon Detaylı Sneaker",
       "PRODUCT_SUMMARY": "Stokta · Referans fiyat: 1.249 TL"
     },
     "TITLE": "Kayıt ol",
-    "TESTIMONIAL_HEADER": "İlerlemek için tek bir adım atmanız yeterlidir",
-    "TESTIMONIAL_CONTENT": "Müşterilerinizle etkileşimde bulunmaktan, onları elde tutmaktan ve yeni müşteriler bulmaktan sadece bir adım uzaktasınız.",
+    "TESTIMONIAL_HEADER": "İlerlemek için tek bir adım atman yeterli",
+    "TESTIMONIAL_CONTENT": "Müşterilerinle etkileşime geçmek, onları elde tutmak ve yenilerini bulmak için yalnızca bir adım uzaktasın.",
     "TERMS_ACCEPT": "Bir hesap oluşturarak <a href=\"https://www.kozmopath.com/terms-of-service\">Kullanım Koşullarını</a> ve <a href=\"https://www.kozmopath.com/privacy-policy\">Gizlilik Politikasını</a> kabul etmiş olursun.",
     "OAUTH": {
       "GOOGLE_SIGNUP": "Google ile kaydol"
@@ -63,14 +61,14 @@
     },
     "EMAIL": {
       "LABEL": "İş e-postası",
-      "PLACEHOLDER": "İş e-posta adresini gir. Örn. mağaza adresin",
+      "PLACEHOLDER": "Örn. destek@magazan.com",
       "ERROR": "Lütfen geçerli bir iş e-posta adresi gir."
     },
     "PASSWORD": {
       "LABEL": "Parola",
       "PLACEHOLDER": "Parola",
       "ERROR": "Parola çok kısa.",
-      "IS_INVALID_PASSWORD": "Şifre en az 1 büyük harf, 1 küçük harf, 1 rakam ve 1 özel karakter içermelidir.",
+      "IS_INVALID_PASSWORD": "Parola en az 1 büyük harf, 1 küçük harf, 1 rakam ve 1 özel karakter içermelidir.",
       "REQUIREMENTS_LENGTH": "En az 6 karakter uzunluğunda olmalı",
       "REQUIREMENTS_UPPERCASE": "En az bir büyük harf içermeli",
       "REQUIREMENTS_LOWERCASE": "En az bir küçük harf içermeli",
@@ -80,7 +78,7 @@
     "CONFIRM_PASSWORD": {
       "LABEL": "Parolayı onayla",
       "PLACEHOLDER": "Parolayı onayla",
-      "ERROR": "Parola eşleşmiyor."
+      "ERROR": "Parolalar eşleşmiyor."
     },
     "API": {
       "SUCCESS_MESSAGE": "Başarıyla Kayıt Olundu",

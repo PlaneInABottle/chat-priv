@@ -1,0 +1,42 @@
+{
+  "source": "pexels",
+  "type": "photo",
+  "id": 2529148,
+  "url": "https://www.pexels.com/photo/photo-of-sneakers-on-white-background-2529148/",
+  "download_url": "https://images.pexels.com/photos/2529148/pexels-photo-2529148.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+  "downloaded_size": "large2x",
+  "width": 6520,
+  "height": 8150,
+  "photographer": "Melvin Buezo",
+  "photographer_url": "https://www.pexels.com/@melvin-buezo-1253763",
+  "photographer_id": 1253763,
+  "avg_color": "#CFD2D6",
+  "alt": "Floating modern sneakers showcasing trendy design and vibrant colors.",
+  "license_url": "https://www.pexels.com/license/",
+  "license_checked_at": "2026-08-11T21:25:07Z",
+  "attribution": "Photo by Melvin Buezo on Pexels",
+  "attribution_html": "<a href=\"https://www.pexels.com/photo/photo-of-sneakers-on-white-background-2529148/\">Photo</a> by <a href=\"https://www.pexels.com/@melvin-buezo-1253763\">Melvin Buezo</a> on <a href=\"https://www.pexels.com\">Pexels</a>",
+  "downloaded_at": "2026-08-11T21:25:07Z",
+  "api_response": {
+    "id": 2529148,
+    "width": 6520,
+    "height": 8150,
+    "url": "https://www.pexels.com/photo/photo-of-sneakers-on-white-background-2529148/",
+    "photographer": "Melvin Buezo",
+    "photographer_url": "https://www.pexels.com/@melvin-buezo-1253763",
+    "photographer_id": 1253763,
+    "avg_color": "#CFD2D6",
+    "src": {
+      "original": "https://images.pexels.com/photos/2529148/pexels-photo-2529148.jpeg",
+      "large2x": "https://images.pexels.com/photos/2529148/pexels-photo-2529148.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "large": "https://images.pexels.com/photos/2529148/pexels-photo-2529148.jpeg?auto=compress&cs=tinysrgb&h=650&w=940",
+      "medium": "https://images.pexels.com/photos/2529148/pexels-photo-2529148.jpeg?auto=compress&cs=tinysrgb&h=350",
+      "small": "https://images.pexels.com/photos/2529148/pexels-photo-2529148.jpeg?auto=compress&cs=tinysrgb&h=130",
+      "portrait": "https://images.pexels.com/photos/2529148/pexels-photo-2529148.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=1200&w=800",
+      "landscape": "https://images.pexels.com/photos/2529148/pexels-photo-2529148.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200",
+      "tiny": "https://images.pexels.com/photos/2529148/pexels-photo-2529148.jpeg?auto=compress&cs=tinysrgb&dpr=1&fit=crop&h=200&w=280"
+    },
+    "liked": false,
+    "alt": "Floating modern sneakers showcasing trendy design and vibrant colors."
+  }
+}

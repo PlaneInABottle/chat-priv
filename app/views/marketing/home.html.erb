@@ -78,7 +78,6 @@
           <span class="connection-state"><i aria-hidden="true"></i> <%= t('marketing.common.connected') %></span>
         </span>
       </div>
-      <p class="demo-disclosure"><%= t('marketing.demo.disclosure') %></p>
       <div class="conversation">
         <div class="message customer" data-message-role="user">
           <span class="message-author"><%= t('marketing.common.customer') %></span>
@@ -92,7 +91,7 @@
           <div class="presentation-head"><strong><%= t('marketing.common.catalog_products') %></strong><span><%= t('marketing.common.one_product') %></span></div>
           <article class="catalog-product-card">
             <div class="product-thumb">
-              <img src="/marketing/assets/pexels-6046230-black-sweater-crop.jpg" alt="<%= t('marketing.product.thumbnail_alt') %>" width="54" height="54" loading="eager">
+              <img src="/marketing/assets/pexels-2529148-gray-neon-sneakers.jpg" alt="<%= t('marketing.product.thumbnail_alt') %>" width="54" height="54" loading="eager">
             </div>
             <div class="product-meta">
               <strong class="product-title"><%= t('marketing.product.title') %></strong>
@@ -107,10 +106,10 @@
     </div>
 
     <div class="flow-strip" aria-label="<%= t('marketing.hero.flow_label') %>">
-      <article><span>01</span><strong><%= t('marketing.hero.flow.connect') %></strong></article>
-      <article><span>02</span><strong><%= t('marketing.hero.flow.sync') %></strong></article>
-      <article><span>03</span><strong><%= t('marketing.hero.flow.answer') %></strong></article>
-      <article><span>04</span><strong><%= t('marketing.hero.flow.handoff') %></strong></article>
+      <article><span>1</span><strong><%= t('marketing.hero.flow.connect') %></strong></article>
+      <article><span>2</span><strong><%= t('marketing.hero.flow.sync') %></strong></article>
+      <article><span>3</span><strong><%= t('marketing.hero.flow.answer') %></strong></article>
+      <article><span>4</span><strong><%= t('marketing.hero.flow.handoff') %></strong></article>
     </div>
   </section>
 
@@ -127,22 +126,20 @@
         <div class="board-toolbar">
           <span class="board-dots" aria-hidden="true"><i></i><i></i><i></i></span>
           <span><%= t('marketing.reasoning.board_title') %></span>
-          <span class="board-status"><i aria-hidden="true"></i> <%= t('marketing.common.demo') %></span>
         </div>
-        <p class="demo-disclosure"><%= t('marketing.demo.disclosure') %></p>
         <ol class="reasoning-steps">
           <li>
-            <span class="reasoning-number">01</span>
+            <span class="reasoning-number">1</span>
             <div><small><%= t('marketing.reasoning.intent_label') %></small><strong><%= t('marketing.reasoning.intent') %></strong></div>
             <span class="reasoning-state"><%= t('marketing.reasoning.natural_language') %></span>
           </li>
           <li>
-            <span class="reasoning-number">02</span>
-            <div><small><%= t('marketing.reasoning.search_label') %></small><strong><%= t('marketing.reasoning.search') %></strong><span class="query-tags"><i><%= t('marketing.product.black') %></i><i><%= t('marketing.product.crew_neck') %></i><i><%= t('marketing.product.in_stock') %></i></span></div>
+            <span class="reasoning-number">2</span>
+            <div><small><%= t('marketing.reasoning.search_label') %></small><strong><%= t('marketing.reasoning.search') %></strong><span class="query-tags"><i><%= t('marketing.product.gray') %></i><i><%= t('marketing.product.casual') %></i><i><%= t('marketing.product.in_stock') %></i></span></div>
             <span class="reasoning-state"><%= t('marketing.reasoning.structured') %></span>
           </li>
           <li class="reasoning-answer">
-            <span class="reasoning-number">03</span>
+            <span class="reasoning-number">3</span>
             <div><small><%= t('marketing.reasoning.answer_label') %></small><strong><%= t('marketing.reasoning.answer') %></strong></div>
             <span class="reasoning-state"><%= t('marketing.reasoning.conversation_ready') %></span>
           </li>
@@ -162,7 +159,7 @@
       <ol class="process-grid">
         <% %w[connect sync answer handoff].each_with_index do |step, index| %>
           <li>
-            <span class="process-number"><%= format('%02d', index + 1) %></span>
+            <span class="process-number"><%= index + 1 %></span>
             <div class="process-icon" aria-hidden="true"><%= %w[↗ ↻ ✦ ↳][index] %></div>
             <h3><%= t("marketing.process.steps.#{step}.title") %></h3>
             <p><%= t("marketing.process.steps.#{step}.description") %></p>
@@ -185,36 +182,30 @@
 
       <div class="catalog-anatomy-sheet" data-evidence-grammar="catalog-anatomy-sheet" aria-label="<%= t('marketing.catalog.anatomy.label') %>">
         <figure class="anatomy-media">
-          <img src="/marketing/assets/pexels-6046230-black-sweater-crop.jpg" alt="<%= t('marketing.product.thumbnail_alt') %>" width="500" height="500" loading="eager">
+          <img src="/marketing/assets/pexels-2529148-gray-neon-sneakers.jpg" alt="<%= t('marketing.product.thumbnail_alt') %>" width="500" height="500" loading="eager">
           <figcaption><span><i aria-hidden="true"></i> <%= t('marketing.product.in_stock') %></span><small><%= t('marketing.catalog.anatomy.controlled_product') %></small></figcaption>
         </figure>
 
         <div class="anatomy-fields">
-          <div class="anatomy-kicker"><span>catalog_products</span><strong><%= t('marketing.catalog.anatomy.fields_kicker') %></strong></div>
+          <div class="anatomy-kicker"><span><%= t('marketing.catalog.anatomy.fields_kicker_term') %></span><strong><%= t('marketing.catalog.anatomy.fields_kicker') %></strong></div>
           <h3><%= t('marketing.product.title') %></h3>
-          <p><%= t('marketing.product.black') %> · <%= t('marketing.product.reference_price') %></p>
+          <p><%= t('marketing.product.gray') %> · <%= t('marketing.catalog.anatomy.fields.price_value') %></p>
           <dl>
-            <div><dt>product_id</dt><dd><%= t('marketing.catalog.anatomy.fields.product_id') %></dd></div>
-            <div><dt>image_url</dt><dd><%= t('marketing.catalog.anatomy.fields.image_url') %></dd></div>
-            <div><dt>price</dt><dd><%= t('marketing.catalog.anatomy.fields.price') %></dd></div>
-            <div><dt>product_url</dt><dd><%= t('marketing.catalog.anatomy.fields.product_url') %></dd></div>
+            <div><dt><%= t('marketing.catalog.anatomy.fields.name_label') %></dt><dd><%= t('marketing.product.title') %></dd></div>
+            <div><dt><%= t('marketing.catalog.anatomy.fields.stock_label') %></dt><dd><%= t('marketing.product.in_stock') %></dd></div>
+            <div><dt><%= t('marketing.catalog.anatomy.fields.price_label') %></dt><dd><%= t('marketing.catalog.anatomy.fields.price_value') %></dd></div>
+            <div><dt><%= t('marketing.catalog.anatomy.fields.page_label') %></dt><dd><%= t('marketing.catalog.anatomy.fields.page_value') %></dd></div>
           </dl>
           <span class="anatomy-result"><i aria-hidden="true"></i> <%= t('marketing.catalog.anatomy.result') %></span>
         </div>
 
         <div class="presentation-modes" aria-label="<%= t('marketing.catalog.capability_label') %>">
-          <div class="anatomy-kicker"><span>presentation</span><strong><%= t('marketing.catalog.anatomy.presentation_kicker') %></strong></div>
+          <div class="anatomy-kicker"><span><%= t('marketing.catalog.anatomy.presentation_kicker_term') %></span><strong><%= t('marketing.catalog.anatomy.presentation_kicker') %></strong></div>
           <ol>
             <li><span>1–3</span><div><strong><%= t('marketing.catalog.anatomy.modes.products.title') %></strong><small><%= t('marketing.catalog.anatomy.modes.products.detail') %></small></div></li>
             <li><span>≤3</span><div><strong><%= t('marketing.catalog.anatomy.modes.images.title') %></strong><small><%= t('marketing.catalog.anatomy.modes.images.detail') %></small></div></li>
             <li><span>→</span><div><strong><%= t('marketing.catalog.anatomy.modes.continue.title') %></strong><small><%= t('marketing.catalog.anatomy.modes.continue.detail') %></small></div></li>
           </ol>
-          <p><%= t('marketing.catalog.anatomy.presentation_boundary') %></p>
-        </div>
-
-        <div class="anatomy-disclosure">
-          <span><%= t('marketing.demo.disclosure') %></span>
-          <strong><%= t('marketing.catalog.anatomy.disclosure_summary') %></strong>
         </div>
       </div>
     </div>
@@ -239,12 +230,12 @@
         </div>
         <div class="catalog-answer-router" data-signature-component="catalog-answer-router" aria-label="<%= t('marketing.channels.router.label') %>">
           <article class="router-source" data-route-node="source">
-            <div class="router-kicker"><span aria-hidden="true">01</span><strong><%= t('marketing.channels.router.source_title') %></strong></div>
+            <div class="router-kicker"><span aria-hidden="true">1</span><strong><%= t('marketing.channels.router.source_title') %></strong></div>
             <div class="router-product">
-              <img src="/marketing/assets/pexels-6046230-black-sweater-crop.jpg" alt="<%= t('marketing.product.thumbnail_alt') %>" width="120" height="120" loading="eager">
+              <img src="/marketing/assets/pexels-2529148-gray-neon-sneakers.jpg" alt="<%= t('marketing.product.thumbnail_alt') %>" width="120" height="120" loading="eager">
               <div><span><%= t('marketing.product.in_stock') %></span><strong><%= t('marketing.product.title') %></strong><small><%= t('marketing.channels.router.source_fields') %></small></div>
             </div>
-            <div class="router-fields"><span>product_id</span><span>image_url</span><span>price</span></div>
+            <div class="router-fields"><span><%= t('marketing.channels.router.fields.name') %></span><span><%= t('marketing.channels.router.fields.stock') %></span><span><%= t('marketing.channels.router.fields.price') %></span><span><%= t('marketing.channels.router.fields.page') %></span></div>
           </article>
 
           <div class="router-core" data-route-node="router">
@@ -259,7 +250,7 @@
           </div>
 
           <section class="router-rich-output" data-route-node="rich" aria-labelledby="rich-output-title">
-            <div class="router-kicker"><span aria-hidden="true">03A</span><strong id="rich-output-title"><%= t('marketing.channels.router.rich_title') %></strong></div>
+            <div class="router-kicker"><span aria-hidden="true">3</span><strong id="rich-output-title"><%= t('marketing.channels.router.rich_title') %></strong></div>
             <p><%= t('marketing.channels.router.rich_description') %></p>
             <div class="rich-channel-track">
               <span data-channel="web-widget"><i aria-hidden="true">W</i><strong><%= t('marketing.common.web_site') %></strong><small><%= t('marketing.channels.router.rich_detail') %></small></span>
@@ -281,7 +272,6 @@
           </article>
         </div>
       </div>
-      <p class="channel-boundary"><span aria-hidden="true">i</span> <%= t('marketing.channels.boundary') %></p>
     </div>
   </section>
 
@@ -301,10 +291,10 @@
         </div>
 
         <div class="handoff-context-rail" aria-label="<%= t('marketing.handoff.context_label') %>">
-          <span data-context="conversation"><i>01</i><strong><%= t('marketing.handoff.context.conversation') %></strong></span>
-          <span data-context="reason"><i>02</i><strong><%= t('marketing.handoff.context.reason') %></strong></span>
-          <span data-context="ownership"><i>03</i><strong><%= t('marketing.handoff.context.ownership') %></strong></span>
-          <span data-context="queue"><i>04</i><strong><%= t('marketing.handoff.context.queue') %></strong></span>
+          <span data-context="conversation"><i>1</i><strong><%= t('marketing.handoff.context.conversation') %></strong></span>
+          <span data-context="reason"><i>2</i><strong><%= t('marketing.handoff.context.reason') %></strong></span>
+          <span data-context="ownership"><i>3</i><strong><%= t('marketing.handoff.context.ownership') %></strong></span>
+          <span data-context="queue"><i>4</i><strong><%= t('marketing.handoff.context.queue') %></strong></span>
         </div>
 
         <div class="handoff-visual" data-context="status">
@@ -316,7 +306,6 @@
               </span>
               <span class="open-state"><i aria-hidden="true"></i> <%= t('marketing.handoff.open_state') %></span>
             </div>
-            <p class="demo-disclosure"><%= t('marketing.demo.disclosure') %></p>
             <div class="handoff-timeline">
               <div class="timeline-message">
                 <small>Kozmopath</small>
@@ -357,7 +346,7 @@
         </div>
         <ol class="control-flow" aria-label="<%= t('marketing.controls.console.flow_label') %>">
           <% %w[question catalog_search verification response].each_with_index do |step, index| %>
-            <li><span><%= format('%02d', index + 1) %></span><strong><%= t("marketing.controls.console.steps.#{step}") %></strong></li>
+            <li><span><%= index + 1 %></span><strong><%= t("marketing.controls.console.steps.#{step}") %></strong></li>
           <% end %>
         </ol>
         <div class="control-grid">
@@ -408,7 +397,6 @@
         <a href="#human-handoff"><%= t('marketing.common.human_handoff') %></a>
         <a href="<%= login_url %>"><%= t('marketing.common.login') %></a>
       </nav>
-      <p><%= t('marketing.footer.note') %></p>
     </div>
   </footer>
 </main>

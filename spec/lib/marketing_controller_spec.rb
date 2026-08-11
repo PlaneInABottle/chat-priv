@@ -2,8 +2,8 @@ require 'rails_helper'
 
 RSpec.describe MarketingController do
   contract_files = {
-    'public/marketing/assets/pexels-6046230-black-sweater-crop.jpg' =>
-      '24bd0bd3e4a67f22e3ab1a7baefea24076e9846986f0bc1da545e0aac47d9fe0',
+    'public/marketing/assets/pexels-2529148-gray-neon-sneakers.jpg' =>
+      '0056824a2f5c095110a822f2a1f4aaad0a37ac647f5c6603e2768b515cf0b58c',
     'public/marketing/assets/ikas-official-wordmark.svg' =>
       '791cfbaa104fe90a9d11f57f8c7872be9b41fafd1a9a9aad0592e64fa2206ffc',
     'public/brand-assets/logo.svg' => '3542ae59bc8a922d7d51a31304d38e6bc360864ab7d8bdcf29a8d3ca7443d3af',
@@ -44,7 +44,6 @@ RSpec.describe MarketingController do
     stylesheet = Rails.root.join('app/javascript/entrypoints/marketing.scss').read
     contrast_pairs = [
       ['.contact-copy small', '#fffdf7'],
-      ['.demo-disclosure', '#f1eee6'],
       ['.flow-strip span', '#fffdf7'],
       ['.section-index', '#f6cdbf'],
       ['.section-copy > p:not(.section-index)', '#f6cdbf'],
@@ -58,7 +57,6 @@ RSpec.describe MarketingController do
       ['.router-core li', '#10211f'],
       ['.router-rich-output > p', '#fffdf7'],
       ['.router-compact-output p', '#fffdf7'],
-      ['.channel-boundary', '#dfe4ff'],
       ['.handoff-event small', '#f4f2eb'],
       ['.handoff-composer', '#fffdf7'],
       ['.dossier-continuity p', '#f6cdbf'],
@@ -146,7 +144,7 @@ RSpec.describe MarketingController do
 
   it 'keeps the exact freemium English source strings' do
     expect(I18n.t('marketing.freemium.announcement', locale: :en)).to eq('100 AI conversations every month.')
-    expect(I18n.t('marketing.freemium.start_note', locale: :en)).to eq('600 monthly AI workspace credits.')
+    expect(I18n.t('marketing.freemium.start_note', locale: :en)).to eq('600 AI credits per month.')
   end
 
   it 'declares crawler boundaries and the canonical sitemap' do
