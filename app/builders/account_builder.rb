@@ -3,7 +3,7 @@
 class AccountBuilder
   include CustomExceptions::Account
   pattr_initialize [:account_name, :email!, :confirmed, :user, :user_full_name, :user_password, :super_admin,
-                    :locale, { apply_freemium_limits: false }]
+                    :locale, :ensure_valid, { apply_freemium_limits: false }]
 
   def perform
     if @user.nil?
@@ -92,7 +92,12 @@ class AccountBuilder
                      password_confirmation: user_password,
                      name: user_full_name)
     @user.type = 'SuperAdmin' if @super_admin
-    @user.confirm if @confirmed
+    # ensure_valid: true makes Devise validate the user before persisting the
+    # confirmed record; without it, confirm saves with `validate: false` and
+    # would skip create-time validations on the follow-up save!. Public signup
+    # call sites pass ensure_valid: true; legacy callers (OAuth, onboarding)
+    # keep the previous behavior by leaving it unset.
+    @user.confirm(ensure_valid: @ensure_valid) if @confirmed
     @user.save!
   end
 end

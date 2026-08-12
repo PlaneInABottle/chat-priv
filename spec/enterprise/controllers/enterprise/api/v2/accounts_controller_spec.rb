@@ -40,7 +40,8 @@ RSpec.describe Enterprise::Api::V2::AccountsController, type: :request do
 
         expect(AccountBuilder).to have_received(:new).with(
           params.except(:password).merge(
-            user_password: params[:password], apply_freemium_limits: true, account_name: nil, user_full_name: nil
+            user_password: params[:password], confirmed: false, ensure_valid: true, apply_freemium_limits: true,
+            account_name: nil, user_full_name: nil
           )
         )
         expect(account_builder).to have_received(:perform)
@@ -83,7 +84,8 @@ RSpec.describe Enterprise::Api::V2::AccountsController, type: :request do
 
         expect(AccountBuilder).to have_received(:new).with(
           params.except(:password).merge(
-            user_password: params[:password], apply_freemium_limits: true, account_name: nil, user_full_name: nil
+            user_password: params[:password], confirmed: false, ensure_valid: true, apply_freemium_limits: true,
+            account_name: nil, user_full_name: nil
           )
         )
         expect(account_builder).to have_received(:perform)

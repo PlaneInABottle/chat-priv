@@ -14,6 +14,7 @@ class Api::V2::AccountsController < Api::BaseController
               with: :render_error_response
 
   def create
+    confirmation_required = email_confirmation_required?
     @user, @account = AccountBuilder.new(
       account_name: account_params[:account_name],
       user_full_name: account_params[:user_full_name],
@@ -21,6 +22,8 @@ class Api::V2::AccountsController < Api::BaseController
       user_password: account_params[:password],
       locale: account_params[:locale],
       user: current_user,
+      confirmed: !confirmation_required,
+      ensure_valid: true,
       apply_freemium_limits: current_user.nil?
     ).perform
 
@@ -28,8 +31,7 @@ class Api::V2::AccountsController < Api::BaseController
     update_account_info if @account.present?
 
     if @user
-      send_auth_headers(@user)
-      render 'api/v1/accounts/create', format: :json, locals: { resource: @user }
+      render_signup_response(confirmation_required)
     else
       render_error_response(CustomExceptions::Account::SignupFailed.new({}))
     end
@@ -62,6 +64,31 @@ class Api::V2::AccountsController < Api::BaseController
 
   def check_signup_enabled
     raise ActionController::RoutingError, 'Not Found' unless GlobalConfigService.account_signup_enabled?
+  end
+
+  def api_only_signup?
+    # CW_API_ONLY_SERVER is the canonical flag for API-only deployments.
+    # ENABLE_ACCOUNT_SIGNUP='api_only' is a legacy sentinel for the same purpose.
+    # Read ENABLE_ACCOUNT_SIGNUP raw from InstallationConfig because GlobalConfig.get
+    # typecasts it to boolean, coercing 'api_only' to true.
+    ActiveModel::Type::Boolean.new.cast(ENV.fetch('CW_API_ONLY_SERVER', false)) ||
+      InstallationConfig.find_by(name: 'ENABLE_ACCOUNT_SIGNUP')&.value.to_s == 'api_only'
+  end
+
+  def email_confirmation_required?
+    ActiveModel::Type::Boolean.new.cast(ENV.fetch('REQUIRE_EMAIL_CONFIRMATION', 'true')) != false
+  end
+
+  def render_signup_response(confirmation_required)
+    # Authenticated users, API-only signups, and confirmed web signups need
+    # the full response with account_id and auth tokens. When confirmation is
+    # required, unauthenticated web signup keeps the existing email-only flow.
+    if current_user || api_only_signup? || !confirmation_required
+      send_auth_headers(@user)
+      render 'api/v1/accounts/create', format: :json, locals: { resource: @user }
+    else
+      render json: { email: @user.email }
+    end
   end
 
   def validate_captcha

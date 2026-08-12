@@ -153,6 +153,41 @@ RSpec.describe AccountBuilder do
         expect { account_builder.perform }.to raise_error(CustomExceptions::Account::UserExists)
       end
     end
+
+    context 'when ensure_valid is passed for an auto-confirmed signup' do
+      let(:invalid_builder) do
+        described_class.new(
+          account_name: account_name,
+          email: email,
+          user_full_name: user_full_name,
+          user_password: 'short',
+          confirmed: true,
+          ensure_valid: true
+        )
+      end
+
+      it 'rejects invalid user data instead of persisting it', :aggregate_failures do
+        expect do
+          expect { invalid_builder.perform }.to raise_error(ActiveRecord::RecordInvalid)
+        end.to not_change(User, :count)
+          .and not_change(Account, :count)
+      end
+    end
+
+    context 'when ensure_valid is not passed for an auto-confirmed signup' do
+      it 'preserves the legacy passwordless creation flow used by OAuth' do
+        user, account = described_class.new(
+          account_name: account_name,
+          email: email,
+          user_full_name: user_full_name,
+          confirmed: true
+        ).perform
+
+        expect(user).to be_persisted
+        expect(user).to be_confirmed
+        expect(account).to be_an(Account)
+      end
+    end
   end
 
   describe 'freemium constants' do

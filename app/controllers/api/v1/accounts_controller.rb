@@ -31,6 +31,7 @@ class Api::V1::AccountsController < Api::BaseController
       locale: account_params[:locale],
       user: current_user,
       confirmed: !confirmation_required,
+      ensure_valid: true,
       apply_freemium_limits: current_user.nil?
     ).perform
     enqueue_branding_enrichment

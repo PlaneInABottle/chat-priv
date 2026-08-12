@@ -161,8 +161,10 @@ class Rack::Attack
   end
 
   ## Prevent Brute-Force Signup Attacks ###
+  # One shared rule for both public signup endpoints: v1 and v2 requests from
+  # the same IP count toward the same 5-per-30-minutes budget.
   throttle('accounts/ip', limit: 5, period: 30.minutes) do |req|
-    req.ip if req.path_without_extensions == '/api/v1/accounts' && req.post?
+    req.ip if %w[/api/v1/accounts /api/v2/accounts].include?(req.path_without_extensions) && req.post?
   end
 
   ##-----------------------------------------------##

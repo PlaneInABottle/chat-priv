@@ -25,7 +25,9 @@ RSpec.describe 'Accounts API', type: :request do
                as: :json
 
           expect(AccountBuilder).to have_received(:new).with(
-            params.except(:password).merge(user_password: params[:password], confirmed: false, apply_freemium_limits: true)
+            params.except(:password).merge(
+              user_password: params[:password], confirmed: false, ensure_valid: true, apply_freemium_limits: true
+            )
           )
           expect(account_builder).to have_received(:perform)
           expect(response.headers.keys).not_to include('access-token', 'token-type', 'client', 'expiry', 'uid')
@@ -155,6 +157,40 @@ RSpec.describe 'Accounts API', type: :request do
         expect(response.headers.keys).not_to include('access-token', 'token-type', 'client', 'expiry', 'uid')
         expect(response.parsed_body).to eq('email' => email)
         expect(User.find_by!(email: email)).not_to be_confirmed
+      end
+    end
+
+    context 'when the user data is invalid' do
+      let(:email) { "Invalid-#{SecureRandom.hex(8)}@example.com" }
+      let(:params) do
+        {
+          account_name: 'Invalid Signup',
+          email: email,
+          user_full_name: 'Invalid Signup Owner',
+          password: 'short'
+        }
+      end
+
+      it 'rejects invalid data when immediate confirmation is enabled' do
+        with_modified_env ENABLE_ACCOUNT_SIGNUP: 'true', REQUIRE_EMAIL_CONFIRMATION: 'false' do
+          expect do
+            post api_v1_accounts_url, params: params, as: :json
+          end.not_to have_enqueued_mail(Devise::Mailer, :confirmation_instructions)
+        end
+
+        expect(response).to have_http_status(:unprocessable_entity)
+        expect(User.from_email(email)).to be_nil
+      end
+
+      it 'rejects invalid data when confirmation is required' do
+        with_modified_env ENABLE_ACCOUNT_SIGNUP: 'true', REQUIRE_EMAIL_CONFIRMATION: 'true' do
+          expect do
+            post api_v1_accounts_url, params: params, as: :json
+          end.not_to have_enqueued_mail(Devise::Mailer, :confirmation_instructions)
+        end
+
+        expect(response).to have_http_status(:unprocessable_entity)
+        expect(User.from_email(email)).to be_nil
       end
     end
 
