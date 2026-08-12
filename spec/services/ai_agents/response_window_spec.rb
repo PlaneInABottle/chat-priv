@@ -188,6 +188,48 @@ RSpec.describe AiAgents::ResponseWindow do
       expect(slot.reload).to be_consumed
     end
 
+    it 'returns :consumed when a reserved slot becomes consumed' do
+      slot = create(:ai_agent_response_slot, ai_agent_usage_event: event, trigger_message: message)
+
+      expect(window.consume!(event: event, slot: slot)).to eq(:consumed)
+      expect(slot.reload).to be_consumed
+    end
+
+    it 'returns :consumed idempotently for an already consumed slot' do
+      slot = create(:ai_agent_response_slot, ai_agent_usage_event: event, trigger_message: message, status: :consumed)
+
+      expect(window.consume!(event: event, slot: slot)).to eq(:consumed)
+      expect(slot.reload).to be_consumed
+    end
+
+    it 'reclaims and consumes a released retry only while capacity remains' do
+      account.update!(ai_agent_response_limit_per_window: 2)
+      small_window = described_class.new(ai_agent: ai_agent, message: message)
+      first = small_window.reserve!(event: event, trigger_message_id: message.id)
+      small_window.release!(event: event, slot: first.slot)
+      create_consumed_slots(1)
+
+      result = small_window.consume!(event: event, slot: first.slot)
+
+      expect(result).to eq(:consumed)
+      expect(first.slot.reload).to be_consumed
+      expect(event.response_slots.consumed.count).to eq(2)
+    end
+
+    it 'never consumes a released slot once other triggers filled the window' do
+      account.update!(ai_agent_response_limit_per_window: 2)
+      small_window = described_class.new(ai_agent: ai_agent, message: message)
+      first = small_window.reserve!(event: event, trigger_message_id: message.id)
+      small_window.release!(event: event, slot: first.slot)
+      create_consumed_slots(2)
+
+      result = small_window.consume!(event: event, slot: first.slot)
+
+      expect(result).to eq(:exhausted)
+      expect(first.slot.reload).to be_released
+      expect(event.response_slots.consumed.count).to eq(2)
+    end
+
     it 'never transitions a handed_off marker' do
       slot = create(:ai_agent_response_slot, ai_agent_usage_event: event, trigger_message: message, status: :handed_off)
 

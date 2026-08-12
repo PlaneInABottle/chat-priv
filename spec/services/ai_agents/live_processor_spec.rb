@@ -844,7 +844,79 @@ RSpec.describe AiAgents::LiveProcessor do
       expect(conversation.messages.where(message_type: 'outgoing', private: false, sender: ai_agent.agent_bot)).to be_empty
     end
 
-    it 'releases a reused slot on failure and consumes it on a later retry' do
+    it 'keeps the owning reservation when a reused job returns a blank result' do
+      account.update!(ai_agent_conversation_limit: 2, ai_agent_conversation_reuse_window_hours: 24)
+      event = window_event(status: :reserved)
+      message = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming',
+                                 sender: conversation.contact, content: 'Hello')
+      slot = create(:ai_agent_response_slot, ai_agent_usage_event: event, trigger_message: message, status: :reserved)
+      allow(AiAgents::Orchestrator).to receive(:new).and_return(
+        instance_double(AiAgents::Orchestrator, perform: { assistant_message: nil, tool_events: [], terminal_action: nil })
+      )
+
+      described_class.new(message: message, adapter: adapter).perform
+
+      # The reused execution never reserved the slot, so a blank result must not
+      # cancel the owning execution's reservation out from under it.
+      expect(slot.reload).to be_reserved
+      expect(event.reload).to be_reserved
+      expect(conversation.messages.where(message_type: 'outgoing', private: false, sender: ai_agent.agent_bot)).to be_empty
+    end
+
+    it 'does not persist an over-limit reply when a reused job loses its released slot capacity' do
+      account.update!(ai_agent_conversation_limit: 0, ai_agent_response_limit_per_window: 2)
+      event = window_event
+      message = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming',
+                                 sender: conversation.contact, content: 'Hello')
+      slot = create(:ai_agent_response_slot, ai_agent_usage_event: event, trigger_message: message, status: :reserved)
+      filler = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming',
+                                sender: conversation.contact, content: 'Filler')
+      create(:ai_agent_response_slot, ai_agent_usage_event: event, trigger_message: filler, status: :consumed)
+      # Deterministically reproduce the race: while this reused job runs its LLM
+      # call, the owning execution releases the slot and another trigger takes
+      # the freed capacity, leaving no room for a late duplicate reply.
+      release_and_fill = lambda do
+        AiAgents::ResponseWindow.new(ai_agent: ai_agent, message: message).release!(event: event, slot: slot)
+        late_filler = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming',
+                                       sender: conversation.contact, content: 'Late filler')
+        create(:ai_agent_response_slot, ai_agent_usage_event: event, trigger_message: late_filler, status: :consumed)
+        { assistant_message: { content: 'Late duplicate reply' }, tool_events: [], terminal_action: nil }
+      end
+      orchestrator = instance_double(AiAgents::Orchestrator)
+      allow(AiAgents::Orchestrator).to receive(:new).and_return(orchestrator)
+      allow(orchestrator).to receive(:perform) { release_and_fill.call }
+
+      described_class.new(message: message, adapter: adapter).perform
+
+      expect(conversation.messages.where(message_type: 'outgoing', private: false, sender: ai_agent.agent_bot)).to be_empty
+      expect(slot.reload).to be_released
+      expect(event.response_slots.consumed.count).to eq(2)
+    end
+
+    it 'lets a reused job reclaim a released slot and deliver when capacity remains' do
+      account.update!(ai_agent_conversation_limit: 0, ai_agent_response_limit_per_window: 2)
+      event = window_event
+      message = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming',
+                                 sender: conversation.contact, content: 'Hello')
+      slot = create(:ai_agent_response_slot, ai_agent_usage_event: event, trigger_message: message, status: :reserved)
+      release_and_reply = lambda do
+        AiAgents::ResponseWindow.new(ai_agent: ai_agent, message: message).release!(event: event, slot: slot)
+        { assistant_message: { content: 'Retried reply' }, tool_events: [], terminal_action: nil }
+      end
+      orchestrator = instance_double(AiAgents::Orchestrator)
+      allow(AiAgents::Orchestrator).to receive(:new).and_return(orchestrator)
+      allow(orchestrator).to receive(:perform) { release_and_reply.call }
+
+      result = described_class.new(message: message, adapter: adapter).perform
+
+      expect(result).to be(false)
+      expect(conversation.messages.where(message_type: 'outgoing', private: false, sender: ai_agent.agent_bot).last.content)
+        .to eq('Retried reply')
+      expect(slot.reload).to be_consumed
+      expect(event.response_slots.consumed.count).to eq(1)
+    end
+
+    it 'keeps the reservation when a reused job fails and consumes it on a later retry' do
       account.update!(ai_agent_conversation_limit: 2, ai_agent_conversation_reuse_window_hours: 24)
       message = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming',
                                  sender: conversation.contact, content: 'Hello')
@@ -857,7 +929,9 @@ RSpec.describe AiAgents::LiveProcessor do
         described_class.new(message: message, adapter: adapter).perform
       end.to raise_error(StandardError, 'llm down')
 
-      expect(slot.reload).to be_released
+      # A reused execution does not own the reservation, so its failure must not
+      # release the slot; the owning execution may still be running.
+      expect(slot.reload).to be_reserved
       expect(conversation.messages.where(message_type: 'outgoing', private: false, sender: ai_agent.agent_bot)).to be_empty
 
       allow(AiAgents::Orchestrator).to receive(:new).and_call_original

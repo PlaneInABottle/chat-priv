@@ -61,15 +61,24 @@ class AiAgents::ResponseWindow
     end
   end
 
+  # Consumes an owned reservation. Returns :consumed when the slot is (already)
+  # consumed, :exhausted when a released retry can no longer be reclaimed because
+  # other triggers filled the window, and nil for terminal handed_off markers.
+  # A released slot is only consumed after re-asserting capacity under the event
+  # lock: a stale execution that holds a `:reused` result (no reservation of its
+  # own) must never push the window past its limit.
   def consume!(event:, slot:)
     return unless event && slot
 
     event.with_lock do
       slot.reload
-      next unless slot.reserved? || slot.released?
+      return :consumed if slot.consumed?
+      return unless slot.reserved? || slot.released?
+      return :exhausted if released_retry_denied?(event, slot)
 
       slot.update!(status: :consumed)
       maybe_send_warning!(event)
+      :consumed
     end
   end
 
@@ -112,10 +121,21 @@ class AiAgents::ResponseWindow
   def released_retry_reserve!(event, slot)
     return unless slot.persisted? && slot.released?
 
-    return result(:exhausted, event: event, slot: slot) if event.response_slots.active.count >= limit
+    return result(:exhausted, event: event, slot: slot) if window_full?(event)
 
     slot.update!(status: :reserved)
     result(:reserved, event: event, slot: slot)
+  end
+
+  def window_full?(event)
+    event.response_slots.active.count >= limit
+  end
+
+  # A released slot is only consumed after re-asserting capacity under the event
+  # lock: a stale execution holding a `:reused` result (no reservation of its
+  # own) must never push the window past its limit.
+  def released_retry_denied?(event, slot)
+    slot.released? && window_full?(event)
   end
 
   def handed_off_marker?(slot)
