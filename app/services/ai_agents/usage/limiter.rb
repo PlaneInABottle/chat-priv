@@ -29,7 +29,7 @@ class AiAgents::Usage::Limiter
 
     account.with_lock do
       return result(:reused, event: reusable_event) if reusable_event
-      return result(:exhausted) if active_usage_count >= limit
+      return result(:exhausted) if monthly_limit_active? && active_usage_count >= limit
 
       event = account.ai_agent_usage_events.create!(
         ai_agent: ai_agent,
@@ -88,8 +88,17 @@ class AiAgents::Usage::Limiter
     @limit ||= account.ai_agent_conversation_limit
   end
 
+  # Unlimited only when BOTH the monthly quota and the per-window response limit
+  # are off. A monthly-unlimited account with an active response limit still
+  # creates/reuses window events so response slots can scope globally (display
+  # side effect: `Usage::Summary#counted_conversations` becomes non-zero for
+  # such accounts; monthly quota semantics are unchanged).
   def unlimited?
-    limit.zero?
+    limit.zero? && account.effective_ai_agent_response_limit_per_window.zero?
+  end
+
+  def monthly_limit_active?
+    limit.positive?
   end
 
   def window_ends_at

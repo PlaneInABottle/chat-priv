@@ -15,6 +15,7 @@ RSpec.describe 'Super Admin Application Config API', type: :request do
       let!(:config) { upsert_config('FB_APP_ID', 'TESTVALUE') }
       let!(:ai_response_buffer_config) { upsert_config('AI_AGENT_RESPONSE_BUFFER_SECONDS', 5) }
       let!(:global_ai_instructions_config) { upsert_config('AI_AGENT_GLOBAL_INSTRUCTIONS', 'Answer in Turkish by default.') }
+      let!(:ai_response_limit_config) { upsert_config('AI_AGENT_RESPONSE_LIMIT_PER_WINDOW', 50) }
 
       it 'shows the app_config page' do
         sign_in(super_admin, scope: :super_admin)
@@ -32,6 +33,8 @@ RSpec.describe 'Super Admin Application Config API', type: :request do
         expect(response.body).to include(global_ai_instructions_config.value)
         expect(response.body).to include('AI_AGENT_RESPONSE_BUFFER_SECONDS')
         expect(response.body).to include(ai_response_buffer_config.value.to_s)
+        expect(response.body).to include('AI_AGENT_RESPONSE_LIMIT_PER_WINDOW')
+        expect(response.body).to include(ai_response_limit_config.value.to_s)
       end
 
       it 'does not show AI Agent settings on the captain app_config page' do
@@ -41,6 +44,7 @@ RSpec.describe 'Super Admin Application Config API', type: :request do
         expect(response).to have_http_status(:success)
         expect(response.body).not_to include('AI_AGENT_RESPONSE_BUFFER_SECONDS')
         expect(response.body).not_to include('AI_AGENT_GLOBAL_INSTRUCTIONS')
+        expect(response.body).not_to include('AI_AGENT_RESPONSE_LIMIT_PER_WINDOW')
       end
     end
   end
@@ -101,6 +105,15 @@ RSpec.describe 'Super Admin Application Config API', type: :request do
         expect(response).to redirect_to(super_admin_settings_path)
         expect(InstallationConfig.find_by(name: 'AI_AGENT_RESPONSE_BUFFER_SECONDS').value).to eq('7')
         expect(InstallationConfig.find_by(name: 'AI_AGENT_GLOBAL_INSTRUCTIONS').value).to eq('Be concise.')
+      end
+
+      it 'updates the AI agent response limit per window on the ai_agents app_config page' do
+        sign_in(super_admin, scope: :super_admin)
+        post '/super_admin/app_config?config=ai_agents', params: { app_config: { AI_AGENT_RESPONSE_LIMIT_PER_WINDOW: '60' } }
+
+        expect(response).to have_http_status(:found)
+        expect(response).to redirect_to(super_admin_settings_path)
+        expect(InstallationConfig.find_by(name: 'AI_AGENT_RESPONSE_LIMIT_PER_WINDOW').value).to eq('60')
       end
     end
   end

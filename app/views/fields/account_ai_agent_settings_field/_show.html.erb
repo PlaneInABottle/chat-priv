@@ -13,6 +13,19 @@
     <dd><%= field.resource.ai_agent_conversation_limit == 0 ? t('super_admin.account_ai_agent_settings.unlimited') : field.resource.ai_agent_conversation_limit %></dd>
   </div>
   <div>
+    <dt><%= t('super_admin.account_ai_agent_settings.response_limit_per_window') %></dt>
+    <dd>
+      <% if field.resource.ai_agent_response_limit_per_window.nil? %>
+        <%= t('super_admin.account_ai_agent_settings.response_limit_inherit',
+              global: field.resource.effective_ai_agent_response_limit_per_window) %>
+      <% elsif field.resource.ai_agent_response_limit_per_window == 0 %>
+        <%= t('super_admin.account_ai_agent_settings.unlimited') %>
+      <% else %>
+        <%= field.resource.ai_agent_response_limit_per_window %>
+      <% end %>
+    </dd>
+  </div>
+  <div>
     <dt><%= t('super_admin.account_ai_agent_settings.same_customer_reuse_window') %></dt>
     <dd><%= field.resource.ai_agent_conversation_reuse_window_hours %> <%= t('super_admin.account_ai_agent_settings.hours') %></dd>
   </div>

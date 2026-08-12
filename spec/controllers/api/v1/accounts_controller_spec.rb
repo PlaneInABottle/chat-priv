@@ -304,6 +304,17 @@ RSpec.describe 'Accounts API', type: :request do
         expect(response.parsed_body.dig('features', 'ai_agent')).to be(true)
       end
 
+      it 'does not expose the AI agent response limit override in settings' do
+        account.update!(ai_agent_response_limit_per_window: 30)
+
+        get "/api/v1/accounts/#{account.id}",
+            headers: admin.create_new_auth_token,
+            as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(response.parsed_body.dig('settings', 'ai_agent_response_limit_per_window')).to be_nil
+      end
+
       it 'uses branded public names for internal product feature flags' do
         account.enable_features!('chatwoot_v4', 'contact_chatwoot_support_team')
 
@@ -453,6 +464,16 @@ RSpec.describe 'Accounts API', type: :request do
 
         expect(response).to have_http_status(:success)
         expect(account.reload.settings['conversation_required_attributes']).to eq(['resolution_reason'])
+      end
+
+      it 'ignores an attempt to set the AI agent response limit override via settings' do
+        patch "/api/v1/accounts/#{account.id}",
+              params: { settings: { ai_agent_response_limit_per_window: 30 } },
+              headers: admin.create_new_auth_token,
+              as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(account.reload.settings).not_to have_key('ai_agent_response_limit_per_window')
       end
 
       it 'updates onboarding step to invite_team if onboarding step is present in account custom attributes' do

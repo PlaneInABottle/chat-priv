@@ -34,6 +34,9 @@ en:
   ai_agents:
     safety_handoff_message: 'I am transferring you to a team member. Our team will help you.'
     handoff_not_assigned_note: 'Handoff completed — no agents were available for automatic assignment. An agent can pick up this conversation from the inbox.'
+    response_limit_warning: 'This conversation has been going for a while. I can provide 5 more responses, then I’ll hand the conversation over to our team.'
+    response_limit_handoff_message: 'This conversation has reached its AI response limit. Our team will take over from here.'
+    response_limit_handoff_note: 'AI response limit reached for this conversation (limit: %{limit}, used: %{used}). Window resets at %{reset_at}. Conversation handed off to a human agent. Reason: ai_response_limit_exhausted.'
     catalog_products:
       reference_price: "Reference price: %{amount} %{currency}"
       maximum_dimensions: "Maximum dimensions: %{width} × %{height} %{unit}"
@@ -704,6 +707,9 @@ en:
       unlimited: "Unlimited"
       hours: "hours"
       unlimited_hint: "0 = unlimited"
+      response_limit_per_window: "AI Responses per 24-Hour Window"
+      response_limit_hint: "Blank = inherit the global default. 0 = unlimited."
+      response_limit_inherit: "Inherit (global default: %{global})"
       reuse_window_hint: "Hours. New AI conversations from the same contact inside this window count once."
       data_retention: "Sensitive Activity Retention"
       data_retention_hint: "Model diagnostics, tool activity, test conversations, evaluation run results, and reviewed learning snapshots."

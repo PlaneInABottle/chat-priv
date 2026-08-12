@@ -34,6 +34,16 @@
       </div>
 
       <div class="ai-agent-settings-control">
+        <%= label_tag "#{field_id_prefix}_response_limit_per_window", t('super_admin.account_ai_agent_settings.response_limit_per_window') %>
+        <%= number_field_tag "#{field.html_name}[response_limit_per_window]",
+                             field.resource.ai_agent_response_limit_per_window,
+                             id: "#{field_id_prefix}_response_limit_per_window",
+                             min: 0,
+                             step: 1 %>
+        <span class="ai-agent-settings-control__hint"><%= t('super_admin.account_ai_agent_settings.response_limit_hint') %></span>
+      </div>
+
+      <div class="ai-agent-settings-control">
         <%= label_tag "#{field_id_prefix}_conversation_reuse_window_hours", t('super_admin.account_ai_agent_settings.same_customer_reuse_window') %>
         <%= number_field_tag "#{field.html_name}[conversation_reuse_window_hours]",
                              field.resource.ai_agent_conversation_reuse_window_hours,

@@ -21,6 +21,9 @@ tr:
   ai_agents:
     safety_handoff_message: 'Sizi bir temsilciye aktarıyorum. Ekibimiz yardımcı olacak.'
     handoff_not_assigned_note: 'Devir tamamlandı — otomatik atama için uygun ajan bulunamadı. Bir ajan bu görüşmeyi kutu listesinden üstlenebilir.'
+    response_limit_warning: 'Bu görüşme oldukça uzadı. Size 5 yanıt daha verebilirim; ardından konuşmayı ekibimize aktaracağım.'
+    response_limit_handoff_message: 'Bu görüşme için yapay zekâ yanıt sınırına ulaştık. Bundan sonra ekibimiz yardımcı olacak.'
+    response_limit_handoff_note: 'Bu görüşme için yapay zekâ yanıt sınırına ulaşıldı (sınır: %{limit}, kullanılan: %{used}). Pencere %{reset_at} tarihinde sıfırlanacak. Görüşme insan temsilciye devredildi. Neden: ai_response_limit_exhausted.'
     catalog_products:
       reference_price: "Referans fiyat: %{amount} %{currency}"
       maximum_dimensions: "Maksimum ölçü: %{width} × %{height} %{unit}"
@@ -621,6 +624,26 @@ tr:
         help_center_query_translation: 'Help center query translation'
         audio_transcription: 'Audio transcription'
         help_center_search: 'Help center search'
+    account_ai_agent_settings:
+      title: "Metin AI Ayarları"
+      account_access: "Hesap erişimi"
+      enabled: "Etkin"
+      yes: "Evet"
+      no: "Hayır"
+      model: "Model"
+      monthly_conversation_limit: "Aylık Görüşme Limiti"
+      same_customer_reuse_window: "Aynı Müşteri Tekrar Kullanım Penceresi"
+      current_month_usage: "Bu Ayki Kullanım"
+      resets_at: "Sıfırlanma Zamanı"
+      unlimited: "Sınırsız"
+      hours: "saat"
+      unlimited_hint: "0 = sınırsız"
+      reuse_window_hint: "Saat. Aynı müşteriden bu pencere içinde başlayan yeni AI görüşmeleri bir kez sayılır."
+      data_retention: "Hassas Aktivite Saklama"
+      data_retention_hint: "Model teşhisleri, araç etkinlikleri, test görüşmeleri, değerlendirme çalıştırma sonuçları ve incelenen öğrenme anlık görüntüleri."
+      response_limit_per_window: "24 Saatlik Pencere Başına AI Yanıtı"
+      response_limit_hint: "Boş = genel varsayılanı devral. 0 = sınırsız."
+      response_limit_inherit: "Devralındı (genel varsayılan: %{global})"
     push_diagnostics:
       user_not_found: 'User not found.'
       no_subscriptions_to_test: 'Select at least one subscription to test.'

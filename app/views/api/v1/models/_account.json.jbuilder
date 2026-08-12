@@ -1,4 +1,4 @@
-json.settings resource.settings
+json.settings resource.settings.except('ai_agent_response_limit_per_window')
 json.created_at resource.created_at
 if resource.custom_attributes.present?
   json.custom_attributes do

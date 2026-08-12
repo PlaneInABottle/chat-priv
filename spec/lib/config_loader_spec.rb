@@ -23,6 +23,14 @@ describe ConfigLoader do
         expect(config.value).to eq(5)
         expect(config.locked).to be(false)
       end
+
+      it 'creates editable AI agent response limit per window config with default value' do
+        subject
+        config = InstallationConfig.find_by(name: 'AI_AGENT_RESPONSE_LIMIT_PER_WINDOW')
+
+        expect(config.value).to eq(50)
+        expect(config.locked).to be(false)
+      end
     end
 
     context 'with reconcile_only_new option' do

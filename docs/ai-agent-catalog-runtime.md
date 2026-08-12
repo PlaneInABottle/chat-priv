@@ -11,12 +11,13 @@ This document describes the current production contract. Historical `*.plan.md` 
 | `IkasCatalogMvp::QueryEngine` | Resolves catalog queries and returns structured candidates, clarification groups, or no-match results. |
 | `AiAgents::LlmToolResultPresenter` | Removes debug-heavy catalog fields and caps candidates only in model-facing tool messages. |
 | `AiAgents::ToolOutputSanitizer` | Repairs or removes customer-visible HTTP links that are not present in tool output. It does not judge natural-language claims. |
-| `AiAgents::LiveProcessor` | Loads bounded conversation history, prevents duplicate live replies, persists the outgoing message, and accounts for usage. AI replies are gated on `conversation.status == pending` (via `AiAgents::ReplyPolicy`); a human's first reply opens the conversation and silences the AI; `human_handoff` remains terminal with best-effort assignment. |
+| `AiAgents::LiveProcessor` | Loads bounded conversation history (20 logical messages with deterministic character projection), prevents duplicate live replies, persists the outgoing message, and accounts for usage. AI replies are gated on `conversation.status == pending` (via `AiAgents::ReplyPolicy`); a human's first reply opens the conversation and silences the AI; `human_handoff` remains terminal with best-effort assignment. |
 | `AiAgents::Tools::PresentOptionsService` | Validates and creates a terminal `input_select` response with 2–10 choices. |
 | `AiAgents::Tools::PresentCatalogProductsService` | Validates a display-only image presentation against the latest catalog candidates and prior presentation state. |
 | `AiAgents::CatalogImagePreparer` | Fetches only trusted ikas CDN images, enforces byte/pixel/type limits, and normalizes them to bounded JPEG attachments. |
 | `AiAgents::CatalogPresentationDeliveryJob` | Sends a persisted image-message group sequentially so channel providers preserve its order. |
 | `AiAgents::ConversationHistoryCompactor` | Represents a multi-message image group as one assistant history entry for follow-up turns. |
+| `AiAgents::ConversationHistoryProjector` | Applies deterministic UTF-8/grapheme-safe character budgets to compacted history before the model call: 8,000 graphemes per message and 40,000 total, preserving the newest trigger and chronological order. |
 | `AiAgents::OptionSelectionService` | Validates live widget/WhatsApp selections, rejects stale or conflicting submissions, and preserves idempotency. |
 | `AiAgentTestConversation` | Implements the equivalent persisted selection contract for the dashboard simulator. |
 
@@ -58,6 +59,15 @@ Live delivery never sends the ikas CDN URL directly to the customer. The server 
 Variant images are preferred. A product-level representative image is marked in presentation metadata and customer copy must not claim it is the exact variant or color. Fixed price and representative-image labels use the detected conversation/customer language, then the account locale as a fallback. Image groups are compacted to one logical assistant history entry so later phrases such as “the second one” or “show more” retain context without consuming three history slots.
 
 The compact model payload is not the audit record. Do not replace the persisted tool result with the compact form, and do not move presentation-only limits into the query engine.
+
+## Conversation history projection
+
+Live history reaches the orchestrator as at most 20 logical messages (the raw fetch is capped at 60; the count cap applies after compaction, so catalog image groups stay coherent). `AiAgents::ConversationHistoryProjector` then applies deterministic character budgets without summarization and without tokenizer/model adaptation:
+
+- Per message: at most 8,000 graphemes; total projected history: at most 40,000 graphemes.
+- Messages that fit pass through unchanged. Oversized messages are shortened to a 2/3 head + `[...message shortened for AI context...]` marker + 1/3 tail split; the marker counts inside the budget, cuts are aligned to the nearest whitespace within a bounded 200-grapheme window when one exists, and grapheme clusters (emoji, combining sequences, ZWJ families, Turkish characters) are never split.
+- Packing is newest-first under the total budget, then restored to chronological order. The newest trigger is never dropped; if it alone exceeds the total budget it is truncated to the total budget and older messages are dropped. Blank content is skipped defensively.
+- Only the model prompt is affected: original `Message` records and their content are never modified, and product group compaction order is preserved.
 
 ## Recovery and safety boundaries
 

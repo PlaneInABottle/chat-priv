@@ -466,7 +466,8 @@ RSpec.describe Account do
         model: 'deepseek/deepseek-v4-flash-0731',
         conversation_limit: 0,
         conversation_reuse_window_hours: 24,
-        data_retention_days: 30
+        data_retention_days: 30,
+        response_limit_per_window: nil
       )
     end
 
@@ -491,7 +492,8 @@ RSpec.describe Account do
         model: 'anthropic/claude-3.5-sonnet',
         conversation_limit: 50,
         conversation_reuse_window_hours: 48,
-        data_retention_days: 90
+        data_retention_days: 90,
+        response_limit_per_window: nil
       )
     end
 
@@ -507,6 +509,70 @@ RSpec.describe Account do
       expect(account.ai_agent_model).to eq('openai/gpt-4o-mini')
       expect(account.ai_agent_conversation_limit).to eq(25)
       expect(account.ai_agent_conversation_reuse_window_hours).to eq(24)
+    end
+
+    describe 'response limit per window override' do
+      let(:account) { create(:account) }
+
+      it 'returns nil for the raw override when absent' do
+        expect(account.ai_agent_response_limit_per_window).to be_nil
+      end
+
+      it 'returns nil for blank, negative, and non-integer overrides' do
+        account.update!(ai_agent_response_limit_per_window: '')
+        expect(account.reload.ai_agent_response_limit_per_window).to be_nil
+
+        account.update!(ai_agent_response_limit_per_window: -5)
+        expect(account.reload.ai_agent_response_limit_per_window).to be_nil
+
+        account.update!(ai_agent_response_limit_per_window: 'abc')
+        expect(account.reload.ai_agent_response_limit_per_window).to be_nil
+      end
+
+      it 'returns 0 for an explicit zero override' do
+        account.update!(ai_agent_response_limit_per_window: 0)
+        expect(account.reload.ai_agent_response_limit_per_window).to eq(0)
+      end
+
+      it 'returns the exact positive override' do
+        account.update!(ai_agent_response_limit_per_window: 30)
+        expect(account.reload.ai_agent_response_limit_per_window).to eq(30)
+      end
+
+      it 'round-trips the override through ai_agent_settings' do
+        account.ai_agent_settings = { enabled: true, conversation_limit: 50, response_limit_per_window: 30 }
+        account.save!
+        account.reload
+
+        expect(account.ai_agent_response_limit_per_window).to eq(30)
+        expect(account.ai_agent_settings[:response_limit_per_window]).to eq(30)
+      end
+
+      it 'uses the global default when the override is absent' do
+        allow(AiAgents::Settings).to receive(:response_limit_per_window).and_return(50)
+
+        expect(account.effective_ai_agent_response_limit_per_window).to eq(50)
+      end
+
+      it 'uses the override when present' do
+        allow(AiAgents::Settings).to receive(:response_limit_per_window).and_return(50)
+        account.update!(ai_agent_response_limit_per_window: 30)
+
+        expect(account.effective_ai_agent_response_limit_per_window).to eq(30)
+      end
+
+      it 'treats an explicit zero override as unlimited' do
+        allow(AiAgents::Settings).to receive(:response_limit_per_window).and_return(50)
+        account.update!(ai_agent_response_limit_per_window: 0)
+
+        expect(account.effective_ai_agent_response_limit_per_window).to eq(0)
+      end
+
+      it 'reflects a global disable through delegation' do
+        allow(AiAgents::Settings).to receive(:response_limit_per_window).and_return(0)
+
+        expect(account.effective_ai_agent_response_limit_per_window).to eq(0)
+      end
     end
   end
 

@@ -62,12 +62,59 @@ RSpec.describe AiAgents::Usage::Limiter do
       expect(result.summary[:remaining]).to eq(0)
     end
 
-    it 'allows unlimited accounts without creating usage events' do
-      account.update!(ai_agent_conversation_limit: 0)
+    it 'allows unlimited accounts without creating usage events when both limits are off' do
+      account.update!(ai_agent_conversation_limit: 0, ai_agent_response_limit_per_window: 0)
 
       expect do
         result = described_class.new(ai_agent: ai_agent, message: message, now: now).reserve!
         expect(result.status).to eq(:unlimited)
+      end.not_to change(AiAgentUsageEvent, :count)
+    end
+
+    it 'creates a window event for monthly-unlimited accounts when the response limit is active' do
+      account.update!(ai_agent_conversation_limit: 0)
+
+      expect do
+        result = described_class.new(ai_agent: ai_agent, message: message, now: now).reserve!
+        expect(result.status).to eq(:reserved)
+        expect(result.event).to be_present
+      end.to change(AiAgentUsageEvent, :count).by(1)
+    end
+
+    it 'never exhausts monthly for monthly-unlimited accounts with many past events' do
+      account.update!(ai_agent_conversation_limit: 0)
+      create_list(:ai_agent_usage_event, 5,
+                  account: account,
+                  ai_agent: ai_agent,
+                  period_start_at: Time.zone.parse('2026-06-01 04:00:00 UTC'),
+                  period_end_at: Time.zone.parse('2026-07-01 04:00:00 UTC'),
+                  window_started_at: now - 2.days,
+                  window_ends_at: now - 1.day,
+                  status: :consumed)
+
+      result = described_class.new(ai_agent: ai_agent, message: message, now: now).reserve!
+
+      expect(result.status).to eq(:reserved)
+      expect(result.summary[:unlimited]).to be(true)
+    end
+
+    it 'reuses the active window event for monthly-unlimited accounts with an active response limit' do
+      account.update!(ai_agent_conversation_limit: 0)
+      existing_event = create(:ai_agent_usage_event,
+                              account: account,
+                              ai_agent: ai_agent,
+                              contact: contact,
+                              conversation: conversation,
+                              period_start_at: Time.zone.parse('2026-06-01 04:00:00 UTC'),
+                              period_end_at: Time.zone.parse('2026-07-01 04:00:00 UTC'),
+                              window_started_at: 1.hour.ago,
+                              window_ends_at: now + 2.hours,
+                              status: :consumed)
+
+      expect do
+        result = described_class.new(ai_agent: ai_agent, message: message, now: now).reserve!
+        expect(result.status).to eq(:reused)
+        expect(result.event).to eq(existing_event)
       end.not_to change(AiAgentUsageEvent, :count)
     end
   end

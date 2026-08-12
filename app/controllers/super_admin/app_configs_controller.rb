@@ -37,6 +37,7 @@ class SuperAdmin::AppConfigsController < SuperAdmin::ApplicationController
     @config = params[:config] || 'general'
   end
 
+  # rubocop:disable Metrics/MethodLength
   def allowed_configs
     mapping = {
       'facebook' => %w[FB_APP_ID FB_VERIFY_TOKEN FB_APP_SECRET IG_VERIFY_TOKEN FACEBOOK_API_VERSION ENABLE_MESSENGER_CHANNEL_HUMAN_AGENT],
@@ -50,7 +51,10 @@ class SuperAdmin::AppConfigsController < SuperAdmin::ApplicationController
       'whatsapp_embedded' => %w[WHATSAPP_APP_ID WHATSAPP_APP_SECRET WHATSAPP_CONFIGURATION_ID WHATSAPP_API_VERSION],
       'notion' => %w[NOTION_CLIENT_ID NOTION_CLIENT_SECRET],
       'google' => %w[GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_CLIENT_SECRET GOOGLE_OAUTH_REDIRECT_URI ENABLE_GOOGLE_OAUTH_LOGIN],
-      'ai_agents' => %w[AI_AGENT_GLOBAL_INSTRUCTIONS AI_AGENT_RESPONSE_BUFFER_SECONDS AI_AGENT_LLM_API_KEY AI_AGENT_LLM_ENDPOINT],
+      'ai_agents' => %w[
+        AI_AGENT_GLOBAL_INSTRUCTIONS AI_AGENT_RESPONSE_BUFFER_SECONDS AI_AGENT_RESPONSE_LIMIT_PER_WINDOW AI_AGENT_LLM_API_KEY
+        AI_AGENT_LLM_ENDPOINT
+      ],
       'captain' => %w[CAPTAIN_OPEN_AI_API_KEY CAPTAIN_OPEN_AI_MODEL CAPTAIN_OPEN_AI_ENDPOINT]
     }
 
@@ -59,6 +63,7 @@ class SuperAdmin::AppConfigsController < SuperAdmin::ApplicationController
       %w[ENABLE_ACCOUNT_SIGNUP FIREBASE_PROJECT_ID FIREBASE_CREDENTIALS WEBHOOK_TIMEOUT MAXIMUM_FILE_UPLOAD_SIZE WIDGET_TOKEN_EXPIRY]
     )
   end
+  # rubocop:enable Metrics/MethodLength
 
   def success_notice
     message = "#{@config.titleize} settings updated successfully"

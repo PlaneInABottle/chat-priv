@@ -453,4 +453,58 @@ RSpec.describe 'Conversation Messages API', type: :request do
       end
     end
   end
+
+  describe 'GET /api/v1/accounts/{account.id}/conversations/<id>/messages' do
+    let!(:inbox) { create(:inbox, account: account) }
+    let!(:conversation) { create(:conversation, inbox: inbox, account: account) }
+    let(:agent) { create(:user, account: account, role: :agent) }
+
+    before do
+      create(:inbox_member, inbox: conversation.inbox, user: agent)
+    end
+
+    def notice_content
+      'This conversation has reached its AI response limit. Our team will take over from here.'
+    end
+
+    def notice_attributes
+      { ai_agent: { system_notice: { type: 'response_limit_handoff', limit: 50 } } }
+    end
+
+    it 'renders response-limit notices as plain text without internal metadata for WhatsApp-style channels' do
+      channel = create(:channel_whatsapp, account: account, validate_provider_config: false, sync_templates: false)
+      channel_conversation = create(:conversation, account: account, inbox: channel.inbox)
+      create(:inbox_member, inbox: channel.inbox, user: agent)
+      notice = create(:message, account: account, inbox: channel.inbox, conversation: channel_conversation,
+                                message_type: 'outgoing', content: notice_content, content_attributes: notice_attributes)
+
+      get api_v1_account_conversation_messages_url(account_id: account.id, conversation_id: channel_conversation.display_id),
+          headers: agent.create_new_auth_token,
+          as: :json
+
+      expect(response).to have_http_status(:success)
+      serialized = response.parsed_body['payload'].find { |item| item['id'] == notice.id }
+      expect(serialized['content']).to eq(notice_content)
+      expect(serialized['content_type']).to eq('text')
+      expect(serialized['content_attributes']).not_to have_key('ai_agent')
+    end
+
+    it 'renders response-limit notices as plain text without internal metadata for API channels' do
+      channel = create(:channel_api, account: account)
+      channel_conversation = create(:conversation, account: account, inbox: channel.inbox)
+      create(:inbox_member, inbox: channel.inbox, user: agent)
+      notice = create(:message, account: account, inbox: channel.inbox, conversation: channel_conversation,
+                                message_type: 'outgoing', content: notice_content, content_attributes: notice_attributes)
+
+      get api_v1_account_conversation_messages_url(account_id: account.id, conversation_id: channel_conversation.display_id),
+          headers: agent.create_new_auth_token,
+          as: :json
+
+      expect(response).to have_http_status(:success)
+      serialized = response.parsed_body['payload'].find { |item| item['id'] == notice.id }
+      expect(serialized['content']).to eq(notice_content)
+      expect(serialized['content_type']).to eq('text')
+      expect(serialized.to_json).not_to include('system_notice', 'trigger_message_id')
+    end
+  end
 end

@@ -1,5 +1,6 @@
+# rubocop:disable Metrics/ClassLength
 class AiAgents::LiveProcessor
-  HISTORY_MESSAGE_LIMIT = 12
+  HISTORY_MESSAGE_LIMIT = 20
   RAW_HISTORY_MESSAGE_LIMIT = HISTORY_MESSAGE_LIMIT * AiAgents::Tools::PresentCatalogProductsService::MAX_PRODUCTS
 
   def initialize(message:, adapter: nil, media_preparer: nil)
@@ -15,17 +16,12 @@ class AiAgents::LiveProcessor
     usage_result = usage_limiter.reserve!
     return handle_usage_exhausted!(usage_result) if usage_result.exhausted?
 
-    result = orchestrator_result
+    window_result = response_window.reserve!(event: usage_result.event, trigger_message_id: message.id)
+    return handle_response_limit_exhausted!(window_result) if window_result.exhausted?
 
-    if handoff_result?(result)
-      consume_usage!(usage_result, result)
-    else
-      persist_assistant_response!(result, usage_result)
-    end
-
-    handoff_result?(result)
+    persist_or_consume!(orchestrator_result, usage_result, window_result)
   rescue StandardError
-    usage_limiter.release!(usage_result&.event) if usage_result&.reserved?
+    rollback_reservations!(usage_result, window_result)
     raise
   end
 
@@ -71,7 +67,7 @@ class AiAgents::LiveProcessor
       message[:catalog_presentation] = presentation if presentation.present?
       message
     end
-    AiAgents::ConversationHistoryCompactor.new(messages).call.last(HISTORY_MESSAGE_LIMIT)
+    AiAgents::ConversationHistoryProjector.new(AiAgents::ConversationHistoryCompactor.new(messages).call.last(HISTORY_MESSAGE_LIMIT)).call
   end
 
   def orchestrator_result
@@ -109,16 +105,16 @@ class AiAgents::LiveProcessor
     Messages::MessageBuilder.new(nil, conversation.reload, assistant_message_params(assistant_message)).perform
   end
 
-  def persist_assistant_response!(result, usage_result)
-    return persist_catalog_product_response!(result, usage_result) if catalog_product_result?(result)
+  def persist_assistant_response!(result, usage_result, window_result)
+    return persist_catalog_product_response!(result, usage_result, window_result) if catalog_product_result?(result)
 
     conversation.with_lock do
       post_assistant_message!(result[:assistant_message]) unless response_already_persisted?
-      consume_usage!(usage_result, result)
+      consume_usage!(usage_result, result, window_result)
     end
   end
 
-  def persist_catalog_product_response!(result, usage_result)
+  def persist_catalog_product_response!(result, usage_result, window_result)
     prepared_messages = catalog_presentation_builder(result.fetch(:assistant_message)).call
     conversation.with_lock do
       unless response_already_persisted?
@@ -126,7 +122,7 @@ class AiAgents::LiveProcessor
           Messages::MessageBuilder.new(nil, conversation.reload, message_spec.fetch(:message_params)).perform
         end
       end
-      consume_usage!(usage_result, result)
+      consume_usage!(usage_result, result, window_result)
     end
   ensure
     prepared_messages&.each { |message_spec| message_spec[:prepared_image]&.close! }
@@ -155,18 +151,51 @@ class AiAgents::LiveProcessor
     @usage_limiter ||= AiAgents::Usage::Limiter.new(ai_agent: ai_agent, message: message)
   end
 
+  def response_window
+    @response_window ||= AiAgents::ResponseWindow.new(ai_agent: ai_agent, message: message)
+  end
+
   def handle_usage_exhausted!(usage_result)
     usage_limiter.exhausted_handoff!(summary: usage_result.summary)
     true
   end
 
-  def consume_usage!(usage_result, result)
+  def handle_response_limit_exhausted!(window_result)
+    response_window.exhausted_handoff!(event: window_result.event, conversation: conversation, trigger_message_id: message.id)
+    true
+  end
+
+  # Persists the assistant response (or consumes the handoff turn) and returns
+  # whether the turn ended in a human handoff.
+  def persist_or_consume!(result, usage_result, window_result)
+    if handoff_result?(result)
+      consume_usage!(usage_result, result, window_result)
+    else
+      persist_assistant_response!(result, usage_result, window_result)
+    end
+
+    handoff_result?(result)
+  end
+
+  # Release decisions are keyed on the slot row's own state, never on result
+  # status: a `:reused` slot whose job fails must still be released.
+  def rollback_reservations!(usage_result, window_result)
+    response_window.release!(event: usage_result.event, slot: window_result&.slot) if window_result&.slot&.reserved?
+    usage_limiter.release!(usage_result&.event) if usage_result&.reserved?
+  end
+
+  def consume_usage!(usage_result, result, window_result)
     return unless usage_result&.event
 
     if result[:assistant_message].present? || handoff_result?(result)
       usage_limiter.consume!(usage_result.event)
-    elsif usage_result.reserved?
-      usage_limiter.release!(usage_result.event)
+      response_window.consume!(event: usage_result.event, slot: window_result&.slot) if window_result&.slot
+    else
+      # Blank/unusable result: the monthly event is released only when this job
+      # created it, but the response slot is released whenever its own row is
+      # still reserved — a reused event must never keep a phantom active slot.
+      usage_limiter.release!(usage_result.event) if usage_result.reserved?
+      response_window.release!(event: usage_result.event, slot: window_result&.slot) if window_result&.slot&.reserved?
     end
   end
 
@@ -210,3 +239,4 @@ class AiAgents::LiveProcessor
     result[:terminal_action] == AiAgents::Config::PRESENT_CATALOG_PRODUCTS_TOOL
   end
 end
+# rubocop:enable Metrics/ClassLength

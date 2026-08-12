@@ -19,6 +19,7 @@ module AccountSettingsSchema
         'ai_agent_enabled': { 'type': %w[boolean string null] },
         'ai_agent_model': { 'type': %w[string null] },
         'ai_agent_conversation_limit': { 'type': %w[integer string null] },
+        'ai_agent_response_limit_per_window': { 'type': %w[integer string null] },
         'ai_agent_conversation_reuse_window_hours': { 'type': %w[integer string null] },
         'ai_agent_data_retention_days': { 'type': %w[integer string null] },
         'ai_improvement_monthly_credit_limit': { 'type': %w[integer null], 'minimum': 0 },

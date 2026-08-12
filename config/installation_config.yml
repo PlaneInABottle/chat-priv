@@ -187,6 +187,11 @@
   description: 'Delay AI agent responses by this many seconds. Set to 0 to disable buffering for immediate responses.'
   value: 5
   locked: false
+- name: AI_AGENT_RESPONSE_LIMIT_PER_WINDOW
+  display_title: 'AI Agent Response Limit Per Window'
+  description: 'Maximum AI responses a customer can receive within one reuse window. Set to 0 to disable the limit for all accounts; accounts with a per-account override are unaffected.'
+  value: 50
+  locked: false
 - name: AI_AGENT_GLOBAL_INSTRUCTIONS
   display_title: 'Global AI Agent Base Prompt'
   description: 'Super Admin-controlled global base prompt applied to every Kozmopath AI Agent before account-specific prompts and immutable tool policies.'

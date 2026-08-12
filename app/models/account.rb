@@ -74,7 +74,7 @@ class Account < ApplicationRecord
   store_accessor :settings, :keep_pending_on_bot_failure
   store_accessor :settings, :captain_auto_resolve_mode, :captain_false_promise_harness_enabled
   store_accessor :settings, :ai_agent_enabled, :ai_agent_model, :ai_agent_conversation_limit, :ai_agent_conversation_reuse_window_hours,
-                 :ai_agent_data_retention_days
+                 :ai_agent_data_retention_days, :ai_agent_response_limit_per_window
   store_accessor :settings, :ai_improvement_monthly_credit_limit
   store_accessor :settings, :voice_ai_enabled, :voice_ai_monthly_minute_limit, :voice_ai_max_call_duration_minutes, :voice_ai_concurrent_call_limit,
                  :voice_ai_data_retention_days
@@ -204,23 +204,15 @@ class Account < ApplicationRecord
       model: ai_agent_model,
       conversation_limit: ai_agent_conversation_limit,
       conversation_reuse_window_hours: ai_agent_conversation_reuse_window_hours,
-      data_retention_days: ai_agent_data_retention_days
+      data_retention_days: ai_agent_data_retention_days,
+      response_limit_per_window: ai_agent_response_limit_per_window
     }
   end
 
   def ai_agent_settings=(value)
     return unless value.is_a?(Hash)
 
-    settings = value.with_indifferent_access
-    self.ai_agent_enabled = settings[:enabled] if settings.key?(:enabled)
-    self.ai_agent_model = settings[:model] if settings.key?(:model)
-    self.ai_agent_conversation_limit = settings[:conversation_limit] if settings.key?(:conversation_limit)
-    if settings.key?(:conversation_reuse_window_hours)
-      self.ai_agent_conversation_reuse_window_hours = settings[:conversation_reuse_window_hours]
-    end
-    if settings.key?(:data_retention_days)
-      self.ai_agent_data_retention_days = AiDataRetention::Policy.normalize_days(settings[:data_retention_days])
-    end
+    apply_ai_agent_settings(value.with_indifferent_access)
   end
 
   def ai_agent_enabled?
@@ -233,6 +225,23 @@ class Account < ApplicationRecord
 
   def ai_agent_conversation_limit
     (super || 0).to_i
+  end
+
+  # Raw per-account override for the AI response limit per 24h window.
+  # Blank, negative, or non-integer values return nil (inherit the global default);
+  # an explicit 0 returns 0 (unlimited override); positive values return the exact limit.
+  def ai_agent_response_limit_per_window
+    value = super
+    return nil if value.blank?
+
+    parsed = Integer(value, exception: false)
+    return nil if parsed.nil? || parsed.negative?
+
+    parsed
+  end
+
+  def effective_ai_agent_response_limit_per_window
+    ai_agent_response_limit_per_window || AiAgents::Settings.response_limit_per_window
   end
 
   def ai_agent_conversation_reuse_window_hours
@@ -402,6 +411,15 @@ class Account < ApplicationRecord
 
   def validate_limit_keys
     # method overridden in enterprise module
+  end
+
+  def apply_ai_agent_settings(settings)
+    self.ai_agent_enabled = settings[:enabled] if settings.key?(:enabled)
+    self.ai_agent_model = settings[:model] if settings.key?(:model)
+    self.ai_agent_conversation_limit = settings[:conversation_limit] if settings.key?(:conversation_limit)
+    self.ai_agent_conversation_reuse_window_hours = settings[:conversation_reuse_window_hours] if settings.key?(:conversation_reuse_window_hours)
+    self.ai_agent_data_retention_days = AiDataRetention::Policy.normalize_days(settings[:data_retention_days]) if settings.key?(:data_retention_days)
+    self.ai_agent_response_limit_per_window = settings[:response_limit_per_window] if settings.key?(:response_limit_per_window)
   end
 
   def non_negative_integer(value)

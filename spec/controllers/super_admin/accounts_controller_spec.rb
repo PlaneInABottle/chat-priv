@@ -509,6 +509,39 @@ RSpec.describe 'Super Admin accounts API', type: :request do
         expect(account.ai_agent_model).to eq('openai/gpt-4o-mini')
         expect(account.ai_agent_conversation_limit).to eq(25)
       end
+
+      it 'persists the AI agent response limit override into settings' do
+        sign_in(super_admin, scope: :super_admin)
+        patch "/super_admin/accounts/#{account.id}", params: {
+          account: {
+            name: account.name,
+            ai_agent_settings: {
+              response_limit_per_window: 30
+            }
+          }
+        }
+
+        expect(response).to have_http_status(:redirect)
+        account.reload
+        expect(account.ai_agent_response_limit_per_window).to eq(30)
+      end
+
+      it 'clears the AI agent response limit override on a blank value' do
+        account.update!(ai_agent_response_limit_per_window: 30)
+        sign_in(super_admin, scope: :super_admin)
+        patch "/super_admin/accounts/#{account.id}", params: {
+          account: {
+            name: account.name,
+            ai_agent_settings: {
+              response_limit_per_window: ''
+            }
+          }
+        }
+
+        expect(response).to have_http_status(:redirect)
+        account.reload
+        expect(account.ai_agent_response_limit_per_window).to be_nil
+      end
     end
   end
 

@@ -507,7 +507,7 @@ RSpec.describe AiAgents::LiveProcessor do
   end
 
   it 'counts an ordered catalog image group as one bounded history entry' do
-    12.times do |index|
+    20.times do |index|
       create(
         :message,
         account: account,
@@ -540,6 +540,74 @@ RSpec.describe AiAgents::LiveProcessor do
     grouped_message = captured_messages.find { |entry| entry[:role] == 'assistant' }
     expect(grouped_message[:content]).to include('Product 1', 'Product 2', 'Product 3')
     expect(captured_messages.last).to eq(role: 'user', content: 'Başka ürünlerimizi de göster')
+  end
+
+  it 'limits live history to the 20 most recent logical messages' do
+    24.times do |index|
+      create(
+        :message,
+        account: account,
+        inbox: inbox,
+        conversation: conversation,
+        message_type: 'incoming',
+        sender: conversation.contact,
+        content: "Earlier message #{index + 1}"
+      )
+    end
+    latest = create(
+      :message,
+      account: account,
+      inbox: inbox,
+      conversation: conversation,
+      message_type: 'incoming',
+      sender: conversation.contact,
+      content: 'Latest trigger'
+    )
+    captured_messages = nil
+    allow(adapter).to receive(:perform) do |payload|
+      captured_messages = payload[:messages]
+      { assistant_text: 'Done', tool_calls: [], finish_reason: 'stop' }
+    end
+
+    described_class.new(message: latest, adapter: adapter).perform
+
+    expect(captured_messages.length).to eq(20)
+    expect(captured_messages.first[:content]).to eq('Earlier message 6')
+    expect(captured_messages.last).to eq(role: 'user', content: 'Latest trigger')
+  end
+
+  it 'bounds an oversized historical message while keeping the trigger and the original content' do
+    old = create(
+      :message,
+      account: account,
+      inbox: inbox,
+      conversation: conversation,
+      message_type: 'incoming',
+      sender: conversation.contact,
+      content: 'Huge' * 37_000
+    )
+    latest = create(
+      :message,
+      account: account,
+      inbox: inbox,
+      conversation: conversation,
+      message_type: 'incoming',
+      sender: conversation.contact,
+      content: 'Latest trigger'
+    )
+    captured_messages = nil
+    allow(adapter).to receive(:perform) do |payload|
+      captured_messages = payload[:messages]
+      { assistant_text: 'Done', tool_calls: [], finish_reason: 'stop' }
+    end
+
+    described_class.new(message: latest, adapter: adapter).perform
+
+    expect(captured_messages.last).to eq(role: 'user', content: 'Latest trigger')
+    projected_old = captured_messages.first[:content]
+    expect(projected_old.grapheme_clusters.length).to be <= AiAgents::ConversationHistoryProjector::MAX_MESSAGE_CHARACTERS
+    expect(projected_old).to include(AiAgents::ConversationHistoryProjector::SHORTENING_MARKER)
+    expect(Message.find(old.id).content.length).to eq('Huge'.length * 37_000)
   end
 
   def create_catalog_history_message(index)
@@ -646,5 +714,344 @@ RSpec.describe AiAgents::LiveProcessor do
     expect(adapter).not_to receive(:perform)
 
     expect(described_class.new(message: message, adapter: adapter).perform).to be_nil
+  end
+
+  describe 'per-window response limits' do
+    def create_consumed_response_slots(event, count)
+      count.times do
+        trigger = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming',
+                                   sender: conversation.contact, content: 'Earlier message')
+        create(:ai_agent_response_slot, ai_agent_usage_event: event, trigger_message: trigger, status: :consumed)
+      end
+    end
+
+    def window_event(status: :consumed)
+      create(:ai_agent_usage_event,
+             account: account,
+             ai_agent: ai_agent,
+             contact: conversation.contact,
+             conversation: conversation,
+             window_started_at: 1.hour.ago,
+             window_ends_at: 2.hours.from_now,
+             status: status)
+    end
+
+    it 'counts a normal public response as one consumed response slot' do
+      account.update!(ai_agent_conversation_limit: 2, ai_agent_conversation_reuse_window_hours: 24)
+      message = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming',
+                                 sender: conversation.contact, content: 'Hello')
+      allow(adapter).to receive(:perform).and_return({ assistant_text: 'Hi there', tool_calls: [], finish_reason: 'stop' })
+
+      described_class.new(message: message, adapter: adapter).perform
+
+      expect(AiAgentUsageEvent.last.response_slots.count).to eq(1)
+      expect(AiAgentUsageEvent.last.response_slots.first).to be_consumed
+    end
+
+    it 'counts a handoff-tool turn as one response slot' do
+      message = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming',
+                                 sender: conversation.contact, content: 'I need billing help')
+      allow(adapter).to receive(:perform).and_return({
+                                                       assistant_text: nil,
+                                                       tool_calls: [handoff_tool_call],
+                                                       finish_reason: 'tool_calls'
+                                                     })
+
+      described_class.new(message: message, adapter: adapter).perform
+
+      expect(AiAgentUsageEvent.last.response_slots.consumed.count).to eq(1)
+    end
+
+    it 'counts a catalog presentation as one response slot' do
+      widget = create(:channel_widget, account: account)
+      widget_conversation = create(:conversation, account: account, inbox: widget.inbox, status: 'pending')
+      create(:agent_bot_inbox, inbox: widget.inbox, agent_bot: ai_agent.agent_bot, status: 'active')
+      message = create(:message, account: account, inbox: widget.inbox, conversation: widget_conversation, message_type: 'incoming',
+                                 sender: widget_conversation.contact, content: 'Ürün görsellerini göster')
+      presentation = {
+        'id' => 'presentation-limit-1',
+        'content_type' => 'catalog_products',
+        'mode' => 'products',
+        'items' => [catalog_presentation_item('variant:red', 'Kırmızı Sineklik', 'https://cdn.myikas.com/red.webp')]
+      }
+      assistant_message = {
+        'content' => 'Ürünlerimiz aşağıda.',
+        'terminal_action' => 'present_catalog_products',
+        'tool_result' => { 'presentation' => presentation }
+      }
+      allow(AiAgents::Orchestrator).to receive(:new).and_return(
+        instance_double(AiAgents::Orchestrator, perform: {
+                          assistant_message: assistant_message,
+                          tool_events: [],
+                          terminal_action: 'present_catalog_products'
+                        })
+      )
+      preparer = instance_double(AiAgents::CatalogImagePreparer)
+      allow(preparer).to receive(:prepare).and_return(prepared_image)
+
+      described_class.new(message: message, media_preparer: preparer).perform
+
+      event = AiAgentUsageEvent.last
+      expect(event.response_slots.consumed.count).to eq(1)
+    end
+
+    it 'releases the slot and the event when the orchestrator fails' do
+      account.update!(ai_agent_conversation_limit: 2, ai_agent_conversation_reuse_window_hours: 24)
+      message = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming',
+                                 sender: conversation.contact, content: 'Hello')
+      allow(AiAgents::Orchestrator).to receive(:new).and_raise(StandardError, 'llm down')
+
+      expect do
+        described_class.new(message: message, adapter: adapter).perform
+      end.to raise_error(StandardError, 'llm down')
+
+      expect(AiAgentUsageEvent.last).to be_released
+      expect(AiAgentUsageEvent.last.response_slots.first).to be_released
+      expect(conversation.messages.where(message_type: 'outgoing', private: false, sender: ai_agent.agent_bot)).to be_empty
+    end
+
+    it 'releases the slot and the newly created event on a blank result' do
+      account.update!(ai_agent_conversation_limit: 2, ai_agent_conversation_reuse_window_hours: 24)
+      message = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming',
+                                 sender: conversation.contact, content: 'Hello')
+      allow(AiAgents::Orchestrator).to receive(:new).and_return(
+        instance_double(AiAgents::Orchestrator, perform: { assistant_message: nil, tool_events: [], terminal_action: nil })
+      )
+
+      described_class.new(message: message, adapter: adapter).perform
+
+      event = AiAgentUsageEvent.last
+      expect(event).to be_released
+      expect(event.response_slots.first).to be_released
+      expect(conversation.messages.where(message_type: 'outgoing', private: false, sender: ai_agent.agent_bot)).to be_empty
+      expect(AiAgentResponseSlot.where(ai_agent_usage_event: event).active.count).to eq(0)
+    end
+
+    it 'releases the slot on a blank result even when the monthly event was reused' do
+      account.update!(ai_agent_conversation_limit: 2, ai_agent_conversation_reuse_window_hours: 24)
+      event = window_event
+      message = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming',
+                                 sender: conversation.contact, content: 'Hello')
+      allow(AiAgents::Orchestrator).to receive(:new).and_return(
+        instance_double(AiAgents::Orchestrator, perform: { assistant_message: nil, tool_events: [], terminal_action: nil })
+      )
+
+      described_class.new(message: message, adapter: adapter).perform
+
+      slot = event.response_slots.find_by(trigger_message_id: message.id)
+      expect(slot).to be_released
+      expect(event.reload).to be_consumed
+      expect(conversation.messages.where(message_type: 'outgoing', private: false, sender: ai_agent.agent_bot)).to be_empty
+    end
+
+    it 'releases a reused slot on failure and consumes it on a later retry' do
+      account.update!(ai_agent_conversation_limit: 2, ai_agent_conversation_reuse_window_hours: 24)
+      message = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming',
+                                 sender: conversation.contact, content: 'Hello')
+      # Simulate an in-flight first job: event and slot already reserved.
+      event = window_event(status: :reserved)
+      slot = create(:ai_agent_response_slot, ai_agent_usage_event: event, trigger_message: message, status: :reserved)
+      allow(AiAgents::Orchestrator).to receive(:new).and_raise(StandardError, 'llm down')
+
+      expect do
+        described_class.new(message: message, adapter: adapter).perform
+      end.to raise_error(StandardError, 'llm down')
+
+      expect(slot.reload).to be_released
+      expect(conversation.messages.where(message_type: 'outgoing', private: false, sender: ai_agent.agent_bot)).to be_empty
+
+      allow(AiAgents::Orchestrator).to receive(:new).and_call_original
+      allow(adapter).to receive(:perform).and_return({ assistant_text: 'Recovered', tool_calls: [], finish_reason: 'stop' })
+      described_class.new(message: message, adapter: adapter).perform
+
+      expect(slot.reload).to be_consumed
+      expect(conversation.messages.where(message_type: 'outgoing', private: false, sender: ai_agent.agent_bot).count).to eq(1)
+    end
+
+    it 'keeps exactly one consumed slot for duplicate deliveries of the same trigger' do
+      account.update!(ai_agent_conversation_limit: 2, ai_agent_conversation_reuse_window_hours: 24)
+      message = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming',
+                                 sender: conversation.contact, content: 'Hello again')
+      allow(adapter).to receive(:perform).and_return({ assistant_text: 'Hi there', tool_calls: [], finish_reason: 'stop' })
+
+      2.times { described_class.new(message: message, adapter: adapter).perform }
+
+      expect(conversation.messages.where(message_type: 'outgoing', private: false, sender: ai_agent.agent_bot).count).to eq(1)
+      expect(AiAgentResponseSlot.count).to eq(1)
+      expect(AiAgentResponseSlot.first).to be_consumed
+    end
+
+    it 'persists exactly one public warning when the 45th response is consumed' do
+      account.update!(ai_agent_conversation_limit: 0, ai_agent_response_limit_per_window: 50)
+      event = window_event
+      create_consumed_response_slots(event, 44)
+      message = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming',
+                                 sender: conversation.contact, content: '45th trigger')
+      allow(adapter).to receive(:perform).and_return({ assistant_text: '45th reply', tool_calls: [], finish_reason: 'stop' })
+
+      expect do
+        described_class.new(message: message, adapter: adapter).perform
+      end.to change { conversation.messages.where(private: false, sender: ai_agent.agent_bot).count }.by(2)
+
+      replies = conversation.messages.where(private: false, sender: ai_agent.agent_bot).order(:id).to_a
+      expect(replies.first.content).to eq('45th reply')
+      expect(replies.last.content).to eq(I18n.t('ai_agents.response_limit_warning'))
+      expect(replies.last.content_attributes.dig('ai_agent', 'trigger_message_id')).to be_nil
+      expect(event.reload.response_limit_warning_sent).to be(true)
+      expect(event.response_slots.consumed.count).to eq(45)
+      expect(adapter).to have_received(:perform).once
+    end
+
+    it 'uses the account locale for the warning copy' do
+      account.update!(locale: :tr, ai_agent_conversation_limit: 0, ai_agent_response_limit_per_window: 50)
+      event = window_event
+      create_consumed_response_slots(event, 44)
+      message = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming',
+                                 sender: conversation.contact, content: '45. tetikleyici')
+      allow(adapter).to receive(:perform).and_return({ assistant_text: '45. yanıt', tool_calls: [], finish_reason: 'stop' })
+
+      described_class.new(message: message, adapter: adapter).perform
+
+      warning = conversation.messages.where(private: false, sender: ai_agent.agent_bot).last
+      expect(warning.content).to eq(I18n.t('ai_agents.response_limit_warning', locale: :tr))
+    end
+
+    it 'allows the 50th normal response without a warning' do
+      account.update!(ai_agent_conversation_limit: 0, ai_agent_response_limit_per_window: 50)
+      event = window_event
+      create_consumed_response_slots(event, 49)
+      message = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming',
+                                 sender: conversation.contact, content: '50th trigger')
+      allow(adapter).to receive(:perform).and_return({ assistant_text: '50th reply', tool_calls: [], finish_reason: 'stop' })
+
+      expect do
+        described_class.new(message: message, adapter: adapter).perform
+      end.to change { conversation.messages.where(private: false, sender: ai_agent.agent_bot).count }.by(1)
+
+      expect(event.response_slots.consumed.count).to eq(50)
+      expect(event.response_slots.active.count).to eq(50)
+      expect(event.reload.response_limit_warning_sent).to be(false)
+    end
+
+    it 'delivers exactly one terminal handoff on the would-be 51st trigger without calling the LLM' do
+      account.update!(ai_agent_conversation_limit: 0, ai_agent_response_limit_per_window: 50)
+      event = window_event
+      create_consumed_response_slots(event, 50)
+      message = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming',
+                                 sender: conversation.contact, content: '51st trigger')
+
+      expect(adapter).not_to receive(:perform)
+      expect do
+        result = described_class.new(message: message, adapter: adapter).perform
+        expect(result).to be(true)
+      end.to change { conversation.messages.where(private: false, sender: ai_agent.agent_bot).count }.by(1)
+        .and change { conversation.messages.where(private: true).count }.by(1)
+
+      terminal = conversation.messages.where(private: false, sender: ai_agent.agent_bot).last
+      expect(terminal.content).to eq(I18n.t('ai_agents.response_limit_handoff_message'))
+      expect(terminal.content_attributes.dig('ai_agent', 'trigger_message_id')).to be_nil
+      expect(terminal.public_content_attributes).not_to have_key('ai_agent')
+    end
+
+    it 'marks the conversation handed off and reuses the event on the 51st trigger' do
+      account.update!(ai_agent_conversation_limit: 0, ai_agent_response_limit_per_window: 50)
+      event = window_event
+      create_consumed_response_slots(event, 50)
+      message = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming',
+                                 sender: conversation.contact, content: '51st trigger')
+
+      described_class.new(message: message, adapter: adapter).perform
+
+      attrs = conversation.reload.additional_attributes
+      expect(attrs['ai_handoff_reason']).to eq('ai_response_limit_exhausted')
+      expect(attrs['ai_handoff_completed']).to be(true)
+      expect(attrs['ai_handoff_message_id']).to eq(message.id)
+      expect(conversation).to be_open
+      expect(AiAgentUsageEvent.count).to eq(1)
+      expect(event.response_slots.find_by(trigger_message_id: message.id)).to be_handed_off
+    end
+
+    it 'never lets a released retry become the 51st response when another trigger filled the window' do
+      account.update!(ai_agent_conversation_limit: 0, ai_agent_response_limit_per_window: 50)
+      event = window_event
+      create_consumed_response_slots(event, 50)
+      retry_message = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming',
+                                       sender: conversation.contact, content: 'Retry after release')
+      create(:ai_agent_response_slot, ai_agent_usage_event: event, trigger_message: retry_message, status: :released)
+
+      expect(adapter).not_to receive(:perform)
+      expect do
+        expect(described_class.new(message: retry_message, adapter: adapter).perform).to be(true)
+      end.not_to change(Message, :count)
+
+      expect(event.response_slots.find_by(trigger_message_id: retry_message.id)).to be_released
+      expect(event.response_slots.consumed.count).to eq(50)
+      expect(event.response_slots.active.count).to eq(50)
+      expect(conversation.reload).to be_pending
+    end
+
+    it 'lets a released retry take the 50th response but never a second released retry the 51st' do
+      account.update!(ai_agent_conversation_limit: 0, ai_agent_response_limit_per_window: 50)
+      event = window_event
+      create_consumed_response_slots(event, 49)
+      first_retry = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming',
+                                     sender: conversation.contact, content: 'First released retry')
+      second_retry = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming',
+                                      sender: conversation.contact, content: 'Second released retry')
+      create(:ai_agent_response_slot, ai_agent_usage_event: event, trigger_message: first_retry, status: :released)
+      create(:ai_agent_response_slot, ai_agent_usage_event: event, trigger_message: second_retry, status: :released)
+      allow(adapter).to receive(:perform).and_return({ assistant_text: '50th reply', tool_calls: [], finish_reason: 'stop' })
+
+      expect(described_class.new(message: first_retry, adapter: adapter).perform).to be(false)
+
+      expect(adapter).not_to receive(:perform)
+      expect do
+        expect(described_class.new(message: second_retry, adapter: adapter).perform).to be(true)
+      end.not_to change(Message, :count)
+
+      expect(event.response_slots.find_by(trigger_message_id: first_retry.id)).to be_consumed
+      expect(event.response_slots.find_by(trigger_message_id: second_retry.id)).to be_released
+      expect(event.response_slots.active.count).to eq(50)
+    end
+
+    it 'hands off monthly exhaustion first without response slots or a terminal message' do
+      account.update!(ai_agent_conversation_limit: 1, ai_agent_conversation_reuse_window_hours: 1)
+      create(:ai_agent_usage_event,
+             account: account,
+             ai_agent: ai_agent,
+             contact: create(:contact, account: account),
+             period_start_at: Time.current.beginning_of_month,
+             period_end_at: Time.current.next_month.beginning_of_month,
+             window_started_at: 2.days.ago,
+             window_ends_at: 1.day.ago,
+             status: :consumed)
+      message = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming',
+                                 sender: conversation.contact, content: 'Need help')
+
+      expect(adapter).not_to receive(:perform)
+      described_class.new(message: message, adapter: adapter).perform
+
+      expect(AiAgentResponseSlot.count).to eq(0)
+      expect(conversation.messages.where(private: false, sender: ai_agent.agent_bot)).to be_empty
+      expect(conversation.reload.additional_attributes['ai_usage_limit_exhausted']).to be(true)
+    end
+
+    it 'shares one window event across conversations of the same contact' do
+      account.update!(ai_agent_conversation_limit: 0)
+      first_message = create(:message, account: account, inbox: inbox, conversation: conversation, message_type: 'incoming',
+                                       sender: conversation.contact, content: 'First conversation')
+      allow(adapter).to receive(:perform).and_return({ assistant_text: 'First reply', tool_calls: [], finish_reason: 'stop' })
+      described_class.new(message: first_message, adapter: adapter).perform
+
+      second_conversation = create(:conversation, account: account, inbox: inbox, contact: conversation.contact, status: 'pending')
+      second_message = create(:message, account: account, inbox: inbox, conversation: second_conversation, message_type: 'incoming',
+                                        sender: conversation.contact, content: 'Second conversation')
+      described_class.new(message: second_message, adapter: adapter).perform
+
+      expect(AiAgentUsageEvent.count).to eq(1)
+      expect(AiAgentResponseSlot.count).to eq(2)
+      expect(AiAgentResponseSlot.distinct.pluck(:ai_agent_usage_event_id)).to eq([AiAgentUsageEvent.last.id])
+      expect(AiAgentResponseSlot.pluck(:status)).to eq(%w[consumed consumed])
+    end
   end
 end

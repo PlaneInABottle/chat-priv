@@ -54,6 +54,42 @@ RSpec.describe AiAgents::Settings do
     end
   end
 
+  describe '.response_limit_per_window' do
+    it 'returns 50 when no config row exists' do
+      expect(described_class.response_limit_per_window).to eq(50)
+    end
+
+    it 'returns the configured value when it is a positive integer' do
+      upsert_config('AI_AGENT_RESPONSE_LIMIT_PER_WINDOW', 50)
+
+      expect(described_class.response_limit_per_window).to eq(50)
+    end
+
+    it 'returns 0 for an explicit zero (unlimited)' do
+      upsert_config('AI_AGENT_RESPONSE_LIMIT_PER_WINDOW', 0)
+
+      expect(described_class.response_limit_per_window).to eq(0)
+    end
+
+    it 'returns 0 for a stringified zero' do
+      upsert_config('AI_AGENT_RESPONSE_LIMIT_PER_WINDOW', '0')
+
+      expect(described_class.response_limit_per_window).to eq(0)
+    end
+
+    it 'falls back to 50 for negative values' do
+      upsert_config('AI_AGENT_RESPONSE_LIMIT_PER_WINDOW', -5)
+
+      expect(described_class.response_limit_per_window).to eq(50)
+    end
+
+    it 'falls back to 50 for non-integer garbage' do
+      upsert_config('AI_AGENT_RESPONSE_LIMIT_PER_WINDOW', 'abc')
+
+      expect(described_class.response_limit_per_window).to eq(50)
+    end
+  end
+
   def upsert_config(name, value)
     InstallationConfig.where(name: name).first_or_initialize.tap do |config|
       config.value = value

@@ -2,20 +2,21 @@
 #
 # Table name: ai_agent_usage_events
 #
-#  id                :bigint           not null, primary key
-#  period            :integer          default("monthly"), not null
-#  period_end_at     :datetime         not null
-#  period_start_at   :datetime         not null
-#  status            :integer          default("reserved"), not null
-#  window_ends_at    :datetime         not null
-#  window_started_at :datetime         not null
-#  created_at        :datetime         not null
-#  updated_at        :datetime         not null
-#  account_id        :bigint           not null
-#  ai_agent_id       :bigint           not null
-#  contact_id        :bigint
-#  conversation_id   :bigint
-#  message_id        :bigint
+#  id                          :bigint           not null, primary key
+#  period                      :integer          default("monthly"), not null
+#  period_end_at               :datetime         not null
+#  period_start_at             :datetime         not null
+#  response_limit_warning_sent :boolean          default(FALSE), not null
+#  status                      :integer          default("reserved"), not null
+#  window_ends_at              :datetime         not null
+#  window_started_at           :datetime         not null
+#  created_at                  :datetime         not null
+#  updated_at                  :datetime         not null
+#  account_id                  :bigint           not null
+#  ai_agent_id                 :bigint           not null
+#  contact_id                  :bigint
+#  conversation_id             :bigint
+#  message_id                  :bigint
 #
 # Indexes
 #
@@ -45,6 +46,8 @@ class AiAgentUsageEvent < ApplicationRecord
   belongs_to :contact, optional: true
   belongs_to :conversation, optional: true
   belongs_to :message, optional: true
+
+  has_many :response_slots, dependent: :destroy, class_name: 'AiAgentResponseSlot'
 
   validates :period, :period_start_at, :period_end_at, :window_started_at, :window_ends_at, :status, presence: true
   validate :ai_agent_belongs_to_account

@@ -54,6 +54,29 @@ RSpec.describe '/api/v1/widget/messages', type: :request do
         expect(serialized['content_attributes']).not_to have_key('ai_agent')
       end
 
+      it 'renders response-limit notices as plain text without internal metadata' do
+        notice = create(
+          :message,
+          account: account,
+          inbox: web_widget.inbox,
+          conversation: conversation,
+          message_type: 'outgoing',
+          content: 'This conversation has reached its AI response limit. Our team will take over from here.',
+          content_attributes: { ai_agent: { system_notice: { type: 'response_limit_handoff', limit: 50 } } }
+        )
+
+        get api_v1_widget_messages_url,
+            params: { website_token: web_widget.website_token },
+            headers: { 'X-Auth-Token' => token },
+            as: :json
+
+        serialized = response.parsed_body['payload'].find { |item| item['id'] == notice.id }
+        expect(serialized['content']).to eq(notice.content)
+        expect(serialized['content_type']).to eq('text')
+        expect(serialized['content_attributes']).not_to have_key('ai_agent')
+        expect(serialized.to_json).not_to include('system_notice', 'trigger_message_id')
+      end
+
       it 'returns empty messages', :skip_before do
         get api_v1_widget_messages_url,
             params: { website_token: web_widget.website_token },
