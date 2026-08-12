@@ -61,7 +61,7 @@
     },
     "EMAIL": {
       "LABEL": "İş e-postası",
-      "PLACEHOLDER": "Örn. destek@magazan.com",
+      "PLACEHOLDER": "Örn. destek{'@'}magazan.com",
       "ERROR": "Lütfen geçerli bir iş e-posta adresi gir."
     },
     "PASSWORD": {

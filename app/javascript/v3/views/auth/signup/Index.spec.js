@@ -1,4 +1,5 @@
 import { shallowMount } from '@vue/test-utils';
+import { createI18n } from 'vue-i18n';
 import { useStore } from 'vuex';
 import SignupIndex from './Index.vue';
 import enSignup from 'dashboard/i18n/locale/en/signup.json';
@@ -46,6 +47,7 @@ describe('Signup Index', () => {
       proofPlane.findAll('[data-testid="freemium-sequence-step"]')
     ).toHaveLength(3);
     expect(wrapper.findAll('img[alt="Kozmopath"]')).toHaveLength(1);
+    expect(formPlane.get('img[alt="Kozmopath"]')).toBeTruthy();
     expect(proofPlane.findAll('img[alt="Kozmopath"]')).toHaveLength(0);
     expect(proofPlane.get('img[alt="ikas"]').attributes('src')).toBe(
       '/marketing/assets/ikas-official-wordmark.svg'
@@ -86,5 +88,74 @@ describe('Signup Index', () => {
     expect(JSON.stringify(trSignup.REGISTER)).not.toMatch(
       /Chatwoot|Woot server|Check your inbox|Enter your work email/
     );
+  });
+
+  it('compiles every maintained en/tr signup leaf with the vue-i18n message compiler', () => {
+    const flattenLeaves = (value, prefix = '') =>
+      Object.entries(value).flatMap(([key, nestedValue]) => {
+        const fullKey = prefix ? `${prefix}.${key}` : key;
+        return nestedValue && typeof nestedValue === 'object'
+          ? flattenLeaves(nestedValue, fullKey)
+          : [[fullKey, nestedValue]];
+      });
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const failures = [];
+    try {
+      [
+        ['en', enSignup],
+        ['tr', trSignup],
+      ].forEach(([locale, messages]) => {
+        const i18n = createI18n({
+          legacy: false,
+          locale,
+          messages: { [locale]: messages },
+          missingWarn: false,
+          fallbackWarn: false,
+        });
+        flattenLeaves(messages).forEach(([keyPath]) => {
+          const errorsBefore = errorSpy.mock.calls.length;
+          try {
+            // Same runtime compile path as production: compile errors are
+            // thrown in production builds and logged as errors in dev/test.
+            // Intentionally iterating locale JSON leaves in a regression spec.
+            // eslint-disable-next-line @intlify/vue-i18n/no-dynamic-keys
+            i18n.global.t(keyPath);
+          } catch (error) {
+            failures.push(`[${locale}] ${keyPath} threw: ${error.message}`);
+            return;
+          }
+          const compileErrors = errorSpy.mock.calls
+            .slice(errorsBefore)
+            .filter(([message]) =>
+              String(message).includes('Message compilation error')
+            );
+          if (compileErrors.length > 0) {
+            failures.push(
+              `[${locale}] ${keyPath} failed to compile: ${compileErrors[0]}`
+            );
+          }
+        });
+      });
+    } finally {
+      errorSpy.mockRestore();
+    }
+    expect(failures).toEqual([]);
+  });
+
+  it('renders the email placeholder as a literal @ in both maintained locales', () => {
+    const renderPlaceholder = (locale, messages) =>
+      createI18n({
+        legacy: false,
+        locale,
+        messages: { [locale]: messages },
+        missingWarn: false,
+        fallbackWarn: false,
+      }).global.t('REGISTER.EMAIL.PLACEHOLDER');
+
+    expect(renderPlaceholder('en', enSignup)).toBe(
+      'Enter your work email address. E.g., bruce@wayne.enterprises'
+    );
+    expect(renderPlaceholder('tr', trSignup)).toBe('Örn. destek@magazan.com');
   });
 });
