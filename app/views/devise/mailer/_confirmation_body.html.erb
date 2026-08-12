@@ -12,7 +12,7 @@
 </tr>
 <tr>
   <td style="padding: 0 0 8px;">
-    <p style="margin: 0; font-size: 14px; line-height: 21px; color: #334155;">Hi <%= recipient_name %>,</p>
+    <p style="margin: 0; font-size: 14px; line-height: 21px; color: #334155;"><%= t('devise.mailer.confirmation_instructions.greeting', recipient_name: recipient_name) %></p>
   </td>
 </tr>
 <tr>
@@ -62,9 +62,9 @@
   <tr>
     <td style="padding: 0 0 20px;">
       <p style="margin: 0; font-size: 14px; line-height: 21px; color: #64748B;">
-        If the button does not work, open
+        <%= t('devise.mailer.confirmation_instructions.fallback_prefix') %>
         <%= link_to(
-          'this secure link',
+          t('devise.mailer.confirmation_instructions.fallback_link'),
           action_url,
           style: 'color:#2781F6; text-decoration:none; font-weight:600;'
         ) %>.

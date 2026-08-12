@@ -117,5 +117,78 @@ RSpec.describe 'Devise::Mailer' do
         expect(confirmation_mail.body).to include('/auth/sign_in')
       end
     end
+
+    context 'when the account locale is Turkish' do
+      let(:tr_account) { create(:account, locale: 'tr') }
+      let(:mail) { Devise::Mailer.with(account: tr_account).confirmation_instructions(confirmable_user.reload, nil, {}) }
+
+      it 'renders the Turkish subject, body and action' do
+        expect(mail.subject).to eq('Onay Talimatları')
+        expect(mail_body).to include('Merhaba')
+        expect(mail_body).to include('Başlamak için e-postanızı onaylayın')
+        expect(mail_body).to include('Hesabımı onayla')
+      end
+
+      it 'renders the Turkish fallback link and the confirmation link with the token' do
+        expect(mail_body).to include('Buton çalışmazsa şu bağlantıyı açın:')
+        expect(mail_body).to include('güvenli bağlantı')
+        expect(mail.body).to include("app/auth/confirmation?confirmation_token=#{confirmable_user.confirmation_token}")
+        expect(mail.body).not_to include('app/auth/password/edit')
+      end
+    end
+
+    context 'when there is an inviter and the account locale is Turkish' do
+      let(:tr_account) { create(:account, locale: 'tr') }
+      let(:inviter_val) { create(:user, :administrator, skip_confirmation: true, account: tr_account) }
+      let!(:confirmable_user) { create(:user, inviter: inviter_val, account: tr_account) }
+      let(:mail) { Devise::Mailer.with(account: tr_account).confirmation_instructions(confirmable_user.reload, nil, {}) }
+
+      it 'renders the Turkish invitation branch' do
+        expect(mail_body).to include("#{tr_account.name} çalışma alanına davet edildiniz")
+        expect(mail_body).to include("#{inviter_val.name} sizi #{brand_name} üzerindeki #{tr_account.name} çalışma alanına davet etti.")
+        expect(mail_body).to include('Daveti kabul et')
+        expect(mail_body).to include('Davet eden')
+        expect(mail_body).to include('Çalışma alanı')
+      end
+    end
+
+    context 'when the user has no account' do
+      let(:accountless_user) { create(:user, skip_confirmation: false) }
+      let(:mail) { Devise::Mailer.confirmation_instructions(accountless_user.reload, nil, {}) }
+
+      before do
+        accountless_user.send(:generate_confirmation_token)
+      end
+
+      it 'falls back to the default locale without an account context' do
+        expect(mail.subject).to eq('Confirmation Instructions')
+        expect(mail_body).to include('Confirm your email to get started')
+        expect(mail_body).to include('Confirm my account')
+      end
+    end
+
+    it 'keeps English and Turkish confirmation and reset mailer keys aligned' do
+      flatten_keys = lambda do |value, prefix = nil|
+        value.each_with_object([]) do |(key, nested_value), keys|
+          path = [prefix, key].compact.join('.')
+          keys.concat(nested_value.is_a?(Hash) ? flatten_keys.call(nested_value, path) : [path])
+        end
+      end
+
+      # devise_token_auth ships legacy mailer keys in its own config/locales/en.yml
+      # that merge into the English tree (e.g. confirm_link_msg, password_change_link).
+      # They are not part of the maintained en/tr sources and are excluded from parity.
+      legacy_gem_keys = %w[
+        confirm_link_msg confirm_account_link
+        request_reset_link_msg password_change_link ignore_mail_msg no_changes_msg
+      ]
+
+      %w[confirmation_instructions reset_password_instructions].each do |mailer|
+        en_keys = flatten_keys.call(I18n.t("devise.mailer.#{mailer}", locale: :en)) - legacy_gem_keys
+        tr_keys = flatten_keys.call(I18n.t("devise.mailer.#{mailer}", locale: :tr))
+
+        expect(en_keys).to match_array(tr_keys)
+      end
+    end
   end
 end

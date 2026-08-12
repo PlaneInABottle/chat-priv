@@ -14,6 +14,30 @@ RSpec.describe 'Resend Confirmations API', type: :request do
 
         expect(response).to have_http_status(:ok)
       end
+
+      it 'enqueues the confirmation mail without an account context when the user has no account' do
+        post '/resend_confirmation', params: { email: email }, as: :json
+
+        mail_job = enqueued_jobs.last
+        expect(mail_job[:job].to_s).to eq('ActionMailer::MailDeliveryJob')
+        expect(mail_job[:args].last['params']['account']).to be_nil
+      end
+    end
+
+    context 'when the user belongs to an account with a non-default locale' do
+      let(:account) { create(:account, locale: 'tr') }
+
+      before { create(:user, email: email, skip_confirmation: false, account: account) }
+
+      it 'enqueues the confirmation mail with the user account locale context' do
+        expect do
+          post '/resend_confirmation', params: { email: email }, as: :json
+        end.to have_enqueued_mail(Devise::Mailer, :confirmation_instructions)
+
+        mail_job = enqueued_jobs.last
+        expect(mail_job[:job].to_s).to eq('ActionMailer::MailDeliveryJob')
+        expect(mail_job[:args].last['params']['account']['_aj_globalid']).to eq(account.to_global_id.to_s)
+      end
     end
 
     context 'when the user exists and is already confirmed' do

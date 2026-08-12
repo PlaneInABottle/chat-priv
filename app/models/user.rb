@@ -128,7 +128,13 @@ class User < ApplicationRecord
   end
 
   def send_devise_notification(notification, *)
-    devise_mailer.with(account: Current.account).send(notification, self, *).deliver_later
+    # Unauthenticated flows (resend confirmation, password reset) have no Current.account,
+    # so fall back to the user's earliest account membership. This mirrors the confirmation
+    # template's account selection (account_users.first) and keeps the mail locale aligned
+    # with the account referenced in the email. Users without an account fall back to the
+    # default locale via ApplicationMailer#switch_locale.
+    account = Current.account || account_users.first&.account
+    devise_mailer.with(account: account).send(notification, self, *).deliver_later
   end
 
   def set_password_and_uid
