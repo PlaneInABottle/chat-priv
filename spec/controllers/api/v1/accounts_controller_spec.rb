@@ -108,10 +108,10 @@ RSpec.describe 'Accounts API', type: :request do
         expect(account.settings).to include('voice_ai_enabled' => false)
         expect(account).not_to be_voice_ai_enabled
         expect(account.settings).to include(
-          'ai_agent_conversation_limit' => 100,
+          'ai_agent_conversation_limit' => 50,
           'ai_improvement_monthly_credit_limit' => 600
         )
-        expect(account.ai_agent_conversation_limit).to eq(100)
+        expect(account.ai_agent_conversation_limit).to eq(50)
         expect(account.ai_improvement_monthly_credit_limit).to eq(600)
       end
     end

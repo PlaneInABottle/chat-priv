@@ -6,7 +6,7 @@ Plan file: `docs/kozmopath-freemium-quotas.plan.md` (this file)
 
 ## Problem Statement
 
-Kozmopath advertises a 14-day trial on the marketing homepage and signup page, but the runtime has no trial-expiry machinery — AI quotas are controlled by per-account settings that default to unlimited (`ai_agent_conversation_limit` absent → `0` = unlimited) or a generic 1000-credit fallback. The product decision is: **replace the advertised 14-day trial with an indefinite freemium** where newly eligible accounts start with **100 monthly AI conversations** and **600 monthly shared AI workspace credits**, existing accounts stay unchanged, and SuperAdmin retains independent control of both limits (`0` = unlimited, changes apply immediately).
+Kozmopath advertises a 14-day trial on the marketing homepage and signup page, but the runtime has no trial-expiry machinery — AI quotas are controlled by per-account settings that default to unlimited (`ai_agent_conversation_limit` absent → `0` = unlimited) or a generic 1000-credit fallback. The product decision is: **replace the advertised 14-day trial with an indefinite freemium** where newly eligible accounts start with **50 monthly AI conversations** and **600 monthly shared AI workspace credits**, existing accounts stay unchanged, and SuperAdmin retains independent control of both limits (`0` = unlimited, changes apply immediately).
 
 ## Approach
 
@@ -14,11 +14,11 @@ Add **explicit opt-in freemium defaults at the single account-creation funnel (`
 
 ## Success Criteria
 
-- [ ] New unauthenticated password signups (v1 AND v2) and new Google OAuth signups create accounts with `settings['ai_agent_conversation_limit'] == 100` and `settings['ai_improvement_monthly_credit_limit'] == 600`; installation onboarding, authenticated add-workspace (v1/v2), platform API, and SuperAdmin creation do NOT (defaults unchanged).
+- [ ] New unauthenticated password signups (v1 AND v2) and new Google OAuth signups create accounts with `settings['ai_agent_conversation_limit'] == 50` and `settings['ai_improvement_monthly_credit_limit'] == 600`; installation onboarding, authenticated add-workspace (v1/v2), platform API, and SuperAdmin creation do NOT (defaults unchanged).
 - [ ] `AccountBuilder` opt-in `apply_freemium_limits` defaults to `false`; existing `Account` readers/fallbacks are byte-identical (absent conversation limit → `0`/unlimited; absent/malformed/negative improvement credit → `1000`; explicit `0` preserved).
 - [ ] SuperAdmin can independently set both limits, `0` = unlimited, and changes take effect on the next request without usage rewrites (proven by specs; no implementation change).
-- [ ] Limiter behavior preserved: `>=` boundary (100th ok / 101st exhausted; 600th ok / 601st exhausted across ≥2 shared operations), 24-hour reuse window, silent handoff with no LLM call, `with_lock` atomicity, reporting-timezone month reset.
-- [ ] Marketing homepage and signup page render freemium copy with exact strings `100 AI conversations every month.` and `600 monthly AI workspace credits.` in the `en` source locale; no trial/14-day/credit-card/autobilling claims anywhere in the touched surfaces; en/tr key parity retained.
+- [ ] Limiter behavior preserved: `>=` boundary (50th ok / 51st exhausted; 600th ok / 601st exhausted across ≥2 shared operations), 24-hour reuse window, silent handoff with no LLM call, `with_lock` atomicity, reporting-timezone month reset.
+- [ ] Marketing homepage and signup page render freemium copy with exact strings `50 AI conversations every month.` and `600 monthly AI workspace credits.` in the `en` source locale; no trial/14-day/credit-card/autobilling claims anywhere in the touched surfaces; en/tr key parity retained.
 - [ ] Signup operational gate `ENABLE_ACCOUNT_SIGNUP` remains default-off and untouched in its disabled behavior (404/RoutingError for v1/v2, no-account-found for OAuth).
 - [ ] Full targeted suites green: Ruby (builders, v1/v2/omniauth/super_admin controllers, limiters, live processor, marketing), Vitest (signup components), ESLint, RuboCop.
 
@@ -63,7 +63,7 @@ No CRITICAL or HIGH unverified assumptions remain.
 ## Constants / Inputs / Schema / API / Route Contract Inventory
 
 **New constants (implementation):**
-- `Account::FREEMIUM_AI_AGENT_CONVERSATION_MONTHLY_LIMIT = 100` (placed next to `DEFAULT_AI_IMPROVEMENT_MONTHLY_CREDIT_LIMIT`, `app/models/account.rb:46`).
+- `Account::FREEMIUM_AI_AGENT_CONVERSATION_MONTHLY_LIMIT = 50` (placed next to `DEFAULT_AI_IMPROVEMENT_MONTHLY_CREDIT_LIMIT`, `app/models/account.rb:46`).
 - `Account::FREEMIUM_AI_IMPROVEMENT_MONTHLY_CREDIT_LIMIT = 600` (same location).
 - `AccountBuilder` pattr option `{ apply_freemium_limits: false }` (repo default syntax per F2).
 
@@ -72,7 +72,7 @@ No CRITICAL or HIGH unverified assumptions remain.
 - v2 unauth signup (`current_user.nil?`) → `true`; v2 authenticated → `false`.
 - OAuth new-user (`sign_up_user` path) → `true`; existing-user login → builder not called.
 - Installation onboarding, platform API, SuperAdmin create → builder not opted in / not used.
-- Settings keys written when opted in (string keys, matching `store_accessor` + `account_settings_schema.rb:21,24`): `'ai_agent_conversation_limit'` (integer 100), `'ai_improvement_monthly_credit_limit'` (integer 600).
+- Settings keys written when opted in (string keys, matching `store_accessor` + `account_settings_schema.rb:21,24`): `'ai_agent_conversation_limit'` (integer 50), `'ai_improvement_monthly_credit_limit'` (integer 600).
 
 **No schema change:** no migration; `db/schema.rb` untouched; no columns, indexes, or jsonb shape changes (both keys already valid per `app/models/concerns/account_settings_schema.rb:21,24`).
 
@@ -90,14 +90,14 @@ No CRITICAL or HIGH unverified assumptions remain.
 
 | Key | en value | tr value |
 |-----|----------|----------|
-| `marketing.freemium.announcement` | `100 AI conversations every month.` (exact headline) | `Her ay 100 yapay zekâ sohbeti.` |
+| `marketing.freemium.announcement` | `50 AI conversations every month.` (exact headline) | `Her ay 50 yapay zekâ sohbeti.` |
 | `marketing.freemium.cta` | `Start for free` | `Ücretsiz başla` |
 | `marketing.freemium.final_cta` | `Create your free account` | `Ücretsiz hesabını oluştur` |
 | `marketing.freemium.start_note` | `600 monthly AI workspace credits.` (exact supporting copy) | `Ayda 600 yapay zekâ çalışma alanı kredisi.` |
-| `marketing.freemium.final_note` | `Free forever. 100 AI conversations and 600 monthly AI workspace credits, renewed every month.` | `Süresiz ücretsiz. Her ay 100 yapay zekâ sohbeti ve ayda 600 yapay zekâ çalışma alanı kredisi.` |
+| `marketing.freemium.final_note` | `Free forever. 50 AI conversations and 600 monthly AI workspace credits, renewed every month.` | `Süresiz ücretsiz. Her ay 50 yapay zekâ sohbeti ve ayda 600 yapay zekâ çalışma alanı kredisi.` |
 | `REGISTER.FREEMIUM.EYEBROW` | `FREE FOREVER PLAN` | `SÜRESİZ ÜCRETSİZ PLAN` |
-| `REGISTER.FREEMIUM.MONTHLY_CONVERSATIONS` (badge, `aria-hidden`) | `100` | `100` |
-| `REGISTER.FREEMIUM.CONVERSATION_HEADLINE` (card `<strong>`) | `100 AI conversations every month.` | `Her ay 100 yapay zekâ sohbeti.` |
+| `REGISTER.FREEMIUM.MONTHLY_CONVERSATIONS` (badge, `aria-hidden`) | `50` | `50` |
+| `REGISTER.FREEMIUM.CONVERSATION_HEADLINE` (card `<strong>`) | `50 AI conversations every month.` | `Her ay 50 yapay zekâ sohbeti.` |
 | `REGISTER.FREEMIUM.WORKSPACE_CREDITS` (card `<small>`) | `600 monthly AI workspace credits.` | `Ayda 600 yapay zekâ çalışma alanı kredisi.` |
 | `REGISTER.FREEMIUM.TITLE` | `Kozmopath for your own store.` | `Kozmopath kendi mağazan için.` |
 | `REGISTER.FREEMIUM.DESCRIPTION` | `Your work email and password are enough to begin.` | `İş e-postan ve şifren başlangıç için yeterli.` |
@@ -152,7 +152,7 @@ All other keys under the renamed blocks keep their existing values. No card/auto
 | Existing accounts' quota values never change | Core product requirement | `spec/models/account_spec.rb` reader-default tests (existing, unchanged) + Phase 1/5 assertions |
 | `Account` readers/fallbacks byte-identical | F7 | diff of `account.rb` must be constants-only additions |
 | Explicit `0` = unlimited for both limits | SuperAdmin contract | existing limiter `unlimited?` tests + Phase 5 PATCH-0 tests |
-| Boundary `>=`: 100th ok/101st exhausted; 600th ok/601st exhausted | Product behavior | Phase 6/7/8 specs |
+| Boundary `>=`: 50th ok/51st exhausted; 600th ok/601st exhausted | Product behavior | Phase 6/7/8 specs |
 | 24h reuse window, silent handoff, no LLM call | Existing UX | existing limiter/live_processor tests + Phase 6 context |
 | Reporting-timezone month reset | Existing UX | `AiAgents::Usage::Period` specs + Phase 6/7 month-reset contexts |
 | en/tr key parity after rename | Both maintained locales | `spec/lib/marketing_controller_spec.rb:97-109` + `Index.spec.js:56-69` |
@@ -191,20 +191,20 @@ Each phase is one implementer dispatch; each leaves the tree green and is indepe
 
 ### Phase 1: Freemium constants + `AccountBuilder` opt-in (backend core)
 **Files (3):** `app/models/account.rb`, `app/builders/account_builder.rb`, `spec/builders/account_builder_spec.rb`
-**Edit intent:** Add `FREEMIUM_AI_AGENT_CONVERSATION_MONTHLY_LIMIT = 100` and `FREEMIUM_AI_IMPROVEMENT_MONTHLY_CREDIT_LIMIT = 600` next to `DEFAULT_AI_IMPROVEMENT_MONTHLY_CREDIT_LIMIT` (`account.rb:46`). Add `{ apply_freemium_limits: false }` to `pattr_initialize` (`account_builder.rb:5`). In `create_account` (`:46-54`) build the settings hash and merge the two string keys when opted in. Do NOT touch readers.
-**Tests (add to builder spec):** (1) default (no option) → `settings` excludes both keys, `account.ai_agent_conversation_limit == 0`, `account.ai_improvement_monthly_credit_limit == 1000`; (2) `apply_freemium_limits: true` → `settings` include `'ai_agent_conversation_limit' => 100` and `'ai_improvement_monthly_credit_limit' => 600`, readers return `100`/`600`; (3) constants exist with values 100/600 (or in Phase 5 account_spec). Existing builder tests untouched and green.
+**Edit intent:** Add `FREEMIUM_AI_AGENT_CONVERSATION_MONTHLY_LIMIT = 50` and `FREEMIUM_AI_IMPROVEMENT_MONTHLY_CREDIT_LIMIT = 600` next to `DEFAULT_AI_IMPROVEMENT_MONTHLY_CREDIT_LIMIT` (`account.rb:46`). Add `{ apply_freemium_limits: false }` to `pattr_initialize` (`account_builder.rb:5`). In `create_account` (`:46-54`) build the settings hash and merge the two string keys when opted in. Do NOT touch readers.
+**Tests (add to builder spec):** (1) default (no option) → `settings` excludes both keys, `account.ai_agent_conversation_limit == 0`, `account.ai_improvement_monthly_credit_limit == 1000`; (2) `apply_freemium_limits: true` → `settings` include `'ai_agent_conversation_limit' => 50` and `'ai_improvement_monthly_credit_limit' => 600`, readers return `50`/`600`; (3) constants exist with values 50/600 (or in Phase 5 account_spec). Existing builder tests untouched and green.
 **Rollback:** revert commit. **Gate:** `rspec spec/builders/account_builder_spec.rb spec/models/account_spec.rb` green; `git diff app/models/account.rb` shows constants-only additions.
 
 ### Phase 2: Wire v1 controller (unauth signup opt-in; authenticated unchanged)
 **Files (2):** `app/controllers/api/v1/accounts_controller.rb`, `spec/controllers/api/v1/accounts_controller_spec.rb`
 **Edit intent:** Pass `apply_freemium_limits: current_user.nil?` in the builder call (`:26-34`).
-**Tests:** (1) update arg assertion `:27-29` → `params.except(:password).merge(user_password: ..., confirmed: false, apply_freemium_limits: true)`; (2) extend the real-signup test "when email confirmation is disabled" (`:85-110`) with `expect(account.ai_agent_conversation_limit).to eq(100)`, `expect(account.ai_improvement_monthly_credit_limit).to eq(600)`, and `settings` key presence; (3) extend "when an authenticated user creates a second account" (`:155-169`) to fetch the created account from the response `account_id` and assert `ai_agent_conversation_limit == 0` and `ai_improvement_monthly_credit_limit == 1000` (existing behavior pinned); (4) keep all gate/captcha/confirmation tests unchanged.
+**Tests:** (1) update arg assertion `:27-29` → `params.except(:password).merge(user_password: ..., confirmed: false, apply_freemium_limits: true)`; (2) extend the real-signup test "when email confirmation is disabled" (`:85-110`) with `expect(account.ai_agent_conversation_limit).to eq(50)`, `expect(account.ai_improvement_monthly_credit_limit).to eq(600)`, and `settings` key presence; (3) extend "when an authenticated user creates a second account" (`:155-169`) to fetch the created account from the response `account_id` and assert `ai_agent_conversation_limit == 0` and `ai_improvement_monthly_credit_limit == 1000` (existing behavior pinned); (4) keep all gate/captcha/confirmation tests unchanged.
 **Rollback:** revert. **Gate:** `rspec spec/controllers/api/v1/accounts_controller_spec.rb spec/enterprise/controllers/api/v1/accounts_controller_spec.rb` green (enterprise spec needs no edits — loose `allow`).
 
 ### Phase 3: Wire v2 controller (API-only/mobile signup opt-in)
 **Files (3):** `app/controllers/api/v2/accounts_controller.rb`, `spec/controllers/api/v2/accounts_controller_spec.rb`, `spec/enterprise/controllers/enterprise/api/v2/accounts_controller_spec.rb`
 **Edit intent:** Pass `apply_freemium_limits: current_user.nil?` in the builder call (`:17-22`).
-**Tests:** (1) update v2 arg assertions `:26` and `:135` → `merge(user_password: ..., apply_freemium_limits: true)`; `:76` (invalid-params context) → same; (2) enterprise v2 arg assertions `:41` and `:80` → same addition; (3) **real persistence path (new context, no builder stub):** with `ENABLE_ACCOUNT_SIGNUP: 'true'` env and NO `allow(AccountBuilder)`, POST unauth with a random business email (pattern used by the v1 real signup: `"Signup-#{SecureRandom.hex(8)}@Example.COM"`), `password: 'Password1!'`, `locale: nil` → expect 200, then `account = User.find_by!(email: ...).accounts.first` → `account.settings` include `'ai_agent_conversation_limit' => 100` and `'ai_improvement_monthly_credit_limit' => 600`, readers return 100/600. (The existing stub contexts prove the builder receives the option; this new context proves the created account actually persists the freemium settings. v2 does not pass `confirmed:`, so the created user is unconfirmed — assert on the account, not auth headers.)
+**Tests:** (1) update v2 arg assertions `:26` and `:135` → `merge(user_password: ..., apply_freemium_limits: true)`; `:76` (invalid-params context) → same; (2) enterprise v2 arg assertions `:41` and `:80` → same addition; (3) **real persistence path (new context, no builder stub):** with `ENABLE_ACCOUNT_SIGNUP: 'true'` env and NO `allow(AccountBuilder)`, POST unauth with a random business email (pattern used by the v1 real signup: `"Signup-#{SecureRandom.hex(8)}@Example.COM"`), `password: 'Password1!'`, `locale: nil` → expect 200, then `account = User.find_by!(email: ...).accounts.first` → `account.settings` include `'ai_agent_conversation_limit' => 50` and `'ai_improvement_monthly_credit_limit' => 600`, readers return 50/600. (The existing stub contexts prove the builder receives the option; this new context proves the created account actually persists the freemium settings. v2 does not pass `confirmed:`, so the created user is unconfirmed — assert on the account, not auth headers.)
 **Rollback:** revert. **Gate:** `rspec spec/controllers/api/v2/accounts_controller_spec.rb spec/enterprise/controllers/enterprise/api/v2/accounts_controller_spec.rb` green.
 
 ### Phase 4: Wire Google OAuth new-user signup
@@ -222,8 +222,8 @@ Each phase is one implementer dispatch; each leaves the tree green and is indepe
 ### Phase 6: Conversation-limiter freemium boundaries (spec-only)
 **Files (2):** `spec/services/ai_agents/usage/limiter_spec.rb`, `spec/services/ai_agents/live_processor_spec.rb`
 **Edit intent:** Add contexts using the existing factory pattern (`create(:ai_agent_usage_event, ...)`, explicit `period_start_at`, `status: :consumed`).
-**Tests (limiter_spec):** (1) **99/100/101:** account `ai_agent_conversation_limit: 100` (reporting tz `America/New_York`), `create_list` 99 consumed events in the June window → `reserve!` on a fresh contact returns `:reserved` (100th); a second fresh contact → `:exhausted`, `summary[:remaining] == 0` (101st); (2) **month reset:** 100 consumed in June → with `now` in July → `reserve!` returns `:reserved`, `period_start_at == 2026-07-01 04:00:00 UTC`; (3) **immediate lower/raise:** limit 100 with 50 consumed → update limit to 10 → `reserve!` → `:exhausted`; update to 200 → `reserve!` → `:reserved`, then `summary[:remaining] == 149` (remaining = limit − used − reserved = 200 − 50 − 1; the new reservation itself counts — no usage rewrites).
-**Tests (live_processor_spec):** **handoff/no LLM:** freemium-limited account (limit 100) with 100 consumed events → incoming message → processor hands off silently: no LLM adapter invocation (same mock pattern as existing `:377-408` context), `conversation.additional_attributes['ai_usage_limit_exhausted'] == true`, private note present, no public outgoing message.
+**Tests (limiter_spec):** (1) **49/50/51:** account `ai_agent_conversation_limit: 50` (reporting tz `America/New_York`), `create_list` 49 consumed events in the June window → `reserve!` on a fresh contact returns `:reserved` (50th); a second fresh contact → `:exhausted`, `summary[:remaining] == 0` (51st); (2) **month reset:** 50 consumed in June → with `now` in July → `reserve!` returns `:reserved`, `period_start_at == 2026-07-01 04:00:00 UTC`; (3) **immediate lower/raise:** limit 50 with 50 consumed → update limit to 10 → `reserve!` → `:exhausted`; update to 200 → `reserve!` → `:reserved`, then `summary[:remaining] == 149` (remaining = limit − used − reserved = 200 − 50 − 1; the new reservation itself counts — no usage rewrites).
+**Tests (live_processor_spec):** **handoff/no LLM:** freemium-limited account (limit 50) with 50 consumed events → incoming message → processor hands off silently: no LLM adapter invocation (same mock pattern as existing `:377-408` context), `conversation.additional_attributes['ai_usage_limit_exhausted'] == true`, private note present, no public outgoing message.
 **Rollback:** revert. **Gate:** `rspec spec/services/ai_agents/usage/limiter_spec.rb spec/services/ai_agents/usage/summary_spec.rb spec/services/ai_agents/live_processor_spec.rb` green.
 
 ### Phase 7: Shared-credit limiter freemium boundaries (spec-only)
@@ -260,7 +260,7 @@ Each phase is one implementer dispatch; each leaves the tree green and is indepe
 3. **Apply the copy edits** (key rename + copy-table values in `en.yml`/`tr.yml`, key references in `home.html.erb`).
 4. **Re-capture once:** temporarily print `Digest::SHA256.hexdigest(neutralized_body)` inside the spec example (signup-enabled stub, `www.kozmopath.com`, Turkish render), run it, capture the digest, remove the temporary code, and update **`marketing_controller.rb:3` ONLY** (no spec literal to update). If the working-tree body already matches the anchor (copy already applied), the re-capture yields the same value — verify and proceed.
 5. **Remove temporary output; run the request + lib specs** → green.
-**Tests (spec updates):** (1) exact-string source assertions: `I18n.t('marketing.freemium.announcement', locale: :en) == '100 AI conversations every month.'` and `I18n.t('marketing.freemium.start_note', locale: :en) == '600 monthly AI workspace credits.'`; (2) rendered Turkish assertions at `:83-92`: CTA texts `['Ücretsiz başla', 'Ücretsiz başla', 'Ücretsiz başla', 'Ücretsiz hesabını oluştur']`; `.announcement` squish `== '✦ Her ay 100 yapay zekâ sohbeti.'`; `.hero-trial-truth` (class still named so until Phase 10) includes `'Ayda 600 yapay zekâ çalışma alanı kredisi.'`; `.final-cta` includes `'Süresiz ücretsiz.'`; (3) no-card/autobilling guard (selector absence guard comes in Phase 10, since `data-trial-cta` attributes still exist here): `expect(response.body).not_to match(/(kredi kartı|otomatik ücretlendirme|14 gün|deneme süren)/i)` and `expect(document.text).not_to include('No credit card')`; (4) disabled-signup fallback test (`:143`) unchanged (still `data-trial-cta` until Phase 10); (5) the SHA rewrites from step 1 (meta-sync + neutralized-body digest + `content=""` guard).
+**Tests (spec updates):** (1) exact-string source assertions: `I18n.t('marketing.freemium.announcement', locale: :en) == '50 AI conversations every month.'` and `I18n.t('marketing.freemium.start_note', locale: :en) == '600 monthly AI workspace credits.'`; (2) rendered Turkish assertions at `:83-92`: CTA texts `['Ücretsiz başla', 'Ücretsiz başla', 'Ücretsiz başla', 'Ücretsiz hesabını oluştur']`; `.announcement` squish `== '✦ Her ay 50 yapay zekâ sohbeti.'`; `.hero-trial-truth` (class still named so until Phase 10) includes `'Ayda 600 yapay zekâ çalışma alanı kredisi.'`; `.final-cta` includes `'Süresiz ücretsiz.'`; (3) no-card/autobilling guard (selector absence guard comes in Phase 10, since `data-trial-cta` attributes still exist here): `expect(response.body).not_to match(/(kredi kartı|otomatik ücretlendirme|14 gün|deneme süren)/i)` and `expect(document.text).not_to include('No credit card')`; (4) disabled-signup fallback test (`:143`) unchanged (still `data-trial-cta` until Phase 10); (5) the SHA rewrites from step 1 (meta-sync + neutralized-body digest + `content=""` guard).
 **Rollback:** revert (fingerprint returns with the revert). **Gate:** `rspec spec/requests/marketing_homepage_spec.rb spec/lib/marketing_controller_spec.rb` green.
 
 ### Phase 10: Marketing selector/class renames + design-contract SHA (frontend)
@@ -274,7 +274,7 @@ Each phase is one implementer dispatch; each leaves the tree green and is indepe
 **Files (6):** `app/javascript/dashboard/i18n/locale/en/signup.json`, `app/javascript/dashboard/i18n/locale/tr/signup.json`, `app/javascript/v3/views/auth/signup/Index.vue`, `app/javascript/v3/views/auth/signup/components/Signup/Form.vue`, `app/javascript/v3/views/auth/signup/Index.spec.js`, `app/javascript/v3/views/auth/signup/components/Signup/Form.spec.js`
 *(Atomicity note: a key-namespace rename cannot be split — any intermediate state renders missing-key strings; exceeds the 3-file guideline for this single reason.)*
 **Edit intent:** Rename block `TRIAL` → `FREEMIUM` and the four semantically-trial keys per the copy table; update every `REGISTER.TRIAL.*` reference in `Index.vue` (sites at `:25,40,46,51,60,64,67,108,116,122,127,133,142,146,149,160,164,167,178,182,185,193,201,204,211,217,223,225,234,239,242`) and `Form.vue` (`:193`); rename testids `trial-signup-form` → `freemium-signup-form` (`Form.vue:128`) and `trial-sequence-step` → `freemium-sequence-step` (`Index.vue:136,154,172`). Card structure: badge `MONTHLY_CONVERSATIONS` (keep `aria-hidden`), `<strong>` `CONVERSATION_HEADLINE`, `<small>` `WORKSPACE_CREDITS` (`Index.vue:56-70`).
-**Tests:** (1) `Index.spec.js`: key-name assertions `:39-43` → `REGISTER.FREEMIUM.*`; testid assertion → `freemium-sequence-step`; **add exact-string source assertions** reading the JSON: `enSignup.REGISTER.FREEMIUM.CONVERSATION_HEADLINE === '100 AI conversations every month.'`, `WORKSPACE_CREDITS === '600 monthly AI workspace credits.'`, and `not.toMatch(/trial|deneme|14 gün/)` across `enSignup.REGISTER.FREEMIUM` values; en/tr flatten parity test (`:56-69`) unchanged (still passes); (2) `Form.spec.js`: `:147-149` → `freemium-signup-form`; `:150-152` → `REGISTER.FREEMIUM.SUBMIT`; (3) no `pnpm sync:i18n` needed (F19).
+**Tests:** (1) `Index.spec.js`: key-name assertions `:39-43` → `REGISTER.FREEMIUM.*`; testid assertion → `freemium-sequence-step`; **add exact-string source assertions** reading the JSON: `enSignup.REGISTER.FREEMIUM.CONVERSATION_HEADLINE === '50 AI conversations every month.'`, `WORKSPACE_CREDITS === '600 monthly AI workspace credits.'`, and `not.toMatch(/trial|deneme|14 gün/)` across `enSignup.REGISTER.FREEMIUM` values; en/tr flatten parity test (`:56-69`) unchanged (still passes); (2) `Form.spec.js`: `:147-149` → `freemium-signup-form`; `:150-152` → `REGISTER.FREEMIUM.SUBMIT`; (3) no `pnpm sync:i18n` needed (F19).
 **Rollback:** revert. **Gate:** `pnpm test app/javascript/v3/views/auth/signup` + `pnpm exec eslint app/javascript/v3/views/auth/signup/` green.
 
 ### Phase 12: Final sweep + full-suite validation
@@ -290,11 +290,11 @@ Each phase is one implementer dispatch; each leaves the tree green and is indepe
 | Concern | Phase | Exact files |
 |---|---|---|
 | Builder opt-in default/on + constants | 1 | `spec/builders/account_builder_spec.rb` |
-| Password signup eligible (100/600) | 2, 3 | v1 + v2 accounts controller specs (real-path + arg assertions) |
-| OAuth signup eligible (100/600) | 4 | omniauth controller spec |
+| Password signup eligible (50/600) | 2, 3 | v1 + v2 accounts controller specs (real-path + arg assertions) |
+| OAuth signup eligible (50/600) | 4 | omniauth controller spec |
 | Installation/manual/platform/existing unchanged | 1, 2, 4, 5 | builder default test; v1 authenticated-account test; onboarding + platform + super_admin specs stay green; account_spec reader defaults |
 | SuperAdmin independent + 0 + immediate | 5 | `spec/controllers/super_admin/accounts_controller_spec.rb` + `spec/models/account_spec.rb` |
-| 99/100/101, handoff/no LLM, month reset, immediate change | 6 | `ai_agents/usage/limiter_spec.rb`, `live_processor_spec.rb` |
+| 49/50/51, handoff/no LLM, month reset, immediate change | 6 | `ai_agents/usage/limiter_spec.rb`, `live_processor_spec.rb` |
 | 599/600/601 across text_test + second op, concurrency, month reset | 7 | `ai_improvements/usage/limiter_spec.rb` |
 | Endpoint-level 599/600/601 (text_test, website_import) + manual-reply decoupling | 8 | test_conversations, website_imports, messages controller specs |
 | Marketing request/Vitest/i18n/lint/build | 9, 10, 11 | marketing_homepage_spec, marketing_controller_spec, signup specs, `pnpm eslint`, `pnpm test`, `pnpm build:sdk` smoke |
@@ -337,7 +337,7 @@ bundle exec rubocop --force-exclusion app/models/account.rb app/builders/account
 
 | Check | Command / Method | Proves |
 |------|------------------|--------|
-| Exact regression path (new signup → 100/600) | Phase 2/3 specs + runtime Scenario A/B | Freemium defaults applied |
+| Exact regression path (new signup → 50/600) | Phase 2/3 specs + runtime Scenario A/B | Freemium defaults applied |
 | Edge: existing/authenticated unchanged | Phase 2 authenticated test + builder default test | No quota mutation |
 | Edge: explicit 0 / malformed legacy settings | Phase 5 tests + existing `account_spec.rb:548-572` | Readers untouched |
 | Behavior preservation: limiter boundaries, handoff, month reset | Phases 6-8 + existing limiter specs | No limiter regression |
@@ -356,11 +356,11 @@ Signup gate safety: production signup stays **off** — runtime evidence uses a 
 | Stack up | runtime | `docker compose up -d postgres redis`; PM2 `chatwoot-backend`/`chatwoot-worker`/`chatwoot-vite` via `with-chatwoot-env.sh` + Node 24; `curl -sSf http://localhost:3000/health` → `{"status":"woot"}` | health woot | stop PM2 processes; keep DB/redis running | VERIFIED |
 | Gate still off by default | API | unauth `POST /api/v1/accounts` before enabling | 404 (RoutingError) | — | VERIFIED |
 | Enable signup on disposable DB | datastore | `rbenv exec bundle exec rails runner "InstallationConfig.find_or_create_by(name: 'ENABLE_ACCOUNT_SIGNUP').update!(value: true); InstallationConfig.find_or_create_by(name: 'REQUIRE_EMAIL_CONFIRMATION').update!(value: false); GlobalConfig.clear_cache"` | no error | delete both InstallationConfig rows + `GlobalConfig.clear_cache` at teardown | VERIFIED |
-| v1 password signup → freemium | API | unauth `POST /api/v1/accounts` (`email` random, `password`, `h_captcha_client_response: 'x'`; hCaptcha passes because server key blank — F20) | 200; `Account.find(...).settings` include `ai_agent_conversation_limit: 100`, `ai_improvement_monthly_credit_limit: 600`; user confirmed | destroy created user/account | VERIFIED |
+| v1 password signup → freemium | API | unauth `POST /api/v1/accounts` (`email` random, `password`, `h_captcha_client_response: 'x'`; hCaptcha passes because server key blank — F20) | 200; `Account.find(...).settings` include `ai_agent_conversation_limit: 50`, `ai_improvement_monthly_credit_limit: 600`; user confirmed | destroy created user/account | VERIFIED |
 | v2 signup → freemium | API | unauth `POST /api/v2/accounts` | 200 + same settings | destroy created user/account | VERIFIED |
-| Live smoke: reservation lifecycle without LLM provider | API/datastore | create AI agent on the v1 account; drive one `send_message` on a test conversation WITHOUT an LLM provider configured | a shared-credit reservation event is created for the account (`AiImprovementUsageEvent` with operation `text_test`); after the failed provider call it is **released** (or remains reserved until stale-TTL release); assert reservation/release behavior and that the summary reflects the transient decrease | destroy records | VERIFIED for reservation/release; **consumed-status proof (1 credit consumed) requires an LLM provider → report UNVERIFIED without one** (100-message live drive stays in specs) |
+| Live smoke: reservation lifecycle without LLM provider | API/datastore | create AI agent on the v1 account; drive one `send_message` on a test conversation WITHOUT an LLM provider configured | a shared-credit reservation event is created for the account (`AiImprovementUsageEvent` with operation `text_test`); after the failed provider call it is **released** (or remains reserved until stale-TTL release); assert reservation/release behavior and that the summary reflects the transient decrease | destroy records | VERIFIED for reservation/release; **consumed-status proof (1 credit consumed) requires an LLM provider → report UNVERIFIED without one** (50-message live drive stays in specs) |
 | SuperAdmin immediate change | UI/API | sign in seeded super admin; PATCH `conversation_limit: 0` then `150` via `/super_admin/accounts/:id` | readers reflect immediately; summary remaining changes without usage rewrites | revert to seed state | VERIFIED |
-| Google OAuth live signup | browser | real Google login → new account settings 100/600 | 100/600 | destroy created user/account | **UNVERIFIED without Google credentials** (specs cover wiring; report explicitly) |
+| Google OAuth live signup | browser | real Google login → new account settings 50/600 | 50/600 | destroy created user/account | **UNVERIFIED without Google credentials** (specs cover wiring; report explicitly) |
 | Production gate | config | confirm `.env.server.local`/InstallationConfig leave `ENABLE_ACCOUNT_SIGNUP` false | gate off | none | VERIFIED (do not enable) |
 
 Teardown: delete only records created for these scenarios (`User.where(email: <random emails>)` → cascades to account/usage fixtures), delete the two `InstallationConfig` rows, `GlobalConfig.clear_cache`, stop PM2 processes. Never touch other records, and never run these steps on the home-server host.
@@ -406,7 +406,7 @@ Rollback: every phase is a single revertible commit; no migration, no data rewri
 |---|---|---|
 | Builder opt-in default false + constants | @implementer (Phases 1-4) | rspec run output; `git diff` of account.rb |
 | Existing-account semantics untouched | @implementer (Phase 5) + @analyzer | green `account_spec.rb` + super_admin spec; diff review |
-| Limiter boundaries/handoff/month reset | @implementer (Phases 6-7) | rspec output with counts 99/100/101, 599/600/601 |
+| Limiter boundaries/handoff/month reset | @implementer (Phases 6-7) | rspec output with counts 49/50/51, 599/600/601 |
 | Endpoint + decoupling proofs | @implementer (Phase 8) | rspec output (402 codes, message persisted) |
 | Copy exact strings + parity + fingerprint | @implementer (Phases 9-10) + @analyzer | rspec/vitest output; meta-neutralized SHAs (Phase 9 copy, Phase 10 selectors); en/tr parity; meta-sync assertion green |
 | Gate safety + runtime evidence | @implementer (runtime matrix) | evidence rows with cleanup status |

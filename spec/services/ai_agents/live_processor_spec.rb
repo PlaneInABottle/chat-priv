@@ -435,7 +435,7 @@ RSpec.describe AiAgents::LiveProcessor do
     period = AiAgents::Usage::Period.new(account: account, now: Time.current)
     account.update!(ai_agent_conversation_limit: Account::FREEMIUM_AI_AGENT_CONVERSATION_MONTHLY_LIMIT,
                     ai_agent_conversation_reuse_window_hours: 24)
-    create_list(:ai_agent_usage_event, 100,
+    create_list(:ai_agent_usage_event, 50,
                 account: account,
                 ai_agent: ai_agent,
                 period_start_at: period.start_at,

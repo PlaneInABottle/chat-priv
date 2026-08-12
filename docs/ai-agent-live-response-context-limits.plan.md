@@ -379,7 +379,7 @@ Known minimum 128k context for matched allowlisted models; 3 allowlisted ids lac
 
 ## Behavior That Must Not Change
 
-- Monthly freemium quota (100 windows) + silent monthly-exhaustion handoff (private note, `ai_usage_limit_exhausted`) — existing limiter/live_processor specs (updated only for `:unlimited` effective-limit semantics).
+- Monthly freemium quota (50 windows) + silent monthly-exhaustion handoff (private note, `ai_usage_limit_exhausted`) — existing limiter/live_processor specs (updated only for `:unlimited` effective-limit semantics).
 - `:unlimited` result when effective limits are both 0 (global 0 + no override).
 - `Usage::Summary` monthly payload — `summary_spec.rb` untouched.
 - Duplicate-trigger response idempotency (`response_already_persisted?` + `conversation.with_lock`) — `live_processor_spec.rb:70-80` pattern.

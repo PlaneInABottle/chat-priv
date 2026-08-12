@@ -145,7 +145,7 @@ RSpec.describe 'Kozmopath marketing homepage', type: :request do
                                                                      'Ücretsiz başla',
                                                                      'Ücretsiz hesabını oluştur'
                                                                    ])
-      expect(document.at_css('.announcement').text.squish).to eq('✦ Her ay 100 yapay zekâ sohbeti.')
+      expect(document.at_css('.announcement').text.squish).to eq('✦ Her ay 50 yapay zekâ sohbeti.')
       expect(document.at_css('.hero-freemium-truth').text.squish).to include('Ayda 600 yapay zekâ kredisi.')
       expect(document.at_css('.final-cta').text.squish).to include('Süresiz ücretsiz.')
       expect(document.css('a[href*="calendly"], a[href*="/demo"]')).to be_empty

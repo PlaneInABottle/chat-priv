@@ -639,7 +639,7 @@ RSpec.describe Account do
 
   describe 'freemium quota constants' do
     it 'defines the freemium monthly quota values' do
-      expect(Account::FREEMIUM_AI_AGENT_CONVERSATION_MONTHLY_LIMIT).to eq(100)
+      expect(Account::FREEMIUM_AI_AGENT_CONVERSATION_MONTHLY_LIMIT).to eq(50)
       expect(Account::FREEMIUM_AI_IMPROVEMENT_MONTHLY_CREDIT_LIMIT).to eq(600)
     end
 

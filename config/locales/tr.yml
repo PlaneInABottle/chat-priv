@@ -676,11 +676,11 @@ tr:
       emphasis: "İkas mağazaları için"
       detail: "katalog bağlamlı yapay zekâ desteği"
     freemium:
-      announcement: "Her ay 100 yapay zekâ sohbeti."
+      announcement: "Her ay 50 yapay zekâ sohbeti."
       cta: "Ücretsiz başla"
       final_cta: "Ücretsiz hesabını oluştur"
       start_note: "Ayda 600 yapay zekâ kredisi."
-      final_note: "Süresiz ücretsiz. Her ay 100 yapay zekâ sohbeti ve 600 yapay zekâ kredisi."
+      final_note: "Süresiz ücretsiz. Her ay 50 yapay zekâ sohbeti ve 600 yapay zekâ kredisi."
     hero:
       eyebrow: "Katalog bağlamlı müşteri iletişimi"
       title_line_one: "Mağazanı bilen yapay zekâ,"

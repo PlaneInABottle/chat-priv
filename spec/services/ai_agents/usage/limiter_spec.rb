@@ -188,8 +188,8 @@ RSpec.describe AiAgents::Usage::Limiter do
              status: :consumed)
     end
 
-    it 'reserves the 100th conversation and exhausts the 101st at the freemium limit' do
-      create_list(:ai_agent_usage_event, 99,
+    it 'reserves the 50th conversation and exhausts the 51st at the freemium limit' do
+      create_list(:ai_agent_usage_event, 49,
                   account: freemium_account, ai_agent: freemium_ai_agent,
                   period_start_at: june_start, period_end_at: june_end,
                   window_started_at: Time.zone.parse('2026-06-01 05:00:00 UTC'),
@@ -200,7 +200,7 @@ RSpec.describe AiAgents::Usage::Limiter do
                                   message: build_incoming_message(account: freemium_account, inbox: freemium_inbox), now: now)
 
       expect { expect(first.reserve!.status).to eq(:reserved) }.to change(AiAgentUsageEvent, :count).by(1)
-      expect(AiAgentUsageEvent.active.count).to eq(100)
+      expect(AiAgentUsageEvent.active.count).to eq(50)
 
       second = described_class.new(ai_agent: freemium_ai_agent,
                                    message: build_incoming_message(account: freemium_account, inbox: freemium_inbox), now: now)
@@ -208,11 +208,11 @@ RSpec.describe AiAgents::Usage::Limiter do
 
       expect(result.status).to eq(:exhausted)
       expect(result.summary[:remaining]).to eq(0)
-      expect(AiAgentUsageEvent.active.count).to eq(100)
+      expect(AiAgentUsageEvent.active.count).to eq(50)
     end
 
     it 'resets the quota at the reporting-timezone month boundary' do
-      create_list(:ai_agent_usage_event, 100,
+      create_list(:ai_agent_usage_event, 50,
                   account: freemium_account, ai_agent: freemium_ai_agent,
                   period_start_at: june_start, period_end_at: june_end,
                   window_started_at: Time.zone.parse('2026-06-01 05:00:00 UTC'),
@@ -226,7 +226,7 @@ RSpec.describe AiAgents::Usage::Limiter do
       expect(result.status).to eq(:reserved)
       expect(result.event.period_start_at).to eq(Time.zone.parse('2026-07-01 04:00:00 UTC'))
       expect(result.event.period_end_at).to eq(Time.zone.parse('2026-08-01 04:00:00 UTC'))
-      expect(result.summary[:remaining]).to eq(99)
+      expect(result.summary[:remaining]).to eq(49)
     end
 
     it 'applies limit changes immediately without rewriting usage events' do

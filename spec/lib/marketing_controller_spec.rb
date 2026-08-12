@@ -168,7 +168,7 @@ RSpec.describe MarketingController do
   end
 
   it 'keeps the exact freemium English source strings' do
-    expect(I18n.t('marketing.freemium.announcement', locale: :en)).to eq('100 AI conversations every month.')
+    expect(I18n.t('marketing.freemium.announcement', locale: :en)).to eq('50 AI conversations every month.')
     expect(I18n.t('marketing.freemium.start_note', locale: :en)).to eq('600 AI credits per month.')
   end
 

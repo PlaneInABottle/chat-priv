@@ -63,7 +63,7 @@ describe('Signup Index', () => {
 
   it('keeps the exact freemium English source strings without trial claims', () => {
     expect(enSignup.REGISTER.FREEMIUM.CONVERSATION_HEADLINE).toBe(
-      '100 AI conversations every month.'
+      '50 AI conversations every month.'
     );
     expect(enSignup.REGISTER.FREEMIUM.WORKSPACE_CREDITS).toBe(
       '600 AI credits per month.'

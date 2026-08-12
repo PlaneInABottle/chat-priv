@@ -802,11 +802,11 @@ en:
       emphasis: "For ikas stores"
       detail: "catalog-context AI support"
     freemium:
-      announcement: "100 AI conversations every month."
+      announcement: "50 AI conversations every month."
       cta: "Start for free"
       final_cta: "Create your free account"
       start_note: "600 AI credits per month."
-      final_note: "Free forever. 100 AI conversations and 600 AI credits, renewed every month."
+      final_note: "Free forever. 50 AI conversations and 600 AI credits, renewed every month."
     hero:
       eyebrow: "Catalog-context customer communication"
       title_line_one: "AI that knows your store,"
