@@ -778,7 +778,7 @@ en:
   marketing:
     meta:
       title: "Kozmopath — customer communication that knows your store"
-      description: "Connect your ikas product catalog to answer product questions with catalog context on your website and WhatsApp, with human handoff when needed."
+      description: "Connect your ikas product catalog to answer product questions with catalog context on your website and WhatsApp, with team handoff when needed."
     common:
       skip: "Skip to content"
       home_label: "Kozmopath home"
@@ -789,7 +789,7 @@ en:
       open_menu: "Open menu"
       how_it_works: "How does it work?"
       product_flow: "Product flow"
-      human_handoff: "Human handoff"
+      human_handoff: "Team handoff"
       login: "Log in"
       demo_info: "Demo information"
       existing_account_login: "Log in to your existing account"
@@ -802,24 +802,25 @@ en:
       emphasis: "For ikas stores"
       detail: "catalog-context AI support"
     freemium:
-      announcement: "50 AI conversations every month."
+      announcement: "50 AI conversations and 600 AI credits every month."
       cta: "Start for free"
       final_cta: "Create your free account"
-      start_note: "600 AI credits per month."
+      start_note: "Every month: 50 conversations · 600 AI credits."
       final_note: "Free forever. 50 AI conversations and 600 AI credits, renewed every month."
     hero:
       eyebrow: "Catalog-context customer communication"
-      title_line_one: "AI that knows your store,"
-      title_line_two: "gives your customer the right answer."
+      title_line_one: "Your customer asks."
+      title_line_two: "Kozmopath answers from its catalog."
       lede_intro: "Connect your ikas store and synchronize your catalog."
-      lede_detail: "Kozmopath answers product questions with catalog context; your team takes over when needed."
+      lede_detail: "Answers product questions with stock, price and page information; your team takes over when needed."
       proof_label: "Kozmopath example flow"
+      proof_badge: "Example conversation"
       handoff_note: "The conversation is handed to the team when needed"
       flow_label: "Kozmopath workflow"
       flow:
         connect: "Connect ikas"
         sync: "Synchronize your catalog"
-        answer: "Answer with product context"
+        answer: "Answer from the catalog"
         handoff: "Hand off to the team when needed"
     demo:
       contact_name: "Ayşe Yılmaz"
@@ -837,7 +838,7 @@ en:
       index: "1 · Catalog context"
       title: "A product question is more than a search box."
       description: "Kozmopath matches the customer's natural language with catalog candidates and forms a natural answer, taking product name, stock and page details from the catalog."
-      truth: "Product facts come from the catalog; the narration comes from the conversation context."
+      truth: "Product information comes from the catalog; the narration comes from the conversation context."
       board_label: "Example flow from customer question to catalog answer"
       board_title: "Example catalog flow"
       intent_label: "Customer intent"
@@ -857,7 +858,7 @@ en:
     process:
       index: "2 · How does it work?"
       title: "Four clear steps from store to answer."
-      description: "The workflow from the ikas connection through a catalog answer and human handoff consists of four clear steps."
+      description: "The workflow from the ikas connection through a catalog answer and a team handoff consists of four clear steps."
       boundary: "All tools work once your account settings and catalog are ready."
       steps:
         connect:
@@ -869,13 +870,13 @@ en:
           description: "Wait for catalog synchronization, including product images and information, to complete."
           tag: "Synchronization"
         answer:
-          title: "Answer with context"
+          title: "Answer from the catalog"
           description: "Evaluate product questions against catalog candidates, compare them and answer in natural language."
           tag: "Catalog search"
         handoff:
           title: "Hand off to the team"
           description: "When human judgment is needed, open the conversation to the team with a customer message and private note."
-          tag: "Human handoff"
+          tag: "Team handoff"
     catalog:
       index: "3 · Product presentation"
       title: "It does not just describe the product; it shows it."
@@ -960,11 +961,11 @@ en:
           description: "Natural text answers over the API."
           state: "Text"
     handoff:
-      index: "5 · Human handoff"
+      index: "5 · Team handoff"
       title: "When needed, AI stops and the team continues with context."
       description: "A handoff opens the conversation to a person, carrying a customer-visible message and a separate private note for the team."
-      board_label: "Conversation state and carried context after human handoff"
-      context_label: "Context and ownership carried into human handoff"
+      board_label: "Conversation state and ownership after team handoff"
+      context_label: "Context and ownership carried into the team handoff"
       contact_context: "Website · Product question"
       open_state: "Conversation open"
       transfer_message: "A teammate will help you with this. I am transferring the conversation."
@@ -980,7 +981,7 @@ en:
         private_note: "The private note remains separate from customer content"
       tags:
         product_question: "product-question"
-        handoff: "human-handoff"
+        handoff: "team-handoff"
       context:
         conversation: "Customer message + shown product"
         reason: "Handoff reason · additional size question"
@@ -1023,7 +1024,7 @@ en:
       proofs:
         catalog: "Catalog-context answer"
         channels: "Website and WhatsApp product presentation"
-        handoff: "Human handoff when needed"
+        handoff: "Team handoff when needed"
       demo_unavailable: "Demo link coming soon"
       demo_note: "A real sales link and owner for demo requests have not been defined yet."
     legal:

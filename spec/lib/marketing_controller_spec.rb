@@ -81,6 +81,7 @@ RSpec.describe MarketingController do
     tokens = css_color_tokens(stylesheet)
     contrast_pairs = [
       ['.contact-copy small', '#fffdf7'],
+      ['.demo-badge', '#fffdf7'],
       ['.flow-strip span', '#fffdf7'],
       ['.section-index', '#f6cdbf'],
       ['.section-copy > p:not(.section-index)', '#f6cdbf'],
@@ -167,9 +168,57 @@ RSpec.describe MarketingController do
     expect(en_keys).to match_array(tr_keys)
   end
 
+  it 'keeps the visible hero proof badge and the 3:1 brand focus ring' do
+    stylesheet = Rails.root.join('app/javascript/entrypoints/marketing.scss').read
+    badge_rule = stylesheet[/\.demo-badge \{[^}]+\}/]
+
+    expect(badge_rule).to be_present
+    expect(badge_rule).to include('border-radius: 999px;')
+    expect(badge_rule).to include('background: var(--paper-strong);')
+    expect(badge_rule).not_to include('backdrop-filter')
+    expect(stylesheet).to include('header .brand:focus-visible { outline-color: var(--ink); }')
+  end
+
+  it 'keeps the hero headline on a safer line-height in every declaring block' do
+    stylesheet = Rails.root.join('app/javascript/entrypoints/marketing.scss').read
+    h1_blocks = stylesheet.scan(/((?:\.marketing-home\.variant-a )?\.hero h1) \{([^}]*)\}/)
+    line_heights = h1_blocks.filter_map do |selector, declarations|
+      match = declarations.match(/line-height:\s*([^;]+);/)
+      [selector, match[1].strip] if match
+    end
+    base_blocks = line_heights.filter_map { |selector, value| value unless selector.include?('variant-a') }
+
+    expect(h1_blocks.length).to be >= 4
+    expect(base_blocks).to eq(%w[1.05 1.05 1.05])
+    expect(line_heights.map(&:last)).to all(eq('1.05'))
+  end
+
+  it 'keeps the English homepage sources on team-handoff wording' do
+    homepage_values = %w[
+      marketing.meta.description
+      marketing.common.human_handoff
+      marketing.process.description
+      marketing.process.steps.handoff.tag
+      marketing.handoff.index
+      marketing.handoff.board_label
+      marketing.handoff.context_label
+      marketing.handoff.tags.handoff
+      marketing.final.proofs.handoff
+    ].map { |key| I18n.t(key, locale: :en).to_s.downcase }
+
+    expect(homepage_values.join(' ')).not_to include('human handoff')
+    expect(I18n.t('marketing.common.human_handoff', locale: :en)).to eq('Team handoff')
+  end
+
+  it 'keeps the Turkish homepage sources on team-handoff wording' do
+    expect(I18n.t('marketing.process.description', locale: :tr).downcase).not_to include('insan devri')
+    expect(I18n.t('marketing.handoff.board_label', locale: :tr)).to eq('Ekibe devredildikten sonraki konuşma durumu ve sahiplik')
+    expect(I18n.t('marketing.handoff.context_label', locale: :tr)).to eq('Ekibe aktarılan bağlam ve sahiplik')
+  end
+
   it 'keeps the exact freemium English source strings' do
-    expect(I18n.t('marketing.freemium.announcement', locale: :en)).to eq('50 AI conversations every month.')
-    expect(I18n.t('marketing.freemium.start_note', locale: :en)).to eq('600 AI credits per month.')
+    expect(I18n.t('marketing.freemium.announcement', locale: :en)).to eq('50 AI conversations and 600 AI credits every month.')
+    expect(I18n.t('marketing.freemium.start_note', locale: :en)).to eq('Every month: 50 conversations · 600 AI credits.')
   end
 
   it 'adds the legal page styles without touching the trial-free guard' do

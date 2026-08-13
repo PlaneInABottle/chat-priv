@@ -31,10 +31,29 @@ RSpec.describe 'Kozmopath marketing homepage', type: :request do
       expect(response).to have_http_status(:ok)
       expect(document.at_css('html')['lang']).to eq('tr')
       expect(document.at_css('meta[name="kozmopath-design-contract"]')['content']).to eq(MarketingController::DESIGN_CONTRACT_SHA)
-      expect(document.at_css('h1').text.squish).to eq('Mağazanı bilen yapay zekâ, müşterine doğru cevabı verir.')
+      expect(document.at_css('h1').text.squish).to eq('Müşterin sorar. Kozmopath kataloğundan yanıtlar.')
       expect(document.css('[data-page-section]').map { |section| section['id'] }).to eq(section_ids)
       expect(document.css('script:not([type="application/ld+json"])')).to be_empty
       expect(response.body).not_to include('Translation missing')
+    end
+
+    it 'renders the selected slogan-lede pair, unified terminology, and visible demo badge' do
+      expect(document.at_css('.lede').text.squish).to eq(
+        'İkas mağazanı bağla, kataloğunu senkronize et. Ürün sorularını stok, fiyat ve sayfa bilgisiyle yanıtlar; gerektiğinde ekibin devralır.'
+      )
+      expect(document.at_css('nav a[href="#human-handoff"]').text.squish).to eq('Ekibe devir')
+      expect(document.at_css('.proof-toolbar .demo-badge').text.squish).to eq('Örnek konuşma')
+    end
+
+    it 'keeps team-handoff wording in visible copy and aria labels' do
+      visible_text = document.text.downcase
+      aria_labels = document.css('[aria-label]').map { |node| node['aria-label'].to_s.downcase }.join(' ')
+
+      expect(visible_text).not_to include('insan devri')
+      expect(aria_labels).not_to include('insan devri')
+      expect(visible_text).to include('ekibe devir')
+      expect(document.at_css('.handoff-board')['aria-label']).to eq('Ekibe devredildikten sonraki konuşma durumu ve sahiplik')
+      expect(document.at_css('.handoff-context-rail')['aria-label']).to eq('Ekibe aktarılan bağlam ve sahiplik')
     end
 
     it 'keeps the design contract fingerprint stable against the meta-neutralized body' do
@@ -111,7 +130,7 @@ RSpec.describe 'Kozmopath marketing homepage', type: :request do
       expect(document.css('.router-source .router-kicker > span').text).to eq('1')
       expect(document.css('.router-rich-output .router-kicker > span').text).to eq('3')
       expect(document.text).not_to include('03A', '03B', '03C')
-      ['1 · Katalog bağlamı', '2 · Nasıl çalışır?', '3 · Ürün sunumu', '4 · Desteklenen kanallar', '5 · İnsan devri',
+      ['1 · Katalog bağlamı', '2 · Nasıl çalışır?', '3 · Ürün sunumu', '4 · Desteklenen kanallar', '5 · Ekibe devir',
        '6 · Kontrol katmanı'].each do |index|
         expect(document.text).to include(index)
       end
@@ -145,8 +164,8 @@ RSpec.describe 'Kozmopath marketing homepage', type: :request do
                                                                      'Ücretsiz başla',
                                                                      'Ücretsiz hesabını oluştur'
                                                                    ])
-      expect(document.at_css('.announcement').text.squish).to eq('✦ Her ay 50 yapay zekâ sohbeti.')
-      expect(document.at_css('.hero-freemium-truth').text.squish).to include('Ayda 600 yapay zekâ kredisi.')
+      expect(document.at_css('.announcement').text.squish).to eq('✦ Her ay 50 yapay zekâ sohbeti ve 600 yapay zekâ kredisi.')
+      expect(document.at_css('.hero-freemium-truth').text.squish).to include('Her ay 50 sohbet · 600 yapay zekâ kredisi.')
       expect(document.at_css('.final-cta').text.squish).to include('Süresiz ücretsiz.')
       expect(document.css('a[href*="calendly"], a[href*="/demo"]')).to be_empty
     end

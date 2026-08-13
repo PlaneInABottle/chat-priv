@@ -1,6 +1,6 @@
 class MarketingController < PublicController
   CANONICAL_URL = 'https://www.kozmopath.com/'.freeze
-  DESIGN_CONTRACT_SHA = '38e696c8c1433de5ad434338f05f77da2b469375ed1384027fde1ebc72bff5e6'.freeze
+  DESIGN_CONTRACT_SHA = 'a6a69e13212555bdac40df58dfe58a9f439edb71b068e98ac69e1c210cb4a47f'.freeze
   LEGAL_PAGE_URLS = {
     privacy_policy: 'https://www.kozmopath.com/privacy-policy',
     terms_of_service: 'https://www.kozmopath.com/terms-of-service'

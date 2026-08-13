@@ -663,7 +663,7 @@ tr:
       open_menu: "Menüyü aç"
       how_it_works: "Nasıl çalışır?"
       product_flow: "Ürün akışı"
-      human_handoff: "İnsan devri"
+      human_handoff: "Ekibe devir"
       login: "Giriş yap"
       demo_info: "Demo bilgisi"
       existing_account_login: "Mevcut hesabına giriş yap"
@@ -676,24 +676,25 @@ tr:
       emphasis: "İkas mağazaları için"
       detail: "katalog bağlamlı yapay zekâ desteği"
     freemium:
-      announcement: "Her ay 50 yapay zekâ sohbeti."
+      announcement: "Her ay 50 yapay zekâ sohbeti ve 600 yapay zekâ kredisi."
       cta: "Ücretsiz başla"
       final_cta: "Ücretsiz hesabını oluştur"
-      start_note: "Ayda 600 yapay zekâ kredisi."
+      start_note: "Her ay 50 sohbet · 600 yapay zekâ kredisi."
       final_note: "Süresiz ücretsiz. Her ay 50 yapay zekâ sohbeti ve 600 yapay zekâ kredisi."
     hero:
       eyebrow: "Katalog bağlamlı müşteri iletişimi"
-      title_line_one: "Mağazanı bilen yapay zekâ,"
-      title_line_two: "müşterine doğru cevabı verir."
+      title_line_one: "Müşterin sorar."
+      title_line_two: "Kozmopath kataloğundan yanıtlar."
       lede_intro: "İkas mağazanı bağla, kataloğunu senkronize et."
-      lede_detail: "Kozmopath ürün sorularını katalog bağlamıyla yanıtlar; gerektiğinde ekibin devralır."
+      lede_detail: "Ürün sorularını stok, fiyat ve sayfa bilgisiyle yanıtlar; gerektiğinde ekibin devralır."
       proof_label: "Kozmopath örnek akış"
+      proof_badge: "Örnek konuşma"
       handoff_note: "Gerektiğinde konuşma ekibe devredilir"
       flow_label: "Kozmopath çalışma akışı"
       flow:
         connect: "İkas’ı bağla"
         sync: "Kataloğunu senkronize et"
-        answer: "Ürün bağlamıyla yanıtla"
+        answer: "Katalogdan yanıtla"
         handoff: "Gerekirse ekibe devret"
     demo:
       contact_name: "Ayşe Yılmaz"
@@ -709,9 +710,9 @@ tr:
       in_stock: "Stokta"
     reasoning:
       index: "1 · Katalog bağlamı"
-      title: "Bir ürün sorusu, arama kutusundan fazlasıdır."
+      title: "Bir ürün sorusu, bir arama kutusundan fazlasıdır."
       description: "Kozmopath müşterinin doğal dilini katalog adaylarıyla buluşturur; yanıtı doğal dille kurar, ürün adı, stok ve sayfa bilgilerini katalogdan alır."
-      truth: "Ürün gerçeği katalogdan, anlatım konuşmanın bağlamından gelir."
+      truth: "Ürün bilgisi katalogdan, anlatım konuşmanın bağlamından gelir."
       board_label: "Müşteri sorusundan katalog yanıtına örnek akış"
       board_title: "Örnek katalog akışı"
       intent_label: "Müşteri niyeti"
@@ -731,7 +732,7 @@ tr:
     process:
       index: "2 · Nasıl çalışır?"
       title: "Mağazadan yanıta dört net adım."
-      description: "İkas bağlantısından katalog yanıtına ve insan devrine uzanan çalışma modeli dört net adımdan oluşur."
+      description: "İkas bağlantısından katalog yanıtına ve ekibe devre uzanan çalışma modeli dört net adımdan oluşur."
       boundary: "Hesap ayarların ve katalog hazırlığın tamamlandığında tüm araçlar çalışır."
       steps:
         connect:
@@ -743,16 +744,16 @@ tr:
           description: "Görsel ve ürün bilgisi içeren katalog senkronizasyonunun tamamlanmasını bekle."
           tag: "Senkronizasyon"
         answer:
-          title: "Bağlamla yanıtla"
+          title: "Katalogdan yanıtla"
           description: "Ürün sorularını katalog adaylarıyla değerlendir; karşılaştır ve doğal dille yanıtla."
           tag: "Katalog araması"
         handoff:
           title: "Ekibe devret"
           description: "İnsan kararı gerektiğinde konuşmayı müşteri mesajı ve özel notla ekibe aç."
-          tag: "İnsan devri"
+          tag: "Ekibe devir"
     catalog:
       index: "3 · Ürün sunumu"
-      title: "Ürünü yalnız tarif etmez, gösterir."
+      title: "Ürünü yalnızca tarif etmez, gösterir."
       description: "Müşteri, konuşmanın içinde ürün kartlarını ya da tek ürünün görsel galerisini görebilir."
       capability_label: "Katalog sunumu biçimleri"
       question: "“Gri modeli gösterebilir misin?”"
@@ -793,7 +794,7 @@ tr:
           detail: "Başarıyla sunulanı tekrarlamadan"
     channels:
       index: "4 · Desteklenen kanallar"
-      title: "Web, WhatsApp ve Instagram; tek merkez, her kanala doğru biçim."
+      title: "Web, WhatsApp ve Instagram; tek merkez, her kanala uygun biçim."
       description: "Web sitesi, WhatsApp ve Instagram gelen kutularını bağla. Katalog görselleri ve doğrulanmış seçenekler Web sitesi ile WhatsApp’ta sunulur; Instagram mesaj akışı bağlı gelen kutusunda, API ise metin yanıtıyla çalışır."
       proof_note: "Her kanal, kendi yeteneğine uygun biçimi kullanır."
       web_question: "Gri modeli gösterebilir misin?"
@@ -834,11 +835,11 @@ tr:
           description: "API üzerinden doğal metin yanıtları."
           state: "Metin"
     handoff:
-      index: "5 · İnsan devri"
+      index: "5 · Ekibe devir"
       title: "Gerektiğinde yapay zekâ durur, ekip bağlamıyla devam eder."
       description: "Devir, konuşmayı bir insana açar; müşteriye görünür bir mesaj ve ekibe özel bir not taşır."
-      board_label: "İnsan devri sonrası konuşma durumu ve taşınan bağlam"
-      context_label: "İnsan devrine taşınan bağlam ve sahiplik"
+      board_label: "Ekibe devredildikten sonraki konuşma durumu ve sahiplik"
+      context_label: "Ekibe aktarılan bağlam ve sahiplik"
       contact_context: "Web sitesi · Ürün sorusu"
       open_state: "Konuşma açık"
       transfer_message: "Bu konuda ekip arkadaşım yardımcı olacak. Konuşmayı aktarıyorum."
@@ -854,7 +855,7 @@ tr:
         private_note: "Özel not müşteri içeriğinden ayrılır"
       tags:
         product_question: "ürün-sorusu"
-        handoff: "insan-devri"
+        handoff: "ekibe-devir"
       context:
         conversation: "Müşteri mesajı + gösterilen ürün"
         reason: "Devir nedeni · ek numara sorusu"
@@ -897,7 +898,7 @@ tr:
       proofs:
         catalog: "Katalog bağlamlı yanıt"
         channels: "Web sitesi ve WhatsApp ürün sunumu"
-        handoff: "Gerektiğinde insan devri"
+        handoff: "Gerektiğinde ekibe devir"
       demo_unavailable: "Demo bağlantısı yakında"
       demo_note: "Demo talebi için gerçek satış bağlantısı ve sorumlusu henüz tanımlanmadı."
     legal:
