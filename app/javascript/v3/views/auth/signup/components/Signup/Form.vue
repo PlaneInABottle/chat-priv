@@ -126,7 +126,7 @@ const onCaptchaError = () => {
   <div class="flex-1">
     <form
       data-testid="freemium-signup-form"
-      class="grid gap-4"
+      class="grid gap-4 lg:gap-5"
       @submit.prevent="submit"
     >
       <FormInput
@@ -139,7 +139,7 @@ const onCaptchaError = () => {
         :placeholder="$t('REGISTER.EMAIL.PLACEHOLDER')"
         :has-error="v$.credentials.email.$error"
         :error-message="$t('REGISTER.EMAIL.ERROR')"
-        class="bg-white text-[#10211f] outline-[#10211f]/20 placeholder:text-[#65726e] focus:outline-[#5471e5]"
+        class="bg-white text-base text-[#10211f] outline-[#10211f]/20 placeholder:text-[#65726e] focus:outline-[#5471e5] sm:!text-base"
         @blur="v$.credentials.email.$touch"
       />
       <div class="relative">
@@ -152,7 +152,7 @@ const onCaptchaError = () => {
           :label="$t('REGISTER.PASSWORD.LABEL')"
           :placeholder="$t('REGISTER.PASSWORD.PLACEHOLDER')"
           :has-error="v$.credentials.password.$error"
-          class="bg-white text-[#10211f] outline-[#10211f]/20 placeholder:text-[#65726e] focus:outline-[#5471e5]"
+          class="bg-white text-base text-[#10211f] outline-[#10211f]/20 placeholder:text-[#65726e] focus:outline-[#5471e5] sm:!text-base"
           @focus="isPasswordFocused = true"
           @blur="
             isPasswordFocused = false;
@@ -189,7 +189,7 @@ const onCaptchaError = () => {
         lg
         type="submit"
         data-testid="submit_button"
-        class="w-full font-medium"
+        class="w-full font-medium lg:h-14"
         :label="$t('REGISTER.FREEMIUM.SUBMIT')"
         :disabled="isSignupInProgress || !isFormValid"
         :is-loading="isSignupInProgress"
@@ -199,8 +199,18 @@ const onCaptchaError = () => {
       {{ $t('REGISTER.OAUTH.GOOGLE_SIGNUP') }}
     </GoogleOAuthButton>
     <p
-      class="mb-0 mt-4 text-sm leading-relaxed text-[#63716c] [&>a]:font-semibold [&>a]:text-[#304ebd] [&>a]:underline [&>a]:underline-offset-2 hover:[&>a]:text-[#233d9c]"
+      class="mb-0 mt-4 text-sm leading-relaxed text-[#63716c] lg:mt-3 lg:text-base [&>a]:font-semibold [&>a]:text-[#304ebd] [&>a]:underline [&>a]:underline-offset-2 hover:[&>a]:text-[#233d9c]"
       v-html="termsLink"
     />
   </div>
 </template>
+
+<style scoped>
+/* Desktop: scale the form labels to the standard text-base rem step so the
+   signup variant reads comfortably at the preferred ~110-120% desktop
+   browser scaling feel without CSS scaling tricks or raw typography values.
+   Mobile labels stay text-sm. */
+:deep(label) {
+  @apply lg:text-base;
+}
+</style>

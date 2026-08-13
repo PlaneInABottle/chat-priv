@@ -75,6 +75,85 @@ describe('Signup Index', () => {
     );
   });
 
+  it('uses the scaled rem typography contract for headline, description, logo and meta', () => {
+    const wrapper = shallowMount(SignupIndex, {
+      global: {
+        mocks: { $t: key => key },
+        stubs: {
+          RouterLink: { template: '<a><slot /></a>' },
+          SignupForm: { template: '<form data-testid="signup-form" />' },
+        },
+      },
+    });
+
+    const h1 = wrapper.get('#signup-title');
+    expect(h1.classes()).toContain('text-[clamp(2.6875rem,10vw,3.125rem)]');
+    expect(h1.classes()).toContain('lg:text-[clamp(2.9375rem,4vw,3.8125rem)]');
+    // The headline type utilities must stay rem-based.
+    expect(
+      h1
+        .classes()
+        .filter(cls => cls.startsWith('text-['))
+        .every(cls => !cls.includes('px'))
+    ).toBe(true);
+
+    const description = wrapper.get('#signup-title + p');
+    expect(description.classes()).toContain('text-base');
+    expect(description.classes()).toContain('lg:text-lg');
+
+    const logo = wrapper.get('img[alt="Kozmopath"]');
+    expect(logo.classes()).toContain('w-[10.625rem]');
+    expect(logo.classes()).toContain('lg:w-48');
+
+    expect(
+      wrapper.get('[data-testid="freemium-sequence-step"] small').classes()
+    ).toContain('text-sm');
+    expect(
+      wrapper
+        .get('[data-testid="controlled-product-image"] + div > span')
+        .classes()
+    ).toContain('text-sm');
+
+    expect(wrapper.get('p.text-center').classes()).toContain('lg:text-base');
+  });
+
+  it('keeps the balanced proof-plane composition contract (grid, sequence, conversation card)', () => {
+    const wrapper = shallowMount(SignupIndex, {
+      global: {
+        mocks: { $t: key => key },
+        stubs: {
+          RouterLink: { template: '<a><slot /></a>' },
+          SignupForm: { template: '<form data-testid="signup-form" />' },
+        },
+      },
+    });
+
+    expect(wrapper.get('main').classes()).toContain(
+      'lg:grid-cols-[minmax(500px,0.9fr)_minmax(600px,1.1fr)]'
+    );
+
+    const step = wrapper.get('[data-testid="freemium-sequence-step"]');
+    expect(step.classes()).toEqual(
+      expect.arrayContaining(['min-h-20', 'sm:min-h-24'])
+    );
+
+    const conversation = wrapper
+      .findAll('section')
+      .find(
+        section =>
+          section.attributes('aria-label') ===
+          'REGISTER.FREEMIUM.CONVERSATION_LABEL'
+      );
+    expect(conversation.classes()).toContain('max-w-[640px]');
+    expect(conversation.get('img[alt="ikas"]').classes()).toContain('w-20');
+    expect(
+      conversation.get('[data-testid="controlled-product-image"]').classes()
+    ).toContain('size-[4.75rem]');
+    expect(conversation.get('span.rounded-full').classes()).toContain(
+      'size-[2.125rem]'
+    );
+  });
+
   it('keeps the maintained signup locale structures aligned and Turkish presentation copy localized', () => {
     const flattenKeys = (value, prefix = '') =>
       Object.entries(value).flatMap(([key, nestedValue]) => {

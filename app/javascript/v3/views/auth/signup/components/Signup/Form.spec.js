@@ -163,4 +163,19 @@ describe('Signup Form', () => {
       wrapper.get("a[href='https://www.kozmopath.com/privacy-policy']")
     ).toBeTruthy();
   });
+
+  it('keeps the scaled rem responsive class contract for form gaps, inputs, submit and terms', () => {
+    const wrapper = mountForm();
+
+    expect(wrapper.get('form').classes()).toEqual(
+      expect.arrayContaining(['gap-4', 'lg:gap-5'])
+    );
+    expect(wrapper.get('button[type="submit"]').classes()).toContain('lg:h-14');
+    expect(wrapper.get('label[for="email_address"]').classes()).toEqual(
+      expect.arrayContaining(['text-base', 'sm:!text-base'])
+    );
+    expect(wrapper.get('p').classes()).toEqual(
+      expect.arrayContaining(['text-sm', 'lg:text-base'])
+    );
+  });
 });

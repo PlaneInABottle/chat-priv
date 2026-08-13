@@ -12,7 +12,7 @@ const CONTROLLED_PRODUCT_URL =
 
 <template>
   <main
-    class="grid min-h-screen min-w-[320px] bg-[#fffdf7] text-[#10211f] lg:grid-cols-[minmax(520px,0.92fr)_minmax(620px,1.08fr)]"
+    class="grid min-h-screen min-w-[320px] bg-[#fffdf7] text-[#10211f] lg:grid-cols-[minmax(500px,0.9fr)_minmax(600px,1.1fr)]"
   >
     <section
       data-testid="signup-form-plane"
@@ -27,24 +27,24 @@ const CONTROLLED_PRODUCT_URL =
         <img
           :src="globalConfig.logo"
           :alt="globalConfig.installationName"
-          class="block h-auto w-[170px]"
+          class="block h-auto w-[10.625rem] lg:w-48"
         />
       </router-link>
 
       <div
-        class="mx-auto mt-9 w-full max-w-[515px] lg:mt-[clamp(46px,7vh,72px)]"
+        class="mx-auto mt-9 w-full max-w-[515px] lg:mt-[clamp(2.25rem,5.5vh,3.75rem)]"
       >
         <p class="mb-3 text-xs font-extrabold tracking-[0.13em] text-[#56645f]">
           {{ $t('REGISTER.FREEMIUM.EYEBROW') }}
         </p>
         <h1
           id="signup-title"
-          class="m-0 max-w-[550px] font-[Georgia,'Times_New_Roman',serif] text-[43px] font-normal leading-[0.98] tracking-[-0.055em] sm:text-[50px] lg:text-[clamp(47px,4vw,61px)]"
+          class="m-0 max-w-[550px] font-[Georgia,'Times_New_Roman',serif] text-[clamp(2.6875rem,10vw,3.125rem)] font-normal leading-[0.98] tracking-[-0.055em] lg:text-[clamp(2.9375rem,4vw,3.8125rem)]"
         >
           {{ $t('REGISTER.FREEMIUM.TITLE') }}
         </h1>
         <p
-          class="mt-5 max-w-[470px] text-[15px] leading-relaxed text-[#52615c] lg:text-base"
+          class="mt-5 max-w-[470px] text-base leading-relaxed text-[#52615c] lg:text-lg"
         >
           {{ $t('REGISTER.FREEMIUM.DESCRIPTION') }}
         </p>
@@ -61,16 +61,18 @@ const CONTROLLED_PRODUCT_URL =
             <strong class="text-sm">{{
               $t('REGISTER.FREEMIUM.CONVERSATION_HEADLINE')
             }}</strong>
-            <small class="text-xs leading-relaxed text-[#65726e]">{{
+            <small class="text-sm leading-relaxed text-[#65726e]">{{
               $t('REGISTER.FREEMIUM.WORKSPACE_CREDITS')
             }}</small>
           </p>
         </div>
       </div>
 
-      <div class="mx-auto mt-6 w-full max-w-[515px]">
+      <div class="mx-auto mt-6 w-full max-w-[515px] lg:mt-6">
         <SignupForm />
-        <p class="mb-0 mt-4 text-center text-sm font-bold text-[#34443f]">
+        <p
+          class="mb-0 mt-4 text-center text-sm font-bold text-[#34443f] lg:mt-4 lg:text-base"
+        >
           {{ $t('REGISTER.HAVE_AN_ACCOUNT') }}{{ ' ' }}
           <router-link
             class="rounded-sm underline decoration-[#6e8cff] underline-offset-4 hover:text-[#304ebd] focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#6e8cff]"
@@ -96,7 +98,7 @@ const CONTROLLED_PRODUCT_URL =
         class="absolute -bottom-60 -left-64 -z-10 size-[430px] rounded-full bg-[radial-gradient(circle,rgba(215,238,114,.38),transparent_68%)] blur-xl"
       />
 
-      <div class="mt-11 max-w-[520px] lg:mt-[clamp(45px,7vh,70px)]">
+      <div class="mt-11 max-w-[560px] lg:mt-[clamp(2.5rem,6vh,3.75rem)]">
         <p class="mb-3 text-xs font-extrabold tracking-[0.13em] text-[#d7ee72]">
           {{ $t('REGISTER.FREEMIUM.PROOF_KICKER') }}
         </p>
@@ -112,12 +114,12 @@ const CONTROLLED_PRODUCT_URL =
       </div>
 
       <ol
-        class="mt-7 grid max-w-[590px] list-none grid-cols-1 p-0 sm:grid-cols-3"
+        class="mt-7 grid max-w-[640px] list-none grid-cols-1 p-0 sm:grid-cols-3 lg:mt-8"
         :aria-label="$t('REGISTER.FREEMIUM.SEQUENCE_LABEL')"
       >
         <li
           data-testid="freemium-sequence-step"
-          class="relative min-h-[72px] border-l border-[#d7ee72]/35 py-3 pl-9 sm:min-h-[82px] sm:border-l-0 sm:border-t sm:px-3.5 sm:pb-3 sm:pt-4"
+          class="relative min-h-20 border-l border-[#d7ee72]/35 py-3 pl-9 sm:min-h-24 sm:border-l-0 sm:border-t sm:px-4 sm:pb-4 sm:pt-5"
         >
           <span
             class="absolute left-2.5 top-2 text-xs text-[#7e8f88] sm:static"
@@ -128,14 +130,14 @@ const CONTROLLED_PRODUCT_URL =
             <strong class="text-sm">{{
               $t('REGISTER.FREEMIUM.SEQUENCE.ACCOUNT.TITLE')
             }}</strong>
-            <small class="text-xs text-[#8fa098]">{{
+            <small class="text-sm text-[#8fa098]">{{
               $t('REGISTER.FREEMIUM.SEQUENCE.ACCOUNT.DETAIL')
             }}</small>
           </div>
         </li>
         <li
           data-testid="freemium-sequence-step"
-          class="relative min-h-[72px] border-l border-[#d7ee72]/35 py-3 pl-9 sm:min-h-[82px] sm:border-l-0 sm:border-t sm:px-3.5 sm:pb-3 sm:pt-4"
+          class="relative min-h-20 border-l border-[#d7ee72]/35 py-3 pl-9 sm:min-h-24 sm:border-l-0 sm:border-t sm:px-4 sm:pb-4 sm:pt-5"
         >
           <span
             class="absolute left-2.5 top-2 text-xs text-[#7e8f88] sm:static"
@@ -146,14 +148,14 @@ const CONTROLLED_PRODUCT_URL =
             <strong class="text-sm">{{
               $t('REGISTER.FREEMIUM.SEQUENCE.STORE.TITLE')
             }}</strong>
-            <small class="text-xs text-[#8fa098]">{{
+            <small class="text-sm text-[#8fa098]">{{
               $t('REGISTER.FREEMIUM.SEQUENCE.STORE.DETAIL')
             }}</small>
           </div>
         </li>
         <li
           data-testid="freemium-sequence-step"
-          class="relative min-h-[72px] border-l border-[#d7ee72]/35 py-3 pl-9 sm:min-h-[82px] sm:border-l-0 sm:border-t sm:px-3.5 sm:pb-3 sm:pt-4"
+          class="relative min-h-20 border-l border-[#d7ee72]/35 py-3 pl-9 sm:min-h-24 sm:border-l-0 sm:border-t sm:px-4 sm:pb-4 sm:pt-5"
         >
           <span
             class="absolute left-2.5 top-2 text-xs text-[#7e8f88] sm:static"
@@ -164,7 +166,7 @@ const CONTROLLED_PRODUCT_URL =
             <strong class="text-sm">{{
               $t('REGISTER.FREEMIUM.SEQUENCE.ANSWER.TITLE')
             }}</strong>
-            <small class="text-xs text-[#8fa098]">{{
+            <small class="text-sm text-[#8fa098]">{{
               $t('REGISTER.FREEMIUM.SEQUENCE.ANSWER.DETAIL')
             }}</small>
           </div>
@@ -172,30 +174,30 @@ const CONTROLLED_PRODUCT_URL =
       </ol>
 
       <section
-        class="mt-8 w-full max-w-[590px] overflow-hidden rounded-[22px] border border-white/15 bg-[#fffdf7] text-[#10211f] shadow-[0_28px_70px_rgba(0,0,0,.24)] lg:mt-auto"
+        class="mt-8 w-full max-w-[640px] overflow-hidden rounded-[22px] border border-white/15 bg-[#fffdf7] text-[#10211f] shadow-[0_28px_70px_rgba(0,0,0,.24)] lg:mt-auto"
         :aria-label="$t('REGISTER.FREEMIUM.CONVERSATION_LABEL')"
       >
         <div
-          class="grid min-h-12 grid-cols-[30px_1fr_auto] items-center gap-2 border-b border-[#10211f]/10 px-3"
+          class="grid min-h-14 grid-cols-[2.125rem_1fr_auto] items-center gap-2 border-b border-[#10211f]/10 px-3.5"
         >
           <span
-            class="grid size-[30px] place-items-center rounded-full bg-[#dfe4ff] text-xs font-extrabold"
+            class="grid size-[2.125rem] place-items-center rounded-full bg-[#dfe4ff] text-xs font-extrabold"
           >
             {{ $t('REGISTER.FREEMIUM.CONTACT_INITIALS') }}
           </span>
           <strong class="text-sm">{{
             $t('REGISTER.FREEMIUM.CONTACT_NAME')
           }}</strong>
-          <img :src="IKAS_WORDMARK_URL" alt="ikas" class="h-auto w-[70px]" />
+          <img :src="IKAS_WORDMARK_URL" alt="ikas" class="h-auto w-20" />
         </div>
-        <div class="grid gap-1.5 px-3 pb-1 pt-3 text-sm leading-relaxed">
+        <div class="grid gap-2 px-3.5 pb-1.5 pt-3.5 text-sm leading-relaxed">
           <p
-            class="m-0 w-max max-w-[82%] justify-self-end rounded-[10px] bg-[#dfe4ff] px-2.5 py-2"
+            class="m-0 w-max max-w-[82%] justify-self-end rounded-[10px] bg-[#dfe4ff] px-3 py-2.5"
           >
             {{ $t('REGISTER.FREEMIUM.CUSTOMER_QUESTION') }}
           </p>
           <p
-            class="m-0 grid w-max max-w-[82%] gap-0.5 rounded-[10px] border border-[#10211f]/10 bg-white px-2.5 py-2"
+            class="m-0 grid w-max max-w-[82%] gap-0.5 rounded-[10px] border border-[#10211f]/10 bg-white px-3 py-2.5"
           >
             <strong class="text-xs uppercase tracking-[0.06em]">
               {{ $t('REGISTER.FREEMIUM.ASSISTANT_NAME') }}
@@ -204,19 +206,19 @@ const CONTROLLED_PRODUCT_URL =
           </p>
         </div>
         <div
-          class="m-3 grid grid-cols-[68px_1fr] items-center gap-3 rounded-[14px] border border-[#6e8cff]/25 bg-white p-2"
+          class="m-3.5 grid grid-cols-[4.75rem_1fr] items-center gap-3.5 rounded-[14px] border border-[#6e8cff]/25 bg-white p-2.5"
         >
           <img
             data-testid="controlled-product-image"
             :src="CONTROLLED_PRODUCT_URL"
             :alt="$t('REGISTER.FREEMIUM.PRODUCT_ALT')"
-            class="size-[68px] rounded-[10px] object-cover"
+            class="size-[4.75rem] rounded-[10px] object-cover"
           />
           <div class="grid gap-1">
             <strong class="text-sm">{{
               $t('REGISTER.FREEMIUM.PRODUCT_TITLE')
             }}</strong>
-            <span class="text-xs text-[#65726e]">{{
+            <span class="text-sm text-[#65726e]">{{
               $t('REGISTER.FREEMIUM.PRODUCT_SUMMARY')
             }}</span>
           </div>
