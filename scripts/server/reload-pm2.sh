@@ -17,6 +17,15 @@ fi
   exit 1
 }
 
+case "${KOZMOPATH_VOICE_ENABLED:-0}" in
+  0) processes=kozmopath-web,kozmopath-worker ;;
+  1) processes=kozmopath-web,kozmopath-worker,kozmopath-voice ;;
+  *)
+    printf 'KOZMOPATH_VOICE_ENABLED must be 0 or 1\n' >&2
+    exit 64
+    ;;
+esac
+
 exec "$pm2_bin" startOrReload "$root/ecosystem.server.config.cjs" \
-  --only kozmopath-web,kozmopath-worker,kozmopath-voice \
+  --only "$processes" \
   --update-env

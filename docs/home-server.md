@@ -30,7 +30,7 @@ The attachment and Voice-recording variables intentionally use the same private 
 
 ## Stateful services
 
-The server Compose file intentionally contains only PostgreSQL and Redis on the native Docker `default` context. Docker Desktop remains installed for manual development and rollback inspection, but it is disabled at login, normally stopped, and is not the production datastore. Start or stop it explicitly with `systemctl --user start docker-desktop.service` and `systemctl --user stop docker-desktop.service`. The external volumes prevent `docker compose down -v` from deleting project state. Create them once on the native context, then use the wrapper so `.env.local` and `.env.server.local` override `.env` without passing unrelated application secrets into the containers:
+The server Compose file intentionally contains only PostgreSQL and Redis on the native Docker `default` context. Docker Desktop was removed after the native cutover because its stale CLI plugins overrode the packaged Compose version; it is not part of the server or rollback path. The external volumes prevent `docker compose down -v` from deleting project state. Create them once on the native context, then use the wrapper so `.env.local` and `.env.server.local` override `.env` without passing unrelated application secrets into the containers:
 
 ```bash
 docker --context default volume inspect kozmopath-server_postgres_data >/dev/null 2>&1 || docker --context default volume create kozmopath-server_postgres_data
@@ -67,14 +67,14 @@ Take a verified PostgreSQL backup before migrations. Do not restore over the act
 
 ## PM2 roles
 
-Start or reload only the three Kozmopath roles through the project wrapper:
+The host runs web and worker as the password-locked `kozmopath` system account under the dedicated `kozmopath-pm2.service`. Reload them through the installed host command, which saves only `/var/lib/kozmopath/.pm2`:
 
 ```bash
-scripts/server/reload-pm2.sh
-pm2 list
+/usr/local/bin/kozmopath-runtime reload
+/usr/local/bin/kozmopath-runtime status
 ```
 
-The shared PM2 daemon also owns other projects. Project deployment must never run `pm2 reload all`, `pm2 restart all`, `pm2 kill`, or `pm2 save`. The checked-in ecosystem and wrapper target only `kozmopath-web`, `kozmopath-worker`, and `kozmopath-voice`. Saving PM2 startup state is a deliberate host-wide operation performed only after every live process has been audited. Stopping `pm2-mirza.service` intentionally stops every PM2-managed project.
+The runtime account has no supplementary, Docker, sudo, or LXD groups. Its systemd sandbox makes the checkout read-only except for `log/`, `storage/`, and `tmp/`; inherited named ACLs keep new checkout files and the three dotenv files readable but not writable. The project wrapper targets `kozmopath-web` and `kozmopath-worker` by default; `KOZMOPATH_VOICE_ENABLED=1` includes the Voice role only during an explicit Voice deployment. Voice is intentionally disabled in the current saved host runtime. Never run global PM2 lifecycle commands against the shared `/home/mirza/.pm2` daemon.
 
 Development AI-agent QA may temporarily replace `kozmopath-web`/`kozmopath-worker` with task-owned `chatwoot-backend`/`chatwoot-worker`. These roles share the same checkout, PostgreSQL, and Redis, so never run both workers during deterministic live tests. Stop only the conflicting named role, verify the branch-serving process and exactly one Sidekiq process, then restore `kozmopath-web` and `kozmopath-worker` before ending the session. The detailed sequence is maintained in `.agents/skills/chatwoot-ai-native-test/references/runtime-and-verification.md`.
 
@@ -82,9 +82,9 @@ Readiness checks:
 
 ```bash
 curl -fsS -H 'X-Forwarded-Proto: https' http://127.0.0.1:3000/health
-curl -fsS http://127.0.0.1:9090/
-curl -fsS http://127.0.0.1:9091/metrics
 ```
+
+When Voice is explicitly enabled, also require non-empty responses from `http://127.0.0.1:9090/` and `http://127.0.0.1:9091/metrics`.
 
 The Voice worker calls Rails over loopback HTTP. Its client marks only loopback HTTP requests with `X-Forwarded-Proto: https` so production SSL enforcement does not redirect those requests to a nonexistent TLS listener on port 3000.
 
@@ -118,7 +118,7 @@ Do not run the Caddy publication commands while the Cloudflare Tunnel is active 
 
 ## Backup and migration
 
-This installation is currently a restricted demo and has no recurring Kozmopath backup job by owner decision. It is therefore not production-ready for irreplaceable data. The Docker Desktop-to-native-Docker cutover retained the stopped Desktop volumes as rollback material; Desktop must be started manually to inspect or use them. They are not an ongoing backup and must not be deleted until the demo data is disposable.
+This installation is currently a restricted demo and has no recurring Kozmopath backup job by owner decision. It is therefore not production-ready for irreplaceable data. The Docker Desktop package was removed without deleting its old user data, but that dormant data is not an ongoing backup or an active rollback runtime and must not be deleted until the demo data is disposable.
 
 Back up PostgreSQL with a custom-format `pg_dump`, validate it with `pg_restore --list`, and store a copy off this computer. Redis is not the system of record, but preserving its RDB avoids dropping queued work during a controlled move. Keep attachment data in the configured S3-compatible object store; if local storage is used, back up `storage/` separately.
 
