@@ -41,10 +41,9 @@ const RECORDING_STATUSES = ['completed', 'active', 'starting', 'failed'];
 const HANDOFF_STATUSES = ['requested', 'accepted', 'none'];
 const PROMPT_CHARACTER_LIMIT = 50000;
 const DEFAULT_AGENT = {
-  name: 'Voice Assistant',
-  greeting: 'Merhaba, size nasil yardimci olabilirim?',
-  prompt:
-    'Yalnizca dogal Istanbul Turkcesiyle konus. Kisa, net ve sakin musteri destek cevaplari ver.',
+  name: '',
+  greeting: '',
+  prompt: '',
   knowledge_source_ids: [],
   tools_config: {
     enabled: ['human_handoff', 'end_customer_call'],
@@ -88,6 +87,13 @@ const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 
+const defaultAgent = () => ({
+  ...clone(DEFAULT_AGENT),
+  name: t('VOICE_AI.DEFAULTS.AGENT_NAME'),
+  greeting: t('VOICE_AI.DEFAULTS.GREETING'),
+  prompt: t('VOICE_AI.DEFAULTS.PROMPT'),
+});
+
 const settings = ref([]);
 const voiceAgents = ref([]);
 const voiceUsage = ref(null);
@@ -96,7 +102,7 @@ const recordings = ref([]);
 const telephonyReadiness = ref({ configured: false, numbers: [] });
 const selectedVoiceAgentId = ref('');
 const selectedTestInboxId = ref('');
-const callerName = ref('Test caller');
+const callerName = ref(t('VOICE_AI.DEFAULTS.CALLER_NAME'));
 const callerNumber = ref('+900000000000');
 const activeTab = ref('agents');
 const currentCall = ref(null);
@@ -118,12 +124,11 @@ const recordingFilters = ref({
   limit: 25,
 });
 
-const agentForm = ref(clone(DEFAULT_AGENT));
+const agentForm = ref(defaultAgent());
 const assignmentForm = ref({});
 const editingVoiceAgentId = ref(null);
 const savedAgentSnapshot = ref('');
 const voiceSetupProfile = ref({
-  goal: 'support',
   tone: 'friendly',
   businessContext: '',
   boundaries: '',
@@ -362,8 +367,26 @@ const sessionStatusLabel = computed(
       failed: t('VOICE_AI.SESSION.FAILED'),
     })[sessionStatus.value] || sessionStatus.value
 );
-const callStatusLabel = computed(
-  () => currentCallStatus.value || t('VOICE_AI.SESSION.NOT_STARTED')
+const enumLabel = (group, value) => {
+  const normalizedValue = String(value || '')
+    .replace('-', '_')
+    .toUpperCase();
+  const key = `VOICE_AI.${group}.${normalizedValue}`;
+  // Values are constrained by the status arrays and backend enums.
+  // eslint-disable-next-line @intlify/vue-i18n/no-dynamic-keys
+  const translated = t(key);
+  return translated === key
+    ? t('VOICE_AI.STATUS.UNKNOWN', { status: value })
+    : translated;
+};
+const callStatusText = status => enumLabel('CALL_ACTIVITY.STATUS', status);
+const recordingStatusLabel = status =>
+  enumLabel('CALL_ACTIVITY.RECORDING', status);
+const handoffStatusLabel = status => enumLabel('CALL_ACTIVITY.HANDOFF', status);
+const callStatusLabel = computed(() =>
+  currentCallStatus.value
+    ? callStatusText(currentCallStatus.value)
+    : t('VOICE_AI.SESSION.NOT_STARTED')
 );
 
 const voiceUsageStatusClasses = computed(() => {
@@ -475,12 +498,6 @@ const readinessLabel = key => {
   return t('VOICE_AI.READINESS.INSTRUCTIONS');
 };
 
-const goalLabel = goal => {
-  if (goal === 'sales') return t('VOICE_AI.CREATE.GOALS.SALES');
-  if (goal === 'orders') return t('VOICE_AI.CREATE.GOALS.ORDERS');
-  return t('VOICE_AI.CREATE.GOALS.SUPPORT');
-};
-
 const toneLabel = tone => {
   if (tone === 'professional') {
     return t('VOICE_AI.CREATE.TONES.PROFESSIONAL');
@@ -490,26 +507,31 @@ const toneLabel = tone => {
 };
 
 const buildVoiceInstructions = () => {
-  const goal = goalLabel(voiceSetupProfile.value.goal);
   const tone = toneLabel(voiceSetupProfile.value.tone);
   const lines = [
-    `Role: You are ${agentForm.value.name || 'a voice assistant'} for customer calls.`,
-    `Primary goal: ${goal}.`,
-    `Tone: ${tone}. Speak naturally and keep answers easy to follow aloud.`,
+    t('VOICE_AI.CREATE.DRAFT.ROLE', {
+      name: agentForm.value.name || t('VOICE_AI.CREATE.DRAFT.DEFAULT_NAME'),
+    }),
+    t('VOICE_AI.CREATE.DRAFT.TONE', { tone }),
   ];
   if (voiceSetupProfile.value.businessContext.trim()) {
     lines.push(
-      `Business context: ${voiceSetupProfile.value.businessContext.trim()}`
+      t('VOICE_AI.CREATE.DRAFT.BUSINESS_CONTEXT', {
+        context: voiceSetupProfile.value.businessContext.trim(),
+      })
     );
   }
   if (voiceSetupProfile.value.boundaries.trim()) {
-    lines.push(`Boundaries: ${voiceSetupProfile.value.boundaries.trim()}`);
+    lines.push(
+      t('VOICE_AI.CREATE.DRAFT.BOUNDARIES', {
+        boundaries: voiceSetupProfile.value.boundaries.trim(),
+      })
+    );
   }
-  lines.push(
-    'When a caller asks for a person or needs human judgment, request human support.'
-  );
+  lines.push(t('VOICE_AI.CREATE.DRAFT.HANDOFF'));
   agentForm.value.prompt = lines.join('\n\n');
 };
+
 const assignedAgentName = setting => {
   const agent = voiceAgents.value.find(
     item => Number(item.id) === Number(setting?.voice_agent_id)
@@ -610,7 +632,7 @@ const syncAssignmentForm = agent => {
 const syncAgentForm = agent => {
   if (!agent) {
     editingVoiceAgentId.value = null;
-    agentForm.value = clone(DEFAULT_AGENT);
+    agentForm.value = defaultAgent();
     syncAssignmentForm(null);
     resetAgentSnapshot();
     return;
@@ -618,7 +640,7 @@ const syncAgentForm = agent => {
 
   editingVoiceAgentId.value = agent?.id || null;
   agentForm.value = {
-    ...clone(DEFAULT_AGENT),
+    ...defaultAgent(),
     ...agent,
     knowledge_source_ids: normalizeKnowledgeSourceIds(
       agent?.knowledge_source_ids
@@ -1238,26 +1260,7 @@ onBeforeUnmount(() => {
                   {{ t('VOICE_AI.CREATE.DESCRIPTION') }}
                 </p>
               </div>
-              <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <label
-                  class="flex flex-col gap-1 text-sm font-medium text-n-slate-12"
-                >
-                  {{ t('VOICE_AI.CREATE.GOAL') }}
-                  <select
-                    v-model="voiceSetupProfile.goal"
-                    class="h-10 rounded-lg border border-n-weak bg-n-alpha-1 px-3 font-normal"
-                  >
-                    <option value="support">
-                      {{ t('VOICE_AI.CREATE.GOALS.SUPPORT') }}
-                    </option>
-                    <option value="sales">
-                      {{ t('VOICE_AI.CREATE.GOALS.SALES') }}
-                    </option>
-                    <option value="orders">
-                      {{ t('VOICE_AI.CREATE.GOALS.ORDERS') }}
-                    </option>
-                  </select>
-                </label>
+              <div>
                 <label
                   class="flex flex-col gap-1 text-sm font-medium text-n-slate-12"
                 >
@@ -1910,7 +1913,7 @@ onBeforeUnmount(() => {
                   :key="statusOption"
                   :value="statusOption"
                 >
-                  {{ statusOption }}
+                  {{ recordingStatusLabel(statusOption) }}
                 </option>
               </select>
             </label>
@@ -1929,7 +1932,7 @@ onBeforeUnmount(() => {
                   :key="handoffOption"
                   :value="handoffOption"
                 >
-                  {{ handoffOption }}
+                  {{ handoffStatusLabel(handoffOption) }}
                 </option>
               </select>
             </label>
@@ -2025,10 +2028,14 @@ onBeforeUnmount(() => {
                   </td>
                   <td class="border-b border-n-weak px-3 py-3">
                     <div class="capitalize text-n-slate-12">
-                      {{ recording.status }}
+                      {{ recordingStatusLabel(recording.status) }}
                     </div>
                     <div class="mt-1 text-xs text-n-slate-11">
-                      {{ recording.call?.handoff_status || '-' }}
+                      {{
+                        recording.call?.handoff_status
+                          ? handoffStatusLabel(recording.call.handoff_status)
+                          : t('VOICE_AI.RECORDINGS.NO_VALUE')
+                      }}
                     </div>
                   </td>
                   <td class="border-b border-n-weak px-3 py-3 text-n-slate-12">

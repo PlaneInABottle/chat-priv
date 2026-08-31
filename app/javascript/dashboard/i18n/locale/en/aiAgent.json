@@ -738,25 +738,34 @@
     "STATUS": {
       "ACTIVE": "Active",
       "PAUSED": "Paused",
-      "DRAFT": "Draft"
+      "DRAFT": "Draft",
+      "UNKNOWN": "Unknown ({status})"
+    },
+    "DEFAULTS": {
+      "AGENT_NAME": "Voice Assistant",
+      "GREETING": "Hello, how can I help you?",
+      "PROMPT": "Speak naturally. Give concise, clear, and calm customer support answers.",
+      "CALLER_NAME": "Test caller"
     },
     "CREATE": {
       "TITLE": "Build a starting point",
-      "DESCRIPTION": "Describe the job and tone, then build editable voice instructions.",
-      "GOAL": "Primary goal",
+      "DESCRIPTION": "Choose a tone and add business context or boundaries, then build editable voice instructions.",
       "TONE": "Tone",
       "BUSINESS_CONTEXT": "What should it know about your business?",
       "BOUNDARIES": "What should it avoid or leave to a person?",
       "BUILD_INSTRUCTIONS": "Build instruction draft",
-      "GOALS": {
-        "SUPPORT": "Answer customer questions",
-        "SALES": "Help callers choose products",
-        "ORDERS": "Help with orders and delivery"
-      },
       "TONES": {
         "FRIENDLY": "Friendly",
         "PROFESSIONAL": "Professional",
         "CONCISE": "Concise"
+      },
+      "DRAFT": {
+        "ROLE": "Role: You are {name} for customer calls.",
+        "DEFAULT_NAME": "a voice assistant",
+        "TONE": "Tone: {tone}. Speak naturally and keep answers easy to follow aloud.",
+        "BUSINESS_CONTEXT": "Business context: {context}",
+        "BOUNDARIES": "Boundaries: {boundaries}",
+        "HANDOFF": "When a caller asks for a person or needs human judgment, request human support."
       }
     },
     "CAPABILITIES": {

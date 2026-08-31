@@ -16,7 +16,12 @@ case "$role" in
     ;;
   voice)
     required_keys='LIVEKIT_URL LIVEKIT_API_KEY LIVEKIT_API_SECRET CHATWOOT_INTERNAL_API_URL VOICE_AGENT_INTERNAL_TOKEN VOICE_AGENT_NAME VOICE_AGENT_HEALTH_HOST VOICE_AGENT_HEALTH_PORT VOICE_AGENT_PROMETHEUS_PORT'
-    command=(uv run --directory services/voice_agent --frozen python agent.py start)
+    voice_python='/opt/kozmopath/voice-agent-current/bin/python'
+    [[ -x "$voice_python" ]] || {
+      printf 'Voice agent interpreter is missing or not executable: %s\n' "$voice_python" >&2
+      exit 1
+    }
+    command=(bash -c 'cd -- "$1" && exec "$2" agent.py start' _ "$root/services/voice_agent" "$voice_python")
     ;;
   *)
     printf 'Usage: %s <web|worker|voice>\n' "$0" >&2

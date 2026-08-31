@@ -60,10 +60,62 @@ bundle install
 pnpm install --frozen-lockfile
 NODE_OPTIONS='--max-old-space-size=4096 --openssl-legacy-provider' scripts/server/with-server-env.sh bundle exec rake assets:precompile
 POSTGRES_STATEMENT_TIMEOUT=600s scripts/server/with-server-env.sh bundle exec rails db:chatwoot_prepare
-uv sync --locked --directory services/voice_agent
+/home/mirza/.local/bin/uv lock --check --directory services/voice_agent
 ```
 
 Take a verified PostgreSQL backup before migrations. Do not restore over the active database to test a backup; use a disposable database for restore drills.
+
+### Provision the Voice environment
+
+The Voice role never invokes `uv` at runtime. It executes the stable path `/opt/kozmopath/voice-agent-current/bin/python`, while that symlink targets an immutable, commit-addressed environment. The deployment operator uses `/home/mirza/.local/bin/uv` only to provision locked dependencies. The environment must use `/usr/bin/python3.12`, be owned by `root:root`, and be readable and executable—but not writable—by the password-locked `kozmopath` runtime account.
+
+Provision only after review and commit, from a clean checkout at the exact reviewed revision. Never reuse, overwrite, sync in place, or relocate an existing environment:
+
+```bash
+REVIEWED_SHA=$(git rev-parse HEAD)
+[[ "$REVIEWED_SHA" =~ ^[0-9a-f]{40}$ ]]
+test -z "$(git status --porcelain --untracked-files=no)"
+DEST="/opt/kozmopath/voice-agent-$REVIEWED_SHA"
+[[ ! -e "$DEST" && ! -L "$DEST" ]]
+
+pkexec /usr/bin/install -d -o root -g root -m 0755 /opt/kozmopath
+pkexec /usr/bin/bash -c 'set -euo pipefail; umask 022; test ! -e "$1"; UV_PROJECT_ENVIRONMENT="$1" exec "$2" sync --locked --directory "$3/services/voice_agent" --python /usr/bin/python3.12' _ "$DEST" /home/mirza/.local/bin/uv /home/mirza/Documents/Projects/chat-priv
+pkexec /usr/bin/chown -R root:root "$DEST"
+pkexec /usr/bin/chmod -R go-w "$DEST"
+pkexec /usr/bin/find "$DEST" -type d -exec /usr/bin/chmod 0755 '{}' +
+```
+
+Before activation, reject any unexpected symlink or file resolution outside `$DEST`, except that `$DEST/bin/python` must resolve exactly to `/usr/bin/python3.12`. No path may resolve under `/home`. Verify imports both as the operator and as the isolated runtime account:
+
+```bash
+while IFS= read -r -d '' link; do
+  resolved=$(readlink -f "$link")
+  case "$resolved" in
+    "$DEST"/*|/usr/bin/python3.12) ;;
+    *) printf 'Rejected external symlink: %s -> %s\n' "$link" "$resolved" >&2; exit 1 ;;
+  esac
+done < <(/usr/bin/find "$DEST" -type l -print0)
+test -z "$(/usr/bin/find "$DEST" -type l -exec readlink -f '{}' \; | /usr/bin/grep '^/home/' || true)"
+test "$(readlink -f "$DEST/bin/python")" = /usr/bin/python3.12
+"$DEST/bin/python" -c 'import aiohttp, livekit.agents'
+pkexec --user kozmopath "$DEST/bin/python" -c 'import aiohttp, livekit.agents'
+```
+
+Record the previous target, create a same-directory temporary symlink, validate it, and atomically replace only the stable pointer. A destination or temporary-path collision is a hard stop:
+
+```bash
+PREVIOUS_VENV=$(readlink -f /opt/kozmopath/voice-agent-current || true)
+TEMP="/opt/kozmopath/.voice-agent-current.$REVIEWED_SHA"
+[[ ! -e "$TEMP" && ! -L "$TEMP" ]]
+pkexec /usr/bin/ln -s "voice-agent-$REVIEWED_SHA" "$TEMP"
+test "$(readlink -f "$TEMP")" = "$DEST"
+test "$(readlink -f "$TEMP/bin/python")" = /usr/bin/python3.12
+"$TEMP/bin/python" -c 'import aiohttp, livekit.agents'
+pkexec /usr/bin/mv -Tf "$TEMP" /opt/kozmopath/voice-agent-current
+test "$(readlink -f /opt/kozmopath/voice-agent-current)" = "$DEST"
+```
+
+If activation fails before the atomic rename, remove only the task-owned temporary symlink and leave the current pointer unchanged. If it fails after rename but before reload, atomically restore the recorded previous target when one exists; otherwise remove the new pointer and keep Voice disabled. Retain both the previous and reviewed versioned environments through runtime, browser, and observation-window acceptance.
 
 ## PM2 roles
 
@@ -76,6 +128,15 @@ The host runs web and worker as the password-locked `kozmopath` system account u
 
 The runtime account has no supplementary, Docker, sudo, or LXD groups. Its systemd sandbox makes the checkout read-only except for `log/`, `storage/`, and `tmp/`; inherited named ACLs keep new checkout files and the three dotenv files readable but not writable. The project wrapper targets `kozmopath-web` and `kozmopath-worker` by default; `KOZMOPATH_VOICE_ENABLED=1` includes the Voice role only during an explicit Voice deployment. Voice is intentionally disabled in the current saved host runtime. Never run global PM2 lifecycle commands against the shared `/home/mirza/.pm2` daemon.
 
+After the immutable environment and reviewed source/assets are activated as one compatible deployment unit, include Voice explicitly:
+
+```bash
+KOZMOPATH_VOICE_ENABLED=1 /usr/local/bin/kozmopath-runtime reload
+/usr/local/bin/kozmopath-runtime status
+```
+
+Require web and worker to remain online, Voice to remain online beyond PM2 `min_uptime`, and bounded sanitized Voice logs to show successful LiveKit worker registration without restart churn.
+
 Development AI-agent QA may temporarily replace `kozmopath-web`/`kozmopath-worker` with task-owned `chatwoot-backend`/`chatwoot-worker`. These roles share the same checkout, PostgreSQL, and Redis, so never run both workers during deterministic live tests. Stop only the conflicting named role, verify the branch-serving process and exactly one Sidekiq process, then restore `kozmopath-web` and `kozmopath-worker` before ending the session. The detailed sequence is maintained in `.agents/skills/chatwoot-ai-native-test/references/runtime-and-verification.md`.
 
 Readiness checks:
@@ -84,7 +145,27 @@ Readiness checks:
 curl -fsS -H 'X-Forwarded-Proto: https' http://127.0.0.1:3000/health
 ```
 
-When Voice is explicitly enabled, also require non-empty responses from `http://127.0.0.1:9090/` and `http://127.0.0.1:9091/metrics`.
+When Voice is explicitly enabled, also require non-empty responses:
+
+```bash
+curl -fsS http://127.0.0.1:9090/
+curl -fsS http://127.0.0.1:9091/metrics
+```
+
+Rollback source, compiled assets, and the Voice environment pointer as one compatible unit. Before restoring/reloading prior source and assets, verify the recorded previous environment with the same ownership, interpreter-resolution, and import checks. Restore its pointer atomically:
+
+```bash
+ROLLBACK_TEMP="/opt/kozmopath/.voice-agent-current.rollback-$REVIEWED_SHA"
+test -n "$PREVIOUS_VENV"
+[[ "$PREVIOUS_VENV" = /opt/kozmopath/voice-agent-* ]]
+[[ ! -e "$ROLLBACK_TEMP" && ! -L "$ROLLBACK_TEMP" ]]
+pkexec /usr/bin/ln -s "$(basename "$PREVIOUS_VENV")" "$ROLLBACK_TEMP"
+test "$(readlink -f "$ROLLBACK_TEMP")" = "$PREVIOUS_VENV"
+pkexec /usr/bin/mv -Tf "$ROLLBACK_TEMP" /opt/kozmopath/voice-agent-current
+test "$(readlink -f /opt/kozmopath/voice-agent-current)" = "$PREVIOUS_VENV"
+```
+
+Then restore prior source and compiled assets before reloading. Reload web and worker without Voice first and require their readiness. Enable Voice only if the restored runner uses `voice-agent-current` and the previous environment passes validation; during the inaugural migration, leave Voice disabled because the pre-change runner invokes inaccessible `uv`. Never delete failed or previous environments during recovery.
 
 The Voice worker calls Rails over loopback HTTP. Its client marks only loopback HTTP requests with `X-Forwarded-Proto: https` so production SSL enforcement does not redirect those requests to a nonexistent TLS listener on port 3000.
 

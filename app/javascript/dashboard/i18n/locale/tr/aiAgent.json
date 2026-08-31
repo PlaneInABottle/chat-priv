@@ -733,122 +733,77 @@
     }
   },
   "VOICE_AI": {
-    "HEADER": "Voice AI",
-    "DESCRIPTION": "Telefon sağlayıcısı bağlamadan önce LiveKit sesli AI MVP ayarlarını yapın ve tarayıcı tabanlı test çağrıları çalıştırın.",
-    "TABS": {
-      "AGENTS": "Sesli asistanlar",
-      "TEST": "Test çağrısı",
-      "USAGE": "Kullanım"
+    "HEADER": "Sesli asistanlar",
+    "DESCRIPTION": "Müşteri çağrılarını yanıtlayan asistanlar oluşturun, test edin ve yönetin.",
+    "STATUS": { "ACTIVE": "Etkin", "PAUSED": "Duraklatıldı", "DRAFT": "Taslak", "UNKNOWN": "Bilinmeyen ({status})" },
+    "DEFAULTS": {
+      "AGENT_NAME": "Sesli asistan",
+      "GREETING": "Merhaba, size nasıl yardımcı olabilirim?",
+      "PROMPT": "Doğal konuş. Kısa, net ve sakin müşteri destek yanıtları ver.",
+      "CALLER_NAME": "Test arayanı"
     },
+    "CREATE": {
+      "TITLE": "Başlangıç taslağı oluştur",
+      "DESCRIPTION": "Bir ton seçip işletme bağlamını veya sınırları ekleyin, ardından düzenlenebilir sesli asistan yönergeleri oluşturun.",
+      "TONE": "Ton",
+      "BUSINESS_CONTEXT": "İşletmeniz hakkında neleri bilmeli?",
+      "BOUNDARIES": "Nelerden kaçınmalı veya neleri bir insana bırakmalı?",
+      "BUILD_INSTRUCTIONS": "Yönerge taslağı oluştur",
+      "TONES": { "FRIENDLY": "Samimi", "PROFESSIONAL": "Profesyonel", "CONCISE": "Öz" },
+      "DRAFT": {
+        "ROLE": "Rol: Müşteri çağrıları için {name} olarak görev yap.",
+        "DEFAULT_NAME": "bir sesli asistan",
+        "TONE": "Ton: {tone}. Doğal konuş ve yanıtların sesli olarak kolay anlaşılmasını sağla.",
+        "BUSINESS_CONTEXT": "İşletme bağlamı: {context}",
+        "BOUNDARIES": "Sınırlar: {boundaries}",
+        "HANDOFF": "Arayan bir kişiyle görüşmek istediğinde veya insan değerlendirmesi gerektiğinde insan desteği talep et."
+      }
+    },
+    "CAPABILITIES": {
+      "ALWAYS_AVAILABLE": "Her zaman kullanılabilir",
+      "HUMAN_HANDOFF": { "LABEL": "İnsan desteğine aktarma", "DESCRIPTION": "Bir insana ihtiyaç duyulduğunda çağrıyı ekibinize aktarın." },
+      "IKAS_LOOKUP_ORDER": { "LABEL": "Sipariş güncellemeleri", "DESCRIPTION": "ikas üzerinden sipariş, ödeme, kargo ve takip bilgilerini sorgulayın." },
+      "IKAS_CATALOG_SEARCH": { "LABEL": "Ürün bilgileri", "DESCRIPTION": "Ürün sorularını yanıtlamadan önce bağlı katalogda arama yapın." },
+      "END_CUSTOMER_CALL": { "LABEL": "Tamamlanan çağrıları sonlandır", "DESCRIPTION": "Görüşme tamamlandığında çağrıyı doğal biçimde bitirin." }
+    },
+    "READINESS": {
+      "TITLE": "Yayınlamaya hazır mı?", "DESCRIPTION": "Bu asistanın gerçek çağrıları yanıtlayabilmesi için gerekli adımları tamamlayın.",
+      "GREETING": "Karşılama eklendi", "INSTRUCTIONS": "Yönergeler eklendi", "INBOX": "Çağrı gelen kutusu bağlandı", "TEST": "Tarayıcı test çağrısı tamamlandı", "PHONE": "Canlı kullanım telefon numarası bağlandı", "OPTIONAL": "(yayınlamak için zorunlu değil)"
+    },
+    "PHONE_READINESS": {
+      "TITLE": "Canlı kullanım telefon bağlantısı",
+      "READY": "Canlı kullanıma ait bir numara bağlı ve gelen çağrılar için hazır.",
+      "MISSING": "Canlı kullanıma ait bir numara bağlı değil. Bu asistanı test edip yayınlayabilirsiniz, ancak henüz gerçek çağrı alamaz. Numara bağlamak için kurulum yöneticinizle iletişime geçin.",
+      "NUMBER_STATUS": "{number} · {status}"
+    },
+    "TABS": { "LABEL": "Sesli asistan görünümü", "AGENTS": "Asistanlar", "TEST": "Test çağrısı", "CALLS": "Çağrı etkinliği", "RECORDINGS": "Kayıtlar", "USAGE": "Kullanım" },
     "SETUP": {
-      "TITLE": "Sesli kurulum",
-      "DESCRIPTION": "API gelen kutusu, sesli asistan, yedek ekip ve kayıt davranışını seçin.",
-      "INBOX": "API gelen kutusu",
-      "VOICE_AGENT": "Sesli asistan",
-      "FALLBACK_TEAM": "Yedek ekip",
-      "NONE": "Yok",
-      "CALLER_NAME": "Test arayan adı",
-      "CALLER_NUMBER": "Test arayan numarası",
-      "RECORDING": "Çağrıları kaydet",
-      "RECORDING_HELP": "LiveKit kayıt etkin olduğunda çağrı kayıtlarını sakla.",
-      "SAVE": "Ayarları kaydet",
-      "START_TEST": "Test çağrısı başlat",
-      "NO_API_INBOX": "Sesli AI testinden önce bir API gelen kutusu oluşturun.",
-      "SAVE_SUCCESS": "Voice AI ayarları kaydedildi.",
-      "SAVE_ERROR": "Voice AI ayarları kaydedilemedi.",
-      "LOAD_ERROR": "Voice AI ayarları yüklenemedi.",
-      "START_SUCCESS": "Test çağrısı oluşturuldu.",
-      "START_ERROR": "Test çağrısı oluşturulamadı."
+      "TITLE": "Sesli asistan kurulumu", "DESCRIPTION": "Test gelen kutusunu, sesli asistanı, yedek ekibi ve kayıt davranışını seçin.",
+      "INBOX": "Test gelen kutusu", "VOICE_AGENT": "Sesli asistan", "FALLBACK_TEAM": "Yedek ekip", "NONE": "Yok", "CALLER_NAME": "Test arayanının adı", "CALLER_NUMBER": "Test arayanının numarası", "RECORDING": "Çağrıları kaydet", "RECORDING_HELP": "Kayıt özelliği yapılandırıldığında tamamlanan müşteri çağrılarının kayıtlarını saklayın.", "SAVE": "Ayarları kaydet", "START_TEST": "Test çağrısı başlat",
+      "TEST_CREDIT_DURATION_SECONDS": "Mevcut kredilerle bu test en fazla {seconds} saniye sürebilir.", "TEST_CREDIT_DURATION_MINUTES": "Mevcut kredilerle bu test en fazla {minutes} dakika sürebilir.",
+      "NO_API_INBOX": "Sesli yapay zekâyı test etmeden önce bir API gelen kutusu oluşturun.", "SAVE_SUCCESS": "Sesli yapay zekâ ayarları kaydedildi.", "SAVE_ERROR": "Sesli yapay zekâ ayarları kaydedilemedi.", "LOAD_ERROR": "Sesli yapay zekâ ayarları yüklenemedi.", "START_SUCCESS": "Test çağrısı oluşturuldu.", "START_ERROR": "Test çağrısı oluşturulamadı."
     },
     "USAGE": {
-      "TITLE": "Voice AI kullanımı",
-      "HELP": "Bu hesabın aylık ses dakikası kullanımı. Sandbox test çağrıları hariç tutulur.",
-      "DISABLED_HELP": "Voice AI yöneticiniz tarafından devre dışı bırakıldı.",
-      "LOADING": "Yükleniyor...",
-      "DISABLED_REMAINING": "Devre dışı",
-      "UNLIMITED_REMAINING": "Sınırsız kullanım",
-      "UNLIMITED_USED": "{used} dakika kullanıldı",
-      "USED_OF_LIMIT": "{used} / {limit} dakika kullanıldı",
-      "REMAINING": "{count} dakika kaldı",
-      "RESET_AT": "Sıfırlanma zamanı",
-      "MAX_DURATION": "Maksimum çağrı süresi",
-      "CONCURRENT_LIMIT": "Eş zamanlı çağrı limiti",
-      "ACTIVE_CALLS": "Aktif çağrılar",
-      "MINUTES": "{count} dakika",
-      "UNLIMITED_SHORT": "Sınırsız"
+      "TITLE": "Sesli yapay zekâ kullanımı", "HELP": "Bu hesabın aylık sesli çağrı kullanımını dakika cinsinden gösterir. Test ortamı çağrıları dahil edilmez.", "DISABLED_HELP": "Sesli yapay zekâ yöneticiniz tarafından devre dışı bırakıldı.", "LOADING": "Yükleniyor…", "DISABLED_REMAINING": "Devre dışı", "UNLIMITED_REMAINING": "Sınırsız kullanım kaldı", "UNLIMITED_USED": "{used} dakika kullanıldı", "USED_OF_LIMIT": "{used} / {limit} dakika kullanıldı", "REMAINING": "{count} dakika kaldı", "RESET_AT": "Sıfırlanma zamanı", "MAX_DURATION": "En uzun çağrı süresi", "CONCURRENT_LIMIT": "Eş zamanlı çağrı sınırı", "ACTIVE_CALLS": "Etkin çağrılar", "MINUTES": "{count} dakika", "UNLIMITED_SHORT": "Sınırsız"
     },
     "AGENTS": {
-      "TITLE": "Sesli asistanlar",
-      "CREATE": "Sesli asistan oluştur",
-      "NEW": "Yeni",
-      "EMPTY": "Henüz sesli asistan yok.",
-      "LIST_HELP": "Asistanları oluşturun ve yanıtlayabilecekleri gelen kutularını atayın.",
-      "EDITOR_TITLE": "Sesli asistan",
-      "EDITOR_DESCRIPTION": "Çağrılarda kullanılacak karşılama, prompt ve araçları yapılandırın. Çalışma zamanı ayarlarını yöneticiniz belirler.",
-      "STATUS_ENABLED": "Etkin",
-      "STATUS_DISABLED": "Devre dışı",
-      "ASSIGNED_COUNT": "{count} atanmış",
-      "NAME": "Ad",
-      "GREETING": "Karşılama",
-      "ENABLED": "Etkin",
-      "ENABLED_HELP": "Sadece etkin sesli asistanlar çağrıları yanıtlayabilir.",
-      "DISABLED_BY_ADMIN": "Voice AI yöneticiniz tarafından devre dışı bırakıldı.",
-      "PROMPT": "Sesli prompt",
-      "PROMPT_CHAR_COUNT": "{count} / {limit} karakter",
-      "TOOLS": "Araçlar",
-      "SAVE": "Sesli asistanı kaydet",
-      "SAVE_SUCCESS": "Sesli asistan kaydedildi.",
-      "SAVE_ERROR": "Sesli asistan kaydedilemedi.",
-      "UNSAVED_CHANGES": "Kaydedilmemiş sesli asistan değişiklikleriniz var. Vazgeçilsin mi?",
-      "IKAS_READY": "Ikas bağlı ve vitrin kataloğu senkronize.",
-      "IKAS_CATALOG_NOT_SYNCED": "Ikas bağlı, ancak vitrin kataloğu henüz senkronize değil.",
-      "IKAS_NOT_CONNECTED": "Bu hesap için Ikas bağlı değil."
+      "TITLE": "Sesli asistanlar", "CREATE": "Sesli asistan oluştur", "NEW": "Yeni sesli asistan", "EMPTY": "Henüz sesli asistan yok.", "LIST_HELP": "Asistanlar oluşturun ve yanıtlayabilecekleri çağrı gelen kutularını atayın.", "EDITOR_TITLE": "Sesli asistan", "EDITOR_DESCRIPTION": "Karşılama, yönergeler, yetenekler ve çağrı gelen kutularını yapılandırın.", "STATUS_ENABLED": "Etkin", "STATUS_DISABLED": "Devre dışı", "ASSIGNED_COUNT": "{count} gelen kutusu atanmış", "NAME": "Ad", "GREETING": "Karşılama", "ENABLED": "Etkin", "ENABLED_HELP": "Yalnızca etkin sesli asistanlar çağrıları yanıtlayabilir.", "DISABLED_BY_ADMIN": "Sesli yapay zekâ yöneticiniz tarafından devre dışı bırakıldı.", "PROMPT": "Sesli asistan yönergesi", "PROMPT_CHAR_COUNT": "{count} / {limit} karakter", "TOOLS": "Yetenekler", "SAVE": "Sesli asistanı kaydet", "SAVE_SUCCESS": "Sesli asistan kaydedildi.", "SAVE_ERROR": "Sesli asistan kaydedilemedi.", "PUBLISH": "Asistanı yayınla", "PUBLISH_UPDATE": "Güncellemeyi yayınla", "ACTIVATE": "Yanıtlamaya başla", "PAUSE": "Asistanı duraklat", "PUBLISH_SUCCESS": "Sesli asistan yayınlandı ve başlatıldı.", "PUBLISH_PAUSED_SUCCESS": "Sesli asistan yayınlandı ve duraklatılmış durumda bırakıldı.", "PUBLISH_ERROR": "Yayınlamadan önce kurulum listesini tamamlayın.", "ACTIVATE_SUCCESS": "Sesli asistan artık yeni çağrıları yanıtlıyor.", "ACTIVATE_ERROR": "Sesli asistan başlatılamadı.", "PAUSE_SUCCESS": "Sesli asistan duraklatıldı.", "PAUSE_ERROR": "Sesli asistan duraklatılamadı.", "LIVE_EDIT_NOTICE": "Siz sonraki sürümü düzenleyip test ederken yayınlanmış sürüm çağrıları yanıtlamaya devam eder.", "UNSAVED_CHANGES": "Kaydedilmemiş sesli asistan değişiklikleriniz var. Değişikliklerden vazgeçilsin mi?", "IKAS_READY": "ikas bağlı ve mağaza kataloğu eşitlendi.", "IKAS_CATALOG_NOT_SYNCED": "ikas bağlı, ancak mağaza kataloğu henüz eşitlenmedi.", "IKAS_NOT_CONNECTED": "Bu hesap için ikas bağlı değil."
     },
-    "ASSIGNMENTS": {
-      "TITLE": "Gelen kutusu atamaları",
-      "DESCRIPTION": "Bu sesli asistanın yanıtlayabileceği API gelen kutularını seçin. Bu test veya gelecekteki ses rotasını bu asistan yönetmeliyse gelen kutusunu buraya taşıyın.",
-      "API_SANDBOX": "API sandbox gelen kutusu",
-      "ASSIGNED_TO": "Şu anda {agent} asistanına atanmış; kaydedince buraya taşınır.",
-      "UNKNOWN_AGENT": "başka bir sesli asistan"
+    "ROLLOUT": {
+      "TITLE": "İncele ve yayınla", "DESCRIPTION": "{name} adlı asistanın {version}. sürümünü inceleyin, ardından yeni çağrıları yanıtlamaya başlayıp başlamayacağını seçin.", "INBOXES_TITLE": "Atanan çağrı gelen kutuları", "PHONE_READY": "Canlı kullanıma ait bir telefon numarası bağlı.", "PHONE_MISSING": "Canlı kullanıma ait bir telefon numarası bağlı değil.", "PHONE_MISSING_HELP": "Yayınlayıp test etmeyi sürdürebilirsiniz, ancak müşteriler henüz bu asistanı arayamaz.", "ACTIVE_UPDATE": "Bu güncelleme yayınlanırken mevcut sürüm çağrıları yanıtlamaya devam eder. Devam eden çağrılar başladıkları sürümde kalır.", "START_ANSWERING": "Yeni çağrıları yanıtlamaya başla", "START_ANSWERING_HELP": "Test edilen sürümü canlıya almadan yayınlamak için bunu kapalı bırakın.", "PUBLISH_AND_START": "Yayınla ve yanıtlamaya başla", "PUBLISH_PAUSED": "Duraklatılmış olarak yayınla"
     },
-    "TEST": {
-      "TITLE": "Sandbox test çağrısı",
-      "DESCRIPTION": "Kaydedilmiş bir sesli asistan gelen kutusu atamasını kullanan tarayıcı test çağrısı başlatın.",
-      "NO_ASSIGNED_INBOX": "Sandbox test çağrısından önce bu sesli asistana bir API gelen kutusu atayın."
+    "ASSIGNMENTS": { "TITLE": "Gelen kutusu atamaları", "DESCRIPTION": "Bu sesli asistanın yanıtlayabileceği API gelen kutularını seçin. Asistan testleri veya gelecekteki telefon yönlendirmelerini yönetmeli ise gelen kutusunu buraya taşıyın.", "API_SANDBOX": "API test ortamı gelen kutusu", "ASSIGNED_TO": "Şu anda {agent} asistanına atanmış; kaydedildiğinde buraya taşınacak.", "RECORDING_LABEL": "{inbox} için çağrıları kaydet", "UNKNOWN_AGENT": "başka bir sesli asistan" },
+    "TEST": { "TITLE": "Test ortamı çağrısı", "DESCRIPTION": "Kaydedilmiş bir sesli asistan gelen kutusu atamasını kullanarak yalnızca tarayıcıda çalışan bir çağrı başlatın.", "NO_ASSIGNED_INBOX": "Test ortamı çağrısı başlatmadan önce bu sesli asistana bir test gelen kutusu atayın." },
+    "TEST_STEPS": { "SETUP": "Gelen kutusu atandı", "CREATED": "Çağrı oluşturuldu", "JOINED": "Arayan katıldı", "AGENT_ACTIVE": "Yapay zekâ etkin", "ENDED": "Sonlandırıldı" },
+    "CALL_ACTIVITY": {
+      "TITLE": "Çağrı etkinliği", "DESCRIPTION": "Gerçek müşteri çağrılarını, sonuçları, insana aktarmaları, dökümleri ve yapay zekâ işlemlerini inceleyin. Test ortamı çağrıları dahil değildir.", "REFRESH": "Yenile", "FILTERS": "Filtreler", "APPLY": "Filtreleri uygula", "LOADING": "Çağrılar yükleniyor…", "EMPTY": "Bu filtrelerle eşleşen çağrı yok.", "LOAD_ERROR": "Çağrı etkinliği yüklenemedi.", "ALL": "Tümü", "STATUS_LABEL": "Çağrı durumu", "HANDOFF_LABEL": "İnsana aktarma", "ASSISTANT_LABEL": "Sesli asistan", "PHONE_LABEL": "Telefon numarası", "LIMIT_LABEL": "Sınır", "CONVERSATION": "Konuşma #{id}", "CALL": "Çağrı {id}", "OPEN_CONVERSATION": "Konuşmayı aç", "NO_SUMMARY": "Çağrı özeti yok.", "METADATA_SEPARATOR": " / ", "PHONE": "Arayan", "DURATION": "Süre", "TRANSCRIPT": "Döküm satırları", "ACTIONS": "Yapay zekâ işlemleri", "HANDOFF_METRIC": "İnsana aktarma", "RECORDING_METRIC": "Kayıt", "ACTION_ERRORS": "({count} başarısız)",
+      "STATUS": { "IN_PROGRESS": "Devam ediyor", "COMPLETED": "Tamamlandı", "NO_ANSWER": "Yanıt yok", "FAILED": "Başarısız" },
+      "HANDOFF": { "REQUESTED": "Talep edildi", "ACCEPTED": "Kabul edildi", "NONE": "Yok" },
+      "OUTCOME": { "ACTIVE": "Devam ediyor", "COMPLETED": "Tamamlandı", "NO_ANSWER": "Yanıt yok", "FAILED": "Başarısız", "HUMAN_HANDOFF": "İnsana aktarıldı" },
+      "RECORDING": { "DISABLED": "Kaydedilmedi", "STARTING": "Başlatılıyor", "ACTIVE": "Kaydediliyor", "COMPLETED": "Kullanılabilir", "FAILED": "Başarısız" }
     },
-    "SESSION": {
-      "TITLE": "Tarayıcı test çağrısı",
-      "ROOM": "Oda",
-      "CALL_STATUS": "Çağrı",
-      "BROWSER_STATUS": "Tarayıcı",
-      "NOT_STARTED": "Henüz test çağrısı yok",
-      "DISCONNECTED": "Bağlantı yok",
-      "CONNECTING": "Bağlanıyor",
-      "CONNECTED": "Bağlandı",
-      "FAILED": "Başarısız",
-      "JOIN_CALLER": "Arayan olarak katıl",
-      "JOIN_AGENT": "Temsilci olarak katıl",
-      "DISCONNECT": "Bağlantıyı kes",
-      "MUTE": "Sesi kapat",
-      "UNMUTE": "Sesi aç",
-      "TAKE_OVER": "Devralındı olarak işaretle",
-      "END_CALL": "Çağrıyı bitir",
-      "REFRESH": "Yenile",
-      "OPEN_CONVERSATION": "Konuşmayı aç",
-      "HANDOFF_TOOLS": "Devretme araçları",
-      "END_CALL_CONFIRM": "Bu test çağrısı bitirilsin mi?",
-      "TOKEN_ERROR": "LiveKit token oluşturulamadı.",
-      "CONNECT_ERROR": "LiveKit odasına katılınamadı.",
-      "TAKE_OVER_SUCCESS": "Çağrı devralındı olarak işaretlendi.",
-      "END_SUCCESS": "Çağrı bitirildi.",
-      "ACTION_ERROR": "Sesli çağrı işlemi başarısız oldu."
-    },
-    "TRANSCRIPT": {
-      "TITLE": "Transkript",
-      "DESCRIPTION": "Canlı konuşma satırları ve asistan etkinliği sandbox testlerinde burada görünür.",
-      "EMPTY": "Test çağrısı başladıktan sonra transkript satırları ve asistan etkinliği burada görünür.",
-      "TRANSCRIPT_COUNT": "Transkript: {count}",
-      "TOOL_COUNT": "İşlemler: {count}"
-    }
+    "RECORDINGS": { "TITLE": "Kayıtlar", "DESCRIPTION": "Tamamlanan çağrı kayıtlarını, insana aktarma durumunu ve oluşturulan özetleri inceleyin.", "REFRESH": "Yenile", "APPLY": "Filtreleri uygula", "LOADING": "Kayıtlar yükleniyor…", "EMPTY": "Bu filtrelerle eşleşen kayıt yok.", "LOAD_ERROR": "Kayıtlar yüklenemedi.", "STATUS": "Kayıt durumu", "HANDOFF": "İnsana aktarma", "PHONE": "Telefon numarası", "LIMIT": "Sınır", "CALL": "Çağrı", "CALL_NUMBER": "#{id}", "DURATION": "Süre", "SUMMARY": "Özet", "AUDIO": "Ses", "NO_VALUE": "-", "NO_AUDIO": "Dinlenebilir çağrı kaydı yok" },
+    "SESSION": { "TITLE": "Tarayıcı test çağrısı", "ASSISTANT": "Asistan", "INBOX": "Test gelen kutusu", "CALL_STATUS": "Çağrı", "BROWSER_STATUS": "Tarayıcı", "NOT_STARTED": "Henüz test çağrısı yok", "DISCONNECTED": "Bağlantı kesildi", "CONNECTING": "Bağlanıyor", "CONNECTED": "Bağlandı", "FAILED": "Başarısız", "JOIN_CALLER": "Test arayanı olarak katıl", "JOIN_AGENT": "Temsilci olarak katıl", "DISCONNECT": "Bağlantıyı kes", "MUTE": "Sesi kapat", "UNMUTE": "Sesi aç", "TAKE_OVER": "Devralındı olarak işaretle", "END_CALL": "Test çağrısını bitir", "REFRESH": "Yenile", "OPEN_CONVERSATION": "Konuşmayı aç", "HANDOFF_TOOLS": "İnsana aktarma araçları", "END_CALL_CONFIRM": "Bu test çağrısı bitirilsin mi?", "TOKEN_ERROR": "Test çağrısı bağlantısı hazırlanamadı.", "CONNECT_ERROR": "Test çağrısına katılınamadı.", "TAKE_OVER_SUCCESS": "Çağrı devralındı olarak işaretlendi.", "END_SUCCESS": "Çağrı sona erdi.", "ACTION_ERROR": "Sesli çağrı işlemi başarısız oldu." },
+    "TRANSCRIPT": { "TITLE": "Döküm", "DESCRIPTION": "Canlı konuşma dökümü satırları ve asistan etkinliği test ortamı çağrıları sırasında burada görünür.", "EMPTY": "Test çağrısı başladıktan sonra konuşma dökümü satırları ve asistan etkinliği burada görünür.", "TRANSCRIPT_COUNT": "Döküm: {count}", "TOOL_COUNT": "İşlemler: {count}" }
   }
 }
