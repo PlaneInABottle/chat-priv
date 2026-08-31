@@ -19,6 +19,26 @@ RSpec.describe VoiceAgents::ReleaseSnapshot do
       expect(source).to eq(original)
     end
 
+    it 'canonicalizes structured instructions and forces the matching compiled prompt' do
+      instructions = VoiceAgents::InstructionDocument.from_legacy('Structured body')
+      source = {
+        prompt: 'stale prompt',
+        config: { sibling: true, instructions: instructions, authoring_profile: { tone: 'concise' } }
+      }
+
+      sanitized = described_class.sanitize(source)
+
+      expect(sanitized['config']).to eq('sibling' => true, 'instructions' => instructions)
+      expect(sanitized['prompt']).to eq(VoiceAgents::InstructionDocument.new(instructions).compile)
+      expect(source[:prompt]).to eq('stale prompt')
+    end
+
+    it 'drops malformed stored instructions while preserving the legacy prompt' do
+      sanitized = described_class.sanitize(prompt: 'Legacy', config: { instructions: { version: 3 }, sibling: true })
+
+      expect(sanitized).to eq('prompt' => 'Legacy', 'config' => { 'sibling' => true })
+    end
+
     it 'returns the safe allowed shape with an empty config for malformed input' do
       expect(described_class.sanitize(nil)).to eq('config' => {})
       expect(described_class.sanitize(config: 'invalid', prompt: 'Keep')).to eq('config' => {}, 'prompt' => 'Keep')
@@ -26,10 +46,22 @@ RSpec.describe VoiceAgents::ReleaseSnapshot do
   end
 
   describe '.for' do
-    it 'builds a runtime-only snapshot' do
-      agent = build(:voice_agent, config: { 'runtime' => true, 'authoring_profile' => { 'tone' => 'concise' } })
+    it 'builds a sanitized snapshot with canonical instructions' do
+      instructions = VoiceAgents::InstructionDocument.from_legacy('Voice rules')
+      agent = build(
+        :voice_agent,
+        prompt: 'stale',
+        config: { 'runtime' => true, 'instructions' => instructions, 'authoring_profile' => { 'tone' => 'concise' } }
+      )
 
-      expect(described_class.for(agent).fetch('config')).to eq('runtime' => true)
+      snapshot = described_class.for(agent)
+      expect(snapshot.fetch('config')).to eq('runtime' => true, 'instructions' => instructions)
+      expect(snapshot['prompt']).to eq(VoiceAgents::InstructionDocument.new(instructions).compile)
+      reordered = snapshot.to_a.reverse.to_h
+      reordered['config'] = snapshot['config'].to_a.reverse.to_h
+      expect(AssistantReleases::Snapshot.fingerprint(snapshot)).to eq(
+        AssistantReleases::Snapshot.fingerprint(reordered)
+      )
     end
   end
 end

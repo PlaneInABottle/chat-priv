@@ -3,10 +3,8 @@ import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import Button from 'dashboard/components-next/button/Button.vue';
-import Editor from 'dashboard/components-next/Editor/Editor.vue';
-import { useMessageFormatter } from 'shared/composables/useMessageFormatter';
 import DraftTestPanel from './DraftTestPanel.vue';
-import InstructionSectionNavigator from './InstructionSectionNavigator.vue';
+import StructuredInstructionEditor from './StructuredInstructionEditor.vue';
 import {
   INSTRUCTION_SECTION_KEYS,
   compileInstructionDocument,
@@ -23,10 +21,8 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue', 'configureHandoff', 'tested']);
 
 const { t } = useI18n();
-const { formatMessage } = useMessageFormatter();
 const mobileView = ref('edit');
 const isTestFocused = ref(false);
-const selectedSection = ref('profile');
 const draftTestPanel = ref(null);
 
 const profileOptions = computed(() => ({
@@ -121,10 +117,6 @@ const sectionItems = computed(() =>
   }))
 );
 
-const selectedItem = computed(() =>
-  sectionItems.value.find(item => item.key === selectedSection.value)
-);
-
 const totalLength = computed(() => instructionContentLength(props.modelValue));
 const isOverLimit = computed(() => totalLength.value > 50000);
 const compiledInstructions = computed(() =>
@@ -134,41 +126,25 @@ const compiledInstructions = computed(() =>
 defineExpose({
   refreshCredits: () => draftTestPanel.value?.refreshCredits?.(),
 });
-const formattedInstructions = computed(() =>
-  formatMessage(compiledInstructions.value, false, false, false)
+
+const descriptors = computed(() =>
+  sectionItems.value.map(item => {
+    let type = 'section';
+    if (item.key === 'all') type = 'preview';
+    if (item.key === 'profile') type = 'profile';
+
+    return {
+      ...item,
+      type,
+      placeholder:
+        type === 'section'
+          ? t(
+              `AI_ASSISTANT.INSTRUCTIONS.SECTIONS.${item.key.toUpperCase()}.PLACEHOLDER`
+            )
+          : undefined,
+    };
+  })
 );
-
-const editorOptions = [
-  'strong',
-  'em',
-  'link',
-  'bulletList',
-  'orderedList',
-  'undo',
-  'redo',
-];
-
-const updateDocument = changes => {
-  emit('update:modelValue', { ...props.modelValue, ...changes });
-};
-
-const updateProfile = (key, value) => {
-  updateDocument({
-    profile: { ...props.modelValue.profile, [key]: value },
-    ...(key === 'language' && ['tr', 'en'].includes(value)
-      ? { locale: value }
-      : {}),
-  });
-};
-
-const updateSection = value => {
-  updateDocument({
-    sections: {
-      ...props.modelValue.sections,
-      [selectedSection.value]: value,
-    },
-  });
-};
 </script>
 
 <template>
@@ -212,123 +188,36 @@ const updateSection = value => {
           : 'min-[1360px]:grid-cols-[12rem_minmax(30rem,1fr)_minmax(28rem,34rem)]'
       "
     >
-      <InstructionSectionNavigator
-        :items="sectionItems"
-        :selected-key="selectedSection"
-        class="md:h-[calc(100dvh-15rem)] md:min-h-[36rem] md:max-h-[64rem]"
-        :class="[
+      <StructuredInstructionEditor
+        :model-value="modelValue"
+        :descriptors="descriptors"
+        :profile-fields="profileFields"
+        :profile-options="profileOptions"
+        :compiled-instructions="compiledInstructions"
+        :content-length="totalLength"
+        :count-label="
+          t('AI_ASSISTANT.INSTRUCTIONS.TOTAL_CHAR_COUNT', {
+            count: totalLength,
+            limit: 50000,
+          })
+        "
+        :empty-preview-label="t('AI_ASSISTANT.INSTRUCTIONS.ALL_SECTIONS_EMPTY')"
+        :selector-label="t('AI_ASSISTANT.INSTRUCTIONS.SECTION_SELECTOR')"
+        editor-key-prefix="ai-agent-instructions"
+        navigator-class="md:h-[calc(100dvh-15rem)] md:min-h-[36rem] md:max-h-[64rem]"
+        :navigator-visibility-class="[
           mobileView === 'test' ? 'hidden min-[1360px]:flex' : 'hidden md:flex',
           isTestFocused ? 'min-[1360px]:hidden' : '',
         ]"
-        @select="selectedSection = $event"
-      />
-
-      <section
-        class="min-w-0 flex-col"
-        :class="[
+        :content-visibility-class="[
           mobileView === 'test' ? 'hidden min-[1360px]:flex' : 'flex',
           isTestFocused ? 'min-[1360px]:hidden' : '',
-          selectedSection === 'all'
-            ? 'min-h-[44rem]'
-            : 'min-h-[44rem] md:h-[calc(100dvh-15rem)] md:min-h-[36rem] md:max-h-[64rem] md:overflow-hidden',
         ]"
+        @update:model-value="emit('update:modelValue', $event)"
       >
-        <label class="mb-4 flex flex-col gap-1 text-sm font-medium md:hidden">
-          {{ t('AI_ASSISTANT.INSTRUCTIONS.SECTION_SELECTOR') }}
-          <select
-            v-model="selectedSection"
-            class="h-10 rounded-lg border border-n-weak bg-n-alpha-1 px-3 font-normal"
-          >
-            <option
-              v-for="item in sectionItems"
-              :key="item.key"
-              :value="item.key"
-            >
-              {{ item.shortTitle }}
-            </option>
-          </select>
-        </label>
-
-        <header class="flex-shrink-0 border-b border-n-weak pb-4">
-          <h2 class="m-0 text-xl font-semibold text-n-slate-12">
-            {{ selectedItem.title }}
-          </h2>
-          <p class="mb-0 mt-1 max-w-2xl text-sm text-n-slate-11">
-            {{ selectedItem.description }}
-          </p>
-        </header>
-
-        <div
-          v-if="selectedSection === 'all'"
-          data-testid="all-instructions-content"
-          class="py-5 pr-1"
-        >
+        <template #section-footer="{ section }">
           <div
-            v-if="compiledInstructions"
-            v-dompurify-html="formattedInstructions"
-            class="prose prose-sm max-w-none break-words text-n-slate-12 dark:prose-invert prose-headings:scroll-mt-4 prose-headings:text-n-slate-12 prose-h2:mb-2 prose-h2:mt-6 prose-h2:border-b prose-h2:border-n-weak prose-h2:pb-2 prose-p:leading-relaxed prose-li:leading-relaxed"
-          />
-          <div v-else class="py-12 text-center text-sm text-n-slate-10">
-            {{ t('AI_ASSISTANT.INSTRUCTIONS.ALL_SECTIONS_EMPTY') }}
-          </div>
-        </div>
-
-        <div
-          v-else-if="selectedSection === 'profile'"
-          class="min-h-0 flex-1 overflow-y-auto py-5 pr-1"
-        >
-          <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <label
-              v-for="field in profileFields"
-              :key="field.key"
-              class="flex flex-col gap-1 text-sm font-medium text-n-slate-12"
-            >
-              {{ field.label }}
-              <select
-                :value="modelValue.profile[field.key]"
-                class="h-10 rounded-lg border border-n-weak bg-n-alpha-1 px-3 font-normal"
-                @change="updateProfile(field.key, $event.target.value)"
-              >
-                <option
-                  v-for="option in profileOptions[field.key]"
-                  :key="option[0]"
-                  :value="option[0]"
-                >
-                  {{ option[1] }}
-                </option>
-              </select>
-            </label>
-          </div>
-        </div>
-
-        <div
-          v-else
-          data-testid="instruction-section-content"
-          class="min-h-0 flex-1 overflow-y-auto py-5 pr-1"
-        >
-          <Editor
-            :key="selectedSection"
-            class="[&_.ProseMirror]:text-[0.9375rem] [&_.ProseMirror]:leading-6 [&_.ProseMirror_li]:!text-[0.9375rem] [&_.ProseMirror_li]:!leading-6 [&_.ProseMirror_p]:!text-[0.9375rem] [&_.ProseMirror_p]:!leading-6"
-            :model-value="modelValue.sections[selectedSection] || ''"
-            :editor-key="`ai-agent-instructions-${selectedSection}`"
-            :aria-label="selectedItem.title"
-            :placeholder="
-              t(
-                `AI_ASSISTANT.INSTRUCTIONS.SECTIONS.${selectedSection.toUpperCase()}.PLACEHOLDER`
-              )
-            "
-            :max-length="50000"
-            :show-character-count="false"
-            :enable-canned-responses="false"
-            variant="article"
-            :enabled-menu-options="editorOptions"
-            min-height="10rem"
-            max-height="clamp(10rem, calc(100dvh - 37rem), 28rem)"
-            @update:model-value="updateSection"
-          />
-
-          <div
-            v-if="selectedSection === 'handoff'"
+            v-if="section === 'handoff'"
             class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-n-weak pt-4"
           >
             <div class="flex min-w-0 items-start gap-3">
@@ -358,20 +247,8 @@ const updateSection = value => {
               />
             </div>
           </div>
-        </div>
-
-        <p
-          class="m-0 flex-shrink-0 border-t border-n-weak pt-3 text-right text-xs"
-          :class="isOverLimit ? 'text-n-ruby-11' : 'text-n-slate-10'"
-        >
-          {{
-            t('AI_ASSISTANT.INSTRUCTIONS.TOTAL_CHAR_COUNT', {
-              count: totalLength,
-              limit: 50000,
-            })
-          }}
-        </p>
-      </section>
+        </template>
+      </StructuredInstructionEditor>
 
       <DraftTestPanel
         ref="draftTestPanel"

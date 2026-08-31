@@ -1,4 +1,4 @@
-import { shallowMount } from '@vue/test-utils';
+import { mount } from '@vue/test-utils';
 
 import InstructionWorkspace from '../InstructionWorkspace.vue';
 
@@ -31,7 +31,7 @@ const instructions = {
 };
 
 const mountComponent = () =>
-  shallowMount(InstructionWorkspace, {
+  mount(InstructionWorkspace, {
     props: {
       modelValue: instructions,
       aiAgentId: 42,

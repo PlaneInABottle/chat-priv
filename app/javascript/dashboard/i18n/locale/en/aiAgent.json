@@ -747,27 +747,81 @@
       "PROMPT": "Speak naturally. Give concise, clear, and calm customer support answers.",
       "CALLER_NAME": "Test caller"
     },
-    "CREATE": {
-      "TITLE": "Create an instruction draft (optional)",
-      "DESCRIPTION": "Use this helper to fill the Instructions field below. You can review and edit the draft before saving.",
-      "TONE": "Tone",
-      "BUSINESS_CONTEXT": "What should it know about your business?",
-      "BOUNDARIES": "What should it avoid or leave to a person?",
-      "BUILD_INSTRUCTIONS": "Use draft in instructions",
-      "DRAFT_ADDED": "Draft added to Instructions. Review or edit it before saving.",
-      "REPLACE_CONFIRM": "Your current instructions have edits. Replace them with a new draft?",
-      "TONES": {
-        "FRIENDLY": "Friendly",
-        "PROFESSIONAL": "Professional",
-        "CONCISE": "Concise"
+    "INSTRUCTIONS": {
+      "SECTION_SELECTOR": "Instruction section",
+      "EMPTY_PREVIEW": "Add profile preferences or section guidance to preview the complete instructions.",
+      "TOTAL_CHAR_COUNT": "{count} / {limit} characters",
+      "ALL_SECTIONS_STATUS": "Complete compiled instructions",
+      "CONFIGURED": "Configured",
+      "NOT_CONFIGURED": "Not configured",
+      "SECTIONS": {
+        "ALL": {
+          "SHORT_TITLE": "All instructions",
+          "TITLE": "All instructions",
+          "DESCRIPTION": "Review the exact compiled instructions used for voice calls."
+        },
+        "PROFILE": {
+          "SHORT_TITLE": "Language and tone",
+          "TITLE": "Language and tone",
+          "DESCRIPTION": "Set how the assistant should speak and structure its answers."
+        },
+        "BUSINESS_CONTEXT": {
+          "SHORT_TITLE": "Business information",
+          "TITLE": "Business information",
+          "DESCRIPTION": "Give the assistant the essential context it needs about your business.",
+          "PLACEHOLDER": "Describe your business, products, customers, and important context…"
+        },
+        "TASKS": {
+          "SHORT_TITLE": "Tasks",
+          "TITLE": "Tasks",
+          "DESCRIPTION": "Define what the assistant should accomplish during customer calls.",
+          "PLACEHOLDER": "Describe the tasks and conversation flow the assistant should follow…"
+        },
+        "RULES": {
+          "SHORT_TITLE": "Rules and human handoff",
+          "TITLE": "Rules and human handoff",
+          "DESCRIPTION": "Set boundaries and explain when the assistant should request human support.",
+          "PLACEHOLDER": "Add rules, restrictions, and human handoff guidance…"
+        }
       },
-      "DRAFT": {
-        "ROLE": "Role: You are {name} for customer calls.",
-        "DEFAULT_NAME": "a voice assistant",
-        "TONE": "Tone: {tone}. Speak naturally and keep answers easy to follow aloud.",
-        "BUSINESS_CONTEXT": "Business context: {context}",
-        "BOUNDARIES": "Boundaries: {boundaries}",
-        "HANDOFF": "When a caller asks for a person or needs human judgment, request human support."
+      "PROFILE": {
+        "LANGUAGE": {
+          "LABEL": "Reply language",
+          "OPTIONS": {
+            "NOT_SET": "Not set",
+            "SAME_AS_CUSTOMER": "Use the customer's language",
+            "TR": "Turkish",
+            "EN": "English"
+          }
+        },
+        "TONE": {
+          "LABEL": "Tone",
+          "OPTIONS": {
+            "NOT_SET": "Not set",
+            "NATURAL": "Natural",
+            "FRIENDLY": "Friendly",
+            "PROFESSIONAL": "Professional",
+            "CONCISE": "Concise"
+          }
+        },
+        "FORMALITY": {
+          "LABEL": "Formality",
+          "OPTIONS": {
+            "NOT_SET": "Not set",
+            "BALANCED": "Balanced",
+            "CASUAL": "Casual",
+            "FORMAL": "Formal"
+          }
+        },
+        "RESPONSE_LENGTH": {
+          "LABEL": "Response length",
+          "OPTIONS": {
+            "NOT_SET": "Not set",
+            "BALANCED": "Balanced",
+            "SHORT": "Short",
+            "DETAILED": "Detailed"
+          }
+        }
       }
     },
     "CAPABILITIES": {
@@ -868,9 +922,6 @@
       "ENABLED": "Enabled",
       "ENABLED_HELP": "Only active voice assistants can answer calls.",
       "DISABLED_BY_ADMIN": "Voice AI is disabled by your administrator.",
-      "PROMPT": "Voice prompt",
-      "PROMPT_HELP": "These instructions control how the assistant responds. A generated draft remains editable until you save.",
-      "PROMPT_CHAR_COUNT": "{count} / {limit} characters",
       "TOOLS": "Capabilities",
       "SAVE": "Save voice assistant",
       "SAVE_SUCCESS": "Voice assistant saved.",
@@ -1024,6 +1075,8 @@
       "CONNECT_ERROR": "Failed to join the test call.",
       "TAKE_OVER_SUCCESS": "Call marked as taken over.",
       "END_SUCCESS": "Call ended.",
+      "TAB_CHANGE_END_SUCCESS": "The test call ended because you left the Test tab.",
+      "TAB_CHANGE_END_ERROR": "The test call could not be ended remotely. Your microphone was disconnected and the tab was changed.",
       "ACTION_ERROR": "Voice call action failed."
     },
     "TRANSCRIPT": {

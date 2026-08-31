@@ -6,7 +6,7 @@ RSpec.describe 'Voice agent releases API', type: :request do
   let(:voice_agent) { create(:voice_agent, account: account) }
   let!(:release) { create(:voice_agent_release, voice_agent: voice_agent) }
   let(:headers) { admin.create_new_auth_token }
-  let(:canonical_profile) { { 'tone' => 'professional', 'business_context' => 'Canonical', 'boundaries' => '' } }
+  let(:current_instructions) { VoiceAgents::InstructionDocument.from_legacy('Current structured prompt') }
   let(:contaminated_snapshot) do
     release.snapshot.deep_merge(
       'prompt' => 'Historical prompt',
@@ -18,7 +18,11 @@ RSpec.describe 'Voice agent releases API', type: :request do
   before do
     voice_agent.update!(
       current_release: release,
-      config: { 'runtime' => 'current', 'authoring_profile' => canonical_profile }
+      config: {
+        'runtime' => 'current',
+        'instructions' => current_instructions,
+        'authoring_profile' => { 'tone' => 'professional' }
+      }
     )
     release.update!(
       snapshot: contaminated_snapshot,
@@ -41,7 +45,7 @@ RSpec.describe 'Voice agent releases API', type: :request do
     expect(response.parsed_body.dig('snapshot', 'config')).not_to have_key('authoring_profile')
   end
 
-  it 'creates and returns an exactly sanitized rollback while preserving the canonical profile' do
+  it 'creates an exactly sanitized prompt-only rollback and removes current reserved metadata' do
     post "/api/v1/accounts/#{account.id}/voice/agents/#{voice_agent.id}/releases/#{release.id}/rollback",
          headers: headers,
          as: :json
@@ -52,7 +56,7 @@ RSpec.describe 'Voice agent releases API', type: :request do
     expect(restored.snapshot).to eq(sanitized_snapshot)
     expect(restored.fingerprint).to eq(AssistantReleases::Snapshot.fingerprint(restored.snapshot))
     expect(voice_agent.reload).to have_attributes(current_release: restored, enabled: true, prompt: 'Historical prompt')
-    expect(voice_agent.authoring_profile).to eq(canonical_profile)
-    expect(voice_agent.runtime_config).to eq('runtime' => 'historical')
+    expect(voice_agent.instructions).to be_nil
+    expect(voice_agent.config).to eq('runtime' => 'historical')
   end
 end

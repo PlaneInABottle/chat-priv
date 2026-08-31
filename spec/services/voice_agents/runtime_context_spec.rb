@@ -15,6 +15,7 @@ RSpec.describe VoiceAgents::RuntimeContext do
         tools_config: VoiceAgents::Config.new('enabled' => %w[human_handoff end_customer_call]).normalized_config
       )
     end
+    let(:structured_instructions) { VoiceAgents::InstructionDocument.from_legacy('Structured runtime prompt') }
 
     it 'returns account-scoped voice agent instructions, tools, and runtime settings' do
       setting = create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: voice_agent)
@@ -38,6 +39,64 @@ RSpec.describe VoiceAgents::RuntimeContext do
         voice: voice_agent.voice,
         language: voice_agent.language
       )
+    end
+
+    it 'filters reserved instruction metadata from the draft worker config' do
+      setting = create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: voice_agent)
+      voice_agent.update!(
+        prompt: VoiceAgents::InstructionDocument.new(structured_instructions).compile,
+        config: {
+          'instructions' => structured_instructions,
+          'authoring_profile' => { 'tone' => 'concise' },
+          'runtime_sibling' => 'keep'
+        }
+      )
+      call = create(
+        :call,
+        account: account,
+        inbox: inbox,
+        conversation: nil,
+        contact: nil,
+        provider: :livekit,
+        provider_call_id: 'room-structured-draft',
+        meta: { 'voice_inbox_setting_id' => setting.id, 'test_call' => true }
+      )
+
+      payload = described_class.new(call: call).payload
+
+      expect(payload[:instructions]).to include('Structured runtime prompt')
+      expect(payload.dig(:runtime, :config)).to eq('runtime_sibling' => 'keep')
+    end
+
+    it 'filters reserved metadata from contaminated historical release worker config' do
+      setting = create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: voice_agent)
+      release = create(
+        :voice_agent_release,
+        voice_agent: voice_agent,
+        snapshot: VoiceAgents::ReleaseSnapshot.for(voice_agent).merge(
+          'prompt' => 'Historical compiled prompt',
+          'config' => {
+            'instructions' => structured_instructions,
+            'authoring_profile' => { 'tone' => 'friendly' },
+            'release_sibling' => true
+          }
+        )
+      )
+      call = create(
+        :call,
+        account: account,
+        inbox: inbox,
+        provider: :livekit,
+        provider_call_id: 'room-contaminated-release',
+        voice_agent_release: release,
+        meta: { 'voice_inbox_setting_id' => setting.id }
+      )
+
+      payload = described_class.new(call: call).payload
+
+      expect(payload[:instructions]).to include('Historical compiled prompt')
+      expect(payload.dig(:runtime, :config)).to eq('release_sibling' => true)
+      expect(release.reload.snapshot.dig('config', 'instructions')).to eq(structured_instructions)
     end
 
     it 'ignores a voice_inbox_setting_id from another account' do

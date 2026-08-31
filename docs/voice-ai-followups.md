@@ -4,10 +4,8 @@ This tracks deferred Voice AI work that is useful, but not required for the curr
 
 ## Before Launch
 
-- Add unsaved-changes protection in `VoiceAiSettings.vue` when switching tabs, selecting a different agent, or clicking New with dirty form state.
 - Add `aria-live` announcements for new live transcript segments, tool events, and call state changes.
 - Improve the live call controls UX when takeover is unavailable by showing the reason in text or tooltip.
-- Add a prompt textarea character counter that reflects backend limits.
 - Add a conversation/inbox live-call badge for calls currently handled by AI.
 - Add call summary auto-population after call end.
 - Add business-hours and holiday routing before real customer rollout.
@@ -22,7 +20,7 @@ This tracks deferred Voice AI work that is useful, but not required for the curr
 ## Product Ideas
 
 - Call history table in the Voice AI usage tab.
-- Prompt playground with Ikas context preview.
+- Structured-instruction playground with Ikas context preview.
 - Tool configuration panels with provider-specific availability and test buttons.
 - Post-call CSAT survey flow.
 - Voice order lookup and order-placement tools after the support/replay flow is stable.

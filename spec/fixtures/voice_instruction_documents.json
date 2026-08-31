@@ -1,0 +1,40 @@
+[
+  {
+    "locale": "en",
+    "document": {
+      "version": 4,
+      "locale": "en",
+      "profile": {
+        "language": "en",
+        "tone": "professional",
+        "formality": "formal",
+        "response_length": "short"
+      },
+      "sections": {
+        "business_context": "Kozmopath store",
+        "tasks": "Answer questions.",
+        "rules": "Never invent prices."
+      }
+    },
+    "compiled": "## Language and tone\n- Reply language: English\n- Tone: Professional\n- Formality: Formal\n- Response length: Short\n\n## Business context\n\nKozmopath store\n\n## Tasks and conversation flow\n\nAnswer questions.\n\n## Rules and boundaries\n\nNever invent prices."
+  },
+  {
+    "locale": "tr",
+    "document": {
+      "version": 4,
+      "locale": "tr",
+      "profile": {
+        "language": "tr",
+        "tone": "professional",
+        "formality": "formal",
+        "response_length": "short"
+      },
+      "sections": {
+        "business_context": "Kozmopath store",
+        "tasks": "Answer questions.",
+        "rules": "Never invent prices."
+      }
+    },
+    "compiled": "## Dil ve üslup\n- Yanıt dili: Türkçe\n- Üslup: Profesyonel\n- Resmiyet: Resmi\n- Yanıt uzunluğu: Kısa\n\n## İşletme bilgileri\n\nKozmopath store\n\n## Görevler ve konuşma akışı\n\nAnswer questions.\n\n## Kurallar ve sınırlar\n\nNever invent prices."
+  }
+]

@@ -26,6 +26,14 @@ import Switch from 'dashboard/components-next/switch/Switch.vue';
 import AssistantReleaseHistoryDialog from '../aiAgent/components/AssistantReleaseHistoryDialog.vue';
 import ImprovementCreditsSummary from '../aiAgent/components/ImprovementCreditsSummary.vue';
 import KnowledgeSourceSelector from '../aiAgent/components/KnowledgeSourceSelector.vue';
+import StructuredInstructionEditor from '../aiAgent/components/StructuredInstructionEditor.vue';
+import { PROFILE_OPTIONS } from '../aiAgent/helpers/instructionDocument';
+import {
+  compileVoiceInstructionDocument,
+  normalizeVoiceInstructionDocument,
+  voiceInstructionContentLength,
+  voiceInstructionDocumentFromLegacy,
+} from '../aiAgent/helpers/voiceInstructionDocument';
 import ResponsiveTabNavigation from '../components/ResponsiveTabNavigation.vue';
 import VoiceCallActivity from './VoiceCallActivity.vue';
 import VoicePublishDialog from './VoicePublishDialog.vue';
@@ -40,12 +48,9 @@ const TERMINAL_CALL_STATUSES = [
 const RECORDING_STATUSES = ['completed', 'active', 'starting', 'failed'];
 const HANDOFF_STATUSES = ['requested', 'accepted', 'none'];
 const PROMPT_CHARACTER_LIMIT = 50000;
-const AUTHORING_PROFILE_TEXT_LIMIT = 2000;
-const AUTHORING_PROFILE_TONES = ['friendly', 'professional', 'concise'];
 const DEFAULT_AGENT = {
   name: '',
   greeting: '',
-  prompt: '',
   knowledge_source_ids: [],
   tools_config: {
     enabled: ['human_handoff', 'end_customer_call'],
@@ -93,36 +98,10 @@ const defaultAgent = () => ({
   ...clone(DEFAULT_AGENT),
   name: t('VOICE_AI.DEFAULTS.AGENT_NAME'),
   greeting: t('VOICE_AI.DEFAULTS.GREETING'),
-  prompt: t('VOICE_AI.DEFAULTS.PROMPT'),
 });
 
-const defaultAuthoringProfile = () => ({
-  tone: 'friendly',
-  businessContext: '',
-  boundaries: '',
-});
-
-const normalizeAuthoringProfile = profile => {
-  const value = profile && typeof profile === 'object' ? profile : {};
-  const normalizeText = text =>
-    typeof text === 'string' && text.length <= AUTHORING_PROFILE_TEXT_LIMIT
-      ? text
-      : '';
-
-  return {
-    tone: AUTHORING_PROFILE_TONES.includes(value.tone)
-      ? value.tone
-      : 'friendly',
-    businessContext: normalizeText(value.business_context),
-    boundaries: normalizeText(value.boundaries),
-  };
-};
-
-const authoringProfilePayload = profile => ({
-  tone: profile.tone,
-  business_context: profile.businessContext,
-  boundaries: profile.boundaries,
-});
+const defaultVoiceInstructions = () =>
+  voiceInstructionDocumentFromLegacy(t('VOICE_AI.DEFAULTS.PROMPT'));
 
 const settings = ref([]);
 const voiceAgents = ref([]);
@@ -147,6 +126,9 @@ const improvementCreditsRef = ref(null);
 const isCreatingCall = ref(false);
 const isEnding = ref(false);
 const isRefreshing = ref(false);
+const isDisposed = ref(false);
+const callEndPromises = new Map();
+let tabTransitionSequence = 0;
 const recordingFilters = ref({
   status: '',
   handoff_status: '',
@@ -155,13 +137,10 @@ const recordingFilters = ref({
 });
 
 const agentForm = ref(defaultAgent());
-const promptTextareaRef = ref(null);
-const lastSafePrompt = ref(agentForm.value.prompt);
-const promptDraftFeedback = ref('');
+const voiceInstructions = ref(defaultVoiceInstructions());
 const assignmentForm = ref({});
 const editingVoiceAgentId = ref(null);
 const savedAgentSnapshot = ref('');
-const voiceSetupProfile = ref(defaultAuthoringProfile());
 
 const {
   remoteAudioRef,
@@ -257,7 +236,74 @@ const voiceAccessEnabled = computed(() => voiceUsage.value?.enabled === true);
 const isVoiceAccessDisabled = computed(
   () => Boolean(voiceUsage.value) && !voiceAccessEnabled.value
 );
-const promptLength = computed(() => agentForm.value.prompt?.length || 0);
+const profileFields = computed(() =>
+  ['language', 'tone', 'formality', 'response_length'].map(key => ({
+    key,
+    label: t(`VOICE_AI.INSTRUCTIONS.PROFILE.${key.toUpperCase()}.LABEL`),
+  }))
+);
+const profileOptions = computed(() =>
+  Object.fromEntries(
+    Object.entries(PROFILE_OPTIONS).map(([key, values]) => [
+      key,
+      values.map(value => [
+        value,
+        t(
+          `VOICE_AI.INSTRUCTIONS.PROFILE.${key.toUpperCase()}.OPTIONS.${value.toUpperCase()}`
+        ),
+      ]),
+    ])
+  )
+);
+const voiceSectionKeys = [
+  ['all', 'preview'],
+  ['profile', 'profile'],
+  ['business_context', 'section'],
+  ['tasks', 'section'],
+  ['rules', 'section'],
+];
+const isVoiceSectionConfigured = key => {
+  if (key === 'all') return null;
+  if (key === 'profile') {
+    return Object.values(voiceInstructions.value.profile).some(
+      value => value !== 'not_set'
+    );
+  }
+  return Boolean(voiceInstructions.value.sections[key].trim());
+};
+const voiceInstructionDescriptors = computed(() =>
+  voiceSectionKeys.map(([key, type]) => ({
+    key,
+    type,
+    shortTitle: t(
+      `VOICE_AI.INSTRUCTIONS.SECTIONS.${key.toUpperCase()}.SHORT_TITLE`
+    ),
+    title: t(`VOICE_AI.INSTRUCTIONS.SECTIONS.${key.toUpperCase()}.TITLE`),
+    description: t(
+      `VOICE_AI.INSTRUCTIONS.SECTIONS.${key.toUpperCase()}.DESCRIPTION`
+    ),
+    placeholder:
+      type === 'section'
+        ? t(`VOICE_AI.INSTRUCTIONS.SECTIONS.${key.toUpperCase()}.PLACEHOLDER`)
+        : undefined,
+    icon: key === 'all' ? 'i-lucide-files' : '',
+    configured: isVoiceSectionConfigured(key),
+    statusLabel:
+      key === 'all'
+        ? t('VOICE_AI.INSTRUCTIONS.ALL_SECTIONS_STATUS')
+        : t(
+            isVoiceSectionConfigured(key)
+              ? 'VOICE_AI.INSTRUCTIONS.CONFIGURED'
+              : 'VOICE_AI.INSTRUCTIONS.NOT_CONFIGURED'
+          ),
+  }))
+);
+const compiledVoiceInstructions = computed(() =>
+  compileVoiceInstructionDocument(voiceInstructions.value)
+);
+const promptLength = computed(() =>
+  voiceInstructionContentLength(voiceInstructions.value)
+);
 const lifecycleStatus = computed(
   () => selectedVoiceAgent.value?.lifecycle_status || 'draft'
 );
@@ -527,61 +573,6 @@ const readinessLabel = key => {
   return t('VOICE_AI.READINESS.INSTRUCTIONS');
 };
 
-const toneLabel = tone => {
-  if (tone === 'professional') {
-    return t('VOICE_AI.CREATE.TONES.PROFESSIONAL');
-  }
-  if (tone === 'concise') return t('VOICE_AI.CREATE.TONES.CONCISE');
-  return t('VOICE_AI.CREATE.TONES.FRIENDLY');
-};
-
-const buildVoiceInstructions = async () => {
-  const tone = toneLabel(voiceSetupProfile.value.tone);
-  const lines = [
-    t('VOICE_AI.CREATE.DRAFT.ROLE', {
-      name: agentForm.value.name || t('VOICE_AI.CREATE.DRAFT.DEFAULT_NAME'),
-    }),
-    t('VOICE_AI.CREATE.DRAFT.TONE', { tone }),
-  ];
-  if (voiceSetupProfile.value.businessContext.trim()) {
-    lines.push(
-      t('VOICE_AI.CREATE.DRAFT.BUSINESS_CONTEXT', {
-        context: voiceSetupProfile.value.businessContext.trim(),
-      })
-    );
-  }
-  if (voiceSetupProfile.value.boundaries.trim()) {
-    lines.push(
-      t('VOICE_AI.CREATE.DRAFT.BOUNDARIES', {
-        boundaries: voiceSetupProfile.value.boundaries.trim(),
-      })
-    );
-  }
-  lines.push(t('VOICE_AI.CREATE.DRAFT.HANDOFF'));
-  const draft = lines.join('\n\n');
-  if (
-    agentForm.value.prompt !== lastSafePrompt.value &&
-    // eslint-disable-next-line no-alert
-    !window.confirm(t('VOICE_AI.CREATE.REPLACE_CONFIRM'))
-  ) {
-    return;
-  }
-
-  agentForm.value.prompt = draft;
-  lastSafePrompt.value = draft;
-  promptDraftFeedback.value = t('VOICE_AI.CREATE.DRAFT_ADDED');
-  await nextTick();
-  promptTextareaRef.value?.scrollIntoView({
-    behavior: 'smooth',
-    block: 'nearest',
-  });
-  promptTextareaRef.value?.focus();
-};
-
-const handlePromptInput = () => {
-  promptDraftFeedback.value = '';
-};
-
 const assignedAgentName = setting => {
   const agent = voiceAgents.value.find(
     item => Number(item.id) === Number(setting?.voice_agent_id)
@@ -623,8 +614,7 @@ const editableAgentPayload = () => ({
   id: editingVoiceAgentId.value || null,
   name: agentForm.value.name || '',
   greeting: agentForm.value.greeting || '',
-  prompt: agentForm.value.prompt || '',
-  authoring_profile: authoringProfilePayload(voiceSetupProfile.value),
+  instructions: normalizeVoiceInstructionDocument(voiceInstructions.value),
   knowledge_source_ids: normalizeKnowledgeSourceIds(
     agentForm.value.knowledge_source_ids
   ),
@@ -681,12 +671,10 @@ const syncAssignmentForm = agent => {
 };
 
 const syncAgentForm = agent => {
-  promptDraftFeedback.value = '';
   if (!agent) {
     editingVoiceAgentId.value = null;
     agentForm.value = defaultAgent();
-    voiceSetupProfile.value = defaultAuthoringProfile();
-    lastSafePrompt.value = agentForm.value.prompt;
+    voiceInstructions.value = defaultVoiceInstructions();
     syncAssignmentForm(null);
     resetAgentSnapshot();
     return;
@@ -702,8 +690,9 @@ const syncAgentForm = agent => {
     tools_config: normalizeToolsConfigForAvailableTools(agent?.tools_config),
     inbox_settings: agent?.inbox_settings || [],
   };
-  voiceSetupProfile.value = normalizeAuthoringProfile(agent?.authoring_profile);
-  lastSafePrompt.value = agentForm.value.prompt;
+  voiceInstructions.value = agent?.instructions
+    ? normalizeVoiceInstructionDocument(agent.instructions)
+    : voiceInstructionDocumentFromLegacy(agent?.prompt || '');
   syncAssignmentForm(agent);
   resetAgentSnapshot();
 };
@@ -781,8 +770,7 @@ const saveVoiceAgent = async () => {
     const payload = {
       name: agentForm.value.name,
       greeting: agentForm.value.greeting,
-      prompt: agentForm.value.prompt,
-      authoring_profile: authoringProfilePayload(voiceSetupProfile.value),
+      instructions: normalizeVoiceInstructionDocument(voiceInstructions.value),
       knowledge_source_ids: normalizeKnowledgeSourceIds(
         agentForm.value.knowledge_source_ids
       ),
@@ -904,16 +892,85 @@ const editVoiceAgent = agent => {
   activeTab.value = 'agents';
 };
 
-const changeTab = tab => {
-  if (tab.value === activeTab.value) return;
+const refreshUsage = async () => {
+  const response = await VoiceAPI.getUsage();
+  if (!isDisposed.value) voiceUsage.value = response.data;
+};
+
+const activeCallSnapshot = () => {
+  const call = currentCall.value;
+  if (!call?.id || TERMINAL_CALL_STATUSES.includes(call.status)) return null;
+
+  return { id: call.id, status: call.status };
+};
+
+const endCapturedCall = (call, endReason) => {
+  if (!call) return Promise.resolve(null);
+  if (callEndPromises.has(call.id)) return callEndPromises.get(call.id);
+
+  const promise = VoiceAPI.endCall(call.id, { end_reason: endReason }).finally(
+    () => {
+      if (callEndPromises.get(call.id) === promise) {
+        callEndPromises.delete(call.id);
+      }
+    }
+  );
+  callEndPromises.set(call.id, promise);
+  return promise;
+};
+
+const commitTabTransition = (destination, updateRoute) => {
+  activeTab.value = destination;
+  if (updateRoute) {
+    router.replace({ query: { ...route.query, section: destination } });
+  }
+  if (destination === 'recordings') fetchRecordings();
+};
+
+const requestTabTransition = async (destination, updateRoute = true) => {
+  if (!tabs.value.some(tab => tab.value === destination)) return;
+  if (destination === activeTab.value) return;
   if (activeTab.value === 'agents' && !confirmDiscardAgentChanges()) return;
 
-  activeTab.value = tab.value;
-  router.replace({ query: { ...route.query, section: tab.value } });
-  if (tab.value === 'recordings') {
-    fetchRecordings();
+  tabTransitionSequence += 1;
+  const sequence = tabTransitionSequence;
+  const capturedCall = destination === 'test' ? null : activeCallSnapshot();
+  if (!capturedCall) {
+    if (sequence === tabTransitionSequence && !isDisposed.value) {
+      commitTabTransition(destination, updateRoute);
+    }
+    return;
+  }
+
+  try {
+    const response = await endCapturedCall(
+      capturedCall,
+      'browser_test_tab_changed'
+    );
+    if (
+      !isDisposed.value &&
+      Number(currentCall.value?.id) === Number(capturedCall.id)
+    ) {
+      currentCall.value = response.data;
+      Promise.allSettled([
+        refreshUsage(),
+        improvementCreditsRef.value?.refresh?.(),
+      ]);
+      useAlert(t('VOICE_AI.SESSION.TAB_CHANGE_END_SUCCESS'));
+    }
+  } catch {
+    if (!isDisposed.value) {
+      useAlert(t('VOICE_AI.SESSION.TAB_CHANGE_END_ERROR'));
+    }
+  } finally {
+    disconnectRoom();
+    if (sequence === tabTransitionSequence && !isDisposed.value) {
+      commitTabTransition(destination, updateRoute);
+    }
   }
 };
+
+const changeTab = tab => requestTabTransition(tab.value);
 
 const toggleTool = toolKey => {
   if (isMandatoryTool(toolKey)) return;
@@ -979,11 +1036,6 @@ const refreshCall = async () => {
   }
 };
 
-const refreshUsage = async () => {
-  const response = await VoiceAPI.getUsage();
-  voiceUsage.value = response.data;
-};
-
 const formatDurationSeconds = seconds => {
   if (seconds == null) return '-';
 
@@ -1008,20 +1060,32 @@ const endCall = async () => {
   // eslint-disable-next-line no-alert
   if (!window.confirm(t('VOICE_AI.SESSION.END_CALL_CONFIRM'))) return;
 
+  const capturedCall = activeCallSnapshot();
+  if (!capturedCall) return;
   isEnding.value = true;
   try {
-    const response = await VoiceAPI.endCall(currentCall.value.id, {
-      end_reason: 'browser_test_ended',
-    });
-    currentCall.value = response.data;
+    const response = await endCapturedCall(capturedCall, 'browser_test_ended');
+    if (isDisposed.value) return;
+
+    if (Number(currentCall.value?.id) === Number(capturedCall.id)) {
+      currentCall.value = response.data;
+    }
     disconnectRoom();
     await refreshUsage();
+    if (isDisposed.value) return;
+
     await improvementCreditsRef.value?.refresh();
+    if (isDisposed.value) return;
+
     useAlert(t('VOICE_AI.SESSION.END_SUCCESS'));
   } catch {
-    useAlert(t('VOICE_AI.SESSION.ACTION_ERROR'));
+    if (!isDisposed.value) useAlert(t('VOICE_AI.SESSION.ACTION_ERROR'));
   } finally {
-    isEnding.value = false;
+    if (isDisposed.value) {
+      disconnectRoom();
+    } else {
+      isEnding.value = false;
+    }
   }
 };
 
@@ -1076,15 +1140,30 @@ watch(
   () => route.query.section,
   section => {
     if (tabs.value.some(tab => tab.value === section)) {
-      activeTab.value = section;
+      requestTabTransition(section, false);
     } else if (section) {
-      activeTab.value = 'agents';
+      requestTabTransition('agents', false);
       router.replace({ query: { ...route.query, section: 'agents' } });
     }
   }
 );
 
-onBeforeRouteLeave(() => confirmDiscardAgentChanges());
+const cleanupForRouteDeparture = () => {
+  isDisposed.value = true;
+  tabTransitionSequence += 1;
+  const capturedCall = activeCallSnapshot();
+  disconnectRoom();
+  if (capturedCall) {
+    endCapturedCall(capturedCall, 'browser_test_route_left').catch(() => {});
+  }
+};
+
+onBeforeRouteLeave(() => {
+  if (!confirmDiscardAgentChanges()) return false;
+
+  cleanupForRouteDeparture();
+  return true;
+});
 
 let voiceEventsSubscribed = false;
 const subscribeToVoiceEvents = () => {
@@ -1115,6 +1194,9 @@ onMounted(() => {
   window.addEventListener('beforeunload', onBeforeUnload);
 });
 onBeforeUnmount(() => {
+  isDisposed.value = true;
+  tabTransitionSequence += 1;
+  disconnectRoom();
   unsubscribeFromVoiceEvents();
   window.removeEventListener('beforeunload', onBeforeUnload);
 });
@@ -1319,106 +1401,32 @@ onBeforeUnmount(() => {
               />
             </div>
 
-            <section
-              class="flex flex-col gap-4 rounded-lg border border-n-weak p-4"
+            <div
+              class="grid min-w-0 grid-cols-1 items-start gap-6 md:grid-cols-[12rem_minmax(0,1fr)]"
             >
-              <div>
-                <h3 class="m-0 text-sm font-semibold text-n-slate-12">
-                  {{ t('VOICE_AI.CREATE.TITLE') }}
-                </h3>
-                <p class="mb-0 mt-1 text-sm text-n-slate-11">
-                  {{ t('VOICE_AI.CREATE.DESCRIPTION') }}
-                </p>
-              </div>
-              <div>
-                <label
-                  class="flex flex-col gap-1 text-sm font-medium text-n-slate-12"
-                >
-                  {{ t('VOICE_AI.CREATE.TONE') }}
-                  <select
-                    v-model="voiceSetupProfile.tone"
-                    :disabled="!voiceAccessEnabled"
-                    class="h-10 rounded-lg border border-n-weak bg-n-alpha-1 px-3 font-normal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-n-brand"
-                  >
-                    <option value="friendly">
-                      {{ t('VOICE_AI.CREATE.TONES.FRIENDLY') }}
-                    </option>
-                    <option value="professional">
-                      {{ t('VOICE_AI.CREATE.TONES.PROFESSIONAL') }}
-                    </option>
-                    <option value="concise">
-                      {{ t('VOICE_AI.CREATE.TONES.CONCISE') }}
-                    </option>
-                  </select>
-                </label>
-              </div>
-              <label
-                class="flex flex-col gap-1 text-sm font-medium text-n-slate-12"
-              >
-                {{ t('VOICE_AI.CREATE.BUSINESS_CONTEXT') }}
-                <textarea
-                  v-model="voiceSetupProfile.businessContext"
-                  rows="3"
-                  :maxlength="AUTHORING_PROFILE_TEXT_LIMIT"
-                  :disabled="!voiceAccessEnabled"
-                  class="rounded-lg border border-n-weak bg-n-alpha-1 p-3 font-normal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-n-brand"
-                />
-              </label>
-              <label
-                class="flex flex-col gap-1 text-sm font-medium text-n-slate-12"
-              >
-                {{ t('VOICE_AI.CREATE.BOUNDARIES') }}
-                <textarea
-                  v-model="voiceSetupProfile.boundaries"
-                  rows="3"
-                  :maxlength="AUTHORING_PROFILE_TEXT_LIMIT"
-                  :disabled="!voiceAccessEnabled"
-                  class="rounded-lg border border-n-weak bg-n-alpha-1 p-3 font-normal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-n-brand"
-                />
-              </label>
-              <Button
-                icon="i-lucide-wand-sparkles"
-                variant="outline"
-                color="slate"
-                class="w-fit"
-                :label="t('VOICE_AI.CREATE.BUILD_INSTRUCTIONS')"
-                :disabled="!voiceAccessEnabled"
-                @click="buildVoiceInstructions"
-              />
-            </section>
-
-            <label class="flex flex-col gap-1">
-              <span class="text-heading-3 text-n-slate-12">
-                {{ t('VOICE_AI.AGENTS.PROMPT') }}
-              </span>
-              <textarea
-                ref="promptTextareaRef"
-                v-model="agentForm.prompt"
-                rows="16"
-                :maxlength="PROMPT_CHARACTER_LIMIT"
-                :disabled="!voiceAccessEnabled"
-                class="min-h-80 rounded-lg border-0 outline outline-1 outline-n-weak bg-n-alpha-black2 px-3 py-2 text-sm text-n-slate-12 resize-y focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-n-brand"
-                @input="handlePromptInput"
-              />
-              <span class="text-sm text-n-slate-11">
-                {{ t('VOICE_AI.AGENTS.PROMPT_HELP') }}
-              </span>
-              <span
-                v-if="promptDraftFeedback"
-                aria-live="polite"
-                class="text-sm text-n-teal-11"
-              >
-                {{ promptDraftFeedback }}
-              </span>
-              <span class="text-right text-xs text-n-slate-10">
-                {{
-                  t('VOICE_AI.AGENTS.PROMPT_CHAR_COUNT', {
+              <StructuredInstructionEditor
+                v-model="voiceInstructions"
+                :descriptors="voiceInstructionDescriptors"
+                :profile-fields="profileFields"
+                :profile-options="profileOptions"
+                :compiled-instructions="compiledVoiceInstructions"
+                :content-length="promptLength"
+                :max-length="PROMPT_CHARACTER_LIMIT"
+                :count-label="
+                  t('VOICE_AI.INSTRUCTIONS.TOTAL_CHAR_COUNT', {
                     count: promptLength,
                     limit: PROMPT_CHARACTER_LIMIT,
                   })
-                }}
-              </span>
-            </label>
+                "
+                :empty-preview-label="t('VOICE_AI.INSTRUCTIONS.EMPTY_PREVIEW')"
+                :selector-label="t('VOICE_AI.INSTRUCTIONS.SECTION_SELECTOR')"
+                :disabled="!voiceAccessEnabled"
+                editor-key-prefix="voice-agent-instructions"
+                navigator-class="md:h-[36rem]"
+                navigator-visibility-class="hidden md:flex"
+                content-visibility-class="flex"
+              />
+            </div>
 
             <KnowledgeSourceSelector
               v-model="agentForm.knowledge_source_ids"

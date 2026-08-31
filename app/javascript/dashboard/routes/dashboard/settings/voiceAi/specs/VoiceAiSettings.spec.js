@@ -1,4 +1,5 @@
 import { flushPromises, mount } from '@vue/test-utils';
+
 import VoiceAiSettings from '../VoiceAiSettings.vue';
 
 const mocks = vi.hoisted(() => ({
@@ -9,7 +10,15 @@ const mocks = vi.hoisted(() => ({
   getSettings: vi.fn(),
   getUsage: vi.fn(),
   getTelephonyReadiness: vi.fn(),
+  endCall: vi.fn(),
+  createTestCall: vi.fn(),
   dispatch: vi.fn(),
+  alert: vi.fn(),
+  creditsRefresh: vi.fn(),
+  disconnectRoom: vi.fn(),
+  joinRoom: vi.fn(),
+  routerReplace: vi.fn(),
+  routeLeaveGuard: null,
 }));
 
 vi.mock('dashboard/api/voice', () => ({
@@ -20,10 +29,11 @@ vi.mock('dashboard/api/voice', () => ({
     getSettings: mocks.getSettings,
     getUsage: mocks.getUsage,
     getTelephonyReadiness: mocks.getTelephonyReadiness,
+    endCall: mocks.endCall,
+    createTestCall: mocks.createTestCall,
   },
 }));
-
-vi.mock('dashboard/composables', () => ({ useAlert: vi.fn() }));
+vi.mock('dashboard/composables', () => ({ useAlert: mocks.alert }));
 vi.mock('dashboard/composables/store', () => ({
   useStore: () => ({ dispatch: mocks.dispatch }),
   useMapGetter: () => ({ value: [] }),
@@ -37,77 +47,91 @@ vi.mock('dashboard/composables/useVoiceSession', () => ({
     isJoining: { value: false },
     isMuted: { value: false },
     isConnected: { value: false },
-    joinRoom: vi.fn(),
-    disconnectRoom: vi.fn(),
+    joinRoom: mocks.joinRoom,
+    disconnectRoom: mocks.disconnectRoom,
     toggleMute: vi.fn(),
   }),
 }));
 vi.mock('vue-router', async importOriginal => ({
   ...(await importOriginal()),
-  onBeforeRouteLeave: vi.fn(),
+  onBeforeRouteLeave: callback => {
+    mocks.routeLeaveGuard = callback;
+  },
   useRoute: () => ({ params: { accountId: '1' }, query: {} }),
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), replace: mocks.routerReplace }),
 }));
-
-const translations = {
-  en: {
-    'VOICE_AI.CREATE.TONES.FRIENDLY': 'Friendly',
-    'VOICE_AI.CREATE.DRAFT.ROLE': 'Role: You are {name} for customer calls.',
-    'VOICE_AI.CREATE.DRAFT.TONE':
-      'Tone: {tone}. Speak naturally and keep answers easy to follow aloud.',
-    'VOICE_AI.CREATE.DRAFT.BUSINESS_CONTEXT': 'Business context: {context}',
-    'VOICE_AI.CREATE.DRAFT.BOUNDARIES': 'Boundaries: {boundaries}',
-    'VOICE_AI.CREATE.DRAFT.HANDOFF': 'Request human support when needed.',
-    'VOICE_AI.CREATE.DRAFT_ADDED': 'Draft added to Instructions.',
-    'VOICE_AI.CREATE.REPLACE_CONFIRM': 'Replace edited instructions?',
-  },
-  tr: {
-    'VOICE_AI.CREATE.TONES.FRIENDLY': 'Samimi',
-    'VOICE_AI.CREATE.DRAFT.ROLE':
-      'Rol: Müşteri çağrıları için {name} olarak görev yap.',
-    'VOICE_AI.CREATE.DRAFT.TONE':
-      'Ton: {tone}. Doğal konuş ve kolay anlaşılmasını sağla.',
-    'VOICE_AI.CREATE.DRAFT.BUSINESS_CONTEXT': 'İşletme bağlamı: {context}',
-    'VOICE_AI.CREATE.DRAFT.BOUNDARIES': 'Sınırlar: {boundaries}',
-    'VOICE_AI.CREATE.DRAFT.HANDOFF': 'Gerektiğinde insan desteği talep et.',
-    'VOICE_AI.CREATE.DRAFT_ADDED': 'Taslak Yönergeler alanına eklendi.',
-    'VOICE_AI.CREATE.REPLACE_CONFIRM':
-      'Düzenlenen yönergeler değiştirilsin mi?',
-  },
-};
-
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
-    t: (key, values = {}) => {
-      let text = translations[mocks.locale][key] || key;
-      Object.entries(values).forEach(([name, value]) => {
-        text = text.replace(`{${name}}`, value);
-      });
-      return text;
-    },
+    t: (key, values = {}) =>
+      `${mocks.locale}:${key}${values.count === undefined ? '' : `:${values.count}`}`,
   }),
 }));
 
-const ButtonStub = {
-  props: ['label', 'disabled'],
-  emits: ['click'],
-  template:
-    '<button :disabled="disabled" @click="$emit(\'click\')">{{ label }}</button>',
+const instructions = {
+  version: 4,
+  locale: 'en',
+  profile: {
+    language: 'en',
+    tone: 'professional',
+    formality: 'formal',
+    response_length: 'short',
+  },
+  sections: {
+    business_context: 'Retail support',
+    tasks: 'Answer order questions.',
+    rules: 'Never invent prices.',
+  },
+};
+
+const savedAgent = (overrides = {}) => ({
+  id: 9,
+  name: 'Saved assistant',
+  greeting: 'Hello',
+  prompt: 'Saved legacy instructions',
+  instructions,
+  knowledge_source_ids: [],
+  tools_config: {},
+  inbox_settings: [],
+  ...overrides,
+});
+
+const StructuredEditorStub = {
+  name: 'StructuredInstructionEditor',
+  props: [
+    'modelValue',
+    'descriptors',
+    'compiledInstructions',
+    'contentLength',
+    'maxLength',
+    'countLabel',
+    'disabled',
+  ],
+  emits: ['update:modelValue'],
+  template: '<div data-testid="voice-instruction-editor" />',
+};
+
+const ImprovementCreditsSummaryStub = {
+  template: '<div />',
+  methods: {
+    refresh() {
+      return mocks.creditsRefresh();
+    },
+  },
 };
 
 const mountComponent = () =>
   mount(VoiceAiSettings, {
-    attachTo: document.body,
     global: {
       stubs: {
         SettingsLayout: { template: '<main><slot name="body" /></main>' },
         BaseSettingsHeader: true,
         ResponsiveTabNavigation: true,
-        Button: ButtonStub,
+        Button: true,
         Input: true,
         Switch: true,
+        StructuredInstructionEditor: StructuredEditorStub,
         KnowledgeSourceSelector: true,
-        ImprovementCreditsSummary: true,
+        ImprovementCreditsSummary: ImprovementCreditsSummaryStub,
         AssistantReleaseHistoryDialog: true,
         VoicePublishDialog: true,
         VoiceCallActivity: true,
@@ -116,25 +140,18 @@ const mountComponent = () =>
     },
   });
 
-const savedAgent = (overrides = {}) => ({
-  id: 9,
-  name: 'Saved assistant',
-  greeting: 'Hello',
-  prompt: 'Saved instructions',
-  knowledge_source_ids: [],
-  tools_config: {},
-  inbox_settings: [],
-  authoring_profile: {
-    tone: 'professional',
-    business_context: 'Retail support',
-    boundaries: 'Do not approve refunds',
-  },
-  ...overrides,
-});
+const deferred = () => {
+  let resolve;
+  let reject;
+  const promise = new Promise((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+};
 
-describe('VoiceAiSettings.vue', () => {
+describe('VoiceAiSettings structured instructions', () => {
   beforeEach(() => {
-    document.body.innerHTML = '';
     vi.clearAllMocks();
     mocks.locale = 'en';
     mocks.dispatch.mockResolvedValue();
@@ -146,217 +163,335 @@ describe('VoiceAiSettings.vue', () => {
     mocks.getTelephonyReadiness.mockResolvedValue({
       data: { configured: false, numbers: [] },
     });
-    mocks.createAgent.mockResolvedValue({ data: { id: 9, name: 'Assistant' } });
-    mocks.updateAgent.mockResolvedValue({ data: { id: 9, name: 'Assistant' } });
-    Element.prototype.scrollIntoView = vi.fn();
+    mocks.createAgent.mockResolvedValue({ data: savedAgent() });
+    mocks.updateAgent.mockResolvedValue({ data: savedAgent() });
+    mocks.endCall.mockResolvedValue({
+      data: { id: 77, status: 'completed' },
+    });
+    mocks.creditsRefresh.mockResolvedValue();
+    mocks.routeLeaveGuard = null;
     vi.spyOn(window, 'confirm').mockReturnValue(true);
   });
 
-  it('renders the goal-free builder in tone, context, boundaries, action order', async () => {
+  it('renders exactly the five Voice entries and no legacy helper or prompt textarea', async () => {
     const wrapper = mountComponent();
     await flushPromises();
-    const text = wrapper.text();
+    const editor = wrapper.getComponent(StructuredEditorStub);
 
-    expect(text).not.toContain('Primary goal');
-    const keys = [
-      'VOICE_AI.CREATE.TONE',
-      'VOICE_AI.CREATE.BUSINESS_CONTEXT',
-      'VOICE_AI.CREATE.BOUNDARIES',
-      'VOICE_AI.CREATE.BUILD_INSTRUCTIONS',
-    ];
-    const positions = keys.map(key => text.indexOf(key));
-    positions.forEach(position => expect(position).toBeGreaterThanOrEqual(0));
-    expect(positions).toEqual([...positions].sort((a, b) => a - b));
-    const prompt = wrapper.get('textarea[rows="16"]');
-    expect(prompt.classes()).toContain('min-h-80');
-    expect(prompt.classes()).toContain('resize-y');
+    expect(editor.props('descriptors').map(item => item.key)).toEqual([
+      'all',
+      'profile',
+      'business_context',
+      'tasks',
+      'rules',
+    ]);
+    expect(wrapper.find('textarea[rows="16"]').exists()).toBe(false);
+    expect(wrapper.findComponent({ name: 'DraftTestPanel' }).exists()).toBe(
+      false
+    );
+    expect(wrapper.text()).not.toContain('AI_ASSISTANT.INSTRUCTIONS.CONFIGURE');
   });
 
-  it('hydrates and renders the helper for a saved assistant', async () => {
+  it('hydrates canonical instructions without marking the saved agent dirty', async () => {
     mocks.getAgents.mockResolvedValue({ data: { payload: [savedAgent()] } });
     const wrapper = mountComponent();
     await flushPromises();
 
-    expect(wrapper.vm.editingVoiceAgentId).toBe(9);
-    expect(wrapper.vm.voiceSetupProfile).toEqual({
-      tone: 'professional',
-      businessContext: 'Retail support',
-      boundaries: 'Do not approve refunds',
-    });
-    expect(wrapper.get('select').element.value).toBe('professional');
-    expect(wrapper.html().indexOf('VOICE_AI.CREATE.TITLE')).toBeLessThan(
-      wrapper.html().indexOf('VOICE_AI.AGENTS.PROMPT')
-    );
-  });
-
-  it('uses safe field-by-field profile defaults for missing and malformed responses', async () => {
-    const wrapper = mountComponent();
-    await flushPromises();
-
-    wrapper.vm.syncAgentForm(savedAgent({ authoring_profile: undefined }));
-    expect(wrapper.vm.voiceSetupProfile).toEqual({
-      tone: 'friendly',
-      businessContext: '',
-      boundaries: '',
-    });
-
-    wrapper.vm.syncAgentForm(
-      savedAgent({
-        authoring_profile: {
-          tone: 'invalid',
-          business_context: 'Valid context',
-          boundaries: 4,
-        },
-      })
-    );
-    expect(wrapper.vm.voiceSetupProfile).toEqual({
-      tone: 'friendly',
-      businessContext: 'Valid context',
-      boundaries: '',
-    });
-
-    wrapper.vm.syncAgentForm(null);
-    expect(wrapper.vm.voiceSetupProfile).toEqual({
-      tone: 'friendly',
-      businessContext: '',
-      boundaries: '',
-    });
-  });
-
-  it('dirty-tracks helper-only edits without changing instructions', async () => {
-    mocks.getAgents.mockResolvedValue({ data: { payload: [savedAgent()] } });
-    const wrapper = mountComponent();
-    await flushPromises();
-    const originalPrompt = wrapper.vm.agentForm.prompt;
-
+    expect(wrapper.vm.voiceInstructions).toEqual(instructions);
     expect(wrapper.vm.hasUnsavedAgentChanges).toBe(false);
-    await wrapper.get('textarea[rows="3"]').setValue('Updated context');
+  });
 
+  it('projects a legacy prompt exactly into rules without appearing dirty', async () => {
+    const legacy = savedAgent({
+      instructions: null,
+      prompt: 'Exact <legacy>\nbody',
+    });
+    mocks.getAgents.mockResolvedValue({ data: { payload: [legacy] } });
+    const wrapper = mountComponent();
+    await flushPromises();
+
+    expect(wrapper.vm.voiceInstructions.sections).toEqual({
+      business_context: '',
+      tasks: '',
+      rules: 'Exact <legacy>\nbody',
+    });
+    expect(wrapper.vm.hasUnsavedAgentChanges).toBe(false);
+  });
+
+  it('tracks editor changes and sends only canonical top-level instructions', async () => {
+    mocks.getAgents.mockResolvedValue({ data: { payload: [savedAgent()] } });
+    const wrapper = mountComponent();
+    await flushPromises();
+    const updated = {
+      ...instructions,
+      sections: { ...instructions.sections, rules: 'Updated rule.' },
+    };
+
+    await wrapper
+      .getComponent(StructuredEditorStub)
+      .vm.$emit('update:modelValue', updated);
     expect(wrapper.vm.hasUnsavedAgentChanges).toBe(true);
-    expect(wrapper.vm.canSaveAgent).toBe(true);
-    expect(wrapper.vm.agentForm.prompt).toBe(originalPrompt);
+    await wrapper.vm.saveVoiceAgent();
+
+    const payload = mocks.updateAgent.mock.calls[0][1];
+    expect(payload.instructions).toEqual(updated);
+    expect(payload).not.toHaveProperty('prompt');
+    expect(payload).not.toHaveProperty('config');
+    expect(payload).not.toHaveProperty('authoring_profile');
   });
 
-  it('disables and bounds all helper controls when Voice access is disabled', async () => {
-    mocks.getUsage.mockResolvedValue({ data: { enabled: false } });
+  it('shows compiled preview length and en/tr Voice labels through the shared editor contract', async () => {
     const wrapper = mountComponent();
     await flushPromises();
-    const helperTextareas = wrapper.findAll('textarea[rows="3"]');
+    let editor = wrapper.getComponent(StructuredEditorStub);
 
-    expect(wrapper.get('select').attributes('disabled')).toBeDefined();
-    expect(helperTextareas).toHaveLength(2);
-    helperTextareas.forEach(textarea => {
-      expect(textarea.attributes('disabled')).toBeDefined();
-      expect(textarea.attributes('maxlength')).toBe('2000');
-    });
-    expect(
-      wrapper
-        .findAll('button')
-        .find(button => button.text() === 'VOICE_AI.CREATE.BUILD_INSTRUCTIONS')
-        .attributes('disabled')
-    ).toBeDefined();
-  });
+    expect(editor.props('contentLength')).toBe(
+      editor.props('compiledInstructions').length
+    );
+    expect(editor.props('maxLength')).toBe(50000);
+    expect(editor.props('descriptors')[0].title).toBe(
+      'en:VOICE_AI.INSTRUCTIONS.SECTIONS.ALL.TITLE'
+    );
 
-  it('builds localized instructions, focuses the prompt, and keeps it editable', async () => {
+    wrapper.unmount();
     mocks.locale = 'tr';
-    const wrapper = mountComponent();
+    const turkishWrapper = mountComponent();
     await flushPromises();
-    wrapper.vm.agentForm.name = 'Destek asistanı';
-    wrapper.vm.voiceSetupProfile.businessContext = 'Sipariş desteği';
-    wrapper.vm.voiceSetupProfile.boundaries = 'İade onayı verme';
-
-    await wrapper.vm.buildVoiceInstructions();
-
-    expect(wrapper.vm.agentForm.prompt).toContain(
-      'Rol: Müşteri çağrıları için Destek asistanı'
+    editor = turkishWrapper.getComponent(StructuredEditorStub);
+    expect(editor.props('descriptors')[4].title).toBe(
+      'tr:VOICE_AI.INSTRUCTIONS.SECTIONS.RULES.TITLE'
     );
-    expect(wrapper.vm.agentForm.prompt).toContain('Ton: Samimi');
-    expect(wrapper.vm.agentForm.prompt).toContain(
-      'İşletme bağlamı: Sipariş desteği'
-    );
-    expect(wrapper.vm.agentForm.prompt).toContain('Sınırlar: İade onayı verme');
-    const prompt = wrapper.get('textarea[rows="16"]');
-    expect(document.activeElement).toBe(prompt.element);
-    expect(prompt.element.scrollIntoView).toHaveBeenCalledWith({
-      behavior: 'smooth',
-      block: 'nearest',
-    });
-    expect(wrapper.get('[aria-live="polite"]').text()).toContain(
-      'Taslak Yönergeler alanına eklendi.'
-    );
-    await prompt.setValue('Kullanıcı tarafından düzenlendi');
-    expect(wrapper.vm.agentForm.prompt).toBe('Kullanıcı tarafından düzenlendi');
-    expect(wrapper.find('[aria-live="polite"]').exists()).toBe(false);
   });
 
-  it('preserves manually edited instructions when draft replacement is cancelled', async () => {
+  it('ends an active Test call before committing an internal tab change', async () => {
     const wrapper = mountComponent();
     await flushPromises();
-    const prompt = wrapper.get('textarea[rows="16"]');
-    await prompt.setValue('Keep this exact prompt');
+    wrapper.vm.activeTab = 'test';
+    wrapper.vm.currentCall = { id: 77, status: 'in_progress' };
+
+    await wrapper.vm.requestTabTransition('calls');
+
+    expect(mocks.endCall).toHaveBeenCalledWith(77, {
+      end_reason: 'browser_test_tab_changed',
+    });
+    expect(wrapper.vm.currentCall.status).toBe('completed');
+    expect(wrapper.vm.activeTab).toBe('calls');
+    expect(mocks.disconnectRoom).toHaveBeenCalled();
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'en:VOICE_AI.SESSION.TAB_CHANGE_END_SUCCESS'
+    );
+  });
+
+  it('coordinates route-query tab changes through the same ending path', async () => {
+    const wrapper = mountComponent();
+    await flushPromises();
+    wrapper.vm.activeTab = 'test';
+    wrapper.vm.currentCall = { id: 77, status: 'in_progress' };
+
+    await wrapper.vm.requestTabTransition('usage', false);
+
+    expect(mocks.endCall).toHaveBeenCalledOnce();
+    expect(wrapper.vm.activeTab).toBe('usage');
+    expect(mocks.routerReplace).not.toHaveBeenCalled();
+  });
+
+  it('disconnects and navigates with a warning when remote ending fails', async () => {
+    mocks.endCall.mockRejectedValueOnce(new Error('network'));
+    const wrapper = mountComponent();
+    await flushPromises();
+    wrapper.vm.activeTab = 'test';
+    wrapper.vm.currentCall = { id: 77, status: 'in_progress' };
+
+    await wrapper.vm.requestTabTransition('calls');
+
+    expect(wrapper.vm.activeTab).toBe('calls');
+    expect(mocks.disconnectRoom).toHaveBeenCalled();
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'en:VOICE_AI.SESSION.TAB_CHANGE_END_ERROR'
+    );
+  });
+
+  it.each([null, { id: 77, status: 'completed' }])(
+    'changes tabs without an end request for terminal or absent calls',
+    async call => {
+      const wrapper = mountComponent();
+      await flushPromises();
+      wrapper.vm.activeTab = 'test';
+      wrapper.vm.currentCall = call;
+
+      await wrapper.vm.requestTabTransition('calls');
+
+      expect(mocks.endCall).not.toHaveBeenCalled();
+      expect(wrapper.vm.activeTab).toBe('calls');
+    }
+  );
+
+  it('deduplicates rapid transitions and commits only the latest destination', async () => {
+    const ending = deferred();
+    mocks.endCall.mockReturnValueOnce(ending.promise);
+    const wrapper = mountComponent();
+    await flushPromises();
+    wrapper.vm.activeTab = 'test';
+    wrapper.vm.currentCall = { id: 77, status: 'in_progress' };
+
+    const first = wrapper.vm.requestTabTransition('calls');
+    const second = wrapper.vm.requestTabTransition('recordings');
+    ending.resolve({ data: { id: 77, status: 'completed' } });
+    await Promise.all([first, second]);
+
+    expect(mocks.endCall).toHaveBeenCalledOnce();
+    expect(wrapper.vm.activeTab).toBe('recordings');
+    expect(mocks.routerReplace).toHaveBeenCalledOnce();
+    expect(mocks.routerReplace.mock.calls[0][0].query.section).toBe(
+      'recordings'
+    );
+  });
+
+  it('does not let an old call completion overwrite a newer call', async () => {
+    const ending = deferred();
+    mocks.endCall.mockReturnValueOnce(ending.promise);
+    const wrapper = mountComponent();
+    await flushPromises();
+    wrapper.vm.activeTab = 'test';
+    wrapper.vm.currentCall = { id: 77, status: 'in_progress' };
+
+    const transition = wrapper.vm.requestTabTransition('calls');
+    wrapper.vm.currentCall = { id: 88, status: 'in_progress' };
+    ending.resolve({ data: { id: 77, status: 'completed' } });
+    await transition;
+
+    expect(wrapper.vm.currentCall).toEqual({ id: 88, status: 'in_progress' });
+    expect(wrapper.vm.activeTab).toBe('calls');
+  });
+
+  it('never restarts a call when returning to Test', async () => {
+    const wrapper = mountComponent();
+    await flushPromises();
+    wrapper.vm.activeTab = 'calls';
+    wrapper.vm.currentCall = { id: 77, status: 'completed' };
+
+    await wrapper.vm.requestTabTransition('test');
+
+    expect(wrapper.vm.activeTab).toBe('test');
+    expect(mocks.createTestCall).not.toHaveBeenCalled();
+    expect(mocks.joinRoom).not.toHaveBeenCalled();
+  });
+
+  it('preserves manual End confirmation and success behavior', async () => {
+    const wrapper = mountComponent();
+    await flushPromises();
+    wrapper.vm.currentCall = { id: 77, status: 'in_progress' };
+
+    window.confirm.mockReturnValueOnce(false);
+    await wrapper.vm.endCall();
+    expect(mocks.endCall).not.toHaveBeenCalled();
+
+    window.confirm.mockReturnValueOnce(true);
+    await wrapper.vm.endCall();
+    expect(mocks.endCall).toHaveBeenCalledWith(77, {
+      end_reason: 'browser_test_ended',
+    });
+    expect(mocks.alert).toHaveBeenCalledWith('en:VOICE_AI.SESSION.END_SUCCESS');
+  });
+
+  it('does not update disposed page state after Manual End resolves during route leave', async () => {
+    const ending = deferred();
+    mocks.endCall.mockReturnValueOnce(ending.promise);
+    const wrapper = mountComponent();
+    await flushPromises();
+    wrapper.vm.currentCall = { id: 77, status: 'in_progress' };
+    window.confirm.mockReturnValueOnce(true);
+    const usageCalls = mocks.getUsage.mock.calls.length;
+    const alerts = mocks.alert.mock.calls.length;
+
+    const manualEnd = wrapper.vm.endCall();
+    await flushPromises();
+    expect(mocks.routeLeaveGuard()).toBe(true);
+    ending.resolve({ data: { id: 77, status: 'completed' } });
+    await manualEnd;
+    await flushPromises();
+
+    expect(wrapper.vm.currentCall).toEqual({ id: 77, status: 'in_progress' });
+    expect(mocks.getUsage).toHaveBeenCalledTimes(usageCalls);
+    expect(mocks.alert).toHaveBeenCalledTimes(alerts);
+    expect(mocks.disconnectRoom).toHaveBeenCalled();
+  });
+
+  it('stops Manual End follow-up when route leave occurs during usage refresh', async () => {
+    const usage = deferred();
+    const unhandled = vi.fn();
+    window.addEventListener('unhandledrejection', unhandled);
+    const wrapper = mountComponent();
+    await flushPromises();
+    wrapper.vm.currentCall = { id: 77, status: 'in_progress' };
+    const originalUsage = wrapper.vm.voiceUsage;
+    const usageCalls = mocks.getUsage.mock.calls.length;
+    const creditCalls = mocks.creditsRefresh.mock.calls.length;
+    const alerts = mocks.alert.mock.calls.length;
+    const disconnects = mocks.disconnectRoom.mock.calls.length;
+    mocks.getUsage.mockReturnValueOnce(usage.promise);
+
+    const manualEnd = wrapper.vm.endCall();
+    await flushPromises();
+    expect(mocks.getUsage).toHaveBeenCalledTimes(usageCalls + 1);
+
+    expect(mocks.routeLeaveGuard()).toBe(true);
+    usage.resolve({ data: { enabled: false, marker: 'disposed-result' } });
+    await manualEnd;
+    await flushPromises();
+
+    expect(wrapper.vm.voiceUsage).toBe(originalUsage);
+    expect(mocks.creditsRefresh).toHaveBeenCalledTimes(creditCalls);
+    expect(mocks.alert).toHaveBeenCalledTimes(alerts);
+    expect(unhandled).not.toHaveBeenCalled();
+    expect(mocks.disconnectRoom.mock.calls.length).toBeGreaterThan(disconnects);
+    window.removeEventListener('unhandledrejection', unhandled);
+  });
+
+  it('preserves unsaved-agent cancellation before an internal transition', async () => {
+    const wrapper = mountComponent();
+    await flushPromises();
+    wrapper.vm.savedAgentSnapshot = 'different';
+    wrapper.vm.activeTab = 'agents';
     window.confirm.mockReturnValueOnce(false);
 
-    await wrapper.vm.buildVoiceInstructions();
+    await wrapper.vm.requestTabTransition('calls');
 
-    expect(window.confirm).toHaveBeenCalledWith('Replace edited instructions?');
-    expect(wrapper.vm.agentForm.prompt).toBe('Keep this exact prompt');
-    expect(document.activeElement).not.toBe(prompt.element);
-    expect(wrapper.find('[aria-live="polite"]').exists()).toBe(false);
+    expect(wrapper.vm.activeTab).toBe('agents');
+    expect(mocks.endCall).not.toHaveBeenCalled();
+    expect(mocks.routerReplace).not.toHaveBeenCalled();
   });
 
-  it('replaces manually edited instructions after confirmation', async () => {
+  it('allows route leave immediately while safely attempting remote cleanup', async () => {
+    const ending = deferred();
+    mocks.endCall.mockReturnValueOnce(ending.promise);
+    const unhandled = vi.fn();
+    window.addEventListener('unhandledrejection', unhandled);
     const wrapper = mountComponent();
     await flushPromises();
-    const prompt = wrapper.get('textarea[rows="16"]');
-    await prompt.setValue('Replace this prompt');
-    window.confirm.mockReturnValueOnce(true);
+    wrapper.vm.activeTab = 'test';
+    wrapper.vm.currentCall = { id: 77, status: 'in_progress' };
 
-    await wrapper.vm.buildVoiceInstructions();
+    expect(mocks.routeLeaveGuard()).toBe(true);
+    expect(mocks.disconnectRoom).toHaveBeenCalled();
+    expect(mocks.endCall).toHaveBeenCalledWith(77, {
+      end_reason: 'browser_test_route_left',
+    });
 
-    expect(window.confirm).toHaveBeenCalledOnce();
-    expect(wrapper.vm.agentForm.prompt).toContain(
-      'Role: You are VOICE_AI.DEFAULTS.AGENT_NAME for customer calls.'
-    );
-    expect(document.activeElement).toBe(prompt.element);
-    await prompt.setValue('Editable final prompt');
-    expect(wrapper.vm.agentForm.prompt).toBe('Editable final prompt');
+    ending.reject(new Error('offline'));
+    await flushPromises();
+    expect(unhandled).not.toHaveBeenCalled();
+    expect(wrapper.vm.currentCall.status).toBe('in_progress');
+    window.removeEventListener('unhandledrejection', unhandled);
   });
 
-  it('never sends goal fields when creating or updating an assistant', async () => {
+  it('performs idempotent local cleanup when unmounted', async () => {
     const wrapper = mountComponent();
     await flushPromises();
-    wrapper.vm.agentForm.name = 'Assistant';
-    await wrapper.vm.$nextTick();
-    await wrapper.vm.saveVoiceAgent();
+    const callsBeforeUnmount = mocks.disconnectRoom.mock.calls.length;
 
-    expect(mocks.createAgent).toHaveBeenCalledOnce();
-    expect(mocks.createAgent.mock.calls[0][0].authoring_profile).toEqual({
-      tone: 'friendly',
-      business_context: '',
-      boundaries: '',
-    });
-    expect(mocks.createAgent.mock.calls[0][0]).not.toHaveProperty('goal');
-    expect(mocks.createAgent.mock.calls[0][0]).not.toHaveProperty(
-      'primary_goal'
-    );
+    wrapper.unmount();
 
-    wrapper.vm.editingVoiceAgentId = 9;
-    wrapper.vm.voiceSetupProfile = {
-      tone: 'concise',
-      businessContext: 'Orders',
-      boundaries: 'No refunds',
-    };
-    wrapper.vm.savedAgentSnapshot = 'outdated';
-    await wrapper.vm.saveVoiceAgent();
-    expect(mocks.updateAgent).toHaveBeenCalledOnce();
-    expect(mocks.updateAgent.mock.calls[0][1].authoring_profile).toEqual({
-      tone: 'concise',
-      business_context: 'Orders',
-      boundaries: 'No refunds',
-    });
-    expect(mocks.updateAgent.mock.calls[0][1]).not.toHaveProperty('goal');
-    expect(mocks.updateAgent.mock.calls[0][1]).not.toHaveProperty(
-      'primary_goal'
-    );
+    expect(mocks.disconnectRoom).toHaveBeenCalledTimes(callsBeforeUnmount + 1);
   });
 });

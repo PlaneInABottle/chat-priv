@@ -3,6 +3,14 @@ require 'rails_helper'
 RSpec.describe 'Api::V1::Accounts::Voice::Agents', type: :request do
   let(:account) { create(:account, settings: { voice_ai_enabled: true }) }
   let(:admin) { create(:user, account: account, role: :administrator) }
+  let(:instructions) do
+    {
+      version: 4,
+      locale: 'en',
+      profile: { language: 'en', tone: 'professional', formality: 'formal', response_length: 'short' },
+      sections: { business_context: 'Retail', tasks: 'Answer questions.', rules: 'Never invent prices.' }
+    }
+  end
 
   describe 'GET /api/v1/accounts/:account_id/voice/agents' do
     it 'returns voice agents for the account without creating records' do
@@ -80,37 +88,46 @@ RSpec.describe 'Api::V1::Accounts::Voice::Agents', type: :request do
         'prompt' => 'Only speak Turkish.'
       )
       expect(response.parsed_body.dig('tools_config', 'enabled')).to eq(%w[human_handoff end_customer_call])
-      expect(response.parsed_body['authoring_profile']).to eq(VoiceAgents::AuthoringProfile::DEFAULTS)
+      expect(response.parsed_body['instructions']).to be_nil
     end
 
-    it 'creates and returns a normalized authoring profile without exposing it in config' do
+    it 'creates structured instructions, compiles the prompt, and hides reserved config' do
       post "/api/v1/accounts/#{account.id}/voice/agents",
            params: {
-             name: 'Profiled voice',
-             authoring_profile: { tone: 'professional', business_context: 'Retail', boundaries: 'No refunds' },
+             name: 'Structured voice',
+             instructions: instructions,
              config: { injected: true }
            },
            headers: admin.create_new_auth_token,
            as: :json
 
       expect(response).to have_http_status(:created)
-      expect(response.parsed_body['authoring_profile']).to eq(
-        'tone' => 'professional', 'business_context' => 'Retail', 'boundaries' => 'No refunds'
-      )
+      expect(response.parsed_body['instructions']).to eq(instructions.deep_stringify_keys)
       expect(response.parsed_body['config']).to eq({})
-      expect(VoiceAgent.find(response.parsed_body['id']).config).to eq(
-        'authoring_profile' => response.parsed_body['authoring_profile']
-      )
+      stored = VoiceAgent.find(response.parsed_body['id'])
+      expect(stored.config).to eq('instructions' => instructions.deep_stringify_keys)
+      expect(stored.prompt).to eq(VoiceAgents::InstructionDocument.new(instructions).compile)
     end
 
-    it 'rejects malformed authoring profiles without creating a record' do
+    it 'rejects malformed instructions without creating a record' do
       post "/api/v1/accounts/#{account.id}/voice/agents",
-           params: { name: 'Invalid profile', authoring_profile: nil },
+           params: { name: 'Invalid instructions', instructions: nil },
            headers: admin.create_new_auth_token,
            as: :json
 
       expect(response).to have_http_status(:unprocessable_entity)
-      expect(response.parsed_body).to include('attributes' => ['authoring_profile'])
+      expect(response.parsed_body).to include('attributes' => ['instructions'])
+      expect(account.voice_agents).to be_empty
+    end
+
+    it 'rejects prompt and instructions together without creating a record' do
+      post "/api/v1/accounts/#{account.id}/voice/agents",
+           params: { name: 'Conflicting', prompt: 'Legacy', instructions: instructions },
+           headers: admin.create_new_auth_token,
+           as: :json
+
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response.parsed_body).to include('attributes' => ['instructions'])
       expect(account.voice_agents).to be_empty
     end
 
@@ -226,78 +243,109 @@ RSpec.describe 'Api::V1::Accounts::Voice::Agents', type: :request do
       )
     end
 
-    it 'partially merges, preserves on omission, clears text, and ignores arbitrary config' do
+    it 'preserves structured instructions on omission and replaces them atomically' do
       voice_agent = create(
         :voice_agent,
         account: account,
         config: {
           'runtime_sibling' => 'keep',
-          'authoring_profile' => { 'tone' => 'friendly', 'business_context' => 'Keep context', 'boundaries' => 'Keep boundary' }
-        }
+          'authoring_profile' => { 'tone' => 'friendly' },
+          'instructions' => instructions.deep_stringify_keys
+        },
+        prompt: VoiceAgents::InstructionDocument.new(instructions).compile
       )
       path = "/api/v1/accounts/#{account.id}/voice/agents/#{voice_agent.id}"
       headers = admin.create_new_auth_token
 
-      patch path, params: { name: 'Omitted profile' }, headers: headers, as: :json
-      expect(response.parsed_body['authoring_profile']).to include('business_context' => 'Keep context')
+      patch path, params: { name: 'Omitted instructions' }, headers: headers, as: :json
+      expect(response.parsed_body['instructions']).to eq(instructions.deep_stringify_keys)
+      expect(response.parsed_body['prompt']).to eq(VoiceAgents::InstructionDocument.new(instructions).compile)
 
+      replacement = instructions.deep_merge(sections: { rules: 'Updated rule.' })
       patch path,
-            params: { authoring_profile: { tone: 'concise' }, config: { runtime_sibling: 'replace', injected: true } },
+            params: { instructions: replacement, config: { runtime_sibling: 'replace', injected: true } },
             headers: headers,
             as: :json
       expect(response).to have_http_status(:ok)
-      expect(response.parsed_body['authoring_profile']).to eq(
-        'tone' => 'concise', 'business_context' => 'Keep context', 'boundaries' => 'Keep boundary'
-      )
       expect(response.parsed_body['config']).to eq('runtime_sibling' => 'keep')
-
-      patch path,
-            params: { authoring_profile: { business_context: '', boundaries: '' } },
-            headers: headers,
-            as: :json
-      expect(response.parsed_body['authoring_profile']).to eq(
-        'tone' => 'concise', 'business_context' => '', 'boundaries' => ''
+      expect(voice_agent.reload.config).to eq(
+        'runtime_sibling' => 'keep', 'instructions' => replacement.deep_stringify_keys
       )
-      expect(voice_agent.reload.config).to include('runtime_sibling' => 'keep')
-      expect(voice_agent.config).not_to have_key('injected')
+      expect(voice_agent.instructions.dig('sections', 'rules')).to eq('Updated rule.')
     end
 
-    it 'atomically rejects invalid authoring profile shapes and fields' do
+    it 'accepts prompt-only updates for legacy records and preserves unrelated config' do
+      voice_agent = create(:voice_agent, account: account, prompt: 'Old prompt', config: { 'runtime' => true })
+
+      patch "/api/v1/accounts/#{account.id}/voice/agents/#{voice_agent.id}",
+            params: { prompt: 'Updated legacy prompt' },
+            headers: admin.create_new_auth_token,
+            as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(voice_agent.reload).to have_attributes(prompt: 'Updated legacy prompt', config: { 'runtime' => true })
+      expect(response.parsed_body['instructions']).to be_nil
+    end
+
+    it 'atomically rejects instruction conflicts and malformed values before related writes' do
       voice_agent = create(
         :voice_agent,
         account: account,
-        config: { 'runtime' => true, 'authoring_profile' => { 'tone' => 'friendly' } }
+        config: { 'runtime' => true, 'instructions' => instructions.deep_stringify_keys },
+        prompt: VoiceAgents::InstructionDocument.new(instructions).compile,
+        last_tested_at: Time.current,
+        last_tested_draft_fingerprint: 'preserve'
       )
+      inbox = create(:channel_api, account: account).inbox
+      source = create(:ai_knowledge_source, account: account)
       path = "/api/v1/accounts/#{account.id}/voice/agents/#{voice_agent.id}"
-      invalid_profiles = [
+      invalid_requests = [
+        { prompt: 'legacy replacement' },
+        { prompt: 'both', instructions: instructions },
         nil,
         [],
         'invalid',
-        { tone: 'unsupported' },
-        { business_context: 3 },
-        { boundaries: 'x' * 2001 }
+        instructions.deep_merge(extra: true),
+        instructions.deep_merge(version: 3),
+        instructions.deep_merge(locale: 'de'),
+        instructions.deep_merge(profile: { tone: 'unsupported' }),
+        instructions.deep_merge(sections: { rules: 3 }),
+        instructions.deep_merge(sections: { rules: 'x' * 50_001 })
       ]
 
-      invalid_profiles.each do |profile|
+      invalid_requests.each do |invalid|
         original_attributes = voice_agent.reload.attributes
+        request_params = if invalid.is_a?(Hash) && (invalid.key?(:prompt) || invalid.key?(:instructions))
+                           invalid.merge(name: 'Must not persist')
+                         else
+                           {
+                             name: 'Must not persist',
+                             instructions: invalid,
+                             inbox_settings: [{ inbox_id: inbox.id }],
+                             knowledge_source_ids: [source.id]
+                           }
+                         end
         patch path,
-              params: { name: 'Must not persist', authoring_profile: profile },
+              params: request_params,
               headers: admin.create_new_auth_token,
               as: :json
 
         expect(response).to have_http_status(:unprocessable_entity)
-        expect(response.parsed_body).to include('attributes' => ['authoring_profile'])
+        expect(response.parsed_body).to include('attributes' => ['instructions'])
         expect(voice_agent.reload.attributes).to eq(original_attributes)
+        expect(voice_agent.voice_inbox_settings).to be_empty
+        expect(voice_agent.knowledge_source_ids).to be_empty
       end
     end
 
-    it 'returns field-by-field defaults for legacy malformed stored profiles' do
+    it 'returns null instructions for legacy or malformed stored records and hides reserved config' do
       voice_agent = create(
         :voice_agent,
         account: account,
         config: {
           'runtime' => true,
-          'authoring_profile' => { 'tone' => 'invalid', 'business_context' => 'Valid', 'boundaries' => 4 }
+          'authoring_profile' => { 'tone' => 'invalid' },
+          'instructions' => { 'version' => 3 }
         }
       )
 
@@ -305,38 +353,9 @@ RSpec.describe 'Api::V1::Accounts::Voice::Agents', type: :request do
           headers: admin.create_new_auth_token,
           as: :json
 
-      expect(response.parsed_body['authoring_profile']).to eq(
-        'tone' => 'friendly', 'business_context' => 'Valid', 'boundaries' => ''
-      )
+      expect(response.parsed_body['instructions']).to be_nil
+      expect(response.parsed_body).not_to have_key('authoring_profile')
       expect(response.parsed_body['config']).to eq('runtime' => true)
-    end
-
-    it 'preserves release identity, successful test state, and readiness for profile-only updates' do
-      voice_agent = create(:voice_agent, account: account, enabled: false)
-      inbox = create(:channel_api, account: account).inbox
-      create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: voice_agent)
-      voice_agent.mark_test_succeeded!
-      voice_agent.publish!(activate: false)
-      fingerprint = voice_agent.draft_fingerprint
-      tested_at = voice_agent.last_tested_at
-      readiness = voice_agent.readiness
-      revision = voice_agent.published_revision
-
-      patch "/api/v1/accounts/#{account.id}/voice/agents/#{voice_agent.id}",
-            params: { authoring_profile: { tone: 'professional' } },
-            headers: admin.create_new_auth_token,
-            as: :json
-
-      expect(response).to have_http_status(:ok)
-      expect(voice_agent.reload).to have_attributes(
-        draft_fingerprint: fingerprint,
-        last_tested_at: tested_at,
-        last_tested_draft_fingerprint: fingerprint,
-        published_revision: revision
-      )
-      expect(voice_agent).to be_draft_tested
-      expect(voice_agent).not_to be_draft_changes
-      expect(voice_agent.readiness).to eq(readiness)
     end
 
     it 'moves an inbox assignment from another voice agent to the updated voice agent' do

@@ -34,6 +34,8 @@
 #  fk_rails_...  (current_release_id => voice_agent_releases.id) ON DELETE => nullify
 #
 class VoiceAgent < ApplicationRecord
+  INSTRUCTIONS_KEY = 'instructions'.freeze
+  LEGACY_AUTHORING_PROFILE_KEY = 'authoring_profile'.freeze
   ARCHITECTURES = %w[realtime pipeline].freeze
   PROVIDERS = %w[gemini openai].freeze
   OPENAI_REALTIME_MODELS = %w[gpt-realtime-2.1].freeze
@@ -74,20 +76,20 @@ class VoiceAgent < ApplicationRecord
     VoiceAgents::Readiness.new(self).payload
   end
 
-  def authoring_profile
-    VoiceAgents::AuthoringProfile.normalize(config[VoiceAgents::AuthoringProfile::RESERVED_KEY])
-  end
+  def instructions
+    return unless structured_instructions_stored?
 
-  def merge_authoring_profile(profile)
-    normalized = VoiceAgents::AuthoringProfile.merge(authoring_profile, profile)
-    self.config = config.deep_stringify_keys.merge(VoiceAgents::AuthoringProfile::RESERVED_KEY => normalized)
-  rescue ArgumentError => e
-    errors.add(:authoring_profile, e.message)
-    raise ActiveRecord::RecordInvalid, self
+    VoiceAgents::InstructionDocument.new(config.deep_stringify_keys[INSTRUCTIONS_KEY]).normalized
+  rescue ArgumentError, KeyError
+    nil
   end
 
   def runtime_config
-    config.deep_stringify_keys.except(VoiceAgents::AuthoringProfile::RESERVED_KEY)
+    config.deep_stringify_keys.except(INSTRUCTIONS_KEY, LEGACY_AUTHORING_PROFILE_KEY)
+  end
+
+  def structured_instructions_stored?
+    config.is_a?(Hash) && config.deep_stringify_keys.key?(INSTRUCTIONS_KEY)
   end
 
   def publish!(created_by: nil, activate: true)
@@ -116,11 +118,9 @@ class VoiceAgent < ApplicationRecord
     raise ActiveRecord::RecordNotFound unless release&.voice_agent_id == id
 
     with_lock do
-      current_authoring_profile = authoring_profile
       snapshot = VoiceAgents::ReleaseSnapshot.sanitize(release.snapshot)
       restored = create_rollback_release(snapshot, created_by)
       restore_release_draft(restored)
-      merge_authoring_profile(current_authoring_profile)
       self.published_at = Time.current
       self.current_release = restored
       self.last_tested_at = Time.current

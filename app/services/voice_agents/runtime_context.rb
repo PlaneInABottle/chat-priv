@@ -90,8 +90,15 @@ class VoiceAgents::RuntimeContext
       model: runtime_value(:model),
       voice: runtime_value(:voice),
       language: runtime_value(:language),
-      config: runtime_value(:config)
+      config: worker_runtime_config
     }
+  end
+
+  def worker_runtime_config
+    runtime_value(:config).to_h.deep_stringify_keys.except(
+      VoiceAgent::INSTRUCTIONS_KEY,
+      VoiceAgent::LEGACY_AUTHORING_PROFILE_KEY
+    )
   end
 
   def enabled_tool_keys

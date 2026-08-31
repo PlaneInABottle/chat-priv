@@ -12,6 +12,13 @@ export const NEW_ASSISTANT_PROFILE_DEFAULTS = {
   response_length: 'balanced',
 };
 
+export const PROFILE_OPTIONS = {
+  language: ['not_set', 'same_as_customer', 'tr', 'en'],
+  tone: ['not_set', 'natural', 'friendly', 'professional', 'concise'],
+  formality: ['not_set', 'balanced', 'casual', 'formal'],
+  response_length: ['not_set', 'balanced', 'short', 'detailed'],
+};
+
 export const INSTRUCTION_SECTION_KEYS = [
   'identity',
   'business_context',
