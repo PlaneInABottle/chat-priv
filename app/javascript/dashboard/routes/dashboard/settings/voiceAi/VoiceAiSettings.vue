@@ -40,6 +40,8 @@ const TERMINAL_CALL_STATUSES = [
 const RECORDING_STATUSES = ['completed', 'active', 'starting', 'failed'];
 const HANDOFF_STATUSES = ['requested', 'accepted', 'none'];
 const PROMPT_CHARACTER_LIMIT = 50000;
+const AUTHORING_PROFILE_TEXT_LIMIT = 2000;
+const AUTHORING_PROFILE_TONES = ['friendly', 'professional', 'concise'];
 const DEFAULT_AGENT = {
   name: '',
   greeting: '',
@@ -94,6 +96,34 @@ const defaultAgent = () => ({
   prompt: t('VOICE_AI.DEFAULTS.PROMPT'),
 });
 
+const defaultAuthoringProfile = () => ({
+  tone: 'friendly',
+  businessContext: '',
+  boundaries: '',
+});
+
+const normalizeAuthoringProfile = profile => {
+  const value = profile && typeof profile === 'object' ? profile : {};
+  const normalizeText = text =>
+    typeof text === 'string' && text.length <= AUTHORING_PROFILE_TEXT_LIMIT
+      ? text
+      : '';
+
+  return {
+    tone: AUTHORING_PROFILE_TONES.includes(value.tone)
+      ? value.tone
+      : 'friendly',
+    businessContext: normalizeText(value.business_context),
+    boundaries: normalizeText(value.boundaries),
+  };
+};
+
+const authoringProfilePayload = profile => ({
+  tone: profile.tone,
+  business_context: profile.businessContext,
+  boundaries: profile.boundaries,
+});
+
 const settings = ref([]);
 const voiceAgents = ref([]);
 const voiceUsage = ref(null);
@@ -125,14 +155,13 @@ const recordingFilters = ref({
 });
 
 const agentForm = ref(defaultAgent());
+const promptTextareaRef = ref(null);
+const lastSafePrompt = ref(agentForm.value.prompt);
+const promptDraftFeedback = ref('');
 const assignmentForm = ref({});
 const editingVoiceAgentId = ref(null);
 const savedAgentSnapshot = ref('');
-const voiceSetupProfile = ref({
-  tone: 'friendly',
-  businessContext: '',
-  boundaries: '',
-});
+const voiceSetupProfile = ref(defaultAuthoringProfile());
 
 const {
   remoteAudioRef,
@@ -506,7 +535,7 @@ const toneLabel = tone => {
   return t('VOICE_AI.CREATE.TONES.FRIENDLY');
 };
 
-const buildVoiceInstructions = () => {
+const buildVoiceInstructions = async () => {
   const tone = toneLabel(voiceSetupProfile.value.tone);
   const lines = [
     t('VOICE_AI.CREATE.DRAFT.ROLE', {
@@ -529,7 +558,28 @@ const buildVoiceInstructions = () => {
     );
   }
   lines.push(t('VOICE_AI.CREATE.DRAFT.HANDOFF'));
-  agentForm.value.prompt = lines.join('\n\n');
+  const draft = lines.join('\n\n');
+  if (
+    agentForm.value.prompt !== lastSafePrompt.value &&
+    // eslint-disable-next-line no-alert
+    !window.confirm(t('VOICE_AI.CREATE.REPLACE_CONFIRM'))
+  ) {
+    return;
+  }
+
+  agentForm.value.prompt = draft;
+  lastSafePrompt.value = draft;
+  promptDraftFeedback.value = t('VOICE_AI.CREATE.DRAFT_ADDED');
+  await nextTick();
+  promptTextareaRef.value?.scrollIntoView({
+    behavior: 'smooth',
+    block: 'nearest',
+  });
+  promptTextareaRef.value?.focus();
+};
+
+const handlePromptInput = () => {
+  promptDraftFeedback.value = '';
 };
 
 const assignedAgentName = setting => {
@@ -574,6 +624,7 @@ const editableAgentPayload = () => ({
   name: agentForm.value.name || '',
   greeting: agentForm.value.greeting || '',
   prompt: agentForm.value.prompt || '',
+  authoring_profile: authoringProfilePayload(voiceSetupProfile.value),
   knowledge_source_ids: normalizeKnowledgeSourceIds(
     agentForm.value.knowledge_source_ids
   ),
@@ -630,9 +681,12 @@ const syncAssignmentForm = agent => {
 };
 
 const syncAgentForm = agent => {
+  promptDraftFeedback.value = '';
   if (!agent) {
     editingVoiceAgentId.value = null;
     agentForm.value = defaultAgent();
+    voiceSetupProfile.value = defaultAuthoringProfile();
+    lastSafePrompt.value = agentForm.value.prompt;
     syncAssignmentForm(null);
     resetAgentSnapshot();
     return;
@@ -648,6 +702,8 @@ const syncAgentForm = agent => {
     tools_config: normalizeToolsConfigForAvailableTools(agent?.tools_config),
     inbox_settings: agent?.inbox_settings || [],
   };
+  voiceSetupProfile.value = normalizeAuthoringProfile(agent?.authoring_profile);
+  lastSafePrompt.value = agentForm.value.prompt;
   syncAssignmentForm(agent);
   resetAgentSnapshot();
 };
@@ -726,6 +782,7 @@ const saveVoiceAgent = async () => {
       name: agentForm.value.name,
       greeting: agentForm.value.greeting,
       prompt: agentForm.value.prompt,
+      authoring_profile: authoringProfilePayload(voiceSetupProfile.value),
       knowledge_source_ids: normalizeKnowledgeSourceIds(
         agentForm.value.knowledge_source_ids
       ),
@@ -1127,6 +1184,7 @@ onBeforeUnmount(() => {
                 v-for="agent in voiceAgents"
                 :key="agent.id"
                 type="button"
+                :aria-pressed="editingVoiceAgentId === agent.id"
                 class="rounded-lg border p-3 text-left transition"
                 :class="
                   editingVoiceAgentId === agent.id
@@ -1248,8 +1306,20 @@ onBeforeUnmount(() => {
               {{ t('VOICE_AI.AGENTS.LIVE_EDIT_NOTICE') }}
             </div>
 
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <Input
+                v-model="agentForm.name"
+                :label="t('VOICE_AI.AGENTS.NAME')"
+                :disabled="!voiceAccessEnabled"
+              />
+              <Input
+                v-model="agentForm.greeting"
+                :label="t('VOICE_AI.AGENTS.GREETING')"
+                :disabled="!voiceAccessEnabled"
+              />
+            </div>
+
             <section
-              v-if="!editingVoiceAgentId"
               class="flex flex-col gap-4 rounded-lg border border-n-weak p-4"
             >
               <div>
@@ -1267,7 +1337,8 @@ onBeforeUnmount(() => {
                   {{ t('VOICE_AI.CREATE.TONE') }}
                   <select
                     v-model="voiceSetupProfile.tone"
-                    class="h-10 rounded-lg border border-n-weak bg-n-alpha-1 px-3 font-normal"
+                    :disabled="!voiceAccessEnabled"
+                    class="h-10 rounded-lg border border-n-weak bg-n-alpha-1 px-3 font-normal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-n-brand"
                   >
                     <option value="friendly">
                       {{ t('VOICE_AI.CREATE.TONES.FRIENDLY') }}
@@ -1288,7 +1359,9 @@ onBeforeUnmount(() => {
                 <textarea
                   v-model="voiceSetupProfile.businessContext"
                   rows="3"
-                  class="rounded-lg border border-n-weak bg-n-alpha-1 p-3 font-normal"
+                  :maxlength="AUTHORING_PROFILE_TEXT_LIMIT"
+                  :disabled="!voiceAccessEnabled"
+                  class="rounded-lg border border-n-weak bg-n-alpha-1 p-3 font-normal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-n-brand"
                 />
               </label>
               <label
@@ -1298,7 +1371,9 @@ onBeforeUnmount(() => {
                 <textarea
                   v-model="voiceSetupProfile.boundaries"
                   rows="3"
-                  class="rounded-lg border border-n-weak bg-n-alpha-1 p-3 font-normal"
+                  :maxlength="AUTHORING_PROFILE_TEXT_LIMIT"
+                  :disabled="!voiceAccessEnabled"
+                  class="rounded-lg border border-n-weak bg-n-alpha-1 p-3 font-normal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-n-brand"
                 />
               </label>
               <Button
@@ -1307,34 +1382,34 @@ onBeforeUnmount(() => {
                 color="slate"
                 class="w-fit"
                 :label="t('VOICE_AI.CREATE.BUILD_INSTRUCTIONS')"
+                :disabled="!voiceAccessEnabled"
                 @click="buildVoiceInstructions"
               />
             </section>
-
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Input
-                v-model="agentForm.name"
-                :label="t('VOICE_AI.AGENTS.NAME')"
-                :disabled="!voiceAccessEnabled"
-              />
-              <Input
-                v-model="agentForm.greeting"
-                :label="t('VOICE_AI.AGENTS.GREETING')"
-                :disabled="!voiceAccessEnabled"
-              />
-            </div>
 
             <label class="flex flex-col gap-1">
               <span class="text-heading-3 text-n-slate-12">
                 {{ t('VOICE_AI.AGENTS.PROMPT') }}
               </span>
               <textarea
+                ref="promptTextareaRef"
                 v-model="agentForm.prompt"
-                rows="10"
+                rows="16"
                 :maxlength="PROMPT_CHARACTER_LIMIT"
                 :disabled="!voiceAccessEnabled"
-                class="rounded-lg border-0 outline outline-1 outline-n-weak bg-n-alpha-black2 px-3 py-2 text-sm text-n-slate-12 resize-y"
+                class="min-h-80 rounded-lg border-0 outline outline-1 outline-n-weak bg-n-alpha-black2 px-3 py-2 text-sm text-n-slate-12 resize-y focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-n-brand"
+                @input="handlePromptInput"
               />
+              <span class="text-sm text-n-slate-11">
+                {{ t('VOICE_AI.AGENTS.PROMPT_HELP') }}
+              </span>
+              <span
+                v-if="promptDraftFeedback"
+                aria-live="polite"
+                class="text-sm text-n-teal-11"
+              >
+                {{ promptDraftFeedback }}
+              </span>
               <span class="text-right text-xs text-n-slate-10">
                 {{
                   t('VOICE_AI.AGENTS.PROMPT_CHAR_COUNT', {

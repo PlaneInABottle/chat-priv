@@ -80,6 +80,38 @@ RSpec.describe 'Api::V1::Accounts::Voice::Agents', type: :request do
         'prompt' => 'Only speak Turkish.'
       )
       expect(response.parsed_body.dig('tools_config', 'enabled')).to eq(%w[human_handoff end_customer_call])
+      expect(response.parsed_body['authoring_profile']).to eq(VoiceAgents::AuthoringProfile::DEFAULTS)
+    end
+
+    it 'creates and returns a normalized authoring profile without exposing it in config' do
+      post "/api/v1/accounts/#{account.id}/voice/agents",
+           params: {
+             name: 'Profiled voice',
+             authoring_profile: { tone: 'professional', business_context: 'Retail', boundaries: 'No refunds' },
+             config: { injected: true }
+           },
+           headers: admin.create_new_auth_token,
+           as: :json
+
+      expect(response).to have_http_status(:created)
+      expect(response.parsed_body['authoring_profile']).to eq(
+        'tone' => 'professional', 'business_context' => 'Retail', 'boundaries' => 'No refunds'
+      )
+      expect(response.parsed_body['config']).to eq({})
+      expect(VoiceAgent.find(response.parsed_body['id']).config).to eq(
+        'authoring_profile' => response.parsed_body['authoring_profile']
+      )
+    end
+
+    it 'rejects malformed authoring profiles without creating a record' do
+      post "/api/v1/accounts/#{account.id}/voice/agents",
+           params: { name: 'Invalid profile', authoring_profile: nil },
+           headers: admin.create_new_auth_token,
+           as: :json
+
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response.parsed_body).to include('attributes' => ['authoring_profile'])
+      expect(account.voice_agents).to be_empty
     end
 
     it 'uses deployment-controlled OpenAI runtime defaults without accepting runtime params from account admins' do
@@ -192,6 +224,119 @@ RSpec.describe 'Api::V1::Accounts::Voice::Agents', type: :request do
         voice: 'Charon',
         language: 'tr'
       )
+    end
+
+    it 'partially merges, preserves on omission, clears text, and ignores arbitrary config' do
+      voice_agent = create(
+        :voice_agent,
+        account: account,
+        config: {
+          'runtime_sibling' => 'keep',
+          'authoring_profile' => { 'tone' => 'friendly', 'business_context' => 'Keep context', 'boundaries' => 'Keep boundary' }
+        }
+      )
+      path = "/api/v1/accounts/#{account.id}/voice/agents/#{voice_agent.id}"
+      headers = admin.create_new_auth_token
+
+      patch path, params: { name: 'Omitted profile' }, headers: headers, as: :json
+      expect(response.parsed_body['authoring_profile']).to include('business_context' => 'Keep context')
+
+      patch path,
+            params: { authoring_profile: { tone: 'concise' }, config: { runtime_sibling: 'replace', injected: true } },
+            headers: headers,
+            as: :json
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body['authoring_profile']).to eq(
+        'tone' => 'concise', 'business_context' => 'Keep context', 'boundaries' => 'Keep boundary'
+      )
+      expect(response.parsed_body['config']).to eq('runtime_sibling' => 'keep')
+
+      patch path,
+            params: { authoring_profile: { business_context: '', boundaries: '' } },
+            headers: headers,
+            as: :json
+      expect(response.parsed_body['authoring_profile']).to eq(
+        'tone' => 'concise', 'business_context' => '', 'boundaries' => ''
+      )
+      expect(voice_agent.reload.config).to include('runtime_sibling' => 'keep')
+      expect(voice_agent.config).not_to have_key('injected')
+    end
+
+    it 'atomically rejects invalid authoring profile shapes and fields' do
+      voice_agent = create(
+        :voice_agent,
+        account: account,
+        config: { 'runtime' => true, 'authoring_profile' => { 'tone' => 'friendly' } }
+      )
+      path = "/api/v1/accounts/#{account.id}/voice/agents/#{voice_agent.id}"
+      invalid_profiles = [
+        nil,
+        [],
+        'invalid',
+        { tone: 'unsupported' },
+        { business_context: 3 },
+        { boundaries: 'x' * 2001 }
+      ]
+
+      invalid_profiles.each do |profile|
+        original_attributes = voice_agent.reload.attributes
+        patch path,
+              params: { name: 'Must not persist', authoring_profile: profile },
+              headers: admin.create_new_auth_token,
+              as: :json
+
+        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response.parsed_body).to include('attributes' => ['authoring_profile'])
+        expect(voice_agent.reload.attributes).to eq(original_attributes)
+      end
+    end
+
+    it 'returns field-by-field defaults for legacy malformed stored profiles' do
+      voice_agent = create(
+        :voice_agent,
+        account: account,
+        config: {
+          'runtime' => true,
+          'authoring_profile' => { 'tone' => 'invalid', 'business_context' => 'Valid', 'boundaries' => 4 }
+        }
+      )
+
+      get "/api/v1/accounts/#{account.id}/voice/agents/#{voice_agent.id}",
+          headers: admin.create_new_auth_token,
+          as: :json
+
+      expect(response.parsed_body['authoring_profile']).to eq(
+        'tone' => 'friendly', 'business_context' => 'Valid', 'boundaries' => ''
+      )
+      expect(response.parsed_body['config']).to eq('runtime' => true)
+    end
+
+    it 'preserves release identity, successful test state, and readiness for profile-only updates' do
+      voice_agent = create(:voice_agent, account: account, enabled: false)
+      inbox = create(:channel_api, account: account).inbox
+      create(:voice_inbox_setting, account: account, inbox: inbox, voice_agent: voice_agent)
+      voice_agent.mark_test_succeeded!
+      voice_agent.publish!(activate: false)
+      fingerprint = voice_agent.draft_fingerprint
+      tested_at = voice_agent.last_tested_at
+      readiness = voice_agent.readiness
+      revision = voice_agent.published_revision
+
+      patch "/api/v1/accounts/#{account.id}/voice/agents/#{voice_agent.id}",
+            params: { authoring_profile: { tone: 'professional' } },
+            headers: admin.create_new_auth_token,
+            as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(voice_agent.reload).to have_attributes(
+        draft_fingerprint: fingerprint,
+        last_tested_at: tested_at,
+        last_tested_draft_fingerprint: fingerprint,
+        published_revision: revision
+      )
+      expect(voice_agent).to be_draft_tested
+      expect(voice_agent).not_to be_draft_changes
+      expect(voice_agent.readiness).to eq(readiness)
     end
 
     it 'moves an inbox assignment from another voice agent to the updated voice agent' do

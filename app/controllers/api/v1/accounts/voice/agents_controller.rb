@@ -17,6 +17,7 @@ class Api::V1::Accounts::Voice::AgentsController < Api::V1::Accounts::BaseContro
     voice_agent = Current.account.voice_agents.new(VoiceAgents::RuntimeDefaults.attributes.merge(voice_agent_params))
     voice_agent.enabled = false
     ActiveRecord::Base.transaction do
+      merge_authoring_profile!(voice_agent)
       voice_agent.save!
       sync_inbox_assignments!(voice_agent) if inbox_settings_provided?
       sync_knowledge_sources!(voice_agent) if knowledge_source_ids_provided?
@@ -27,6 +28,7 @@ class Api::V1::Accounts::Voice::AgentsController < Api::V1::Accounts::BaseContro
   def update
     ActiveRecord::Base.transaction do
       @voice_agent.assign_attributes(voice_agent_params)
+      merge_authoring_profile!(@voice_agent)
       unless @voice_agent.last_tested_draft_fingerprint == @voice_agent.draft_fingerprint
         @voice_agent.last_tested_at = nil
         @voice_agent.last_tested_draft_fingerprint = nil
@@ -75,7 +77,7 @@ class Api::V1::Accounts::Voice::AgentsController < Api::V1::Accounts::BaseContro
   end
 
   def voice_agent_params
-    permitted = voice_agent_request_params.except('inbox_settings', 'knowledge_source_ids')
+    permitted = voice_agent_request_params.except('authoring_profile', 'inbox_settings', 'knowledge_source_ids')
     normalize_voice_agent_params(permitted.to_h.deep_stringify_keys)
   end
 
@@ -84,6 +86,7 @@ class Api::V1::Accounts::Voice::AgentsController < Api::V1::Accounts::BaseContro
       :name,
       :greeting,
       :prompt,
+      authoring_profile: [:tone, :business_context, :boundaries],
       knowledge_source_ids: [],
       tools_config: {},
       inbox_settings: [
@@ -94,6 +97,21 @@ class Api::V1::Accounts::Voice::AgentsController < Api::V1::Accounts::BaseContro
         { settings: {} }
       ]
     ).to_h.deep_stringify_keys
+  end
+
+  def authoring_profile_provided?
+    params.key?(:authoring_profile)
+  end
+
+  def authoring_profile_params
+    value = params[:authoring_profile]
+    return value unless value.is_a?(ActionController::Parameters)
+
+    value.permit(:tone, :business_context, :boundaries).to_h
+  end
+
+  def merge_authoring_profile!(voice_agent)
+    voice_agent.merge_authoring_profile(authoring_profile_params) if authoring_profile_provided?
   end
 
   def normalize_voice_agent_params(permitted)

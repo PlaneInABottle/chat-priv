@@ -74,6 +74,22 @@ class VoiceAgent < ApplicationRecord
     VoiceAgents::Readiness.new(self).payload
   end
 
+  def authoring_profile
+    VoiceAgents::AuthoringProfile.normalize(config[VoiceAgents::AuthoringProfile::RESERVED_KEY])
+  end
+
+  def merge_authoring_profile(profile)
+    normalized = VoiceAgents::AuthoringProfile.merge(authoring_profile, profile)
+    self.config = config.deep_stringify_keys.merge(VoiceAgents::AuthoringProfile::RESERVED_KEY => normalized)
+  rescue ArgumentError => e
+    errors.add(:authoring_profile, e.message)
+    raise ActiveRecord::RecordInvalid, self
+  end
+
+  def runtime_config
+    config.deep_stringify_keys.except(VoiceAgents::AuthoringProfile::RESERVED_KEY)
+  end
+
   def publish!(created_by: nil, activate: true)
     with_lock do
       raise ActiveRecord::RecordInvalid, self unless readiness[:can_publish]
@@ -100,15 +116,11 @@ class VoiceAgent < ApplicationRecord
     raise ActiveRecord::RecordNotFound unless release&.voice_agent_id == id
 
     with_lock do
-      restored = releases.create!(
-        account: account,
-        created_by: created_by,
-        revision: next_release_revision,
-        source: 'rollback',
-        fingerprint: release.fingerprint,
-        snapshot: release.snapshot
-      )
+      current_authoring_profile = authoring_profile
+      snapshot = VoiceAgents::ReleaseSnapshot.sanitize(release.snapshot)
+      restored = create_rollback_release(snapshot, created_by)
       restore_release_draft(restored)
+      merge_authoring_profile(current_authoring_profile)
       self.published_at = Time.current
       self.current_release = restored
       self.last_tested_at = Time.current
@@ -158,6 +170,17 @@ class VoiceAgent < ApplicationRecord
   end
 
   private
+
+  def create_rollback_release(snapshot, created_by)
+    releases.create!(
+      account: account,
+      created_by: created_by,
+      revision: next_release_revision,
+      source: 'rollback',
+      fingerprint: AssistantReleases::Snapshot.fingerprint(snapshot),
+      snapshot: snapshot
+    )
+  end
 
   def restore_release_draft(release)
     assign_attributes(release.snapshot.slice(*VoiceAgents::ReleaseSnapshot::ATTRIBUTES))

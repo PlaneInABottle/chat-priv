@@ -748,12 +748,14 @@
       "CALLER_NAME": "Test caller"
     },
     "CREATE": {
-      "TITLE": "Build a starting point",
-      "DESCRIPTION": "Choose a tone and add business context or boundaries, then build editable voice instructions.",
+      "TITLE": "Create an instruction draft (optional)",
+      "DESCRIPTION": "Use this helper to fill the Instructions field below. You can review and edit the draft before saving.",
       "TONE": "Tone",
       "BUSINESS_CONTEXT": "What should it know about your business?",
       "BOUNDARIES": "What should it avoid or leave to a person?",
-      "BUILD_INSTRUCTIONS": "Build instruction draft",
+      "BUILD_INSTRUCTIONS": "Use draft in instructions",
+      "DRAFT_ADDED": "Draft added to Instructions. Review or edit it before saving.",
+      "REPLACE_CONFIRM": "Your current instructions have edits. Replace them with a new draft?",
       "TONES": {
         "FRIENDLY": "Friendly",
         "PROFESSIONAL": "Professional",
@@ -867,6 +869,7 @@
       "ENABLED_HELP": "Only active voice assistants can answer calls.",
       "DISABLED_BY_ADMIN": "Voice AI is disabled by your administrator.",
       "PROMPT": "Voice prompt",
+      "PROMPT_HELP": "These instructions control how the assistant responds. A generated draft remains editable until you save.",
       "PROMPT_CHAR_COUNT": "{count} / {limit} characters",
       "TOOLS": "Capabilities",
       "SAVE": "Save voice assistant",

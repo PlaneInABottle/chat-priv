@@ -16,6 +16,8 @@ class VoiceAgents::Serializer
     normalized_tools_config[VoiceAgents::Config::ENABLED_KEY] &= visible_tool_keys
 
     base_attributes.merge(
+      config: voice_agent.runtime_config,
+      authoring_profile: voice_agent.authoring_profile,
       tools_config: normalized_tools_config,
       enabled_tool_keys: tool_config.enabled_tool_keys & visible_tool_keys,
       knowledge_source_ids: voice_agent.knowledge_sources.map(&:id).sort,

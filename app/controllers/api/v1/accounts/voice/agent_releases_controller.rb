@@ -11,12 +11,12 @@ class Api::V1::Accounts::Voice::AgentReleasesController < Api::V1::Accounts::Bas
   end
 
   def show
-    render json: AssistantReleases::Serializer.new(@release, include_snapshot: true).payload
+    render json: release_payload(@release, include_snapshot: true)
   end
 
   def rollback
     restored = @voice_agent.rollback_to!(@release, created_by: Current.user)
-    render json: AssistantReleases::Serializer.new(restored, include_snapshot: true).payload, status: :created
+    render json: release_payload(restored, include_snapshot: true), status: :created
   end
 
   private
@@ -27,5 +27,12 @@ class Api::V1::Accounts::Voice::AgentReleasesController < Api::V1::Accounts::Bas
 
   def set_release
     @release = @voice_agent.releases.find(params[:id])
+  end
+
+  def release_payload(release, include_snapshot: false)
+    payload = AssistantReleases::Serializer.new(release, include_snapshot: include_snapshot).payload
+    return payload unless include_snapshot
+
+    payload.merge(snapshot: VoiceAgents::ReleaseSnapshot.sanitize(release.snapshot))
   end
 end
