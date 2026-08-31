@@ -22,9 +22,12 @@
 - The Python worker entrypoint is `services/voice_agent/agent.py`.
 - The Rails dispatch path is `Voice::Livekit::AgentDispatchService`.
 - Voice agents are separate from text AI agents. Configure them in Settings -> Voice AI -> Voice agents. Assign API sandbox inboxes inside each voice agent; do not use a separate global voice setup tab. Voice inbox settings select `voice_agent_id`; do not expect `ai_agent_id`, setting-level `greeting`, or setting-level `instructions`.
+- Voice instruction-authoring fields persist as top-level API `authoring_profile` with `tone`, `business_context`, and `boundaries`, while storage remains under `voice_agents.config['authoring_profile']`. Treat this metadata as editor state only: exclude it from runtime config, release snapshots, draft fingerprints, readiness, and test identity. Historical snapshots may contain it, so sanitize both current and stored release responses and recompute rollback fingerprints from the sanitized snapshot.
+- The instruction helper is explicit. Editing the authoring profile must not rewrite the saved instruction prompt until the user invokes generation; warn before replacing a non-empty prompt, then focus the instruction editor and expose an accessible completion message. Verify saved agents hydrate the profile after reload.
 - Voice inbox assignments do not have a separate readiness `status`. If an inbox is assigned to a voice agent and account Voice AI access is enabled, it is eligible for browser tests and SIP routing.
 - Super Admin controls account-level Voice AI access and limits under `/super_admin/accounts/:id/edit`. Test calls are excluded from monthly minute and concurrent-call limits, but Voice AI must still be enabled for the account.
 - Browser Voice tests use the account's separate AI improvement credits at 10 seconds per credit. Credits are reserved when the room is created, but metering and the `test_duration_limit_seconds` timer start only after the caller joins; unjoined tests release the reservation. The Voice worker enforces the connected duration, and `Voice::TestCallImprovementBudgetJob` is the delayed recovery guard.
+- An explicit `0` means unlimited for both the account AI-improvement monthly credit limit and the Voice AI monthly minute limit. Confirm the usage APIs return `unlimited: true`; do not infer unlimited status from missing or malformed settings.
 - If Voice AI is disabled after a call is already active, account users and the voice worker should not be able to join, take over, fetch runtime context, append transcript, post non-terminal lifecycle events, or record tool calls. Ending/finalizing the call remains allowed so LiveKit/SIP cleanup can complete. A late terminal `agent_session_ended` event is still accepted only to mark `ai_status: completed`.
 - Integration tools such as `ikas_catalog_search` and `ikas_lookup_order` are enabled per voice agent. Ikas tools also require the account `ikas_integration` feature, a connected `ikas` hook, and a completed storefront catalog sync.
 - SIP/phone-number routing is modeled separately from browser test calls:
@@ -131,8 +134,8 @@ Before creating a call, verify the browser can open an audio track with `navigat
 
 1. Open `/app/accounts/:account_id/settings/voice-assistants?section=test` with `agent-browser`.
 2. Snapshot before clicking.
-3. On the Voice agents tab, select or create the voice agent.
-4. In that agent's Inbox assignments panel, assign an API sandbox inbox, choose fallback team and recording, then save the voice agent. The local verified path used account `36`, but always verify current local data.
+3. On the Voice agents tab, select or create the voice agent. For an authoring-profile change, save it, reload the page, and confirm tone, business context, and boundaries hydrate without changing the instruction prompt or draft fingerprint.
+4. In that agent's Inbox assignments panel, assign a discoverable API sandbox inbox, choose fallback team and recording, then save the voice agent. Reuse an explicitly designated persistent test inbox when one exists; otherwise create a task-owned fixture and remove it during cleanup. The local verified path used account `36`, but always verify current local data.
 5. On the Test call tab, choose the same voice agent and one of its assigned API inboxes. For Ikas voice tests, confirm `ikas_catalog_search` and `ikas_lookup_order` are checked after Ikas is connected and synced.
 6. Click `Start test call`.
 7. Confirm no floating incoming-call popup appears. Browser test calls are marked with `test_call: true`, do not create a normal Chatwoot conversation/contact/message, and are owned by the Voice AI settings panel.
