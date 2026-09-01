@@ -113,7 +113,9 @@ defineExpose({ selectedSection, isOverLimit });
     <div
       v-if="selectedItem.type === 'preview'"
       data-testid="all-instructions-content"
-      class="py-5 pr-1"
+      :aria-label="selectedItem.title"
+      class="max-h-[32rem] overflow-x-hidden overflow-y-auto overscroll-contain py-5 pr-1"
+      tabindex="0"
     >
       <div
         v-if="compiledInstructions"

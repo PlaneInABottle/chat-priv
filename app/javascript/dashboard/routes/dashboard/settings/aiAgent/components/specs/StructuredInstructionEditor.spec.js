@@ -60,6 +60,35 @@ const mountComponent = () =>
   });
 
 describe('StructuredInstructionEditor', () => {
+  it('bounds and scrolls only the compiled preview content', async () => {
+    const wrapper = mountComponent();
+    await wrapper
+      .findComponent({ name: 'InstructionSectionNavigator' })
+      .vm.$emit('select', 'overview');
+    const preview = wrapper.get('[data-testid="all-instructions-content"]');
+
+    expect(preview.classes()).toEqual(
+      expect.arrayContaining([
+        'max-h-[32rem]',
+        'overflow-x-hidden',
+        'overflow-y-auto',
+        'overscroll-contain',
+      ])
+    );
+    expect(preview.attributes()).toMatchObject({
+      'aria-label': 'All',
+      tabindex: '0',
+    });
+
+    await wrapper
+      .findComponent({ name: 'InstructionSectionNavigator' })
+      .vm.$emit('select', 'custom_guidance');
+    const section = wrapper.get('[data-testid="instruction-section-content"]');
+    expect(section.classes()).not.toContain('max-h-[32rem]');
+    expect(section.classes()).not.toContain('overflow-x-hidden');
+    expect(section.classes()).not.toContain('overscroll-contain');
+  });
+
   it('renders and updates arbitrary descriptor keys without product modes', async () => {
     const wrapper = mountComponent();
     await wrapper
