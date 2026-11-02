@@ -1,0 +1,33 @@
+# Frontend overlay for the local development runtime: makes HMR actually work.
+#
+# vite_ruby's DevServerProxy is a Net::HTTP proxy, and Net::HTTP strips the
+# hop-by-hop `Upgrade` header, so the HMR WebSocket can never be tunnelled
+# through Rails (measured: direct ws://127.0.0.1:3036 opens and stays, the same
+# socket via Rails closes with code 1006). The supported shape is the opposite:
+# let the browser talk to Vite directly.
+#
+#   skip_proxy  -> the layout emits absolute dev asset URLs from config.origin
+#                  instead of relative /vite-dev/* paths, so the browser loads
+#                  modules and the HMR socket straight from localhost:3036
+#   netns       -> rails joins the vite network namespace, so `localhost:3036`
+#                  is the same address from both the container and the browser
+#
+# Consequence: in this set the published ports live on the vite service, and
+# rails publishes nothing. Everything still binds to loopback only.
+name: kozmopath-dev
+
+services:
+  rails:
+    network_mode: "service:vite"
+    ports: !reset []
+    environment:
+      VITE_RUBY_HOST: localhost
+      VITE_RUBY_SKIP_PROXY: "true"
+
+  vite:
+    ports: !override
+      - "127.0.0.1:3036:3036"
+      - "[::1]:3036:3036"
+      # rails listens on 3000 inside this shared namespace.
+      - "127.0.0.1:3050:3000"
+      - "[::1]:3050:3000"

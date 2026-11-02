@@ -1,0 +1,27 @@
+# Voice agent overlay for the local development runtime.
+#
+# It lives in its own file because it is a separate stack: own build context
+# (services/voice_agent), Python runtime, own lifecycle, and it needs LiveKit or
+# telephony credentials. scripts/dev/compose.sh adds this file with -f for every
+# command, and the service stays behind the `voice` profile, so nothing starts by
+# accident. `docker compose config` shows it with `profiles: [voice]`.
+name: kozmopath-dev
+
+services:
+  voice-agent:
+    build:
+      context: ./services/voice_agent
+      dockerfile: Dockerfile
+    image: kozmopath-dev-voice-agent:development
+    profiles: [voice]
+    mem_limit: 1g
+    environment:
+      CHATWOOT_INTERNAL_API_URL: http://rails:3000
+      VOICE_AGENT_HEALTH_PORT: 9090
+      VOICE_AGENT_PROMETHEUS_PORT: 9091
+    depends_on:
+      rails:
+        condition: service_started
+    ports: !override
+      - "127.0.0.1:9190:9090"
+      - "127.0.0.1:9191:9091"

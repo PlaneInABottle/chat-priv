@@ -1,0 +1,173 @@
+# Local development base model for this checkout, layered on the upstream
+# docker-compose.yaml (which stays untouched so upstream sync keeps working).
+#
+# Invoke it through scripts/dev/compose.sh - it resolves the env files, the
+# project name, the voice overlay and the service sets.
+#
+# Service sets:
+#   core      postgres + redis + rails + sidekiq   (default, no profile)
+#   frontend  + vite                               (profile: frontend)
+#   mail      + mailhog                            (profile: mail)
+#   voice     + voice-agent                        (profile: voice, separate file)
+#
+# Isolation contract for this host, which also runs the production stack:
+#   * own compose project (kozmopath-dev), own network, own named volumes
+#   * own postgres/redis containers on 5433/6380 - never 5432/6379
+#   * rails/vite published on 3050/3036 only - never 3000
+#   * /app/log, /app/tmp and /app/storage are dev volumes because the production
+#     runtime writes those same checkout paths as uid 996
+#   * no external writes: local Active Storage, Mailhog SMTP, no push relay, no CDN
+name: kozmopath-dev
+
+# App volume lists are written out per service: YAML forbids a tag (`!override`)
+# on an alias, and these mounts must replace the upstream list, not extend it.
+# /app/log and /app/tmp are dev volumes because production writes those same
+# checkout paths as uid 996; /app/storage is a gitignored host bind mount (see the
+# rails service) so the app uid can write uploads there.
+
+# .env.local carries host-native overrides (POSTGRES_HOST/REDIS_URL on 127.0.0.1)
+# that cannot work inside a container, so container networking is pinned here -
+# `environment` wins over `env_file`.
+x-dev-app-environment: &dev-app-environment
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: "5432"
+  REDIS_URL: redis://redis:6379
+  RAILS_ENV: development
+  NODE_ENV: development
+  ACTIVE_STORAGE_SERVICE: local
+  ASSET_CDN_HOST: ""
+  FORCE_SSL: "false"
+  ENABLE_PUSH_RELAY_SERVER: "false"
+  SMTP_ADDRESS: mailhog
+  SMTP_PORT: "1025"
+  SMTP_AUTHENTICATION: ""
+  SMTP_USERNAME: ""
+  SMTP_PASSWORD: ""
+  FRONTEND_URL: http://localhost:3050
+
+services:
+  # Build target only (the rails/vite images are FROM chatwoot:development); kept
+  # out of every runnable set so it never idles as a second Rails server.
+  base:
+    image: chatwoot:development
+    profiles: [build]
+    mem_limit: 1g
+
+  rails:
+    image: kozmopath-dev-rails:development
+    mem_limit: 3g
+    volumes: !override
+      - ./:/app:delegated
+      - dev_node_modules:/app/node_modules
+      - dev_packs:/app/public/packs
+      - dev_bundle:/gems
+      - dev_log:/app/log
+      - dev_tmp:/app/tmp
+      # Host bind mount, not a named volume: a named volume would be created
+      # root-owned and the app (uid 1000) could not write uploads. Host uid 1000
+      # matches the container's chatwoot user, and tmp/ is gitignored.
+      - ./tmp/dev-storage:/app/storage
+    ports: !override
+      - "127.0.0.1:3050:3000"
+      - "[::1]:3050:3000"
+    # Core-only startup: vite and mailhog are optional sets, so they must not be
+    # hard dependencies of the backend.
+    depends_on: !override
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      <<: *dev-app-environment
+      # No vite service exists in core/mail/voice, so this is only a fail-fast
+      # default - Rails cannot proxy HMR (Net::HTTP drops the Upgrade header).
+      # Browser UI work needs the `frontend` set: skip_proxy + shared Vite netns.
+      VITE_RUBY_HOST: vite
+      # config/vite.json enables autoBuild, which would make Rails shell out to a
+      # Vite build inside this container whenever the dev server is absent and
+      # block the request for minutes. Fail fast instead; dashboard UI work uses
+      # the `frontend` set (profile: frontend, service vite).
+      VITE_RUBY_AUTO_BUILD: "false"
+
+  sidekiq:
+    image: kozmopath-dev-rails:development
+    mem_limit: 2g
+    volumes: !override
+      - ./:/app:delegated
+      - dev_node_modules:/app/node_modules
+      - dev_packs:/app/public/packs
+      - dev_bundle:/gems
+      - dev_log:/app/log
+      - dev_tmp:/app/tmp
+      # Host bind mount, not a named volume: a named volume would be created
+      # root-owned and the app (uid 1000) could not write uploads. Host uid 1000
+      # matches the container's chatwoot user, and tmp/ is gitignored.
+      - ./tmp/dev-storage:/app/storage
+    depends_on: !override
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rails:
+        condition: service_started
+    environment:
+      <<: *dev-app-environment
+
+  vite:
+    image: kozmopath-dev-vite:development
+    profiles: [frontend]
+    mem_limit: 2g
+    volumes: !override
+      - ./:/app:delegated
+      - dev_node_modules:/app/node_modules
+      - dev_packs:/app/public/packs
+      - dev_bundle:/gems
+      - dev_log:/app/log
+      - dev_tmp:/app/tmp
+      # Host bind mount, not a named volume: a named volume would be created
+      # root-owned and the app (uid 1000) could not write uploads. Host uid 1000
+      # matches the container's chatwoot user, and tmp/ is gitignored.
+      - ./tmp/dev-storage:/app/storage
+    ports: !override
+      - "127.0.0.1:3036:3036"
+      - "[::1]:3036:3036"
+    environment:
+      <<: *dev-app-environment
+      # Bind every interface inside the container; 0.0.0.0 is never used as a
+      # browser-facing URL because Rails proxies the dev server (see rails).
+      VITE_RUBY_HOST: 0.0.0.0
+      # Vite 7 blocks unknown Host headers (DNS rebinding guard) and vite_ruby's
+      # proxy forwards Host: vite, which answered 403 "This host is not allowed"
+      # for every /vite-dev/* request. Vite reads this env var to extend
+      # server.allowedHosts without touching the upstream vite.config.ts.
+      __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS: vite
+
+  postgres:
+    mem_limit: 1g
+    ports: !override
+      - "127.0.0.1:5433:5432"
+    volumes: !override
+      - dev_postgres:/var/lib/postgresql/data
+
+  redis:
+    mem_limit: 256m
+    ports: !override
+      - "127.0.0.1:6380:6379"
+    volumes: !override
+      - dev_redis:/data
+
+  mailhog:
+    profiles: [mail]
+    mem_limit: 256m
+    ports: !override
+      - "127.0.0.1:8026:8025"
+      - "127.0.0.1:1026:1025"
+
+volumes:
+  dev_bundle:
+  dev_log:
+  dev_node_modules:
+  dev_packs:
+  dev_postgres:
+  dev_redis:
+  dev_tmp:

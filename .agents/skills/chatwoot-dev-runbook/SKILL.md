@@ -10,6 +10,7 @@ Use this skill for repo operation questions rather than product configuration or
 ## Quick navigation
 
 - **Current command entrypoints**: Read [references/dev-commands.md](references/dev-commands.md).
+- **Docker development runtime**: `scripts/dev/compose.sh <core|frontend|mail|voice|all>` starts only the services a job needs; see [references/dev-commands.md](references/dev-commands.md#docker-development-runtime) for the job/service matrix, ports, hot-reload and isolation rules.
 - **Procfile and worktree notes**: Read [references/worktree-procfile.md](references/worktree-procfile.md).
 
 ## Boundaries
