@@ -1,0 +1,153 @@
+# Application roles for the home-server runtime, served by Docker instead of PM2.
+#
+# The datastores stay in docker-compose.server.yaml (project `kozmopath-server`).
+# These services join that project's network, so POSTGRES_HOST=postgres and
+# REDIS_URL=redis://redis:6379 resolve by service name while the web port stays
+# loopback-only for the Cloudflare tunnel.
+#
+# Env precedence: .env -> .env.local -> .env.server.local (later file wins), and the
+# explicit `environment` block below wins over all of them, because the host-native
+# 127.0.0.1 targets in .env.local/.env.server.local are unreachable inside a container.
+name: kozmopath-prod
+
+x-app-environment: &app-environment
+  RAILS_ENV: production
+  NODE_ENV: production
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: "5432"
+  REDIS_URL: redis://redis:6379
+
+x-app-service: &app-service
+  image: kozmopath-app:prod
+  restart: unless-stopped
+  env_file:
+    - path: .env
+      required: true
+    - path: .env.local
+      required: true
+    - path: .env.server.local
+      required: true
+  environment: *app-environment
+  networks:
+    - datastore
+  # Named volumes, not bind mounts: the image already owns /app/log and /app/tmp as
+  # uid 1000, so the volumes inherit that ownership and the app can write them. The
+  # checkout keeps its own log/tmp for anything still run natively.
+  volumes:
+    - app_log:/app/log
+    - app_tmp:/app/tmp
+  security_opt:
+    - no-new-privileges:true
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: '5'
+
+services:
+  rails:
+    <<: *app-service
+    mem_limit: 3g
+    ports:
+      - '127.0.0.1:3000:3000'
+    command: ['bundle', 'exec', 'rails', 'server', '-b', '0.0.0.0', '-p', '3000', '-e', 'production']
+    # No curl/wget in the production stage (they are only installed for dev builds),
+    # so the probe uses the Ruby that ships in the image.
+    healthcheck:
+      test:
+        - CMD
+        - ruby
+        - -rnet/http
+        - -e
+        - "exit(Net::HTTP.get_response(URI('http://127.0.0.1:3000/health')).code.to_i == 200)"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
+  sidekiq:
+    <<: *app-service
+    mem_limit: 2g
+    command: ['bundle', 'exec', 'sidekiq', '-C', 'config/sidekiq.yml']
+    stop_grace_period: 5m
+
+  # One-shot schema/data preparation. Run explicitly before the first start and after
+  # any deploy that adds migrations:
+  #   scripts/server/compose-app.sh --profile tools run --rm migrate
+  migrate:
+    <<: *app-service
+    profiles: [tools]
+    command: ['bundle', 'exec', 'rails', 'db:chatwoot_prepare']
+
+  # Fast path: serve the existing checkout from the already-built development image,
+  # without waiting for a production image build. It runs the same code against the
+  # same datastores in RAILS_ENV=production and uses the precompiled assets that are
+  # already in public/vite and public/assets. This is a bridge, not a deploy artifact:
+  # prefer the immutable `kozmopath-app:prod` image once it is built.
+  rails-checkout:
+    image: kozmopath-dev-rails:development
+    profiles: [checkout]
+    entrypoint: []
+    restart: unless-stopped
+    mem_limit: 3g
+    ports:
+      - '127.0.0.1:3000:3000'
+    env_file:
+      - path: .env
+        required: true
+      - path: .env.local
+        required: true
+      - path: .env.server.local
+        required: true
+    environment: *app-environment
+    networks:
+      - datastore
+    volumes:
+      - ./:/app
+      - checkout_log:/app/log
+      - checkout_tmp:/app/tmp
+    command: ['bundle', 'exec', 'rails', 'server', '-b', '0.0.0.0', '-p', '3000', '-e', 'production']
+    healthcheck:
+      test:
+        - CMD
+        - ruby
+        - -rnet/http
+        - -e
+        - "exit(Net::HTTP.get_response(URI('http://127.0.0.1:3000/health')).code.to_i == 200)"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '5'
+
+  # Same bridge as rails-checkout for the worker role, so background jobs keep running
+  # while PM2 is retired.
+  sidekiq-checkout:
+    <<: *app-service
+    image: kozmopath-dev-rails:development
+    profiles: [checkout]
+    entrypoint: []
+    mem_limit: 2g
+    volumes:
+      - ./:/app
+      - checkout_log:/app/log
+      - checkout_tmp:/app/tmp
+    command: ['bundle', 'exec', 'sidekiq', '-C', 'config/sidekiq.yml']
+    stop_grace_period: 5m
+
+networks:
+  datastore:
+    external: true
+    name: kozmopath-server_default
+
+volumes:
+  app_log:
+  app_tmp:
+  checkout_log:
+  checkout_tmp:
